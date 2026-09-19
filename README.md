@@ -7,7 +7,7 @@
 - PHP 8.4
 - MySQL 8.0
 - 웹루트: `/hosting/bmicns/html`
-- 기본 주소: `http://bmicns.dothome.co.kr`
+- 기본 주소: `http://tomokmall.dothome.co.kr`
 
 ## 배포 순서
 

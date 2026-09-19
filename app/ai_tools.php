@@ -194,19 +194,26 @@ function tool_search_products(array $input): string
     $rows  = search_products($effQuery, max(40, $limit * 8));
     $query = $qText; // 이후 용도 필터·하이라이트 재정렬은 텍스트 기준
 
-    // ⓪ 용도 배타 필터: '수로/배수로/측구/트렌치' 의도인데 '맨홀/집수정'을 안 찾으면
-    //    맨홀·집수정 전용 제품(점 설치물)은 선형 수로 결과에서 제외한다.
-    //    (카탈로그가 '그레이팅수로용' vs '그레이팅맨홀(집수정)용'로 이름을 구분해 둠)
+    // ⓪ 용도 배타 필터: '수로/배수로/측구/트렌치' 본체 검색이면
+    //    ① 맨홀/집수정(점 설치물)  ② 뚜껑·집게·몰드(부속·거푸집)를 결과에서 제외한다.
+    //    단, 고객이 그 부속을 직접 찾으면(query에 언급) 제외하지 않는다.
     //    가드: 필터 후 결과가 0이면 원복(빈 결과 방지).
     $isChannel = (bool) preg_match('/수로|배수로|측구|트렌치|농수로/u', $query);
     $isManhole = (bool) preg_match('/맨홀|집수정/u', $query);
-    if ($isChannel && !$isManhole) {
-        $filtered = array_values(array_filter(
-            $rows,
-            static fn($r) => !preg_match('/맨홀|집수정/u', (string) ($r['name'] ?? ''))
-        ));
-        if ($filtered) {
-            $rows = $filtered;
+    $wantsPart = (bool) preg_match('/뚜껑|덮개|집게|몰드/u', $query);
+    if ($isChannel) {
+        $exclude = [];
+        if (!$isManhole) { $exclude[] = '맨홀|집수정'; }
+        if (!$wantsPart) { $exclude[] = '뚜껑|집게|몰드'; } // 덮개는 제외 안 함(그레이팅덮개 등 보존)
+        if ($exclude) {
+            $re = '/' . implode('|', $exclude) . '/u';
+            $filtered = array_values(array_filter(
+                $rows,
+                static fn($r) => !preg_match($re, (string) ($r['name'] ?? ''))
+            ));
+            if ($filtered) {
+                $rows = $filtered;
+            }
         }
     }
 
