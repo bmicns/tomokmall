@@ -1,0 +1,7 @@
+DirectoryIndex index.php
+Options -Indexes
+
+<FilesMatch "^\.(env|git)">
+    Require all denied
+</FilesMatch>
+

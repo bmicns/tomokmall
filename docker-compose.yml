@@ -1,0 +1,62 @@
+services:
+  php:
+    build: ./docker/php
+    container_name: tomokmall_php
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+    environment:
+      DB_HOST: mysql
+      DB_NAME: tomokmall
+      DB_USER: tomokmall
+      DB_PASS: tomok6385!
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      APP_ENV: local
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - tomokmall
+
+  mysql:
+    image: mysql:8.0
+    container_name: tomokmall_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: tomokmall
+      MYSQL_USER: tomokmall
+      MYSQL_PASSWORD: tomok6385!
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "tomokmall", "-ptomok6385!"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - tomokmall
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: tomokmall_pma
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: root
+    depends_on:
+      - mysql
+    networks:
+      - tomokmall
+
+volumes:
+  mysql_data:
+
+networks:
+  tomokmall:
+    driver: bridge
