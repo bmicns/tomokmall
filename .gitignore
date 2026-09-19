@@ -7,4 +7,5 @@ public/uploads/*
 .env.local
 .env
 .env.*
+!.env.example
 

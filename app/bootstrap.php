@@ -8,6 +8,47 @@ error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED & ~E_STRICT);
 
 session_start();
 
+/**
+ * .env 파일을 읽어 환경변수로 주입(이미 설정된 값은 덮지 않음).
+ * 닷홈처럼 쉘 env를 못 쓰는 환경에서 시크릿을 코드 밖으로 빼기 위함.
+ * KEY=VALUE 형식, # 주석·따옴표 처리. 시크릿은 웹루트 밖(/app/.env)에 둔다.
+ */
+function load_env_file(string $file): void
+{
+    if (!is_readable($file)) {
+        return;
+    }
+    foreach (file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+        $line = trim($line);
+        if ($line === '' || $line[0] === '#') {
+            continue;
+        }
+        $eq = strpos($line, '=');
+        if ($eq === false) {
+            continue;
+        }
+        $key = trim(substr($line, 0, $eq));
+        $val = trim(substr($line, $eq + 1));
+        if ($key === '') {
+            continue;
+        }
+        // 양끝 따옴표 제거
+        $len = strlen($val);
+        if ($len >= 2 && ($val[0] === '"' || $val[0] === "'") && $val[$len - 1] === $val[0]) {
+            $val = substr($val, 1, -1);
+        }
+        if (getenv($key) === false) {
+            putenv("{$key}={$val}");
+            $_ENV[$key]    = $val;
+            $_SERVER[$key] = $val;
+        }
+    }
+}
+
+// 시크릿 로드: 운영은 /app/.env, 로컬 개발은 프로젝트 루트 .env.local
+load_env_file(__DIR__ . '/.env');
+load_env_file(__DIR__ . '/../.env.local');
+
 $config = require __DIR__ . '/config.php';
 
 function db(): ?PDO
