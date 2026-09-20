@@ -1269,6 +1269,8 @@ body.mode-chat .site-footer { display: none; }
 .pt-col-photo   { width: 75px; }
 .pt-col-name    { width: 150px; text-align: left; padding-left: 12px; max-width: 150px; overflow: hidden; }
 .pt-name-text   { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+a.pt-name-text  { color: var(--color-text-primary); text-decoration: none; }
+a.pt-name-text:hover { color: var(--color-primary); }
 .pt-col-unit    { width: 52px; }
 .pt-col-spec    { width: 130px; text-align: left; }
 .pt-col-specinfo { width: 150px; }
@@ -1446,6 +1448,13 @@ mark.hl{background:#fff3b0;color:inherit;padding:0 1px;border-radius:2px;font-we
 .ac-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ac-tag{flex-shrink:0;font-size:11px;color:var(--color-text-secondary);background:var(--color-surface);border:1px solid var(--color-border);border-radius:10px;padding:1px 8px}
 .ac-item.ac-active .ac-tag{background:var(--color-bg)}
+
+/* ── 접근성: 키보드 포커스 링 (마우스 클릭엔 안 뜨고 Tab 이동 시만) ──── */
+a:focus-visible, button:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
 
 /* ── 모바일: 상품 목록 테이블 → 카드형 (가로스크롤 제거) ───────────── */
 @media (max-width: 640px) {

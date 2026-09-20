@@ -366,7 +366,7 @@ render_header($pageTitle);
                                 <span class="pt-placeholder"><?= e(mb_substr($p['name'], 0, 2)) ?></span>
                             <?php endif; ?>
                         </td>
-                        <td class="pt-col-name"><span class="pt-name-text"><?= $hlTerms ? highlight_terms($p['name'], $hlTerms) : e($p['name']) ?></span></td>
+                        <td class="pt-col-name"><a class="pt-name-text" href="/product.php?id=<?= (int)$p['id'] ?>" onclick="event.stopPropagation()"><?= $hlTerms ? highlight_terms($p['name'], $hlTerms) : e($p['name']) ?></a></td>
                         <?php if ($hasUnit):    ?><td class="pt-col-unit"><?= e($sp['unit']) ?></td><?php endif; ?>
                         <?php if ($hasSpec):    ?><td class="pt-col-spec"><?= $hlTerms ? highlight_terms($sp['spec'], $hlTerms) : e($sp['spec']) ?></td><?php endif; ?>
                         <td class="pt-col-price">
