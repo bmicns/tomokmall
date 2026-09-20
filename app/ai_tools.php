@@ -191,8 +191,38 @@ function tool_search_products(array $input): string
     $effQuery = $specMm > 0 ? ($qText . ' ' . $specMm) : $qText;
 
     // 중복 제거·재정렬 여지를 두려고 넉넉히 조회
-    $rows  = search_products($effQuery, max(40, $limit * 8));
+    $fetch = max(40, $limit * 8);
+    $rows  = search_products($effQuery, $fetch);
     $query = $qText; // 이후 용도 필터·하이라이트 재정렬은 텍스트 기준
+
+    // ★0건 대안 제시: 데드엔드("제품 선택하세요"만 노출) 방지
+    //   ① 오타 교정어로 재검색  ② 규격(spec_mm)이 너무 좁으면 규격 빼고 근접 대안
+    $note      = null;   // 모델이 손님에게 전달할 안내(교정/대안 사유)
+    $corrected = null;   // 교정된 검색어(있으면)
+    if (!$rows) {
+        // ① 오타 교정
+        if (function_exists('suggest_correction')) {
+            $sc = suggest_correction($qText);
+            if ($sc) {
+                $ceff = $specMm > 0 ? ($sc['query'] . ' ' . $specMm) : $sc['query'];
+                $try  = search_products($ceff, $fetch);
+                if ($try) {
+                    $rows      = $try;
+                    $query     = $sc['query'];
+                    $corrected = $sc['query'];
+                    $note      = "'{$sc['from']}'에 대한 제품이 없어 '{$sc['to']}'(으)로 찾은 결과입니다.";
+                }
+            }
+        }
+        // ② 규격 완화: 여전히 0건이고 규격을 좁게 걸었다면 규격 빼고 근접 제품
+        if (!$rows && $specMm > 0) {
+            $try = search_products($qText, $fetch);
+            if ($try) {
+                $rows = $try;
+                $note = "규격 {$specMm}mm에 딱 맞는 제품이 없어, 해당 품목의 다른 규격을 함께 보여드립니다.";
+            }
+        }
+    }
 
     // ⓪ 용도 배타 필터: '수로/배수로/측구/트렌치' 본체 검색이면
     //    ① 맨홀/집수정(점 설치물)  ② 뚜껑·집게·몰드(부속·거푸집)를 결과에서 제외한다.
@@ -275,13 +305,28 @@ function tool_search_products(array $input): string
         ];
     }, $products);
 
-    return json_encode([
+    // 그래도 0건이면 손님을 위한 대안 안내(모델이 되묻지 말고 이 안내를 전달)
+    if (empty($cards)) {
+        $out = [
+            'products' => [],
+            'count'    => 0,
+            'note'     => '해당 조건에 맞는 제품을 찾지 못했습니다. 용도(수로·배수·경계·차단 등)나 재질을 알려주시면 다시 찾아드리겠습니다.',
+            '_sse'     => [],
+        ];
+        if ($corrected !== null) { $out['corrected'] = $corrected; }
+        return json_encode($out, JSON_UNESCAPED_UNICODE);
+    }
+
+    $out = [
         'products' => $cards,
         'count'    => count($cards),
-        '_sse'     => empty($cards) ? [] : [
+        '_sse'     => [
             ['type' => 'product_cards', 'products' => $cards],
         ],
-    ], JSON_UNESCAPED_UNICODE);
+    ];
+    if ($note !== null)      { $out['note']      = $note; }      // 교정/규격완화 사유
+    if ($corrected !== null) { $out['corrected'] = $corrected; }
+    return json_encode($out, JSON_UNESCAPED_UNICODE);
 }
 
 /**

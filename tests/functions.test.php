@@ -47,5 +47,20 @@ $sp = parse_spec_field('규격: 400*400 | 단위: 본 | 중량: 100kg');
 ok('규격 추출', $sp['spec'] === '400*400');
 ok('단위 추출', $sp['unit'] === '본');
 
+echo "[자모 편집거리 jamo_distance]\n";
+ok('그레이팅~그래이팅 = 1', jamo_distance('그레이팅', '그래이팅') === 1);
+ok('측구~칙구 = 1',        jamo_distance('측구', '칙구') === 1);
+ok('측구~그레이팅 크다(>4)', jamo_distance('측구', '그레이팅') > 4);
+ok('동일어 = 0',           jamo_distance('수로관', '수로관') === 0);
+ok('자모분해(측구)',       implode('', hangul_to_jamo('측구')) === 'ㅊㅡㄱㄱㅜ');
+
+echo "[오타 교정 suggest_correction]\n";
+ok('그래이팅 → 그레이팅', (suggest_correction('그래이팅')['to'] ?? '') === '그레이팅');
+ok('칙구 → 측구',         (suggest_correction('칙구')['to'] ?? '') === '측구');
+ok('측구수로 → 측구수로관', (suggest_correction('측구수로')['to'] ?? '') === '측구수로관');
+ok('정확어(그레이팅) 교정 없음', suggest_correction('그레이팅') === null);
+ok('무의미어 교정 없음',   suggest_correction('알수없는긴말xyz') === null);
+ok('보강토블럭 → 보강토블록', (suggest_correction('보강토블럭')['to'] ?? '') === '보강토블록');
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

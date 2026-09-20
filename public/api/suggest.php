@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 $q = trim((string) ($_GET['q'] ?? ''));
-if ($q === '' || mb_strlen($q) > 40) {
+if (mb_strlen($q) > 40) {
     echo json_encode(['ok' => true, 'items' => []]);
     exit;
 }
@@ -29,6 +29,32 @@ if ($q === '' || mb_strlen($q) > 40) {
 $pdo = db();
 if (!$pdo) {
     echo json_encode(['ok' => true, 'items' => []]);
+    exit;
+}
+
+// ── 빈 입력(포커스): 인기 카테고리 바로가기 ──────────────────────────
+//    (최근검색어는 클라이언트 localStorage에서 병합 — 백엔드 무부하)
+if ($q === '') {
+    $items = [];
+    try {
+        $cst = $pdo->query(
+            "SELECT c.id, c.name, COUNT(p.id) AS cnt
+             FROM categories c
+             JOIN products p ON p.category_id = c.id AND p.is_active = 1
+             WHERE c.is_active = 1
+             GROUP BY c.id, c.name
+             ORDER BY cnt DESC, c.name
+             LIMIT 8"
+        );
+        foreach ($cst->fetchAll() as $r) {
+            $items[] = [
+                'type' => 'category',
+                'name' => $r['name'],
+                'url'  => '/products.php?category=' . (int) $r['id'],
+            ];
+        }
+    } catch (\Throwable $e) {}
+    echo json_encode(['ok' => true, 'context' => 'empty', 'items' => $items], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -82,4 +108,7 @@ try {
     exit;
 }
 
-echo json_encode(['ok' => true, 'items' => $items], JSON_UNESCAPED_UNICODE);
+// 하이라이트용 확장 용어(입력어 + 동의어) — 드롭다운이 동의어까지 강조
+$terms = search_expand_terms($q);
+
+echo json_encode(['ok' => true, 'items' => $items, 'terms' => $terms], JSON_UNESCAPED_UNICODE);

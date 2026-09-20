@@ -1447,6 +1447,10 @@ mark.hl{background:#fff3b0;color:inherit;padding:0 1px;border-radius:2px;font-we
 .ac-item.ac-active,.ac-item:hover{background:var(--color-surface)}
 .ac-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ac-tag{flex-shrink:0;font-size:11px;color:var(--color-text-secondary);background:var(--color-surface);border:1px solid var(--color-border);border-radius:10px;padding:1px 8px}
+/* 자동완성 최근검색어 헤더 */
+.ac-head{display:flex;align-items:center;justify-content:space-between;padding:8px 14px 4px;font-size:12px;color:var(--color-text-secondary);border-bottom:1px solid #f0f0f0}
+.ac-clear{font-size:12px;color:var(--color-text-secondary);text-decoration:none}
+.ac-clear:hover{color:var(--color-primary);text-decoration:underline}
 .ac-item.ac-active .ac-tag{background:var(--color-bg)}
 
 /* ── 홈 히어로 예시 검색칩 ─────────────────────────────────────── */
@@ -1535,3 +1539,9 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   }
   .gnb-bar .mega-tab { padding: 8px 16px; font-size: 15px; white-space: nowrap; }
 }
+
+/* 오타 교정 안내 배너 (검색 결과 대체 표시) */
+.pt-didyoumean{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:0 0 14px;padding:10px 14px;background:#fff8e6;border:1px solid #f3e0a8;border-radius:8px;font-size:14px;color:var(--color-text-primary)}
+.pt-didyoumean strong{color:var(--color-primary);font-weight:700}
+.pt-didyoumean a{color:var(--color-text-secondary);font-size:13px;text-decoration:underline;white-space:nowrap}
+.pt-didyoumean a:hover{color:var(--color-primary)}

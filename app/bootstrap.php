@@ -60,6 +60,9 @@ load_env_file(__DIR__ . '/../.env.local');
 
 $config = require __DIR__ . '/config.php';
 
+// 검색어 오타 교정 유틸(자모 편집거리) — products.php·ai_tools.php에서 사용
+require_once __DIR__ . '/search_correct.php';
+
 function db(): ?PDO
 {
     static $pdo = null;
@@ -501,6 +504,26 @@ function search_products(string $query, int $limit = 60, int $offset = 0, ?int &
     }
     $keywords = array_values(array_unique($split));
 
+    // 상품명 부스트: 확장 용어(동의어 포함) 중 상품명에 들어간 개수만큼 가점.
+    //   기존엔 원쿼리 통짜(:nl)만 부스트해 '블럭' 검색이 '보강토블록'을 부스트 못했음.
+    //   → 각 확장 용어를 CASE 합산해 동의어명 매칭도 상위로 끌어올린다.
+    $nbTerms = [];
+    foreach ($keywords as $k) {
+        foreach (expand_search_token($k) as $m) {
+            $m = trim((string) $m);
+            if (mb_strlen($m) >= 2) { $nbTerms[] = $m; }
+        }
+    }
+    $nbTerms = array_slice(array_values(array_unique($nbTerms)), 0, 12);
+    if (!$nbTerms && $query !== '') { $nbTerms = [$query]; }
+    $nbParts  = [];
+    $nbParams = [];
+    foreach ($nbTerms as $i => $t) {
+        $nbParts[] = "CASE WHEN p.name LIKE :nb{$i} THEN 1 ELSE 0 END";
+        $nbParams[":nb{$i}"] = '%' . $t . '%';
+    }
+    $nbSql = $nbParts ? '(' . implode(' + ', $nbParts) . ')' : '0';
+
     // 규격 조건: 숫자를 "치수"로 인지.
     // 치수는 항상 '*'로 연결(예: 400*400*2000*120T)되므로, 숫자가 '*'에 인접할 때만 매칭.
     // → 중량(950kg)·상차수량 등 비치수 숫자 제외, 4000·1400 같은 부분일치도 제외.
@@ -515,7 +538,7 @@ function search_products(string $query, int $limit = 60, int $offset = 0, ?int &
 
     // 실행기: $ftExpr가 있으면 FULLTEXT 포함, 없으면 규격/기본 조건만 → [rows, total]
     // ⚠️ EMULATE_PREPARES=false 이므로 각 쿼리에 실제 쓰는 파라미터만 정확히 바인딩해야 함
-    $run = static function (?string $ftExpr) use ($pdo, $dimWhere, $dimParams, $nameLike, $limit, $offset, $filterSql, $filterParams, $sortSql): array {
+    $run = static function (?string $ftExpr) use ($pdo, $dimWhere, $dimParams, $nbSql, $nbParams, $limit, $offset, $filterSql, $filterParams, $sortSql): array {
         $where    = 'p.is_active = 1';
         $scoreSel = '0 AS score';
         $orderSc  = '';
@@ -526,10 +549,10 @@ function search_products(string $query, int $limit = 60, int $offset = 0, ?int &
             $orderSc  = 'score DESC, ';
         }
         $where .= $dimWhere . $filterSql;
-        // 정렬 override(폭·최신 등) 시 관련도 정렬 대신 사용
+        // 정렬 override(폭·최신 등) 시 관련도 정렬 대신 사용. 기본은 동의어명 부스트 → 관련도 → 최신.
         $orderBy = $sortSql !== ''
             ? $sortSql
-            : "(CASE WHEN p.name LIKE :nl THEN 1 ELSE 0 END) DESC, {$orderSc}p.id DESC";
+            : "{$nbSql} DESC, {$orderSc}p.id DESC";
 
         // COUNT: 규격 조건 + 필터 + (있으면) :ft
         $countParams = array_merge($dimParams, $filterParams);
@@ -555,8 +578,10 @@ function search_products(string $query, int $limit = 60, int $offset = 0, ?int &
             $st->bindValue(':ft', $ftExpr);
             $st->bindValue(':ft2', $ftExpr);
         }
-        // :nl 은 정렬 override 시 SQL에 없으므로 조건부 바인딩
-        if ($sortSql === '') { $st->bindValue(':nl', $nameLike); }
+        // :nb* 는 정렬 override 시 SQL(ORDER BY)에 없으므로 조건부 바인딩
+        if ($sortSql === '') {
+            foreach ($nbParams as $k => $v) { $st->bindValue($k, $v); }
+        }
         $st->bindValue(':lim', $limit, PDO::PARAM_INT);
         $st->bindValue(':off', $offset, PDO::PARAM_INT);
         $st->execute();
@@ -625,7 +650,7 @@ function search_products(string $query, int $limit = 60, int $offset = 0, ?int &
         $cst->execute($likeParams);
         $total = (int) $cst->fetchColumn();
 
-        $orderBy = $sortSql !== '' ? $sortSql : "(CASE WHEN p.name LIKE :nl THEN 1 ELSE 0 END) DESC, p.id DESC";
+        $orderBy = $sortSql !== '' ? $sortSql : "{$nbSql} DESC, p.id DESC";
         $st = $pdo->prepare(
             "SELECT p.*, c.name AS category_name
              FROM products p
@@ -635,7 +660,9 @@ function search_products(string $query, int $limit = 60, int $offset = 0, ?int &
              LIMIT :lim OFFSET :off"
         );
         foreach ($likeParams as $k => $v) { $st->bindValue($k, $v); }
-        if ($sortSql === '') { $st->bindValue(':nl', $nameLike); }
+        if ($sortSql === '') {
+            foreach ($nbParams as $k => $v) { $st->bindValue($k, $v); }
+        }
         $st->bindValue(':lim', $limit, PDO::PARAM_INT);
         $st->bindValue(':off', $offset, PDO::PARAM_INT);
         $st->execute();
