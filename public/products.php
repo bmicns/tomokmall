@@ -3,10 +3,25 @@ declare(strict_types=1);
 
 require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/layout.php';
+require __DIR__ . '/../app/product_filter_renderer.php';
 
 $categoryId = isset($_GET['category']) ? max(0, (int) $_GET['category']) : null;
 $query      = trim((string) ($_GET['q'] ?? ''));
 $search     = trim((string) ($_GET['s'] ?? ''));
+
+// 목록 필터 · 정렬
+$filters = [
+    'mat'   => array_values(array_filter(array_map('intval', (array) ($_GET['mat'] ?? [])))),
+    'wmin'  => (int) ($_GET['wmin'] ?? 0),
+    'wmax'  => (int) ($_GET['wmax'] ?? 0),
+    'shape' => array_values(array_filter(array_map('strval', (array) ($_GET['shape'] ?? [])))),
+    'load'  => array_values(array_filter(array_map('strval', (array) ($_GET['load'] ?? [])))),
+];
+$sort       = (string) ($_GET['sort'] ?? '');
+$fparams    = [];
+$filterSql  = product_filter_sql($filters, $fparams);
+$sortSql    = product_sort_sql($sort);
+$hasFilters = $filterSql !== '';
 
 if (!$query && !$categoryId) {
     redirect('/index.php');
@@ -44,13 +59,14 @@ if (db()) {
         } catch (\Throwable $e) {}
     }
 
-    // 2. 카테고리 확인 후 상품 조회
+    // 2. 카테고리 확인 후 상품 조회 (필터·정렬 적용)
     if ($categoryId) {
         // 카테고리 브라우즈 (하위 카테고리 포함)
-        try { $products = fetch_products($categoryId, null); } catch (\Throwable $e) {}
+        try { $products = fetch_products($categoryId, null, $filterSql, $fparams, $sortSql); } catch (\Throwable $e) {}
+        $searchTotal = count($products);
     } elseif ($query) {
         // 키워드 검색: FULLTEXT 토큰화 + 관련도 정렬 + 페이지네이션
-        try { $products = search_products($query, $perPage, ($page - 1) * $perPage, $searchTotal); } catch (\Throwable $e) {}
+        try { $products = search_products($query, $perPage, ($page - 1) * $perPage, $searchTotal, $filterSql, $fparams, $sortSql); } catch (\Throwable $e) {}
     }
 
     if ($categoryId) {
@@ -251,24 +267,55 @@ render_header($pageTitle);
     </div>
     <?php endif; ?>
 
-    <!-- ── 품목보기 헤더 + 검색 ──────────────────────────── -->
+    <!-- ── 품목보기: 좌측 필터 + 목록 ──────────────────────── -->
+    <div class="pt-layout">
+    <?php if (!$demoMode && ($query || $categoryId)): ?>
+      <aside class="pt-filter"><?php render_product_filters($filters, $query, $categoryId, $sort); ?></aside>
+    <?php endif; ?>
+    <div class="pt-list-main">
     <div class="pt-table-header">
         <h3 class="pt-table-title">
             품목보기
-            <?php if ($query && !$categoryId && !$demoMode): ?>
-                <span class="pt-search-count">'<?= e($query) ?>' 검색결과 <strong><?= number_format($searchTotal) ?></strong>개</span>
+            <?php if (!$demoMode && ($query || $categoryId)): ?>
+                <span class="pt-search-count"><?php if ($query): ?>'<?= e($query) ?>' <?php endif; ?>검색결과 <strong><?= number_format($searchTotal) ?></strong>개</span>
             <?php endif; ?>
         </h3>
-        <form class="pt-search-form" method="get" action="/products.php">
-            <?php if ($categoryId): ?>
-                <input type="hidden" name="category" value="<?= $categoryId ?>">
-            <?php elseif ($query): ?>
-                <input type="hidden" name="q" value="<?= e($query) ?>">
+        <div class="pt-head-right">
+            <?php if (!$demoMode && ($query || $categoryId)): ?>
+            <form method="get" action="/products.php" class="pt-sort-form">
+                <?php foreach ($_GET as $k => $v): if ($k === 'sort' || $k === 'p') continue;
+                    if (is_array($v)) { foreach ($v as $vv): ?><input type="hidden" name="<?= e($k) ?>[]" value="<?= e((string) $vv) ?>"><?php endforeach; }
+                    else { ?><input type="hidden" name="<?= e($k) ?>" value="<?= e((string) $v) ?>"><?php }
+                endforeach; ?>
+                <select name="sort" class="pt-sort" onchange="this.form.submit()">
+                    <option value="">관련도순</option>
+                    <option value="width_asc"  <?= $sort==='width_asc'?'selected':'' ?>>폭 작은순</option>
+                    <option value="width_desc" <?= $sort==='width_desc'?'selected':'' ?>>폭 큰순</option>
+                    <option value="newest"     <?= $sort==='newest'?'selected':'' ?>>최신순</option>
+                </select>
+            </form>
             <?php endif; ?>
-            <input type="text" name="s" value="<?= e($search) ?>" placeholder="목록검색">
-            <button type="submit">검색</button>
-        </form>
+            <form class="pt-search-form" method="get" action="/products.php">
+                <?php if ($categoryId): ?><input type="hidden" name="category" value="<?= $categoryId ?>"><?php elseif ($query): ?><input type="hidden" name="q" value="<?= e($query) ?>"><?php endif; ?>
+                <input type="text" name="s" value="<?= e($search) ?>" placeholder="목록검색">
+                <button type="submit">검색</button>
+            </form>
+        </div>
     </div>
+    <?php if ($hasFilters): ?>
+    <div class="pt-active-flt">
+        <span class="pt-af-lbl">적용된 필터</span>
+        <?php
+        $chips = [];
+        foreach ($filters['mat'] as $m)   { $chips[] = ['재질', [11=>'철근콘크리트',12=>'콘크리트',13=>'스틸',14=>'석재',15=>'PE/PVC',16=>'기타'][$m] ?? $m]; }
+        if ($filters['wmin']) $chips[] = ['폭', $filters['wmin'].'mm↑'];
+        if ($filters['wmax']) $chips[] = ['폭', $filters['wmax'].'mm↓'];
+        foreach ($filters['shape'] as $s) { $chips[] = ['형상', $s]; }
+        foreach ($filters['load'] as $s)  { $chips[] = ['하중', $s]; }
+        foreach ($chips as $c): ?><span class="pt-chip"><?= e($c[0]) ?>: <?= e((string) $c[1]) ?></span><?php endforeach; ?>
+        <a class="pt-chip-clear" href="<?= $query ? '/products.php?q='.urlencode($query) : '/products.php?category='.(int)$categoryId ?>">모두 지우기 ✕</a>
+    </div>
+    <?php endif; ?>
 
     <!-- ── 상품 테이블 ──────────────────────────────────────── -->
     <?php
@@ -411,6 +458,8 @@ render_header($pageTitle);
     </nav>
     <?php endif; /* 페이지네이션 */ ?>
     <?php endif; /* empty($tableRows) */ ?>
+    </div><!-- /pt-list-main -->
+    </div><!-- /pt-layout -->
 
 </div>
 

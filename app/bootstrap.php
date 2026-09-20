@@ -136,7 +136,7 @@ function fetch_categories_with_thumb(): array
     }
 }
 
-function fetch_products(?int $categoryId = null, ?string $query = null): array
+function fetch_products(?int $categoryId = null, ?string $query = null, string $filterSql = '', array $filterParams = [], string $sortSql = ''): array
 {
     $sql = 'SELECT p.*, c.name AS category_name
             FROM products p
@@ -145,13 +145,11 @@ function fetch_products(?int $categoryId = null, ?string $query = null): array
     $params = [];
 
     if ($categoryId) {
-        // 해당 카테고리 및 하위 카테고리 상품 포함
-        $sql .= ' AND p.category_id IN (
-                    SELECT c2.id FROM categories c2
-                    WHERE c2.id = :cid OR c2.parent_id = :pid
-                  )';
-        $params['cid'] = $categoryId;
-        $params['pid'] = $categoryId;
+        // 해당 카테고리 및 모든 하위(임의 깊이) 카테고리 상품 포함
+        $ids = category_descendants($categoryId);
+        $ph = [];
+        foreach (array_values($ids) as $i => $cid) { $k = ":c{$i}"; $ph[] = $k; $params[$k] = $cid; }
+        $sql .= ' AND p.category_id IN (' . implode(',', $ph) . ')';
     }
 
     if ($query) {
@@ -159,7 +157,13 @@ function fetch_products(?int $categoryId = null, ?string $query = null): array
         $params['q1'] = $params['q2'] = $params['q3'] = $params['q4'] = '%' . $query . '%';
     }
 
-    $sql .= ' ORDER BY p.id DESC';
+    // 목록 필터(재질·폭·형상·하중) 주입
+    if ($filterSql !== '') {
+        $sql   .= $filterSql;
+        $params = array_merge($params, $filterParams);
+    }
+
+    $sql .= ' ORDER BY ' . ($sortSql !== '' ? $sortSql : 'p.id DESC');
 
     $stmt = db()->prepare($sql);
     $stmt->execute($params);
@@ -309,6 +313,102 @@ function expand_search_token(string $token): array
 }
 
 /**
+ * 선택한 루트 카테고리(재질) 하위의 모든 카테고리 ID (자기 포함).
+ * 상품의 category_id를 루트까지 거슬러 매칭. 카테고리 트리는 1회 캐시.
+ */
+/**
+ * 주어진 카테고리의 모든 하위(임의 깊이) + 자기 자신 ID 목록. 자식맵 1회 캐시.
+ */
+function category_descendants(int $id): array
+{
+    static $children = null;
+    if ($children === null) {
+        $children = [];
+        if (db()) {
+            foreach (db()->query('SELECT id, parent_id FROM categories')->fetchAll() as $c) {
+                if ($c['parent_id'] !== null) { $children[(int) $c['parent_id']][] = (int) $c['id']; }
+            }
+        }
+    }
+    $out = [$id]; $stack = [$id]; $seen = [$id => 1];
+    while ($stack) {
+        $cur = array_pop($stack);
+        foreach ($children[$cur] ?? [] as $ch) {
+            if (!isset($seen[$ch])) { $seen[$ch] = 1; $out[] = $ch; $stack[] = $ch; }
+        }
+    }
+    return $out;
+}
+
+function category_ids_under_roots(array $roots): array
+{
+    static $par = null;
+    if ($par === null) {
+        $par = [];
+        if (db()) {
+            foreach (db()->query('SELECT id, parent_id FROM categories')->fetchAll() as $c) {
+                $par[(int) $c['id']] = $c['parent_id'] !== null ? (int) $c['parent_id'] : null;
+            }
+        }
+    }
+    $rootset = array_flip(array_map('intval', $roots));
+    $out = [];
+    foreach ($par as $id => $_) {
+        $r = $id; $seen = [];
+        while ($par[$r] !== null && !isset($seen[$r])) { $seen[$r] = 1; $r = $par[$r]; }
+        if (isset($rootset[$r])) { $out[] = $id; }
+    }
+    return $out;
+}
+
+/**
+ * 목록 필터 → SQL 조각(AND ...) + 바인딩 파라미터(참조).
+ * 지원: mat(재질=루트), wmin/wmax(폭 mm), shape[](형상/옵션 상품명), load[](하중 상품명).
+ * 상품 테이블 별칭은 p. 로 가정.
+ */
+function product_filter_sql(array $f, array &$params): string
+{
+    $c = [];
+    if (!empty($f['mat'])) {
+        $ids = category_ids_under_roots((array) $f['mat']);
+        if ($ids) {
+            $ph = [];
+            foreach (array_values($ids) as $i => $id) { $k = ":fmat{$i}"; $ph[] = $k; $params[$k] = $id; }
+            $c[] = 'p.category_id IN (' . implode(',', $ph) . ')';
+        } else {
+            $c[] = '1=0';
+        }
+    }
+    if (!empty($f['wmin'])) { $c[] = "CAST(REGEXP_SUBSTR(p.spec,'[0-9]+') AS UNSIGNED) >= :fwmin"; $params[':fwmin'] = (int) $f['wmin']; }
+    if (!empty($f['wmax'])) { $c[] = "CAST(REGEXP_SUBSTR(p.spec,'[0-9]+') AS UNSIGNED) <= :fwmax"; $params[':fwmax'] = (int) $f['wmax']; }
+    foreach (['shape' => 'fsh', 'load' => 'fld'] as $key => $pfx) {
+        if (!empty($f[$key])) {
+            $or = [];
+            foreach (array_values((array) $f[$key]) as $i => $v) {
+                $v = trim((string) $v);
+                if ($v === '') { continue; }
+                $k = ":{$pfx}{$i}"; $or[] = "p.name LIKE {$k}"; $params[$k] = '%' . $v . '%';
+            }
+            if ($or) { $c[] = '(' . implode(' OR ', $or) . ')'; }
+        }
+    }
+    return $c ? ' AND ' . implode(' AND ', $c) : '';
+}
+
+/**
+ * 정렬 키 → ORDER BY 조각(별칭 p.). 빈 문자열이면 각 함수 기본 정렬 사용.
+ */
+function product_sort_sql(string $sort): string
+{
+    switch ($sort) {
+        case 'width_asc':  return "CAST(REGEXP_SUBSTR(p.spec,'[0-9]+') AS UNSIGNED) ASC, p.id DESC";
+        case 'width_desc': return "CAST(REGEXP_SUBSTR(p.spec,'[0-9]+') AS UNSIGNED) DESC, p.id DESC";
+        case 'newest':     return 'p.id DESC';
+        default:           return '';
+    }
+}
+
+/**
  * 검색어 → 하이라이트 대상 단어 목록 (토큰 + 동의어 멤버, 2글자 이상)
  */
 function search_expand_terms(string $query): array
@@ -364,7 +464,7 @@ function highlight_terms(?string $text, array $terms): string
  * @param int|null $total  (참조) 전체 매칭 개수
  * @return array 상품 행 배열
  */
-function search_products(string $query, int $limit = 60, int $offset = 0, ?int &$total = null): array
+function search_products(string $query, int $limit = 60, int $offset = 0, ?int &$total = null, string $filterSql = '', array $filterParams = [], string $sortSql = ''): array
 {
     $total = 0;
     $pdo = db();
@@ -415,7 +515,7 @@ function search_products(string $query, int $limit = 60, int $offset = 0, ?int &
 
     // 실행기: $ftExpr가 있으면 FULLTEXT 포함, 없으면 규격/기본 조건만 → [rows, total]
     // ⚠️ EMULATE_PREPARES=false 이므로 각 쿼리에 실제 쓰는 파라미터만 정확히 바인딩해야 함
-    $run = static function (?string $ftExpr) use ($pdo, $dimWhere, $dimParams, $nameLike, $limit, $offset): array {
+    $run = static function (?string $ftExpr) use ($pdo, $dimWhere, $dimParams, $nameLike, $limit, $offset, $filterSql, $filterParams, $sortSql): array {
         $where    = 'p.is_active = 1';
         $scoreSel = '0 AS score';
         $orderSc  = '';
@@ -425,10 +525,14 @@ function search_products(string $query, int $limit = 60, int $offset = 0, ?int &
             $scoreSel = 'MATCH(p.name, p.spec, p.description) AGAINST(:ft2 IN BOOLEAN MODE) AS score';
             $orderSc  = 'score DESC, ';
         }
-        $where .= $dimWhere;
+        $where .= $dimWhere . $filterSql;
+        // 정렬 override(폭·최신 등) 시 관련도 정렬 대신 사용
+        $orderBy = $sortSql !== ''
+            ? $sortSql
+            : "(CASE WHEN p.name LIKE :nl THEN 1 ELSE 0 END) DESC, {$orderSc}p.id DESC";
 
-        // COUNT: 규격 조건 + (있으면) :ft 만
-        $countParams = $dimParams;
+        // COUNT: 규격 조건 + 필터 + (있으면) :ft
+        $countParams = array_merge($dimParams, $filterParams);
         if ($ftOn) {
             $countParams[':ft'] = $ftExpr;
         }
@@ -436,23 +540,23 @@ function search_products(string $query, int $limit = 60, int $offset = 0, ?int &
         $cst->execute($countParams);
         $cnt = (int) $cst->fetchColumn();
 
-        // SELECT: 규격 조건 + (있으면) :ft(WHERE) + :ft2(score)
+        // SELECT
         $st = $pdo->prepare(
             "SELECT p.*, c.name AS category_name, {$scoreSel}
              FROM products p
              JOIN categories c ON c.id = p.category_id
              WHERE {$where}
-             ORDER BY (CASE WHEN p.name LIKE :nl THEN 1 ELSE 0 END) DESC, {$orderSc}p.id DESC
+             ORDER BY {$orderBy}
              LIMIT :lim OFFSET :off"
         );
-        foreach ($dimParams as $k => $v) {
-            $st->bindValue($k, $v);
-        }
+        foreach ($dimParams as $k => $v)   { $st->bindValue($k, $v); }
+        foreach ($filterParams as $k => $v){ $st->bindValue($k, $v); }
         if ($ftOn) {
             $st->bindValue(':ft', $ftExpr);
             $st->bindValue(':ft2', $ftExpr);
         }
-        $st->bindValue(':nl', $nameLike);
+        // :nl 은 정렬 override 시 SQL에 없으므로 조건부 바인딩
+        if ($sortSql === '') { $st->bindValue(':nl', $nameLike); }
         $st->bindValue(':lim', $limit, PDO::PARAM_INT);
         $st->bindValue(':off', $offset, PDO::PARAM_INT);
         $st->execute();
@@ -514,28 +618,24 @@ function search_products(string $query, int $limit = 60, int $offset = 0, ?int &
 
     // 3) LIKE 최종 폴백 (1글자 검색 등 토큰이 없거나 FULLTEXT 0건)
     try {
-        $cst = $pdo->prepare(
-            "SELECT COUNT(*) FROM products
-             WHERE is_active = 1
-               AND (name LIKE :a OR spec LIKE :b OR brand LIKE :c OR description LIKE :d)"
-        );
-        $cst->execute([':a' => $nameLike, ':b' => $nameLike, ':c' => $nameLike, ':d' => $nameLike]);
+        $likeWhere = "p.is_active = 1 AND (p.name LIKE :a OR p.spec LIKE :b OR p.brand LIKE :c OR p.description LIKE :d)" . $filterSql;
+        $likeParams = [':a' => $nameLike, ':b' => $nameLike, ':c' => $nameLike, ':d' => $nameLike] + $filterParams;
+
+        $cst = $pdo->prepare("SELECT COUNT(*) FROM products p WHERE {$likeWhere}");
+        $cst->execute($likeParams);
         $total = (int) $cst->fetchColumn();
 
+        $orderBy = $sortSql !== '' ? $sortSql : "(CASE WHEN p.name LIKE :nl THEN 1 ELSE 0 END) DESC, p.id DESC";
         $st = $pdo->prepare(
             "SELECT p.*, c.name AS category_name
              FROM products p
              JOIN categories c ON c.id = p.category_id
-             WHERE p.is_active = 1
-               AND (p.name LIKE :a OR p.spec LIKE :b OR p.brand LIKE :c OR p.description LIKE :d)
-             ORDER BY (CASE WHEN p.name LIKE :nl THEN 1 ELSE 0 END) DESC, p.id DESC
+             WHERE {$likeWhere}
+             ORDER BY {$orderBy}
              LIMIT :lim OFFSET :off"
         );
-        $st->bindValue(':a', $nameLike);
-        $st->bindValue(':b', $nameLike);
-        $st->bindValue(':c', $nameLike);
-        $st->bindValue(':d', $nameLike);
-        $st->bindValue(':nl', $nameLike);
+        foreach ($likeParams as $k => $v) { $st->bindValue($k, $v); }
+        if ($sortSql === '') { $st->bindValue(':nl', $nameLike); }
         $st->bindValue(':lim', $limit, PDO::PARAM_INT);
         $st->bindValue(':off', $offset, PDO::PARAM_INT);
         $st->execute();

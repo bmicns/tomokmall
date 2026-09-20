@@ -1449,6 +1449,41 @@ mark.hl{background:#fff3b0;color:inherit;padding:0 1px;border-radius:2px;font-we
 .ac-tag{flex-shrink:0;font-size:11px;color:var(--color-text-secondary);background:var(--color-surface);border:1px solid var(--color-border);border-radius:10px;padding:1px 8px}
 .ac-item.ac-active .ac-tag{background:var(--color-bg)}
 
+/* ── 상품 목록: 좌측 필터 레이아웃 (모바일 우선) ─────────────────── */
+.pt-layout{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
+.pt-list-main{min-width:0}
+.fltbox{border:1px solid var(--color-border);border-radius:10px;background:#fff;overflow:hidden}
+.fltbox>summary{display:flex;align-items:center;gap:8px;padding:12px 14px;font-size:13px;font-weight:800;cursor:pointer;list-style:none}
+.fltbox>summary::-webkit-details-marker{display:none}
+.fltbox>summary::before{content:"⚙";color:var(--color-primary)}
+.flt-body{padding:4px 14px 16px;border-top:1px solid var(--color-border)}
+.flt-top{display:flex;justify-content:space-between;align-items:center;padding:12px 0 4px}
+.flt-top b{font-size:13px;font-weight:800}
+.flt-top a{font-size:11.5px;color:var(--color-primary);text-decoration:none}
+.fgrp{border-top:1px solid #EDF1F5;padding:12px 0 4px}
+.fgrp>b{font-size:12.5px;font-weight:700;display:block;margin-bottom:8px}
+.fgrp>b small{font-weight:400;color:var(--color-text-secondary);font-size:10.5px}
+.fopt{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#37444F;padding:4px 0;cursor:pointer}
+.fopt input{accent-color:var(--color-primary);width:14px;height:14px}
+.range{display:flex;align-items:center;gap:6px}
+.range input{width:100%;min-width:0;border:1px solid var(--color-border);border-radius:6px;padding:6px 8px;font-size:12px;font-family:var(--font)}
+.range span{color:var(--color-text-secondary)}
+.flt-apply{margin-top:14px;width:100%;background:var(--color-primary);color:#fff;border:0;border-radius:8px;padding:10px;font-weight:700;font-size:13px;cursor:pointer;font-family:var(--font)}
+.flt-apply:hover{background:var(--color-primary-hover)}
+.pt-head-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pt-sort{font-size:12.5px;border:1px solid var(--color-border);border-radius:8px;padding:7px 10px;font-family:var(--font);background:#fff;color:var(--color-text-primary)}
+.pt-active-flt{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:2px 0 12px}
+.pt-af-lbl{font-size:11.5px;color:var(--color-text-secondary);margin-right:2px}
+.pt-chip{font-size:11.5px;background:#EEF3FA;color:var(--color-primary-hover);border:1px solid #D3E2F1;border-radius:100px;padding:4px 11px}
+.pt-chip-clear{font-size:11.5px;color:var(--color-text-secondary);text-decoration:none;padding:4px 6px}
+.pt-chip-clear:hover{color:var(--color-danger)}
+@media(min-width:761px){
+  .pt-layout{grid-template-columns:224px 1fr;gap:22px;align-items:start}
+  .pt-filter{position:sticky;top:12px}
+  .fltbox>summary{display:none}
+  .flt-body{display:block !important;border-top:0}
+}
+
 /* ── 접근성: 키보드 포커스 링 (마우스 클릭엔 안 뜨고 Tab 이동 시만) ──── */
 a:focus-visible, button:focus-visible, input:focus-visible,
 select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
