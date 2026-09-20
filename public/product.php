@@ -62,6 +62,11 @@ render_header($p['name']);
 .pd-info-area{border-left:1px solid var(--color-border);padding:32px 28px;display:flex;flex-direction:column;gap:0}
 .pd-product-name{font-size:24px;font-weight:400;color:var(--color-text-primary);line-height:1.3;margin-bottom:6px;letter-spacing:-0.5px}
 .pd-brand-text{font-size:13px;color:var(--color-text-secondary);margin-bottom:16px}
+.pd-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.pd-bdg{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:6px}
+.pd-bdg-load{background:#EEF1F4;color:#5B6B7B}
+.pd-bdg-ks{background:#F0EDFA;color:#6B4FBF}
+.pd-bdg-stock{background:#E7F6ED;color:#1F9D57}
 .pd-divider{border:none;border-top:1px solid var(--color-border);margin:14px 0}
 /* 가격 */
 .pd-price-row{display:flex;align-items:baseline;gap:8px;margin-bottom:4px}
@@ -168,6 +173,19 @@ render_header($p['name']);
         <div class="pd-info-area">
             <div class="pd-product-name"><?= e($p['name']) ?></div>
             <?php if ($p['brand']): ?><div class="pd-brand-text"><?= e($p['brand']) ?></div><?php endif; ?>
+            <?php
+            // 상품명·설명에서 상태 배지 도출
+            $pdBadges = [];
+            $pdNm = (string) $p['name']; $pdDesc = (string) ($p['description'] ?? '');
+            if (mb_strpos($pdNm, '안전중하중') !== false)      $pdBadges[] = ['load', '안전중하중'];
+            elseif (mb_strpos($pdNm, '중하중') !== false)       $pdBadges[] = ['load', '중하중'];
+            if (mb_stripos($pdNm, 'KS') !== false || mb_strpos($pdDesc, 'KS') !== false) $pdBadges[] = ['ks', 'KS'];
+            if ((int) ($p['stock_qty'] ?? 0) > 0)               $pdBadges[] = ['stock', '재고 보유'];
+            if ($pdBadges): ?>
+            <div class="pd-badges">
+                <?php foreach ($pdBadges as $b): ?><span class="pd-bdg pd-bdg-<?= $b[0] ?>"><?= e($b[1]) ?></span><?php endforeach; ?>
+            </div>
+            <?php endif; ?>
 
             <hr class="pd-divider">
 

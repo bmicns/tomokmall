@@ -151,6 +151,12 @@ if ($query) {
                 </button>
             </form>
 
+            <div class="hero-chips">
+                <?php foreach (['측구수로관','그레이팅','흄관','경계석','PE이중벽관'] as $hc): ?>
+                <a href="/products.php?q=<?= urlencode($hc) ?>"><?= e($hc) ?></a>
+                <?php endforeach; ?>
+            </div>
+
             <div class="hero-search-tabs">
                 <a class="hero-tab" href="/chat.php">💬 일반 AI 상담</a>
                 <a class="hero-tab" href="<?= e($quickHref) ?>">⚡ 기업회원 즉시견적</a>
