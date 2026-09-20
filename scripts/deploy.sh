@@ -9,6 +9,17 @@ REMOTE_ROOT="/html"
 REMOTE_APP="/app"
 REMOTE_DATABASE="/database"
 
+# ── 배포 전 게이트: 문법 검사 + 단위 테스트 ──────────────────────
+if command -v php >/dev/null 2>&1; then
+  echo "== PHP 문법 검사 =="
+  while IFS= read -r f; do php -l "$f" >/dev/null || { echo "문법 오류: $f — 배포 중단"; exit 1; }; done \
+    < <(find "${ROOT_DIR}/public" "${ROOT_DIR}/app" -name "*.php")
+  echo "== 단위 테스트 =="
+  php "${ROOT_DIR}/tests/functions.test.php" || { echo "테스트 실패 — 배포 중단"; exit 1; }
+else
+  echo "⚠️ php 미설치 — 문법·테스트 게이트 건너뜀"
+fi
+
 upload_file() {
   local source="$1"
   local target="$2"
@@ -32,3 +43,7 @@ while IFS= read -r file; do
 done < <(find "${ROOT_DIR}/database" -type f)
 
 echo "Deploy complete"
+
+# ── 배포 후 스모크 체크 ──────────────────────────────────────────
+echo "== 스모크 체크 =="
+bash "${ROOT_DIR}/scripts/smoke.sh" || echo "⚠️ 스모크 실패 — 운영 확인 필요"
