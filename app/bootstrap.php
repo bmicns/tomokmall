@@ -6,6 +6,15 @@ ini_set('display_errors', '0');
 ini_set('display_startup_errors', '0');
 error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED & ~E_STRICT);
 
+// 세션 쿠키 보안: SameSite=Lax(교차사이트 POST=CSRF 차단) + HttpOnly(JS 접근 차단).
+// Secure는 HTTPS일 때만(현재 dothome는 http라 강제 시 세션 유실 → 자동 감지). SSL 적용되면 자동 보안.
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path'     => '/',
+    'httponly' => true,
+    'samesite' => 'Lax',
+    'secure'   => !empty($_SERVER['HTTPS']),
+]);
 session_start();
 
 /**
