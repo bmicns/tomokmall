@@ -18,16 +18,16 @@ $redirect = e($_GET['redirect'] ?? '/estimate-quick.php');
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>기업회원 로그인 | 케이토목</title>
+<title>기업회원 로그인 | 건축자재몰</title>
 <style>
   @import url('https://cdn.jsdelivr.net/gh/geonkwon/paperozi@main/paperozi.css');
-  :root{--bg:#0D0D0D;--surf:#1A1A1A;--bdr:#2E2E2E;--txt:#F0F0F0;--muted:#8A8A8A;--pri:#4A7FD4;--danger:#C0392B;--font:'Paperozi',-apple-system,sans-serif;}
+  :root{--bg:#F7F7F7;--surf:#FFFFFF;--bdr:#DDDDDD;--txt:#222222;--muted:#777777;--pri:#004EA1;--danger:#C0392B;--font:'Paperozi',-apple-system,sans-serif;}
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px;}
-  .card{width:100%;max-width:380px;padding:36px 32px;border:1px solid var(--bdr);background:var(--surf);display:flex;flex-direction:column;gap:24px;}
+  .card{width:100%;max-width:380px;padding:36px 32px;border:1px solid var(--bdr);border-radius:10px;background:var(--surf);box-shadow:0 4px 16px rgba(0,0,0,.06);display:flex;flex-direction:column;gap:24px;}
   h1{font-size:18px;font-weight:600;} .sub{font-size:12px;color:var(--muted);margin-top:4px;}
   .field{display:flex;flex-direction:column;gap:6px;} label{font-size:12px;color:var(--muted);}
-  input{background:#242424;border:1px solid var(--bdr);color:var(--txt);padding:10px 12px;font-size:13px;font-family:var(--font);outline:none;transition:border-color .15s;} input:focus{border-color:var(--pri);}
+  input{background:#fff;border:1px solid var(--bdr);color:var(--txt);padding:10px 12px;font-size:13px;font-family:var(--font);outline:none;transition:border-color .15s;} input:focus{border-color:var(--pri);}
   .btn-submit{background:var(--pri);color:#fff;border:none;padding:12px;font-size:14px;font-family:var(--font);font-weight:500;cursor:pointer;width:100%;} .btn-submit:disabled{opacity:.5;cursor:not-allowed;}
   .error-msg{font-size:12px;color:var(--danger);display:none;} .back-link{font-size:12px;color:var(--muted);text-align:center;}
   .back-link a{color:var(--pri);}

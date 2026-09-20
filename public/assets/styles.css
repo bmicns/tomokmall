@@ -1446,3 +1446,43 @@ mark.hl{background:#fff3b0;color:inherit;padding:0 1px;border-radius:2px;font-we
 .ac-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ac-tag{flex-shrink:0;font-size:11px;color:var(--color-text-secondary);background:var(--color-surface);border:1px solid var(--color-border);border-radius:10px;padding:1px 8px}
 .ac-item.ac-active .ac-tag{background:var(--color-bg)}
+
+/* ── 모바일: 상품 목록 테이블 → 카드형 (가로스크롤 제거) ───────────── */
+@media (max-width: 640px) {
+  .product-table-wrap { overflow-x: visible; }
+  .product-table { min-width: 0; width: 100%; }
+  .product-table thead { display: none; }
+  .product-table tbody, .product-table tr, .product-table td { display: block; }
+  .product-table tr.pt-prod-row {
+    position: relative;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    padding: 12px 12px 12px 84px;
+    min-height: 72px;
+  }
+  .product-table tbody tr:hover td { background: transparent; }
+  .product-table td { border: none; padding: 2px 0; text-align: left; }
+  .pt-col-photo { position: absolute; left: 12px; top: 12px; width: 60px; padding: 0; }
+  .pt-col-photo img, .pt-col-photo .pt-placeholder { width: 60px; height: 60px; }
+  .pt-col-name { width: auto; max-width: none; padding-left: 0; margin-bottom: 6px; }
+  .pt-name-text { white-space: normal; font-size: 15px; font-weight: 600; color: var(--color-text-primary); }
+  .pt-col-unit, .pt-col-spec, .pt-col-weight, .pt-col-load {
+    width: auto; display: inline-block; margin-right: 14px; font-size: 12px; color: var(--color-text-secondary);
+  }
+  .pt-col-unit::before   { content: "단위 "; color: var(--color-text-disabled); }
+  .pt-col-spec::before   { content: "규격 "; color: var(--color-text-disabled); }
+  .pt-col-weight::before { content: "중량 "; color: var(--color-text-disabled); }
+  .pt-col-load::before   { content: "상차 "; color: var(--color-text-disabled); }
+  .pt-col-price { margin-top: 6px; }
+  .pt-col-price::before { content: "판매가 "; color: var(--color-text-disabled); font-size: 12px; }
+  .pt-col-price .pt-price-val { font-size: 15px; }
+
+  /* GNB 카테고리 바: 가로 스크롤 (넘침·잘림 방지) */
+  .gnb-bar { justify-content: flex-start; }
+  .gnb-bar .mega-tabs {
+    justify-content: flex-start; gap: 0; width: 100%;
+    overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch;
+  }
+  .gnb-bar .mega-tab { padding: 8px 16px; font-size: 15px; white-space: nowrap; }
+}

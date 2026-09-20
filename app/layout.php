@@ -132,8 +132,26 @@ function render_header(string $title, string $mode = 'normal'): void
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= e($title) ?> | <?= e($config['app_name']) ?></title>
-    <link rel="stylesheet" href="/assets/styles.css">
-    <script src="/assets/search-suggest.js" defer></script>
+    <?php
+        // 캐시버스팅: 파일 수정시각을 버전으로 붙여 CSS/JS 갱신이 즉시 반영되게 함
+        $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
+        $assetV  = static function (string $path) use ($docRoot): string {
+            $m = $docRoot ? @filemtime($docRoot . $path) : false;
+            return $path . '?v=' . ($m ?: '1');
+        };
+    ?>
+    <link rel="stylesheet" href="<?= e($assetV('/assets/styles.css')) ?>">
+    <script src="<?= e($assetV('/assets/search-suggest.js')) ?>" defer></script>
+    <script>
+    // 깨진/누락 이미지 → 브라우저 기본 깨진아이콘 대신 중립 플레이스홀더로 대체
+    window.addEventListener('error', function (e) {
+      var t = e.target;
+      if (t && t.tagName === 'IMG' && !t.dataset.imgfb) {
+        t.dataset.imgfb = '1';
+        t.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23f0f0f0'/%3E%3Cg fill='%23cccccc'%3E%3Ccircle cx='23' cy='23' r='6'/%3E%3Cpath d='M10 52l16-18 11 13 8-8 9 13z'/%3E%3C/g%3E%3C/svg%3E";
+      }
+    }, true);
+    </script>
 </head>
 <body class="mode-<?= $mode === 'chat' ? 'chat' : 'normal' ?>">
 
@@ -215,7 +233,7 @@ function render_header(string $title, string $mode = 'normal'): void
     </div>
     <div class="auth-modal-field" id="m-reg-company-wrap" style="display:none">
       <label class="auth-modal-label">회사명</label>
-      <input id="m-reg-company" type="text" class="auth-modal-input" placeholder="(주)케이토목" maxlength="120" autocomplete="organization">
+      <input id="m-reg-company" type="text" class="auth-modal-input" placeholder="(주)비엠아이씨앤에스" maxlength="120" autocomplete="organization">
     </div>
     <div class="auth-modal-field">
       <label class="auth-modal-label">전화번호 <span class="auth-opt-tag">(선택)</span></label>

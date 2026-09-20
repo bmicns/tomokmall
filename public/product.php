@@ -55,8 +55,8 @@ render_header($p['name']);
 /* ── 본문 2열 ─────────────────────────────────────── */
 .pd-body{display:grid;grid-template-columns:1fr 420px;gap:0;border:1px solid var(--color-border);border-radius:10px;overflow:hidden}
 /* 이미지 영역 */
-.pd-img-area{background:#f7f7f7;display:flex;align-items:center;justify-content:center;min-height:480px;padding:40px}
-.pd-img-area img{max-width:100%;max-height:440px;object-fit:contain;display:block}
+.pd-img-area{background:#f7f7f7;display:flex;align-items:center;justify-content:center;min-height:420px;padding:32px}
+.pd-img-area img{width:100%;max-height:400px;object-fit:contain;display:block}
 .pd-img-empty-msg{color:var(--color-text-secondary);font-size:14px}
 /* 정보 영역 */
 .pd-info-area{border-left:1px solid var(--color-border);padding:32px 28px;display:flex;flex-direction:column;gap:0}
@@ -124,6 +124,8 @@ render_header($p['name']);
 .pd-info-text li strong{color:var(--color-text-primary);font-weight:600}
 @media(max-width:800px){
   .pd-body{grid-template-columns:1fr}
+  .pd-img-area{min-height:280px;padding:20px}
+  .pd-img-area img{max-height:260px}
   .pd-info-area{border-left:none;border-top:1px solid var(--color-border)}
   .gallery-layout{grid-template-columns:1fr}
   .gallery-thumbs{flex-direction:row;flex-wrap:wrap}
