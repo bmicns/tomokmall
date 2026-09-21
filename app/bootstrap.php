@@ -406,6 +406,10 @@ function product_sort_sql(string $sort): string
     switch ($sort) {
         case 'width_asc':  return "CAST(REGEXP_SUBSTR(p.spec,'[0-9]+') AS UNSIGNED) ASC, p.id DESC";
         case 'width_desc': return "CAST(REGEXP_SUBSTR(p.spec,'[0-9]+') AS UNSIGNED) DESC, p.id DESC";
+        // 가격순: 0원(견적문의)은 항상 뒤로
+        case 'price_asc':  return "(p.price_b2c = 0) ASC, p.price_b2c ASC, p.id DESC";
+        case 'price_desc': return "p.price_b2c DESC, p.id DESC";
+        case 'stock_desc': return "p.stock_qty DESC, p.id DESC";
         case 'newest':     return 'p.id DESC';
         default:           return '';
     }
@@ -449,6 +453,69 @@ function highlight_terms(?string $text, array $terms): string
     }
     $pattern = '/(' . implode('|', $parts) . ')/iu';
     return preg_replace($pattern, '<mark class="hl">$1</mark>', $esc) ?? $esc;
+}
+
+/**
+ * 인기검색어 로그 테이블 보장(최초 사용 시 자동 생성). 요청당 1회만 시도.
+ * ⚠️ 닷홈 원격 DB에 사전 마이그레이션이 어려워 앱에서 IF NOT EXISTS로 자가 생성.
+ *    실패(권한 등)해도 검색 기능은 무손상(호출부가 try/catch).
+ */
+function ensure_search_logs_table(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) { return; }
+    $done = true;
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS search_logs (
+            term VARCHAR(100) NOT NULL PRIMARY KEY,
+            cnt INT UNSIGNED NOT NULL DEFAULT 1,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+    );
+}
+
+/**
+ * 검색어 1건 집계(인기검색어용). 정규화 후 카운트 증가. 실패는 조용히 무시.
+ * - 2~50자만, 앞뒤 공백 정리. 순수 숫자(규격)만인 검색은 인기어로 부적절해 제외.
+ */
+function log_search(string $query): void
+{
+    $pdo = db();
+    if (!$pdo) { return; }
+    $term = trim(preg_replace('/\s+/u', ' ', $query) ?? '');
+    $len  = mb_strlen($term);
+    if ($len < 2 || $len > 50 || preg_match('/^\d+$/', $term)) { return; }
+    try {
+        ensure_search_logs_table($pdo);
+        $st = $pdo->prepare(
+            'INSERT INTO search_logs (term, cnt) VALUES (:t, 1)
+             ON DUPLICATE KEY UPDATE cnt = cnt + 1'
+        );
+        $st->execute([':t' => $term]);
+    } catch (\Throwable $e) {
+        // 인기검색어 집계 실패는 검색에 영향 주지 않음
+    }
+}
+
+/**
+ * 인기검색어 상위 N개(카운트 내림차순, 동수는 최근순). 실패 시 빈 배열.
+ */
+function popular_searches(int $limit = 8): array
+{
+    $pdo = db();
+    if (!$pdo) { return []; }
+    $limit = max(1, min(20, $limit));
+    try {
+        ensure_search_logs_table($pdo);
+        $st = $pdo->prepare(
+            'SELECT term FROM search_logs ORDER BY cnt DESC, updated_at DESC LIMIT :lim'
+        );
+        $st->bindValue(':lim', $limit, PDO::PARAM_INT);
+        $st->execute();
+        return $st->fetchAll(PDO::FETCH_COLUMN) ?: [];
+    } catch (\Throwable $e) {
+        return [];
+    }
 }
 
 /**

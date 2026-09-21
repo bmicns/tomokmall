@@ -189,17 +189,24 @@ render_header($p['name']);
 
             <hr class="pd-divider">
 
-            <?php if (!$loggedIn): ?>
-            <div class="pd-price-row">
-                <span class="pd-price-label">판매가</span>
-                <span class="pt-price-lock pd-price-lock" onclick="openAuthModal('login')">로그인 후 공개</span>
-            </div>
-            <hr class="pd-divider">
-            <?php elseif ($p['price_b2c'] > 0): ?>
+            <?php if ($p['price_b2c'] > 0): ?>
             <div class="pd-price-row">
                 <span class="pd-price-label">판매가</span>
                 <span class="pd-price-val"><?= number_format((int)$p['price_b2c']) ?></span>
+                <span class="pd-price-unit">원<?= $sp['unit'] ? ' / '.$sp['unit'] : '' ?> <small>(부가세별도)</small></span>
+            </div>
+            <?php if ($loggedIn && (int)$p['price_b2b'] > 0 && (int)$p['price_b2b'] < (int)$p['price_b2c']): ?>
+            <div class="pd-price-row">
+                <span class="pd-price-label">기업회원가</span>
+                <span class="pd-price-val pd-price-b2b"><?= number_format((int)$p['price_b2b']) ?></span>
                 <span class="pd-price-unit">원<?= $sp['unit'] ? ' / '.$sp['unit'] : '' ?></span>
+            </div>
+            <?php endif; ?>
+            <hr class="pd-divider">
+            <?php else: ?>
+            <div class="pd-price-row">
+                <span class="pd-price-label">판매가</span>
+                <span class="pd-price-val pd-price-ask">견적문의</span>
             </div>
             <hr class="pd-divider">
             <?php endif; ?>
@@ -212,6 +219,44 @@ render_header($p['name']);
                 <?php if ($sp['load']):   ?><div class="pd-spec-row"><span class="pd-spec-key">상차수량</span><span class="pd-spec-val"><?= e($sp['load']) ?></span></div><?php endif; ?>
                 <?php if ($sp['freight']): ?><div class="pd-spec-row"><span class="pd-spec-key">운반비예상</span><span class="pd-spec-val"><?= e($sp['freight']) ?></span></div><?php endif; ?>
             </div>
+            <hr class="pd-divider">
+            <?php endif; ?>
+
+            <?php
+            // ── 물량·운반 계산기: 단위중량(kg)이 있으면 수량→총중량·권장차량 산출 ──
+            $unitKg = 0.0;
+            if (preg_match('/([0-9]+(?:\.[0-9]+)?)\s*kg/i', (string) ($sp['weight'] ?? ''), $wm)) {
+                $unitKg = (float) $wm[1];
+            }
+            $frUnit = $sp['unit'] ?: '개';
+            ?>
+            <?php if ($unitKg > 0): ?>
+            <div class="pd-freight" data-unitkg="<?= $unitKg ?>">
+                <div class="pd-freight-title">🚚 물량·운반 계산기</div>
+                <div class="pd-freight-in">
+                    <label for="frQty">수량</label>
+                    <input type="number" id="frQty" min="1" value="1" oninput="calcFreight()">
+                    <span class="pd-freight-unit"><?= e($frUnit) ?></span>
+                    <button type="button" class="pd-freight-btn" onclick="calcFreight()">계산</button>
+                </div>
+                <div class="pd-freight-out" id="frOut"></div>
+                <p class="pd-freight-note">단위중량 <?= number_format($unitKg) ?>kg 기준 총중량·권장 차량입니다. 실제 운반비는 상·하차 조건과 운송거리에 따라 <a href="/estimate.php">견적요청</a> 시 확정됩니다.</p>
+            </div>
+            <script>
+            function calcFreight(){
+                var box=document.querySelector('.pd-freight'); if(!box) return;
+                var uk=parseFloat(box.dataset.unitkg||'0');
+                var q=Math.max(1, parseInt((document.getElementById('frQty').value||'1'),10));
+                var tot=uk*q;
+                var trucks=[['1톤',1000],['2.5톤',2500],['5톤',5000],['11톤',11000],['25톤',25000]];
+                var rec='';
+                for(var i=0;i<trucks.length;i++){ if(tot<=trucks[i][1]){ rec=trucks[i][0]+' 1대'; break; } }
+                if(!rec){ rec='25톤 '+Math.ceil(tot/25000)+'대'; }
+                var totStr = tot>=1000 ? (Math.round(tot/100)/10).toLocaleString()+'톤 ('+Math.round(tot).toLocaleString()+'kg)' : Math.round(tot).toLocaleString()+'kg';
+                document.getElementById('frOut').innerHTML='총중량 <strong>'+totStr+'</strong> · 권장 차량 <strong>'+rec+'</strong>';
+            }
+            calcFreight();
+            </script>
             <hr class="pd-divider">
             <?php endif; ?>
 
@@ -238,7 +283,7 @@ render_header($p['name']);
                 <?php if (!$loggedIn): ?>
                 <button class="btn-pd-action" onclick="openAuthModal('login')">견적에 넣기</button>
                 <button class="btn-pd-action" onclick="openAuthModal('login')">견적 요청</button>
-                <div class="pd-login-notice">가격 및 견적은 회원에게만 공개됩니다</div>
+                <div class="pd-login-notice">견적·주문은 로그인 후 이용 가능합니다 (기업회원가 추가 공개)</div>
                 <?php else: ?>
                 <button class="btn-pd-action" onclick="addCart(<?= (int)$p['id'] ?>)">견적에 넣기</button>
                 <button class="btn-pd-action" onclick="location.href='/estimate.php'">견적 요청</button>

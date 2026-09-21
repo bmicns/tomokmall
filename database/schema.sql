@@ -43,6 +43,13 @@ CREATE TABLE IF NOT EXISTS category_relations (
     CONSTRAINT fk_rel_target FOREIGN KEY (target_category_id) REFERENCES categories(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 인기검색어 집계 (앱에서 IF NOT EXISTS로 자동 생성; 여기 기재는 문서화용)
+CREATE TABLE IF NOT EXISTS search_logs (
+    term VARCHAR(100) NOT NULL PRIMARY KEY,
+    cnt INT UNSIGNED NOT NULL DEFAULT 1,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS estimates (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     customer_name VARCHAR(80) NOT NULL,

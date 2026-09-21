@@ -35,7 +35,19 @@ if (!$pdo) {
 // ── 빈 입력(포커스): 인기 카테고리 바로가기 ──────────────────────────
 //    (최근검색어는 클라이언트 localStorage에서 병합 — 백엔드 무부하)
 if ($q === '') {
-    $items = [];
+    $items   = [];
+    $popular = [];
+    // 인기검색어(집계 상위) — 최근검색어(클라 localStorage)와 함께 표시됨
+    try {
+        foreach (popular_searches(8) as $term) {
+            $popular[] = [
+                'type' => 'popular',
+                'name' => $term,
+                'url'  => '/products.php?q=' . rawurlencode($term),
+            ];
+        }
+    } catch (\Throwable $e) {}
+    // 인기 카테고리 바로가기
     try {
         $cst = $pdo->query(
             "SELECT c.id, c.name, COUNT(p.id) AS cnt
@@ -54,7 +66,7 @@ if ($q === '') {
             ];
         }
     } catch (\Throwable $e) {}
-    echo json_encode(['ok' => true, 'context' => 'empty', 'items' => $items], JSON_UNESCAPED_UNICODE);
+    echo json_encode(['ok' => true, 'context' => 'empty', 'popular' => $popular, 'items' => $items], JSON_UNESCAPED_UNICODE);
     exit;
 }
 

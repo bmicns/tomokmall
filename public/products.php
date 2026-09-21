@@ -70,6 +70,9 @@ if (db()) {
         // 키워드 검색: FULLTEXT 토큰화 + 관련도 정렬 + 페이지네이션
         try { $products = search_products($query, $perPage, ($page - 1) * $perPage, $searchTotal, $filterSql, $fparams, $sortSql); } catch (\Throwable $e) {}
 
+        // 인기검색어 집계(1페이지·필터/목록검색 아닐 때만, 중복 카운트 방지)
+        if ($page === 1 && !$hasFilters && $search === '') { log_search($query); }
+
         // 오타 교정: 0건 + 필터 없음 + exact 요청 아님일 때만, 교정어로 재검색해 결과가 있으면 구글식으로 대체 표시
         if (empty($products) && !$hasFilters && empty($_GET['exact'])) {
             $sc = suggest_correction($query);
@@ -274,6 +277,9 @@ render_header($pageTitle);
                 endforeach; ?>
                 <select name="sort" class="pt-sort" onchange="this.form.submit()">
                     <option value="">관련도순</option>
+                    <option value="price_asc"  <?= $sort==='price_asc'?'selected':'' ?>>낮은가격순</option>
+                    <option value="price_desc" <?= $sort==='price_desc'?'selected':'' ?>>높은가격순</option>
+                    <option value="stock_desc" <?= $sort==='stock_desc'?'selected':'' ?>>재고많은순</option>
                     <option value="width_asc"  <?= $sort==='width_asc'?'selected':'' ?>>폭 작은순</option>
                     <option value="width_desc" <?= $sort==='width_desc'?'selected':'' ?>>폭 큰순</option>
                     <option value="newest"     <?= $sort==='newest'?'selected':'' ?>>최신순</option>
@@ -377,11 +383,7 @@ render_header($pageTitle);
                             </div>
                         </td>
                         <td class="pt-col-price">
-                            <?php if ($loggedIn): ?>
                             <strong class="pt-price-val"><?= number_format($p['price']) ?></strong>
-                            <?php else: ?>
-                            <span class="pt-price-lock" onclick="openAuthModal('login')">로그인 후 공개</span>
-                            <?php endif; ?>
                         </td>
                         <td class="pt-col-weight"><?= $p['weight'] ?></td>
                         <td class="pt-col-load"><?= $p['load'] ?></td>
@@ -402,11 +404,12 @@ render_header($pageTitle);
                         <?php if ($hasUnit):    ?><td class="pt-col-unit"><?= e($sp['unit']) ?></td><?php endif; ?>
                         <?php if ($hasSpec):    ?><td class="pt-col-spec"><?= $hlTerms ? highlight_terms($sp['spec'], $hlTerms) : e($sp['spec']) ?></td><?php endif; ?>
                         <td class="pt-col-price">
-                            <?php if (!$loggedIn): ?>
-                            <span class="pt-price-lock" onclick="openAuthModal('login')">로그인 후 공개</span>
-                            <?php elseif ($p['price_b2c'] > 0): ?>
+                            <?php if ($p['price_b2c'] > 0): ?>
                             <strong class="pt-price-val"><?= number_format($p['price_b2c']) ?></strong>
-                            <?php else: ?>–<?php endif; ?>
+                            <?php if ($loggedIn && (int)$p['price_b2b'] > 0 && (int)$p['price_b2b'] < (int)$p['price_b2c']): ?>
+                            <span class="pt-price-b2b">기업가 <?= number_format((int)$p['price_b2b']) ?></span>
+                            <?php endif; ?>
+                            <?php else: ?><span class="pt-price-ask">견적문의</span><?php endif; ?>
                         </td>
                         <?php if ($hasWeight):  ?><td class="pt-col-weight"><?= e($sp['weight']) ?></td><?php endif; ?>
                         <?php if ($hasLoad):    ?><td class="pt-col-load"><?= e($sp['load']) ?></td><?php endif; ?>

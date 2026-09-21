@@ -94,52 +94,73 @@
 
     function tagLabel(it) {
       if (it.type === 'recent')   return '최근';
+      if (it.type === 'popular')  return '인기';
       if (it.type === 'category') return '카테고리';
       return it.cnt ? it.cnt + '종' : '상품';
     }
 
-    function render(withRecentHeader) {
+    // 섹션 헤더(라벨 + 선택적 액션)
+    function addHeader(label, actionText, actionFn) {
+      var hd = document.createElement('div');
+      hd.className = 'ac-head';
+      var lbl = document.createElement('span'); lbl.textContent = label;
+      hd.appendChild(lbl);
+      if (actionText) {
+        var a = document.createElement('a'); a.textContent = actionText; a.href = '#'; a.className = 'ac-clear';
+        a.addEventListener('mousedown', function (e) { e.preventDefault(); actionFn(); });
+        hd.appendChild(a);
+      }
+      box.appendChild(hd);
+    }
+
+    function addRow(it, i) {
+      var row = document.createElement('a');
+      row.className = 'ac-item' + (i === active ? ' ac-active' : '');
+      row.href = it.url;
+      row.setAttribute('role', 'option');
+
+      var name = document.createElement('span');
+      name.className = 'ac-name';
+      name.innerHTML = markName(it.name);
+      row.appendChild(name);
+
+      var tag = document.createElement('span');
+      tag.className = 'ac-tag' + (it.type === 'category' ? ' ac-tag-cat' : '');
+      tag.textContent = tagLabel(it);
+      row.appendChild(tag);
+
+      row.addEventListener('mousedown', function (e) { e.preventDefault(); go(it.url); });
+      row.addEventListener('mouseenter', function () { active = i; paint(); });
+      box.appendChild(row);
+    }
+
+    // 입력 중 결과 렌더(단일 목록)
+    function render() {
       if (!items.length) { close(); return; }
       box.innerHTML = '';
-
-      // 최근 검색어 헤더(+지우기) — 빈 입력 컨텍스트에서만
-      if (withRecentHeader) {
-        var hd = document.createElement('div');
-        hd.className = 'ac-head';
-        var lbl = document.createElement('span'); lbl.textContent = '최근 검색어';
-        var clr = document.createElement('a'); clr.textContent = '지우기'; clr.href = '#'; clr.className = 'ac-clear';
-        clr.addEventListener('mousedown', function (e) {
-          e.preventDefault(); clearRecent(); showEmpty();
-        });
-        hd.appendChild(lbl); hd.appendChild(clr);
-        box.appendChild(hd);
-      }
-
-      items.forEach(function (it, i) {
-        var row = document.createElement('a');
-        row.className = 'ac-item' + (i === active ? ' ac-active' : '');
-        row.href = it.url;
-        row.setAttribute('role', 'option');
-
-        var name = document.createElement('span');
-        name.className = 'ac-name';
-        name.innerHTML = markName(it.name);
-        row.appendChild(name);
-
-        var tag = document.createElement('span');
-        tag.className = 'ac-tag' + (it.type === 'category' ? ' ac-tag-cat' : '');
-        tag.textContent = tagLabel(it);
-        row.appendChild(tag);
-
-        row.addEventListener('mousedown', function (e) { e.preventDefault(); go(it.url); });
-        row.addEventListener('mouseenter', function () { active = i; paint(); });
-        box.appendChild(row);
-      });
+      items.forEach(addRow);
       place();
       box.style.display = 'block';
     }
 
-    // 빈 입력(포커스): 최근 검색어 + 인기 카테고리
+    // 빈 입력(포커스): 최근검색어 + 인기검색어 + 인기 카테고리 (섹션 구분)
+    function renderEmpty(sections) {
+      // items = 네비게이션 대상(플랫), sections = [{label, action, list}]
+      items = [];
+      sections.forEach(function (s) { items = items.concat(s.list); });
+      if (!items.length) { close(); return; }
+      box.innerHTML = '';
+      var idx = 0;
+      sections.forEach(function (s) {
+        if (!s.list.length) return;
+        addHeader(s.label, s.actionText, s.actionFn);
+        s.list.forEach(function (it) { addRow(it, idx++); });
+      });
+      active = -1;
+      place();
+      box.style.display = 'block';
+    }
+
     function showEmpty() {
       serverTerms = [];
       var recent = getRecent().map(function (t) {
@@ -150,15 +171,16 @@
       fetch('/api/suggest.php?q=', { signal: controller.signal })
         .then(function (r) { return r.json(); })
         .then(function (d) {
-          var cats = (d && d.items) || [];
-          items = recent.concat(cats);
-          active = -1;
-          render(recent.length > 0);
+          var popular = (d && d.popular) || [];
+          var cats    = (d && d.items) || [];
+          renderEmpty([
+            { label: '최근 검색어', actionText: '지우기', actionFn: function () { clearRecent(); showEmpty(); }, list: recent },
+            { label: '인기 검색어', list: popular },
+            { label: '인기 카테고리', list: cats }
+          ]);
         })
         .catch(function () {
-          items = recent;
-          active = -1;
-          if (items.length) render(recent.length > 0); else close();
+          renderEmpty([{ label: '최근 검색어', actionText: '지우기', actionFn: function () { clearRecent(); showEmpty(); }, list: recent }]);
         });
     }
 
@@ -178,7 +200,7 @@
           items = (d && d.items) || [];
           serverTerms = (d && d.terms) || [];
           active = -1;
-          render(false);
+          render();
         })
         .catch(function () { /* abort/네트워크 오류 무시 */ });
     }, 180);
