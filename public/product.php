@@ -231,31 +231,50 @@ render_header($p['name']);
             $frUnit = $sp['unit'] ?: '개';
             ?>
             <?php if ($unitKg > 0): ?>
-            <div class="pd-freight" data-unitkg="<?= $unitKg ?>">
-                <div class="pd-freight-title">🚚 물량·운반 계산기</div>
+            <?php $sidoList = array_keys(FREIGHT_SIDO_COORDS); ?>
+            <div class="pd-freight" data-pid="<?= (int) $p['id'] ?>" data-unitkg="<?= $unitKg ?>">
+                <div class="pd-freight-title">🚚 물량·운반비 계산기</div>
                 <div class="pd-freight-in">
                     <label for="frQty">수량</label>
                     <input type="number" id="frQty" min="1" value="1" oninput="calcFreight()">
                     <span class="pd-freight-unit"><?= e($frUnit) ?></span>
+                    <label for="frDest">현장</label>
+                    <select id="frDest" onchange="calcFreight()">
+                        <option value="">지역 선택</option>
+                        <?php foreach ($sidoList as $s): ?><option value="<?= e($s) ?>"><?= e($s) ?></option><?php endforeach; ?>
+                    </select>
                     <button type="button" class="pd-freight-btn" onclick="calcFreight()">계산</button>
                 </div>
-                <div class="pd-freight-out" id="frOut"></div>
-                <p class="pd-freight-note">단위중량 <?= number_format($unitKg) ?>kg 기준 총중량·권장 차량입니다. 실제 운반비는 상·하차 조건과 운송거리에 따라 <a href="/estimate.php">견적요청</a> 시 확정됩니다.</p>
+                <div class="pd-freight-out" id="frOut">현장(도착) 지역을 선택하면 예상 운임을 계산합니다.</div>
+                <p class="pd-freight-note">단위중량 <?= number_format($unitKg) ?>kg 기준. 운임은 <strong>화물 시세(부가세 별도·지게차 상하차·편도)</strong>로 산출한 <strong>예상치(참고용)</strong>이며, 실제 운반비는 상·하차 방식·거리·차량 수급에 따라 <a href="/estimate.php">견적요청</a> 시 확정됩니다.</p>
             </div>
             <script>
-            function calcFreight(){
-                var box=document.querySelector('.pd-freight'); if(!box) return;
-                var uk=parseFloat(box.dataset.unitkg||'0');
+            (function(){
+              var box=document.querySelector('.pd-freight'); if(!box) return;
+              var pid=box.dataset.pid, uk=parseFloat(box.dataset.unitkg||'0');
+              var out=document.getElementById('frOut'), ctrl=null;
+              window.calcFreight=function(){
                 var q=Math.max(1, parseInt((document.getElementById('frQty').value||'1'),10));
+                var dest=document.getElementById('frDest').value;
                 var tot=uk*q;
-                var trucks=[['1톤',1000],['2.5톤',2500],['5톤',5000],['11톤',11000],['25톤',25000]];
-                var rec='';
-                for(var i=0;i<trucks.length;i++){ if(tot<=trucks[i][1]){ rec=trucks[i][0]+' 1대'; break; } }
-                if(!rec){ rec='25톤 '+Math.ceil(tot/25000)+'대'; }
-                var totStr = tot>=1000 ? (Math.round(tot/100)/10).toLocaleString()+'톤 ('+Math.round(tot).toLocaleString()+'kg)' : Math.round(tot).toLocaleString()+'kg';
-                document.getElementById('frOut').innerHTML='총중량 <strong>'+totStr+'</strong> · 권장 차량 <strong>'+rec+'</strong>';
-            }
-            calcFreight();
+                var totStr = tot>=1000 ? (Math.round(tot/100)/10).toLocaleString()+'톤('+Math.round(tot).toLocaleString()+'kg)' : Math.round(tot).toLocaleString()+'kg';
+                if(!dest){ out.innerHTML='총중량 <strong>'+totStr+'</strong> · 현장 지역을 선택하면 예상 운임을 계산합니다.'; return; }
+                out.textContent='총중량 '+totStr+' · 운임 계산 중…';
+                if(ctrl) ctrl.abort(); ctrl=new AbortController();
+                fetch('/api/freight.php?product_id='+encodeURIComponent(pid)+'&dest='+encodeURIComponent(dest)+'&qty='+q,{signal:ctrl.signal})
+                  .then(function(r){return r.json();})
+                  .then(function(d){
+                    if(!d.ok){ out.textContent=d.error||'운임을 계산할 수 없습니다.'; return; }
+                    var tr=d.trucks.map(function(t){return t.ton+'톤×'+t.count;}).join(' + ');
+                    var html='총중량 <strong>'+totStr+'</strong> · 차량 <strong>'+tr+'</strong> ('+d.origin+'→'+d.dest+' 약 '+Math.round(d.km)+'km)';
+                    html+='<div class="pd-freight-cost">예상 운임 <strong>'+d.freight.toLocaleString()+'원</strong> <span>(부가세 별도)</span></div>';
+                    if(d.over400) html+='<div class="pd-freight-warn">400km 초과 장거리는 별도 협의가 필요합니다.</div>';
+                    out.innerHTML=html;
+                  })
+                  .catch(function(e){ if(e.name!=='AbortError') out.textContent='운임 계산 중 오류가 발생했습니다.'; });
+              };
+              calcFreight();
+            })();
             </script>
             <hr class="pd-divider">
             <?php endif; ?>

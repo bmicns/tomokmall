@@ -62,5 +62,16 @@ ok('정확어(그레이팅) 교정 없음', suggest_correction('그레이팅') =
 ok('무의미어 교정 없음',   suggest_correction('알수없는긴말xyz') === null);
 ok('보강토블럭 → 보강토블록', (suggest_correction('보강토블럭')['to'] ?? '') === '보강토블록');
 
+echo "[운임 엔진 freight]\n";
+ok('동일시도 거리 25km',      freight_road_km('대전','대전') === 25.0);
+ok('경기→서울 근~중거리',    (function(){ $k=freight_road_km('경기','서울'); return $k>20 && $k<80; })());
+ok('미지 시도 null',          freight_road_km('경기','없는시도') === null);
+ok('800kg→1톤 1대',          (function(){ $t=freight_pick_trucks(800); return count($t)===1 && FREIGHT_TON_LABEL[$t[0]['col']]==1; })());
+ok('12000kg→25톤(11톤초과)', (function(){ $t=freight_pick_trucks(12000); return FREIGHT_TON_LABEL[$t[0]['col']]==25; })());
+ok('26000kg→25톤+1톤',       (function(){ $t=freight_pick_trucks(26000); return count($t)===2 && FREIGHT_TON_LABEL[$t[1]['col']]==1; })());
+ok('서울내 0.8t 운임=6만원',  (function(){ $r=freight_estimate('서울','서울',800); return $r['ok'] && $r['total']===60000; })());
+ok('경기→부산 19t=58만원',    (function(){ $r=freight_estimate('경기','부산',19000); return $r['ok'] && $r['total']===580000; })());
+ok('중량0 운임 실패',         freight_estimate('서울','부산',0)['ok'] === false);
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);
