@@ -61,6 +61,10 @@ if (db()) {
         } catch (\Throwable $e) {}
     }
 
+    // 인기검색어 집계: 사용자가 타이핑한 검색어를 1회 집계(카테고리로 해석되든 키워드든).
+    //   카테고리 '클릭'(?category=)은 $query 없음 → 제외. 1페이지·필터/목록검색 아닐 때만(중복 방지).
+    if ($query && $page === 1 && !$hasFilters && $search === '') { log_search($query); }
+
     // 2. 카테고리 확인 후 상품 조회 (필터·정렬 적용)
     if ($categoryId) {
         // 카테고리 브라우즈 (하위 카테고리 포함)
@@ -69,9 +73,6 @@ if (db()) {
     } elseif ($query) {
         // 키워드 검색: FULLTEXT 토큰화 + 관련도 정렬 + 페이지네이션
         try { $products = search_products($query, $perPage, ($page - 1) * $perPage, $searchTotal, $filterSql, $fparams, $sortSql); } catch (\Throwable $e) {}
-
-        // 인기검색어 집계(1페이지·필터/목록검색 아닐 때만, 중복 카운트 방지)
-        if ($page === 1 && !$hasFilters && $search === '') { log_search($query); }
 
         // 오타 교정: 0건 + 필터 없음 + exact 요청 아님일 때만, 교정어로 재검색해 결과가 있으면 구글식으로 대체 표시
         if (empty($products) && !$hasFilters && empty($_GET['exact'])) {
