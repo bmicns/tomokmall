@@ -136,6 +136,14 @@ if ($search && $products) {
 $pageTitle = $category['name'] ?? $query ?: '상품 목록';
 $loggedIn  = !empty($_SESSION['user']);
 
+// 동적 파세트: 현재 결과 집합(필터 미적용) 기준으로 실제 좁혀지는 필터만 노출.
+$facets = ['mat' => [], 'shape' => [], 'load' => [], 'width' => null, 'total' => 0];
+if (!$demoMode && ($query || $categoryId)) {
+    try { $facets = product_facets($categoryId, $correctedQ ?? $query); } catch (\Throwable $e) {}
+}
+$visFlt      = product_filters_visible($facets, $filters);
+$showFilters = !$demoMode && ($query || $categoryId) && $visFlt['any'];
+
 // ── Figma 하드코딩 데모 데이터 (DB 미연결 시에만) ──────────
 // ⚠️ 검색 결과 0건을 데모로 표시하면 "엉뚱한 제품"으로 보이므로,
 //    DB가 연결된 경우에는 절대 데모 모드로 넘어가지 않는다.
@@ -251,9 +259,9 @@ render_header($pageTitle);
     <?php endif; ?>
 
     <!-- ── 품목보기: 좌측 필터 + 목록 ──────────────────────── -->
-    <div class="pt-layout">
-    <?php if (!$demoMode && ($query || $categoryId)): ?>
-      <aside class="pt-filter"><?php render_product_filters($filters, $query, $categoryId, $sort); ?></aside>
+    <div class="pt-layout<?= $showFilters ? '' : ' pt-nofilter' ?>">
+    <?php if ($showFilters): ?>
+      <aside class="pt-filter"><?php render_product_filters($filters, $query, $categoryId, $sort, $facets); ?></aside>
     <?php endif; ?>
     <div class="pt-list-main">
     <?php if ($didYouMean): ?>

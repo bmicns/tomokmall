@@ -4,7 +4,13 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FTP_HOST="112.175.185.138"
 FTP_USER="tomokmall"
-FTP_PASS="${FTP_PASS:?FTP_PASS is required}"
+
+# FTP_PASS: 셸 env → 없으면 .env.local에서 자동 로드(gitignore, 커밋 안 됨).
+#   한 번 .env.local에 넣어두면 이후 배포 때 다시 입력할 필요 없음.
+if [ -z "${FTP_PASS:-}" ] && [ -f "${ROOT_DIR}/.env.local" ]; then
+  FTP_PASS="$(grep -E '^FTP_PASS=' "${ROOT_DIR}/.env.local" | head -1 | cut -d= -f2- | sed -e 's/^["'\'']//' -e 's/["'\'']$//')"
+fi
+FTP_PASS="${FTP_PASS:?FTP_PASS is required — .env.local에 FTP_PASS=... 추가 또는 export}"
 REMOTE_ROOT="/html"
 REMOTE_APP="/app"
 REMOTE_DATABASE="/database"

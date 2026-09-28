@@ -369,6 +369,88 @@ function category_ids_under_roots(array $roots): array
 }
 
 /**
+ * 카테고리 id → 최상위 루트 id (부모 체인 끝). 없거나 미존재면 null.
+ */
+function category_root_of(int $id): ?int
+{
+    static $par = null;
+    if ($par === null) {
+        $par = [];
+        if (db()) {
+            foreach (db()->query('SELECT id, parent_id FROM categories')->fetchAll() as $c) {
+                $par[(int) $c['id']] = $c['parent_id'] !== null ? (int) $c['parent_id'] : null;
+            }
+        }
+    }
+    if (!array_key_exists($id, $par)) { return null; }
+    $r = $id; $seen = [];
+    while ($par[$r] !== null && !isset($seen[$r])) { $seen[$r] = 1; $r = $par[$r]; }
+    return $r;
+}
+
+/**
+ * 동적 파세트: 현재 검색/카테고리 결과 집합(필터 미적용)에서 각 필터 옵션의 매칭 개수를 계산.
+ *   - 재질(카테고리 루트)·형상/옵션(상품명)·하중(상품명)·폭(spec 첫 숫자) — product_filter_sql과 동일 기준.
+ *   - 0건 옵션·단일값 수렴 그룹은 렌더러(product_filters_visible)가 숨긴다.
+ * 반환: ['mat'=>[루트id=>cnt], 'shape'=>[명=>cnt], 'load'=>[명=>cnt], 'width'=>['min','max']|null, 'total'=>int]
+ */
+function product_facets(?int $categoryId, ?string $query): array
+{
+    $empty = ['mat' => [], 'shape' => [], 'load' => [], 'width' => null, 'total' => 0];
+    if (!db()) { return $empty; }
+
+    // base 결과(필터 미적용)의 경량 컬럼만. 검색은 search_products 재사용(동의어·복합어·규격 매칭 일치).
+    $rows = [];
+    if ($categoryId) {
+        try {
+            $ids = category_descendants($categoryId);
+            if (!$ids) { return $empty; }
+            $ph  = implode(',', array_fill(0, count($ids), '?'));
+            $st  = db()->prepare("SELECT id, category_id, name, spec FROM products WHERE is_active = 1 AND category_id IN ($ph)");
+            $st->execute(array_values($ids));
+            $rows = $st->fetchAll();
+        } catch (\Throwable $e) { return $empty; }
+    } elseif ($query !== null && $query !== '') {
+        $t = 0;
+        try { $rows = search_products($query, 5000, 0, $t, '', [], ''); } catch (\Throwable $e) { return $empty; }
+    } else {
+        return $empty;
+    }
+    if (!$rows) { return $empty; }
+
+    $shapes = ['사각', '원형', 'U형', '유공', '앵글부착', '인터로킹'];
+    $loads  = ['중하중', '안전중하중'];
+    $matCnt = [11 => 0, 12 => 0, 13 => 0, 14 => 0, 15 => 0, 16 => 0];
+    $shCnt  = array_fill_keys($shapes, 0);
+    $ldCnt  = array_fill_keys($loads, 0);
+    $wmin = null; $wmax = null;
+
+    foreach ($rows as $p) {
+        $name = (string) ($p['name'] ?? '');
+        $spec = (string) ($p['spec'] ?? '');
+        $root = category_root_of((int) ($p['category_id'] ?? 0));
+        if ($root !== null && isset($matCnt[$root])) { $matCnt[$root]++; }
+        foreach ($shapes as $s) { if (mb_strpos($name, $s) !== false) { $shCnt[$s]++; } }
+        foreach ($loads as $s)  { if (mb_strpos($name, $s) !== false) { $ldCnt[$s]++; } }
+        if (preg_match('/[0-9]+/', $spec, $m)) {
+            $w = (int) $m[0];
+            if ($w > 0) {
+                $wmin = $wmin === null ? $w : min($wmin, $w);
+                $wmax = $wmax === null ? $w : max($wmax, $w);
+            }
+        }
+    }
+
+    return [
+        'mat'   => array_filter($matCnt),
+        'shape' => array_filter($shCnt),
+        'load'  => array_filter($ldCnt),
+        'width' => ($wmin !== null && $wmax !== null && $wmin < $wmax) ? ['min' => $wmin, 'max' => $wmax] : null,
+        'total' => count($rows),
+    ];
+}
+
+/**
  * 목록 필터 → SQL 조각(AND ...) + 바인딩 파라미터(참조).
  * 지원: mat(재질=루트), wmin/wmax(폭 mm), shape[](형상/옵션 상품명), load[](하중 상품명).
  * 상품 테이블 별칭은 p. 로 가정.
