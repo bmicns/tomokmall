@@ -54,7 +54,8 @@ if (db()) {
     } elseif ($query) {
         try {
             // '철근콘크리트' → '철근콘크리트제품' 폴백 포함
-            $st = db()->prepare('SELECT * FROM categories WHERE name = ? OR name = ? LIMIT 1');
+            // is_active=1 필수: 이름이 같은 비활성 카테고리(병합/정리된 빈 카테고리)를 집으면 0건이 됨
+            $st = db()->prepare('SELECT * FROM categories WHERE (name = ? OR name = ?) AND is_active = 1 ORDER BY id LIMIT 1');
             $st->execute([$query, $query . '제품']);
             $category = $st->fetch() ?: null;
             if ($category) { $categoryId = (int) $category['id']; }
