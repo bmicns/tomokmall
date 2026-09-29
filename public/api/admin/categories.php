@@ -103,19 +103,19 @@ try {
         case 'discount':
             $id = (int)($body['id'] ?? 0);
             if (!$id) throw new \InvalidArgumentException('id 필수');
-            // 개인(discount_customer)·기업(discount_corporate) 할인율(%) 0~90. 전달된 필드만 갱신.
+            // 개인(discount_customer)·기업(discount_corporate) 매입가 대비 마진율(%) 0~255. 전달된 필드만 갱신.
             $sets = [];
             $params = [];
             $resp = ['ok' => true];
             foreach (['discount_customer', 'discount_corporate'] as $field) {
                 if (array_key_exists($field, $body)) {
-                    $rate = max(0, min(90, (int)$body[$field]));
+                    $rate = max(0, min(255, (int)$body[$field]));
                     $sets[] = "{$field}=?";
                     $params[] = $rate;
                     $resp[$field] = $rate;
                 }
             }
-            if (!$sets) throw new \InvalidArgumentException('할인율 필드 필수');
+            if (!$sets) throw new \InvalidArgumentException('마진율 필드 필수');
             $params[] = $id;
             db()->prepare("UPDATE categories SET " . implode(', ', $sets) . " WHERE id=?")
                 ->execute($params);

@@ -86,12 +86,12 @@ async function loadRoots() {
 }
 
 async function updDiscount(id, val, field, isRoot) {
-    const v = Math.max(0, Math.min(90, parseInt(val, 10) || 0));
+    const v = Math.max(0, Math.min(255, parseInt(val, 10) || 0));
     const body = {action:'discount', id};
     body[field] = v;
     const r = await fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
     const d = await r.json();
-    if (!d.ok) { alert('할인율 저장 실패: ' + d.error); return; }
+    if (!d.ok) { alert('마진율 저장 실패: ' + d.error); return; }
     if (isRoot && rootMap[id]) rootMap[id][field] = v;
 }
 
@@ -112,9 +112,9 @@ function rootDiscBox(rootId) {
     const rd = rt.discount_customer || 0;
     const rc = rt.discount_corporate || 0;
     return `<div class="disc-root-box">
-        <b>${x(rt.name||'')} 할인율</b>
-        <span class="disc-tag">개인</span><input class="disc-in" type="number" min="0" max="90" value="${rd}" onchange="updDiscount(${rootId},this.value,'discount_customer',true)"> %
-        <span class="disc-tag">기업</span><input class="disc-in" type="number" min="0" max="90" value="${rc}" onchange="updDiscount(${rootId},this.value,'discount_corporate',true)"> %
+        <b>${x(rt.name||'')} 마진율 <span style="font-weight:400;color:#7a8aa0">(매입가 대비 %)</span></b>
+        <span class="disc-tag">개인</span><input class="disc-in" type="number" min="0" max="255" value="${rd}" onchange="updDiscount(${rootId},this.value,'discount_customer',true)"> %
+        <span class="disc-tag">기업</span><input class="disc-in" type="number" min="0" max="255" value="${rc}" onchange="updDiscount(${rootId},this.value,'discount_corporate',true)"> %
         <span class="disc-hint">하위 항목에 상속됩니다. 중·소분류에 개별 설정 시 그 값이 우선합니다.</span>
     </div>`;
 }
@@ -132,8 +132,8 @@ function renderTree(mids, rootId) {
         html += `<div class="mid-block">
             <div class="mid-row${off?' inactive':''}">
                 <span class="mid-name">${x(mid.name)}</span>
-                <span class="disc-tag">개인</span><input class="disc-in" type="number" value="${mid.discount_customer||0}" min="0" max="90" onchange="updDiscount(${mid.id},this.value,'discount_customer')" title="개인할인율(%)">
-                <span class="disc-tag">기업</span><input class="disc-in" type="number" value="${mid.discount_corporate||0}" min="0" max="90" onchange="updDiscount(${mid.id},this.value,'discount_corporate')" title="기업할인율(%)">
+                <span class="disc-tag">개인</span><input class="disc-in" type="number" value="${mid.discount_customer||0}" min="0" max="255" onchange="updDiscount(${mid.id},this.value,'discount_customer')" title="개인 마진율(%)">
+                <span class="disc-tag">기업</span><input class="disc-in" type="number" value="${mid.discount_corporate||0}" min="0" max="255" onchange="updDiscount(${mid.id},this.value,'discount_corporate')" title="기업 마진율(%)">
                 <input class="sort-in" type="number" value="${mid.sort_order}" min="0" onchange="updSort(${mid.id},this.value)" title="정렬">
                 <button class="btn-xs btn-xs-add" onclick="openAdd(${mid.id})">+ 소분류</button>
                 <button class="btn-xs btn-xs-edit" onclick="openEdit(${mid.id},'${x(mid.name)}',${mid.sort_order})">수정</button>
@@ -145,8 +145,8 @@ function renderTree(mids, rootId) {
                 const soff = !sub.is_active || sub.is_active == 0;
                 html += `<div class="sub-row${soff?' inactive':''}">
                     <span class="sub-name">↳ ${x(sub.name)}</span>
-                    <span class="disc-tag">개인</span><input class="disc-in" type="number" value="${sub.discount_customer||0}" min="0" max="90" onchange="updDiscount(${sub.id},this.value,'discount_customer')" title="개인할인율(%)">
-                    <span class="disc-tag">기업</span><input class="disc-in" type="number" value="${sub.discount_corporate||0}" min="0" max="90" onchange="updDiscount(${sub.id},this.value,'discount_corporate')" title="기업할인율(%)">
+                    <span class="disc-tag">개인</span><input class="disc-in" type="number" value="${sub.discount_customer||0}" min="0" max="255" onchange="updDiscount(${sub.id},this.value,'discount_customer')" title="개인 마진율(%)">
+                    <span class="disc-tag">기업</span><input class="disc-in" type="number" value="${sub.discount_corporate||0}" min="0" max="255" onchange="updDiscount(${sub.id},this.value,'discount_corporate')" title="기업 마진율(%)">
                     <input class="sort-in" type="number" value="${sub.sort_order}" min="0" onchange="updSort(${sub.id},this.value)" title="정렬">
                     <button class="btn-xs btn-xs-edit" onclick="openEdit(${sub.id},'${x(sub.name)}',${sub.sort_order})">수정</button>
                     <button class="btn-xs ${soff?'btn-xs-on':'btn-xs-off'}" onclick="toggle(${sub.id})">${soff?'활성화':'비활성'}</button>
