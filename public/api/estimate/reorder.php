@@ -54,7 +54,7 @@ if (!$estStmt->fetch()) {
 // is_active = 1인 상품만 포함 (단종 제외)
 $itemStmt = $pdo->prepare(
     'SELECT ei.product_id, ei.quantity,
-            p.name, p.spec, p.price_b2c, p.price_b2b
+            p.name, p.spec, p.price_b2c, p.price_b2b, p.category_id
      FROM estimate_items ei
      JOIN products p ON p.id = ei.product_id AND p.is_active = 1
      WHERE ei.estimate_id = :eid'
@@ -76,8 +76,7 @@ $total = 0;
 foreach ($rows as $row) {
     $pid       = (int) $row['product_id'];
     $qty       = (int) $row['quantity'];
-    $b2b       = (int) $row['price_b2b'];
-    $unitPrice = $b2b > 0 ? $b2b : (int) $row['price_b2c'];
+    $unitPrice = effective_unit_price($row); // 등급별 단가(개인=개인할인가, 기업=기업가)
     $subtotal  = $unitPrice * $qty;
     $total    += $subtotal;
 

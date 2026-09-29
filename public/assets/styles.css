@@ -1275,7 +1275,8 @@ a.pt-name-text:hover { color: var(--color-primary); }
 .pt-col-spec    { width: 130px; text-align: left; }
 .pt-col-specinfo { width: 150px; }
 .pt-col-color   { width: 90px; }
-.pt-col-price   { width: 90px; }
+.pt-col-cost    { width: 80px; }
+.pt-col-price   { width: 110px; }
 .pt-col-weight  { width: 70px; }
 .pt-col-load    { width: 70px; }
 .pt-col-freight { width: 70px; }
@@ -1333,6 +1334,26 @@ a.pt-name-text:hover { color: var(--color-primary); }
 /* 상세 기업회원가 · 견적문의 */
 .pd-price-b2b { color: var(--color-primary); }
 .pd-price-ask { color: var(--color-text-secondary); font-weight:600; }
+
+/* 등급별 차등 가격 — 목록(표) */
+.pt-price-was  { display:block; font-size:11px; color:var(--color-text-disabled); text-decoration:line-through; white-space:nowrap; }
+.pt-price-sale { color:#e12020; }
+.pt-price-sub  { display:block; font-size:11px; color:var(--color-text-secondary); white-space:nowrap; margin-top:1px; }
+.pt-price-cost { display:block; font-size:11px; color:var(--color-primary); font-weight:600; white-space:nowrap; margin-top:1px; }
+.pt-margin     { color:#999; font-size:10px; font-weight:400; }
+/* 등급별 차등 가격 — 상세 */
+.pd-price-was  { color:var(--color-text-disabled); text-decoration:line-through; font-size:15px; }
+.pd-price-sale { color:#e12020; font-weight:700; }
+.pd-price-cost { color:var(--color-primary); font-weight:700; }
+.pd-price-internal .pd-price-label { color:var(--color-primary); }
+.pd-price-margin { margin-left:6px; font-size:12px; color:#888; font-weight:500; }
+
+/* 공급업체 표시 */
+.pt-col-vendor { width: 110px; }
+.pt-vendor-name { font-size:12px; color:var(--color-text); font-weight:600; }
+.pt-vendor-more { font-size:11px; color:var(--color-text-secondary); }
+.pt-vendor-none { font-size:12px; color:var(--color-text-disabled); }
+.pd-vendor-val { font-weight:600; }
 
 /* 물량·운반 계산기 (상품 상세) */
 .pd-freight { background:#f6f8fc; border:1px solid #e2e8f4; border-radius:8px; padding:12px 14px; margin:4px 0 2px; }
@@ -1500,6 +1521,14 @@ mark.hl{background:#fff3b0;color:inherit;padding:0 1px;border-radius:2px;font-we
 .fopt input{accent-color:var(--color-primary);width:14px;height:14px}
 .fopt-lbl{flex:1;min-width:0}
 .fcnt{color:var(--color-text-secondary);font-weight:400;font-size:11px;margin-left:auto}
+.fgrp-scroll{max-height:220px;overflow-y:auto;padding-right:4px}
+.fgrp-scroll .fopt-lbl{white-space:normal;word-break:keep-all;font-size:12px}
+/* 규격 필터: 컴팩트 스크롤 박스 */
+.spec-scroll{max-height:230px;border:1px solid #EDF1F5;border-radius:6px;padding:4px 8px;background:#fafbfc}
+.spec-scroll .fopt{padding:3px 0}
+.spec-scroll .fopt-lbl{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spec-scroll::-webkit-scrollbar{width:6px}
+.spec-scroll::-webkit-scrollbar-thumb{background:#d5dbe3;border-radius:3px}
 .range{display:flex;align-items:center;gap:6px}
 .range input{width:100%;min-width:0;border:1px solid var(--color-border);border-radius:6px;padding:6px 8px;font-size:12px;font-family:var(--font)}
 .range span{color:var(--color-text-secondary)}
@@ -1547,13 +1576,18 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .pt-col-photo img, .pt-col-photo .pt-placeholder { width: 60px; height: 60px; }
   .pt-col-name { width: auto; max-width: none; padding-left: 0; margin-bottom: 6px; }
   .pt-name-text { white-space: normal; font-size: 15px; font-weight: 600; color: var(--color-text-primary); }
-  .pt-col-unit, .pt-col-spec, .pt-col-weight, .pt-col-load {
+  .pt-col-unit, .pt-col-spec, .pt-col-weight, .pt-col-load, .pt-col-vendor {
     width: auto; display: inline-block; margin-right: 14px; font-size: 12px; color: var(--color-text-secondary);
   }
+  .pt-col-vendor::before { content: "업체 "; color: var(--color-text-disabled); }
   .pt-col-unit::before   { content: "단위 "; color: var(--color-text-disabled); }
   .pt-col-spec::before   { content: "규격 "; color: var(--color-text-disabled); }
   .pt-col-weight::before { content: "중량 "; color: var(--color-text-disabled); }
   .pt-col-load::before   { content: "상차 "; color: var(--color-text-disabled); }
+  .pt-col-cost {
+    width: auto; display: inline-block; margin-right: 14px; font-size: 12px; color: var(--color-primary); font-weight: 600;
+  }
+  .pt-col-cost::before   { content: "매입가 "; color: var(--color-text-disabled); font-weight: 400; }
   .pt-col-price { margin-top: 6px; }
   .pt-col-price::before { content: "판매가 "; color: var(--color-text-disabled); font-size: 12px; }
   .pt-col-price .pt-price-val { font-size: 15px; }

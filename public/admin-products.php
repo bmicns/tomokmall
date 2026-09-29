@@ -200,9 +200,19 @@ function renderPaging(total, limit, cur) {
     const pages = Math.ceil(total / limit);
     const el = document.getElementById('pagination');
     if (pages <= 1) { el.innerHTML = ''; return; }
-    el.innerHTML = Array.from({length: pages}, (_, i) =>
-        `<button class="page-btn${i+1===cur?' active':''}" onclick="load(${i+1})">${i+1}</button>`
-    ).join('');
+
+    // 현재 페이지 주변 5개 + 처음/끝 + 이전/다음(… 생략). 이용자 목록과 동일한 윈도우 방식.
+    const numBtn = (p) => `<button class="page-btn${p===cur?' active':''}" onclick="load(${p})">${p}</button>`;
+    let start = Math.max(1, cur - 2);
+    let end   = Math.min(pages, start + 4);
+    start = Math.max(1, end - 4);
+
+    let html = `<button class="page-btn page-nav" onclick="load(${cur-1})"${cur<=1?' disabled':''}>이전</button>`;
+    if (start > 1) { html += numBtn(1); if (start > 2) html += '<span class="page-gap">…</span>'; }
+    for (let p = start; p <= end; p++) html += numBtn(p);
+    if (end < pages) { if (end < pages - 1) html += '<span class="page-gap">…</span>'; html += numBtn(pages); }
+    html += `<button class="page-btn page-nav" onclick="load(${cur+1})"${cur>=pages?' disabled':''}>다음</button>`;
+    el.innerHTML = html;
 }
 
 function x(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }

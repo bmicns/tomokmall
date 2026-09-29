@@ -16,7 +16,9 @@ try {
         if (!$rootId) {
             // 대분류(최상위) 카테고리 목록
             $roots = db()->query(
-                "SELECT id, name, sort_order, is_active
+                "SELECT id, name, sort_order, is_active,
+                        COALESCE(discount_customer,0) AS discount_customer,
+                        COALESCE(discount_corporate,0) AS discount_corporate
                  FROM categories
                  WHERE parent_id IS NULL
                  ORDER BY sort_order, id"
@@ -27,7 +29,9 @@ try {
 
         // 특정 대분류 하위 중분류 + 소분류 조회
         $midSt = db()->prepare(
-            "SELECT id, name, sort_order, is_active
+            "SELECT id, name, sort_order, is_active,
+                    COALESCE(discount_customer,0) AS discount_customer,
+                    COALESCE(discount_corporate,0) AS discount_corporate
              FROM categories
              WHERE parent_id = ?
              ORDER BY sort_order, id"
@@ -38,7 +42,9 @@ try {
         $result = [];
         foreach ($mids as $mid) {
             $subSt = db()->prepare(
-                "SELECT id, name, sort_order, is_active
+                "SELECT id, name, sort_order, is_active,
+                        COALESCE(discount_customer,0) AS discount_customer,
+                        COALESCE(discount_corporate,0) AS discount_corporate
                  FROM categories
                  WHERE parent_id = ?
                  ORDER BY sort_order, id"
@@ -92,6 +98,28 @@ try {
             db()->prepare("UPDATE categories SET is_active = 1 - is_active WHERE id=?")
                 ->execute([$id]);
             echo json_encode(['ok' => true]);
+            break;
+
+        case 'discount':
+            $id = (int)($body['id'] ?? 0);
+            if (!$id) throw new \InvalidArgumentException('id 필수');
+            // 개인(discount_customer)·기업(discount_corporate) 할인율(%) 0~90. 전달된 필드만 갱신.
+            $sets = [];
+            $params = [];
+            $resp = ['ok' => true];
+            foreach (['discount_customer', 'discount_corporate'] as $field) {
+                if (array_key_exists($field, $body)) {
+                    $rate = max(0, min(90, (int)$body[$field]));
+                    $sets[] = "{$field}=?";
+                    $params[] = $rate;
+                    $resp[$field] = $rate;
+                }
+            }
+            if (!$sets) throw new \InvalidArgumentException('할인율 필드 필수');
+            $params[] = $id;
+            db()->prepare("UPDATE categories SET " . implode(', ', $sets) . " WHERE id=?")
+                ->execute($params);
+            echo json_encode($resp);
             break;
 
         default:

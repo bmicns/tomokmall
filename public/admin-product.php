@@ -131,12 +131,23 @@ render_admin_header('제품 상세', 'products');
 
             <div class="form-2col">
                 <div class="form-field">
-                    <label>단가 B2B (원)</label>
-                    <input type="number" id="f-pb2b" value="<?= (int)$product['price_b2b'] ?>" min="0">
+                    <label>매입가 (원, 관리자 전용)</label>
+                    <input type="number" id="f-cost" value="<?= (int)($product['cost_price'] ?? 0) ?>" min="0" placeholder="내부 참고용 매입가">
                 </div>
                 <div class="form-field">
-                    <label>단가 B2C (원)</label>
+                    <label>판매가 · 정가 B2C (원)</label>
                     <input type="number" id="f-pb2c" value="<?= (int)$product['price_b2c'] ?>" min="0">
+                </div>
+            </div>
+
+            <div class="form-2col">
+                <div class="form-field">
+                    <label>기업할인가 B2B (원)</label>
+                    <input type="number" id="f-pb2b" value="<?= (int)$product['price_b2b'] ?>" min="0" placeholder="0이면 정가 적용">
+                </div>
+                <div class="form-field">
+                    <label>&nbsp;</label>
+                    <small style="color:#7a8aa0;font-size:12px">개인회원 할인가는 카테고리 할인율로 자동 계산됩니다.</small>
                 </div>
             </div>
 
@@ -190,6 +201,7 @@ async function save() {
         spec: buildSpec(),
         price_b2b: +document.getElementById('f-pb2b').value,
         price_b2c: +document.getElementById('f-pb2c').value,
+        cost_price: +document.getElementById('f-cost').value,
         image_url: document.getElementById('f-img').value.trim(),
         is_active: +document.getElementById('f-active').value,
     };

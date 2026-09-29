@@ -27,6 +27,11 @@ render_admin_header('카테고리 관리', 'categories');
 .btn-xs-on{background:#e8f5e9;color:#2e7d32}
 .btn-xs-off{background:#fce4ec;color:#c62828}
 .no-mid{padding:16px;font-size:13px;color:#aaa}
+.disc-in{width:56px;height:28px;border:1px solid #cfd8e8;border-radius:4px;padding:0 6px;font-size:12px;text-align:center;color:#004EA1;font-weight:600}
+.disc-root-box{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#eef4fd;border:1px solid #cfe0fb;border-radius:8px;padding:12px 14px;margin-bottom:14px}
+.disc-root-box b{font-size:13px;color:#004EA1}
+.disc-hint{font-size:11px;color:#7a8aa0}
+.disc-tag{font-size:11px;color:#004EA1;font-weight:600;margin-right:4px}
 </style>
 
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
@@ -65,16 +70,29 @@ render_admin_header('카테고리 관리', 'categories');
 <script>
 const API = '/api/admin/categories.php';
 let curRoot = null;
+let rootMap = {};
 
 async function loadRoots() {
     const r = await fetch(API);
     const d = await r.json();
     if (!d.ok || !d.roots.length) return;
+    rootMap = {};
+    d.roots.forEach(rt => { rootMap[rt.id] = rt; });
     const tabs = document.getElementById('root-tabs');
     tabs.innerHTML = d.roots.map(rt =>
         `<button class="root-tab" id="rt-${rt.id}" onclick="selectRoot(${rt.id})">${x(rt.name)}</button>`
     ).join('');
     selectRoot(d.roots[0].id);
+}
+
+async function updDiscount(id, val, field, isRoot) {
+    const v = Math.max(0, Math.min(90, parseInt(val, 10) || 0));
+    const body = {action:'discount', id};
+    body[field] = v;
+    const r = await fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    const d = await r.json();
+    if (!d.ok) { alert('할인율 저장 실패: ' + d.error); return; }
+    if (isRoot && rootMap[id]) rootMap[id][field] = v;
 }
 
 async function selectRoot(rootId) {
@@ -89,19 +107,33 @@ async function selectRoot(rootId) {
     renderTree(d.categories, rootId);
 }
 
+function rootDiscBox(rootId) {
+    const rt = rootMap[rootId] || {};
+    const rd = rt.discount_customer || 0;
+    const rc = rt.discount_corporate || 0;
+    return `<div class="disc-root-box">
+        <b>${x(rt.name||'')} 할인율</b>
+        <span class="disc-tag">개인</span><input class="disc-in" type="number" min="0" max="90" value="${rd}" onchange="updDiscount(${rootId},this.value,'discount_customer',true)"> %
+        <span class="disc-tag">기업</span><input class="disc-in" type="number" min="0" max="90" value="${rc}" onchange="updDiscount(${rootId},this.value,'discount_corporate',true)"> %
+        <span class="disc-hint">하위 항목에 상속됩니다. 중·소분류에 개별 설정 시 그 값이 우선합니다.</span>
+    </div>`;
+}
+
 function renderTree(mids, rootId) {
     const area = document.getElementById('tree-area');
     if (!mids.length) {
-        area.innerHTML = `<div class="no-mid">중분류가 없습니다.</div>
+        area.innerHTML = rootDiscBox(rootId) + `<div class="no-mid">중분류가 없습니다.</div>
             <button class="btn btn-primary" style="height:32px;padding:0 14px;font-size:12px;margin-top:8px" onclick="openAdd(${rootId})">+ 중분류 추가</button>`;
         return;
     }
-    let html = '';
+    let html = rootDiscBox(rootId);
     mids.forEach(mid => {
         const off = !mid.is_active || mid.is_active == 0;
         html += `<div class="mid-block">
             <div class="mid-row${off?' inactive':''}">
                 <span class="mid-name">${x(mid.name)}</span>
+                <span class="disc-tag">개인</span><input class="disc-in" type="number" value="${mid.discount_customer||0}" min="0" max="90" onchange="updDiscount(${mid.id},this.value,'discount_customer')" title="개인할인율(%)">
+                <span class="disc-tag">기업</span><input class="disc-in" type="number" value="${mid.discount_corporate||0}" min="0" max="90" onchange="updDiscount(${mid.id},this.value,'discount_corporate')" title="기업할인율(%)">
                 <input class="sort-in" type="number" value="${mid.sort_order}" min="0" onchange="updSort(${mid.id},this.value)" title="정렬">
                 <button class="btn-xs btn-xs-add" onclick="openAdd(${mid.id})">+ 소분류</button>
                 <button class="btn-xs btn-xs-edit" onclick="openEdit(${mid.id},'${x(mid.name)}',${mid.sort_order})">수정</button>
@@ -113,6 +145,8 @@ function renderTree(mids, rootId) {
                 const soff = !sub.is_active || sub.is_active == 0;
                 html += `<div class="sub-row${soff?' inactive':''}">
                     <span class="sub-name">↳ ${x(sub.name)}</span>
+                    <span class="disc-tag">개인</span><input class="disc-in" type="number" value="${sub.discount_customer||0}" min="0" max="90" onchange="updDiscount(${sub.id},this.value,'discount_customer')" title="개인할인율(%)">
+                    <span class="disc-tag">기업</span><input class="disc-in" type="number" value="${sub.discount_corporate||0}" min="0" max="90" onchange="updDiscount(${sub.id},this.value,'discount_corporate')" title="기업할인율(%)">
                     <input class="sort-in" type="number" value="${sub.sort_order}" min="0" onchange="updSort(${sub.id},this.value)" title="정렬">
                     <button class="btn-xs btn-xs-edit" onclick="openEdit(${sub.id},'${x(sub.name)}',${sub.sort_order})">수정</button>
                     <button class="btn-xs ${soff?'btn-xs-on':'btn-xs-off'}" onclick="toggle(${sub.id})">${soff?'활성화':'비활성'}</button>

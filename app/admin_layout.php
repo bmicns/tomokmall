@@ -93,9 +93,12 @@ function render_admin_header(string $title, string $activeMenu = ''): void
     .form-3col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
     .modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
     /* 페이지네이션 */
-    .pagination{display:flex;gap:5px;justify-content:flex-end;margin-top:14px}
-    .page-btn{width:32px;height:32px;border:1px solid #e8eaed;border-radius:6px;background:#fff;cursor:pointer;font-size:13px;color:#444}
+    .pagination{display:flex;gap:5px;justify-content:center;align-items:center;margin-top:16px;flex-wrap:wrap}
+    .page-btn{min-width:32px;height:32px;padding:0 6px;border:1px solid #e8eaed;border-radius:6px;background:#fff;cursor:pointer;font-size:13px;color:#444}
     .page-btn.active{background:#004EA1;color:#fff;border-color:#004EA1}
+    .page-btn.page-nav{padding:0 12px}
+    .page-btn:disabled{opacity:.4;cursor:default}
+    .page-gap{align-self:center;padding:0 2px;color:#aaa;font-size:13px}
     </style>
 </head>
 <body>

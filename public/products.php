@@ -12,8 +12,7 @@ $search     = trim((string) ($_GET['s'] ?? ''));
 // 목록 필터 · 정렬
 $filters = [
     'mat'   => array_values(array_filter(array_map('intval', (array) ($_GET['mat'] ?? [])))),
-    'wmin'  => (int) ($_GET['wmin'] ?? 0),
-    'wmax'  => (int) ($_GET['wmax'] ?? 0),
+    'spec'  => array_values(array_filter(array_map('strval', (array) ($_GET['spec'] ?? [])))),
     'shape' => array_values(array_filter(array_map('strval', (array) ($_GET['shape'] ?? [])))),
     'load'  => array_values(array_filter(array_map('strval', (array) ($_GET['load'] ?? [])))),
 ];
@@ -130,17 +129,18 @@ if ($categoryId && db()) {
 if ($search && $products) {
     $needle = mb_strtolower($search);
     $products = array_values(array_filter($products, function ($p) use ($needle) {
-        return mb_strpos(mb_strtolower(($p['name'] ?? '') . ($p['spec'] ?? '') . ($p['brand'] ?? '') . ($p['description'] ?? '')), $needle) !== false;
+        return mb_strpos(mb_strtolower(($p['name'] ?? '') . ($p['spec'] ?? '') . ($p['brand'] ?? '') . ($p['description'] ?? '') . ($p['vendor_names'] ?? '')), $needle) !== false;
     }));
 }
 
 $pageTitle = $category['name'] ?? $query ?: '상품 목록';
 $loggedIn  = !empty($_SESSION['user']);
+$isInternal = price_tier() === 'internal';   // 직원·관리자: 원가 컬럼 노출
 
 // 동적 파세트: 현재 결과 집합(필터 미적용) 기준으로 실제 좁혀지는 필터만 노출.
-$facets = ['mat' => [], 'shape' => [], 'load' => [], 'width' => null, 'total' => 0];
+$facets = ['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 0];
 if (!$demoMode && ($query || $categoryId)) {
-    try { $facets = product_facets($categoryId, $correctedQ ?? $query); } catch (\Throwable $e) {}
+    try { $facets = product_facets($categoryId, $correctedQ ?? $query, $filters); } catch (\Throwable $e) {}
 }
 $visFlt      = product_filters_visible($facets, $filters);
 $showFilters = !$demoMode && ($query || $categoryId) && $visFlt['any'];
@@ -290,8 +290,6 @@ render_header($pageTitle);
                     <option value="price_asc"  <?= $sort==='price_asc'?'selected':'' ?>>낮은가격순</option>
                     <option value="price_desc" <?= $sort==='price_desc'?'selected':'' ?>>높은가격순</option>
                     <option value="stock_desc" <?= $sort==='stock_desc'?'selected':'' ?>>재고많은순</option>
-                    <option value="width_asc"  <?= $sort==='width_asc'?'selected':'' ?>>폭 작은순</option>
-                    <option value="width_desc" <?= $sort==='width_desc'?'selected':'' ?>>폭 큰순</option>
                     <option value="newest"     <?= $sort==='newest'?'selected':'' ?>>최신순</option>
                 </select>
             </form>
@@ -309,8 +307,7 @@ render_header($pageTitle);
         <?php
         $chips = [];
         foreach ($filters['mat'] as $m)   { $chips[] = ['재질', [11=>'철근콘크리트',12=>'콘크리트',13=>'스틸',14=>'석재',15=>'PE/PVC',16=>'기타'][$m] ?? $m]; }
-        if ($filters['wmin']) $chips[] = ['폭', $filters['wmin'].'mm↑'];
-        if ($filters['wmax']) $chips[] = ['폭', $filters['wmax'].'mm↓'];
+        foreach ($filters['spec'] as $sv) { $chips[] = ['규격', $sv]; }
         foreach ($filters['shape'] as $s) { $chips[] = ['형상', $s]; }
         foreach ($filters['load'] as $s)  { $chips[] = ['하중', $s]; }
         foreach ($chips as $c): ?><span class="pt-chip"><?= e($c[0]) ?>: <?= e((string) $c[1]) ?></span><?php endforeach; ?>
@@ -358,10 +355,12 @@ render_header($pageTitle);
                 <tr>
                     <th class="pt-col-photo">사진</th>
                     <th class="pt-col-name">품명<span>직생제외</span></th>
+                    <th class="pt-col-vendor">업체</th>
                     <?php if ($demoMode || $hasUnit):    ?><th class="pt-col-unit">단위</th><?php endif; ?>
                     <?php if ($demoMode || $hasSpec):    ?><th class="pt-col-spec">규격<span>가로*세로*두께</span></th><?php endif; ?>
                     <?php if ($demoMode):                ?><th class="pt-col-specinfo">규격외정보</th><?php endif; ?>
                     <?php if ($demoMode):                ?><th class="pt-col-color">색상</th><?php endif; ?>
+                    <?php if ($isInternal && !$demoMode): ?><th class="pt-col-cost">매입가<span>내부용</span></th><?php endif; ?>
                     <th class="pt-col-price">판매가<span>부가세별도</span></th>
                     <?php if ($demoMode || $hasWeight):  ?><th class="pt-col-weight">중량<span>kg/m²</span></th><?php endif; ?>
                     <?php if ($demoMode || $hasLoad):    ?><th class="pt-col-load">상차수량<span>본/25톤</span></th><?php endif; ?>
@@ -380,6 +379,7 @@ render_header($pageTitle);
                                 <small><?= e($p['brand']) ?></small>
                             <?php endif; ?>
                         </td>
+                        <td class="pt-col-vendor"><span class="pt-vendor-none">-</span></td>
                         <td class="pt-col-unit">m²</td>
                         <td class="pt-col-spec"><?= e($p['spec']) ?></td>
                         <td class="pt-col-specinfo"><?= e($p['specinfo']) ?></td>
@@ -411,16 +411,11 @@ render_header($pageTitle);
                             <?php endif; ?>
                         </td>
                         <td class="pt-col-name"><a class="pt-name-text" href="/product.php?id=<?= (int)$p['id'] ?>" onclick="event.stopPropagation()"><?= $hlTerms ? highlight_terms($p['name'], $hlTerms) : e($p['name']) ?></a></td>
+                        <td class="pt-col-vendor"><?php $vn = render_vendor_names($p['vendor_names'] ?? null); echo $vn !== '' ? $vn : '<span class="pt-vendor-none">-</span>'; ?></td>
                         <?php if ($hasUnit):    ?><td class="pt-col-unit"><?= e($sp['unit']) ?></td><?php endif; ?>
                         <?php if ($hasSpec):    ?><td class="pt-col-spec"><?= $hlTerms ? highlight_terms($sp['spec'], $hlTerms) : e($sp['spec']) ?></td><?php endif; ?>
-                        <td class="pt-col-price">
-                            <?php if ($p['price_b2c'] > 0): ?>
-                            <strong class="pt-price-val"><?= number_format($p['price_b2c']) ?></strong>
-                            <?php if ($loggedIn && (int)$p['price_b2b'] > 0 && (int)$p['price_b2b'] < (int)$p['price_b2c']): ?>
-                            <span class="pt-price-b2b">기업가 <?= number_format((int)$p['price_b2b']) ?></span>
-                            <?php endif; ?>
-                            <?php else: ?><span class="pt-price-ask">견적문의</span><?php endif; ?>
-                        </td>
+                        <?php if ($isInternal): ?><td class="pt-col-cost"><?= price_cost_cell($p) ?></td><?php endif; ?>
+                        <td class="pt-col-price"><?= price_tag_list($p) ?></td>
                         <?php if ($hasWeight):  ?><td class="pt-col-weight"><?= e($sp['weight']) ?></td><?php endif; ?>
                         <?php if ($hasLoad):    ?><td class="pt-col-load"><?= e($sp['load']) ?></td><?php endif; ?>
                     </tr>

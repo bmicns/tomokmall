@@ -67,6 +67,12 @@ require_once __DIR__ . '/search_correct.php';
 require_once __DIR__ . '/freight.php';
 require_once __DIR__ . '/freight-origins.php';
 
+// 회원 등급별 차등 가격 유틸(계산·표시)
+require_once __DIR__ . '/pricing.php';
+
+// 공급업체(vendor) 표시 유틸
+require_once __DIR__ . '/vendors.php';
+
 function db(): ?PDO
 {
     static $pdo = null;
@@ -145,7 +151,7 @@ function fetch_categories_with_thumb(): array
 
 function fetch_products(?int $categoryId = null, ?string $query = null, string $filterSql = '', array $filterParams = [], string $sortSql = ''): array
 {
-    $sql = 'SELECT p.*, c.name AS category_name
+    $sql = 'SELECT p.*, c.name AS category_name, ' . vendor_names_subquery() . ' AS vendor_names
             FROM products p
             JOIN categories c ON c.id = p.category_id
             WHERE p.is_active = 1';
@@ -390,13 +396,13 @@ function category_root_of(int $id): ?int
 
 /**
  * 동적 파세트: 현재 검색/카테고리 결과 집합(필터 미적용)에서 각 필터 옵션의 매칭 개수를 계산.
- *   - 재질(카테고리 루트)·형상/옵션(상품명)·하중(상품명)·폭(spec 첫 숫자) — product_filter_sql과 동일 기준.
+ *   - 재질(카테고리 루트)·형상/옵션(상품명)·하중(상품명)·규격(spec의 '규격:' 값) — product_filter_sql과 동일 기준.
  *   - 0건 옵션·단일값 수렴 그룹은 렌더러(product_filters_visible)가 숨긴다.
- * 반환: ['mat'=>[루트id=>cnt], 'shape'=>[명=>cnt], 'load'=>[명=>cnt], 'width'=>['min','max']|null, 'total'=>int]
+ * 반환: ['mat'=>[루트id=>cnt], 'shape'=>[명=>cnt], 'load'=>[명=>cnt], 'spec'=>[규격값=>cnt], 'total'=>int]
  */
-function product_facets(?int $categoryId, ?string $query): array
+function product_facets(?int $categoryId, ?string $query, array $active = []): array
 {
-    $empty = ['mat' => [], 'shape' => [], 'load' => [], 'width' => null, 'total' => 0];
+    $empty = ['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 0];
     if (!db()) { return $empty; }
 
     // base 결과(필터 미적용)의 경량 컬럼만. 검색은 search_products 재사용(동의어·복합어·규격 매칭 일치).
@@ -423,36 +429,53 @@ function product_facets(?int $categoryId, ?string $query): array
     $matCnt = [11 => 0, 12 => 0, 13 => 0, 14 => 0, 15 => 0, 16 => 0];
     $shCnt  = array_fill_keys($shapes, 0);
     $ldCnt  = array_fill_keys($loads, 0);
-    $wmin = null; $wmax = null;
+    $specCnt = [];  // 규격값 => 개수 (spec의 '규격:' 항목 기준)
 
+    // 활성 필터: 각 축 개수는 '자기 축을 제외한' 나머지 필터를 통과한 상품만 집계한다.
+    // (그래야 규격 선택 후 보이는 형상 개수가 규격과 교집합 기준 → 눌러도 0건이 안 됨)
+    $selMat   = array_map('intval', (array) ($active['mat']   ?? []));
+    $selSpec  = array_map('strval', (array) ($active['spec']  ?? []));
+    $selShape = array_map('strval', (array) ($active['shape'] ?? []));
+    $selLoad  = array_map('strval', (array) ($active['load']  ?? []));
+    $nameHas  = static function (string $name, array $sel): bool {
+        if (!$sel) { return true; }
+        foreach ($sel as $s) { if ($s !== '' && mb_strpos($name, $s) !== false) { return true; } }
+        return false;
+    };
+
+    $matched = 0;
     foreach ($rows as $p) {
         $name = (string) ($p['name'] ?? '');
         $spec = (string) ($p['spec'] ?? '');
         $root = category_root_of((int) ($p['category_id'] ?? 0));
-        if ($root !== null && isset($matCnt[$root])) { $matCnt[$root]++; }
-        foreach ($shapes as $s) { if (mb_strpos($name, $s) !== false) { $shCnt[$s]++; } }
-        foreach ($loads as $s)  { if (mb_strpos($name, $s) !== false) { $ldCnt[$s]++; } }
-        if (preg_match('/[0-9]+/', $spec, $m)) {
-            $w = (int) $m[0];
-            if ($w > 0) {
-                $wmin = $wmin === null ? $w : min($wmin, $w);
-                $wmax = $wmax === null ? $w : max($wmax, $w);
-            }
-        }
+        $sv   = parse_spec_field($spec)['spec'];
+
+        $mMat   = !$selMat  || ($root !== null && in_array($root, $selMat, true));
+        $mSpec  = !$selSpec || ($sv !== '' && in_array($sv, $selSpec, true));
+        $mShape = $nameHas($name, $selShape);
+        $mLoad  = $nameHas($name, $selLoad);
+
+        if ($mSpec && $mShape && $mLoad && $root !== null && isset($matCnt[$root])) { $matCnt[$root]++; }
+        if ($mMat && $mShape && $mLoad && $sv !== '') { $specCnt[$sv] = ($specCnt[$sv] ?? 0) + 1; }
+        if ($mMat && $mSpec && $mLoad) { foreach ($shapes as $s) { if (mb_strpos($name, $s) !== false) { $shCnt[$s]++; } } }
+        if ($mMat && $mSpec && $mShape) { foreach ($loads as $s) { if (mb_strpos($name, $s) !== false) { $ldCnt[$s]++; } } }
+        if ($mMat && $mSpec && $mShape && $mLoad) { $matched++; }
     }
+    // 규격 옵션: 자연 정렬(숫자 인식)로 사람이 읽기 좋게
+    uksort($specCnt, static fn($a, $b) => strnatcasecmp((string) $a, (string) $b));
 
     return [
         'mat'   => array_filter($matCnt),
         'shape' => array_filter($shCnt),
         'load'  => array_filter($ldCnt),
-        'width' => ($wmin !== null && $wmax !== null && $wmin < $wmax) ? ['min' => $wmin, 'max' => $wmax] : null,
-        'total' => count($rows),
+        'spec'  => $specCnt,
+        'total' => $matched,
     ];
 }
 
 /**
  * 목록 필터 → SQL 조각(AND ...) + 바인딩 파라미터(참조).
- * 지원: mat(재질=루트), wmin/wmax(폭 mm), shape[](형상/옵션 상품명), load[](하중 상품명).
+ * 지원: mat(재질=루트), spec[](규격 선택), shape[](형상/옵션 상품명), load[](하중 상품명).
  * 상품 테이블 별칭은 p. 로 가정.
  */
 function product_filter_sql(array $f, array &$params): string
@@ -468,8 +491,22 @@ function product_filter_sql(array $f, array &$params): string
             $c[] = '1=0';
         }
     }
-    if (!empty($f['wmin'])) { $c[] = "CAST(REGEXP_SUBSTR(p.spec,'[0-9]+') AS UNSIGNED) >= :fwmin"; $params[':fwmin'] = (int) $f['wmin']; }
-    if (!empty($f['wmax'])) { $c[] = "CAST(REGEXP_SUBSTR(p.spec,'[0-9]+') AS UNSIGNED) <= :fwmax"; $params[':fwmax'] = (int) $f['wmax']; }
+    // 규격 선택 필터: spec의 '규격:' 항목 값이 정확히 일치하는 상품만.
+    // (규격 표기가 상품군마다 제각각이라 숫자 폭 범위 대신 실제 값 매칭)
+    // 운영 spec 형식 '규격: 값 | 중량:...' → 앞('규격: ')·뒤(' |' 또는 끝) 경계로
+    // 부분집합 오매칭(200↔1200/2000) 방지.
+    if (!empty($f['spec'])) {
+        $or = [];
+        foreach (array_values((array) $f['spec']) as $i => $v) {
+            $v = trim((string) $v);
+            if ($v === '') { continue; }
+            $k1 = ":fsp{$i}a"; $k2 = ":fsp{$i}b";
+            $or[] = "(p.spec LIKE {$k1} OR p.spec LIKE {$k2})";
+            $params[$k1] = '%규격: ' . $v . ' |%';
+            $params[$k2] = '%규격: ' . $v;
+        }
+        if ($or) { $c[] = '(' . implode(' OR ', $or) . ')'; }
+    }
     foreach (['shape' => 'fsh', 'load' => 'fld'] as $key => $pfx) {
         if (!empty($f[$key])) {
             $or = [];
@@ -490,8 +527,6 @@ function product_filter_sql(array $f, array &$params): string
 function product_sort_sql(string $sort): string
 {
     switch ($sort) {
-        case 'width_asc':  return "CAST(REGEXP_SUBSTR(p.spec,'[0-9]+') AS UNSIGNED) ASC, p.id DESC";
-        case 'width_desc': return "CAST(REGEXP_SUBSTR(p.spec,'[0-9]+') AS UNSIGNED) DESC, p.id DESC";
         // 가격순: 0원(견적문의)은 항상 뒤로
         case 'price_asc':  return "(p.price_b2c = 0) ASC, p.price_b2c ASC, p.id DESC";
         case 'price_desc': return "p.price_b2c DESC, p.id DESC";
@@ -691,7 +726,8 @@ function search_products(string $query, int $limit = 60, int $offset = 0, ?int &
 
     // 실행기: $ftExpr가 있으면 FULLTEXT 포함, 없으면 규격/기본 조건만 → [rows, total]
     // ⚠️ EMULATE_PREPARES=false 이므로 각 쿼리에 실제 쓰는 파라미터만 정확히 바인딩해야 함
-    $run = static function (?string $ftExpr) use ($pdo, $dimWhere, $dimParams, $nbSql, $nbParams, $limit, $offset, $filterSql, $filterParams, $sortSql): array {
+    $vendorSel = vendor_names_subquery();
+    $run = static function (?string $ftExpr) use ($pdo, $dimWhere, $dimParams, $nbSql, $nbParams, $limit, $offset, $filterSql, $filterParams, $sortSql, $vendorSel): array {
         $where    = 'p.is_active = 1';
         $scoreSel = '0 AS score';
         $orderSc  = '';
@@ -718,7 +754,7 @@ function search_products(string $query, int $limit = 60, int $offset = 0, ?int &
 
         // SELECT
         $st = $pdo->prepare(
-            "SELECT p.*, c.name AS category_name, {$scoreSel}
+            "SELECT p.*, c.name AS category_name, {$vendorSel} AS vendor_names, {$scoreSel}
              FROM products p
              JOIN categories c ON c.id = p.category_id
              WHERE {$where}
@@ -805,7 +841,7 @@ function search_products(string $query, int $limit = 60, int $offset = 0, ?int &
 
         $orderBy = $sortSql !== '' ? $sortSql : "{$nbSql} DESC, p.id DESC";
         $st = $pdo->prepare(
-            "SELECT p.*, c.name AS category_name
+            "SELECT p.*, c.name AS category_name, {$vendorSel} AS vendor_names
              FROM products p
              JOIN categories c ON c.id = p.category_id
              WHERE {$likeWhere}

@@ -14,7 +14,9 @@ if (!is_logged_in()) {
     redirect($loginUrl);
 }
 if (!is_corporate_member()) {
-    redirect($loginUrl);
+    // 로그인했으나 개인회원 → 기업회원 전용 안내 모달(UI는 파셜에 위임). 이후 로직 실행 금지.
+    require __DIR__ . '/../app/corporate_only_renderer.php';
+    exit;
 }
 
 $user       = current_user();

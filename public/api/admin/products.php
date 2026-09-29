@@ -72,8 +72,8 @@ try {
             if (!$catId) throw new \InvalidArgumentException('카테고리 필수');
 
             $st = db()->prepare(
-                "INSERT INTO products (category_id, name, brand, spec, price_b2b, price_b2c, image_url, is_active)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, 1)"
+                "INSERT INTO products (category_id, name, brand, spec, price_b2b, price_b2c, cost_price, image_url, is_active)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)"
             );
             $st->execute([
                 $catId,
@@ -82,6 +82,7 @@ try {
                 trim($body['spec']  ?? '') ?: null,
                 (int)($body['price_b2b'] ?? 0),
                 (int)($body['price_b2c'] ?? 0),
+                max(0, (int)($body['cost_price'] ?? 0)),
                 trim($body['image_url'] ?? '') ?: null,
             ]);
             echo json_encode(['ok' => true, 'id' => (int)db()->lastInsertId()]);
@@ -95,7 +96,7 @@ try {
 
             $st = db()->prepare(
                 "UPDATE products SET category_id=?, name=?, brand=?, spec=?,
-                 price_b2b=?, price_b2c=?, image_url=?, is_active=?
+                 price_b2b=?, price_b2c=?, cost_price=?, image_url=?, is_active=?
                  WHERE id=?"
             );
             $st->execute([
@@ -105,6 +106,7 @@ try {
                 trim($body['spec']  ?? '') ?: null,
                 (int)($body['price_b2b'] ?? 0),
                 (int)($body['price_b2c'] ?? 0),
+                max(0, (int)($body['cost_price'] ?? 0)),
                 trim($body['image_url'] ?? '') ?: null,
                 (int)($body['is_active'] ?? 1),
                 $id,

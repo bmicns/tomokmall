@@ -14,8 +14,8 @@ const FLT_LOADS      = ['중하중', '안전중하중'];
 
 /**
  * 파세트 + 현재 선택 상태 → 실제로 표시할 옵션 구조.
- * 반환: ['mat'=>[{val,cnt,active}], 'shape'=>[...], 'load'=>[...], 'width'=>['min','max']|null,
- *        'showWidth'=>bool, 'total'=>int, 'any'=>bool]
+ * 반환: ['mat'=>[{val,cnt,active}], 'shape'=>[...], 'load'=>[...], 'spec'=>[{val,cnt,active}],
+ *        'total'=>int, 'any'=>bool]
  */
 function product_filters_visible(array $facets, array $active): array
 {
@@ -44,18 +44,23 @@ function product_filters_visible(array $facets, array $active): array
     $shOpts  = $pick($facets['shape'] ?? [], $active['shape'] ?? [], FLT_SHAPES);
     $ldOpts  = $pick($facets['load'] ?? [], $active['load'] ?? [], FLT_LOADS);
 
-    $width       = $facets['width'] ?? null;
-    $widthActive = !empty($active['wmin']) || !empty($active['wmax']);
-    $showWidth   = ($width !== null) || $widthActive;
+    // 규격: 동적 옵션(카테고리에 실제 존재하는 규격 값). 자연정렬된 키 순서 사용.
+    $specCounts = $facets['spec'] ?? [];
+    $specOpts   = $pick($specCounts, $active['spec'] ?? [], array_keys($specCounts));
+    // 옵션 과다 방지: 최대 40개(선택된 것은 우선 유지)
+    if (count($specOpts) > 40) {
+        $sel  = array_values(array_filter($specOpts, static fn($o) => $o['active']));
+        $rest = array_slice(array_values(array_filter($specOpts, static fn($o) => !$o['active'])), 0, 40 - count($sel));
+        $specOpts = array_merge($sel, $rest);
+    }
 
     return [
         'mat'       => $matOpts,
         'shape'     => $shOpts,
         'load'      => $ldOpts,
-        'width'     => $width,
-        'showWidth' => $showWidth,
+        'spec'      => $specOpts,
         'total'     => $total,
-        'any'       => (bool) ($matOpts || $shOpts || $ldOpts || $showWidth),
+        'any'       => (bool) ($matOpts || $shOpts || $ldOpts || $specOpts),
     ];
 }
 
@@ -67,7 +72,7 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
             'mat'   => array_fill_keys(array_keys(FLT_MAT_LABELS), 1),
             'shape' => array_fill_keys(FLT_SHAPES, 1),
             'load'  => array_fill_keys(FLT_LOADS, 1),
-            'width' => ['min' => 0, 'max' => 0],
+            'spec'  => [],
             'total' => 0,
         ];
     }
@@ -97,12 +102,13 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
         </div>
         <?php endif; ?>
 
-        <?php if ($v['showWidth']): ?>
-        <div class="fgrp"><b>폭 (mm)</b>
-          <div class="range">
-            <input type="number" name="wmin" inputmode="numeric" placeholder="<?= $v['width'] ? '최소 ' . (int) $v['width']['min'] : '최소' ?>" value="<?= !empty($a['wmin']) ? e((string) $a['wmin']) : '' ?>">
-            <span>~</span>
-            <input type="number" name="wmax" inputmode="numeric" placeholder="<?= $v['width'] ? '최대 ' . (int) $v['width']['max'] : '최대' ?>" value="<?= !empty($a['wmax']) ? e((string) $a['wmax']) : '' ?>">
+        <?php if ($v['spec']): ?>
+        <div class="fgrp"><b>규격 <small>(가로×세로×두께 등)</small></b>
+          <div class="fgrp-scroll spec-scroll">
+          <?php foreach ($v['spec'] as $o) {
+              $lbl = str_replace(['*', 'X', 'x'], '×', (string) $o['val']); // 표시용: 곱셈기호 통일
+              $opt('spec', $o['val'], $lbl, $o['cnt'], $o['active']);
+          } ?>
           </div>
         </div>
         <?php endif; ?>

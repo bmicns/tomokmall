@@ -7,7 +7,7 @@ $id = (int)($_GET['id'] ?? 0);
 if (!$id || !db()) { header('Location: /index.php'); exit; }
 
 $st = db()->prepare(
-    "SELECT p.*,
+    "SELECT p.*, " . vendor_names_subquery() . " AS vendor_names,
             c.id AS cat_id, c.name AS cat_name, c.parent_id AS mid_id,
             mid.name AS mid_name, mid.parent_id AS root_id,
             root.name AS root_name
@@ -189,24 +189,39 @@ render_header($p['name']);
 
             <hr class="pd-divider">
 
-            <?php if ($p['price_b2c'] > 0): ?>
-            <div class="pd-price-row">
-                <span class="pd-price-label">판매가</span>
-                <span class="pd-price-val"><?= number_format((int)$p['price_b2c']) ?></span>
-                <span class="pd-price-unit">원<?= $sp['unit'] ? ' / '.$sp['unit'] : '' ?> <small>(부가세별도)</small></span>
-            </div>
-            <?php if ($loggedIn && (int)$p['price_b2b'] > 0 && (int)$p['price_b2b'] < (int)$p['price_b2c']): ?>
-            <div class="pd-price-row">
-                <span class="pd-price-label">기업회원가</span>
-                <span class="pd-price-val pd-price-b2b"><?= number_format((int)$p['price_b2b']) ?></span>
-                <span class="pd-price-unit">원<?= $sp['unit'] ? ' / '.$sp['unit'] : '' ?></span>
-            </div>
+            <?php if ($p['price_b2c'] > 0):
+                $pb = price_bundle($p);
+                $tier = price_tier();
+                $unit = $sp['unit'] ? ' / '.$sp['unit'] : '';
+            ?>
+            <?php if ($tier === 'internal'):
+                $mk = static fn(int $pr): string => ($r = markup_rate($pr, (int) $pb['cost'])) === null ? '' : ' <span class="pd-price-margin">매입가 대비 ' . ($r >= 0 ? '+' : '') . $r . '%</span>';
+            ?>
+                <div class="pd-price-row"><span class="pd-price-label">판매가</span><span class="pd-price-val"><?= number_format($pb['list']) ?></span><span class="pd-price-unit">원<?= $unit ?> <small>(부가세별도)</small></span><?= $mk($pb['list']) ?></div>
+                <div class="pd-price-row"><span class="pd-price-label">개인할인가<?= $pb['rate'] > 0 ? ' ('.$pb['rate'].'%)' : '' ?></span><span class="pd-price-val pd-price-sale"><?= number_format($pb['customer']) ?></span><span class="pd-price-unit">원<?= $unit ?></span><?= $mk($pb['customer']) ?></div>
+                <div class="pd-price-row"><span class="pd-price-label">기업할인가</span><span class="pd-price-val pd-price-sale"><?= number_format($pb['corporate']) ?></span><span class="pd-price-unit">원<?= $unit ?></span><?= $mk($pb['corporate']) ?></div>
+                <div class="pd-price-row pd-price-internal"><span class="pd-price-label">매입가</span><span class="pd-price-val pd-price-cost"><?= number_format($pb['cost']) ?></span><span class="pd-price-unit">원<?= $unit ?> <small>내부용</small></span></div>
+            <?php elseif ($tier === 'customer' && $pb['has_customer_discount']): ?>
+                <div class="pd-price-row"><span class="pd-price-label">판매가</span><del class="pd-price-was"><?= number_format($pb['list']) ?>원</del></div>
+                <div class="pd-price-row"><span class="pd-price-label">회원할인가</span><span class="pd-price-val pd-price-sale"><?= number_format($pb['customer']) ?></span><span class="pd-price-unit">원<?= $unit ?> <small>(부가세별도)</small></span></div>
+            <?php elseif ($tier === 'corporate' && $pb['has_corporate_discount']): ?>
+                <div class="pd-price-row"><span class="pd-price-label">판매가</span><del class="pd-price-was"><?= number_format($pb['list']) ?>원</del></div>
+                <div class="pd-price-row"><span class="pd-price-label">기업회원가</span><span class="pd-price-val pd-price-sale"><?= number_format($pb['corporate']) ?></span><span class="pd-price-unit">원<?= $unit ?> <small>(부가세별도)</small></span></div>
+            <?php else: ?>
+                <div class="pd-price-row"><span class="pd-price-label">판매가</span><span class="pd-price-val"><?= number_format($pb['list']) ?></span><span class="pd-price-unit">원<?= $unit ?> <small>(부가세별도)</small></span></div>
             <?php endif; ?>
             <hr class="pd-divider">
             <?php else: ?>
             <div class="pd-price-row">
                 <span class="pd-price-label">판매가</span>
                 <span class="pd-price-val pd-price-ask">견적문의</span>
+            </div>
+            <hr class="pd-divider">
+            <?php endif; ?>
+
+            <?php $vnames = render_vendor_names($p['vendor_names'] ?? null, true); if ($vnames !== ''): ?>
+            <div class="pd-spec-rows">
+                <div class="pd-spec-row"><span class="pd-spec-key">공급업체</span><span class="pd-spec-val pd-vendor-val"><?= $vnames ?></span></div>
             </div>
             <hr class="pd-divider">
             <?php endif; ?>

@@ -52,14 +52,15 @@ render_header('장바구니');
                 <tbody>
                     <?php foreach ($products as $product): ?>
                         <?php
-                        $qty = (int) ($items[$product['id']] ?? 0);
-                        $line = $qty * (int) $product['price_b2c'];
+                        $qty  = (int) ($items[$product['id']] ?? 0);
+                        $unit = effective_unit_price($product);
+                        $line = $qty * $unit;
                         $total += $line;
                         ?>
                         <tr>
                             <td><?= e($product['name']) ?></td>
                             <td><?= $qty ?></td>
-                            <td><?= money((int) $product['price_b2c']) ?></td>
+                            <td><?= money($unit) ?></td>
                             <td><?= money($line) ?></td>
                         </tr>
                     <?php endforeach; ?>
