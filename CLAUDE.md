@@ -13,8 +13,9 @@
 4. **최소 변경** — 문제 해결에 필요한 최소한의 코드만 바꾼다. 관련 없는 리팩터링, 포맷 정리, 이름 변경을 섞지 않는다.
 5. **테스트·보고** — 수정 후 테스트를 수행하고, 실행한 명령과 결과(실패 포함)를 그대로 보고한다. 하지 못한 검증은 "하지 못했다"고 밝힌다.
 6. **운영 배포 금지** — 운영 서버에 임의로 배포하지 않는다. `scripts/deploy.sh` 실행은 사용자의 명시적 지시가 있을 때만.
-7. **FTP·DB 변경은 승인 후** — FTP 업로드, 서버 파일 삭제, 운영 DB의 스키마 변경·데이터 수정·SQL 실행은 매번 사용자 승인 후 진행한다. 이전 승인은 다음 작업에 이어지지 않는다.
-8. **시크릿 금지** — 비밀번호, API 키, FTP 계정, 토큰, 개인정보를 코드·문서·커밋 메시지·로그·Git에 저장하지 않는다.
+7. **FTP·DB 변경은 승인 후** — FTP 접속·업로드, 서버 파일 삭제, 운영 DB의 스키마 변경·데이터 수정·SQL 실행은 매번 사용자 승인 후 진행한다. 이전 승인은 다음 작업에 이어지지 않는다.
+8. **시크릿 금지** — 비밀번호, API 키, FTP 계정, 토큰, 개인정보를 코드·문서·커밋 메시지·로그·Git에 저장하지 않는다. 사용자가 이미지·채팅으로 공유한 값도 옮겨 적지 않는다.
+9. **배포·운영 환경 문서 참고** — 서버 환경, FTP 배포, 운영 DB 변경과 관련된 작업은 시작 전에 반드시 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)를 읽고 그 절차를 따른다.
 
 ---
 
@@ -23,13 +24,14 @@
 - 건축자재 쇼핑몰 + AI 상담/검색(RAG) + 견적·주문 + 직원(staff)·관리자(admin) 화면
 - 환경: **닷홈 Apache / PHP 8.4 / MySQL 8.0**, 프레임워크 없는 순수 PHP (`declare(strict_types=1)`)
 - 운영 주소: `http://tomokmall.dothome.co.kr` (현재 HTTP)
+- 서버 환경·FTP·배포 절차 상세: **[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)**
 
 | 경로 | 역할 | 운영 서버 위치 |
 |---|---|---|
 | `public/` | 웹루트: 페이지(`*.php`), `api/` JSON 엔드포인트, `assets/`(JS·CSS·이미지), `.htaccess` | `/html` |
 | `app/` | 공통 로직(웹루트 밖): `bootstrap.php`(세션·.env 로드·`db()`), `config.php`, `auth.php`, 레이아웃·렌더러, `rag.php`, `ai_tools.php`, `pricing.php` 등 | `/app` |
 | `database/` | `schema.sql` + 추가 마이그레이션 `*.sql` | `/database` |
-| `scripts/` | `deploy.sh`(FTP 배포), `smoke.sh`(스모크), `local-up.sh`/`local-down.sh`(Docker), `db-tools/`(일회성 DB 보정 — 웹루트에 두지 않음) | 배포 안 함 |
+| `scripts/` | `deploy.sh`(FTP 배포), `smoke.sh`(스모크), `local-up.sh`/`local-down.sh`(로컬 PHP 내장 서버 + Homebrew MySQL), `db-tools/`(일회성 DB 보정 — 웹루트에 두지 않음) | 배포 안 함 |
 | `tests/functions.test.php` | 순수 함수 단위 테스트(DB 불필요) | 배포 안 함 |
 | `data/` | 외부 수집 상품 데이터(JSON·import SQL) | 배포 안 함 |
 | `docs/` | 기획·설계·분석 문서, `style-guide.md`(UI 기준) | 배포 안 함 |
@@ -104,8 +106,9 @@ find public app -name "*.php" -print0 | xargs -0 -n1 php -l | grep -v "No syntax
 # 2) 단위 테스트 (DB 불필요)
 php tests/functions.test.php
 
-# 3) 로컬 실행 후 수동/스모크 확인 (Docker 사용 가능 시)
-bash scripts/local-up.sh            # http://localhost:8080, phpMyAdmin :8081
+# 3) 로컬 실행 후 수동/스모크 확인
+bash scripts/local-up.sh            # PHP 내장 서버 http://localhost:8080 + Homebrew MySQL
+# 또는 docker compose up            # 웹 :8080, phpMyAdmin :8081, MySQL :3307
 bash scripts/smoke.sh http://localhost:8080
 ```
 
@@ -157,6 +160,10 @@ bash scripts/smoke.sh http://localhost:8080
 ## 8. FTP 배포 규칙 (`scripts/deploy.sh`)
 
 > ⚠️ **사용자의 명시적 승인 없이 실행하지 않는다.** 승인은 그 배포 1회에만 유효하다.
+> 서버 구성, 스크립트의 위험 동작, 단계별 배포·롤백·DB 변경 절차, 체크리스트는 **[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)**를 따른다. 이 장은 요약이다.
+
+- 승인 전에는 FTP 접속(조회 포함), `deploy.sh` 실행, 서버 파일 삭제, `smoke.sh` 운영 실행을 하지 않는다.
+- 배포 전 `app/`·`public/`에 `.env` 등 시크릿 파일이 없는지 확인한다(`deploy.sh`는 `app/`의 모든 파일을 올리므로 로컬 `app/.env`가 있으면 운영 `/app/.env`를 덮어쓴다).
 
 현재 스크립트 동작을 이해하고 진행한다:
 - 배포 전 게이트: 전체 PHP 문법 검사 + 단위 테스트(실패 시 중단)
@@ -189,12 +196,13 @@ bash scripts/smoke.sh http://localhost:8080
 
 ## 10. 민감 정보 관리
 
-- 시크릿은 `.env.local`(로컬) / `/app/.env`(운영)에만. 코드에서는 `getenv()`로 읽는다.
+- 시크릿은 `.env.local`(로컬) / `/app/.env`(운영)에만. 코드에서는 `getenv()`로 읽는다. 키 목록: `OPENAI_API_KEY`, `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS`, `FTP_PASS`(배포용, 로컬만).
 - `.gitignore`의 `.env*` 제외 규칙을 유지한다. `.env.example`에는 **키 이름만**, 값은 비워 둔다.
 - 커밋 전 시크릿 패턴을 확인한다: `git diff --cached | grep -iE "pass|secret|api_key|token|sk-"`
 - 시크릿을 발견하면(코드·문서·히스토리 포함) 즉시 사용자에게 알리고, 키 교체(rotate)를 권고한다. 히스토리 정리는 승인 후.
 - 참고: `docker-compose.yml`에 **로컬 개발용** DB 비밀번호가 평문으로 있다. 운영 비밀번호와 같은 값을 쓰지 않도록 하고, 새 시크릿을 이 파일에 추가하지 않는다(`${VAR}` 형태로 환경변수 참조).
 - `scripts/deploy.sh`의 FTP 호스트·계정명은 이미 커밋되어 있으나, 비밀번호는 절대 추가하지 않는다.
+- `scripts/local-up.sh`, `database/local-init.sql`에 로컬용 비밀번호·기본 관리자 계정이 있다. 운영에서 같은 값을 쓰지 않도록 하고, 새로 추가하지 않는다(상세: `docs/DEPLOYMENT.md` 8장).
 
 ---
 
