@@ -1536,11 +1536,9 @@ mark.hl{background:#fff3b0;color:inherit;padding:0 1px;border-radius:2px;font-we
 .flt-apply:hover{background:var(--color-primary-hover)}
 .pt-head-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .pt-sort{font-size:12.5px;border:1px solid var(--color-border);border-radius:8px;padding:7px 10px;font-family:var(--font);background:#fff;color:var(--color-text-primary)}
-.pt-active-flt{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:2px 0 12px}
+.pt-active-flt{display:flex;gap:6px;align-items:center}
 .pt-af-lbl{font-size:11.5px;color:var(--color-text-secondary);margin-right:2px}
 .pt-chip{font-size:11.5px;background:#EEF3FA;color:var(--color-primary-hover);border:1px solid #D3E2F1;border-radius:100px;padding:4px 11px}
-.pt-chip-clear{font-size:11.5px;color:var(--color-text-secondary);text-decoration:none;padding:4px 6px}
-.pt-chip-clear:hover{color:var(--color-danger)}
 @media(min-width:761px){
   .pt-layout{grid-template-columns:224px 1fr;gap:22px;align-items:start}
   .pt-layout.pt-nofilter{grid-template-columns:1fr}
@@ -1607,18 +1605,36 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .pt-didyoumean a{color:var(--color-text-secondary);font-size:13px;text-decoration:underline;white-space:nowrap}
 .pt-didyoumean a:hover{color:var(--color-primary)}
 
-/* 상품 목록: '재고 있는 상품만 보기' 체크박스 (정렬 옆) + 칩 개별 해제 */
-.pt-sort-form{display:flex;align-items:center;gap:10px}
-.pt-sort-form .pt-sort{flex:none;width:auto}
-.pt-instock{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 4px;font-size:12.5px;color:var(--color-text-primary);cursor:pointer;user-select:none;white-space:nowrap}
-.pt-instock input{accent-color:var(--color-primary);width:16px;height:16px;margin:0;cursor:pointer}
-a.pt-chip{text-decoration:none}
-a.pt-chip:hover{border-color:var(--color-primary);color:var(--color-primary)}
+/* 상품 목록 상단 툴바: [품목보기·검색결과·적용된 필터 칩] ↔ [정렬·목록검색]
+   칩이 많아도 툴바는 한 줄 유지 → 칩 영역만 가로 스크롤(양끝 페이드로 스크롤 가능 표시) */
+.pt-table-header{flex-wrap:wrap;gap:10px 16px}
+.pt-head-left{display:flex;align-items:center;gap:6px 14px;flex:0 1 auto;min-width:0}
+.pt-head-left.has-chips{flex:1 1 360px}
+.pt-table-title{flex:none;white-space:nowrap}
+.pt-head-right{flex:none}
+.pt-active-flt{display:flex;align-items:center;gap:8px;flex:1 1 240px;min-width:0;padding:0}
+.pt-af-lbl{flex:none;white-space:nowrap;margin-right:0}
+.pt-chips{display:flex;flex-wrap:nowrap;gap:6px;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;padding:2px 0}
+.pt-chips::-webkit-scrollbar{display:none}
+.pt-chips.fade-r{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 32px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 32px),transparent)}
+.pt-chips.fade-l{-webkit-mask-image:linear-gradient(to right,transparent,#000 32px);mask-image:linear-gradient(to right,transparent,#000 32px)}
+.pt-chips.fade-l.fade-r{-webkit-mask-image:linear-gradient(to right,transparent,#000 32px,#000 calc(100% - 32px),transparent);mask-image:linear-gradient(to right,transparent,#000 32px,#000 calc(100% - 32px),transparent)}
+.pt-chip{display:inline-flex;align-items:center;flex:none;white-space:nowrap;height:30px;padding:0 3px 0 11px}
+.pt-chip-x{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;margin-left:3px;border-radius:50%;color:inherit;font-size:15px;line-height:1;text-decoration:none}
+.pt-chip-x:hover{background:var(--color-primary);color:#fff}
+
+/* 좌측 필터: 재고 섹션 구분선 + 선택 중(미적용) 안내 */
+.flt-div{border:0;border-top:1px solid var(--color-border);margin:12px 0 0}
+.fgrp.fgrp-stock{border-top:0}
+.flt-pending{margin:12px 0 0;font-size:11.5px;color:var(--color-primary-hover);line-height:1.4}
+.flt-apply.is-dirty{box-shadow:0 0 0 3px #D3E2F1}
+
 @media (max-width: 900px) {
-  .pt-table-header{flex-wrap:wrap;gap:10px}
+  .pt-head-left{flex-wrap:wrap}
 }
 @media (max-width: 640px) {
-  .pt-sort-form{flex-wrap:wrap}
-  .pt-instock{min-height:44px}
-  a.pt-chip{padding:7px 12px}
+  .pt-head-left, .pt-head-left.has-chips, .pt-head-right{flex:1 1 100%;min-width:0}
+  .pt-active-flt{flex-basis:100%}
+  .pt-chip{height:36px}
+  .pt-chip-x{width:34px;height:34px}
 }

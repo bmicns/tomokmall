@@ -145,8 +145,8 @@ $facets = ['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 0]
 if (!$demoMode && ($query || $categoryId)) {
     try { $facets = product_facets($categoryId, $correctedQ ?? $query, $filters); } catch (\Throwable $e) {}
 }
-$visFlt      = product_filters_visible($facets, $filters);
-$showFilters = !$demoMode && ($query || $categoryId) && $visFlt['any'];
+// 사이드바: 파세트 그룹이 없어도 '재고' 섹션이 있으므로 목록이면 항상 노출
+$showFilters = !$demoMode && ($query || $categoryId);
 
 // ── Figma 하드코딩 데모 데이터 (DB 미연결 시에만) ──────────
 // ⚠️ 검색 결과 0건을 데모로 표시하면 "엉뚱한 제품"으로 보이므로,
@@ -274,17 +274,40 @@ render_header($pageTitle);
         <a href="/products.php?q=<?= urlencode($query) ?>&exact=1">'<?= e($query) ?>'(으)로 다시 검색</a>
     </div>
     <?php endif; ?>
+    <?php
+    // 적용된 필터 칩: URL에 실제 반영된 조건만(사이드바에서 선택 중인 값은 '필터 적용' 전까지 무관).
+    // [그룹, 표시값, 해제 URL] — 해제 URL은 해당 값 하나만 뺀 현재 조건(검색어·정렬·나머지 필터 유지, 1페이지)
+    $chips = [];
+    if ($hasFilters) {
+        $chipOff = static fn(string $key, $val): string => product_list_url($_GET, [$key => array_values(array_diff($filters[$key], [$val]))]);
+        foreach ($filters['mat'] as $m)   { $chips[] = ['재질', FLT_MAT_LABELS[$m] ?? (string) $m, $chipOff('mat', $m)]; }
+        foreach ($filters['spec'] as $sv) { $chips[] = ['규격', str_replace(['*', 'X', 'x'], '×', $sv), $chipOff('spec', $sv)]; }
+        foreach ($filters['shape'] as $s) { $chips[] = ['형상/옵션', $s, $chipOff('shape', $s)]; }
+        foreach ($filters['load'] as $s)  { $chips[] = ['하중', $s, $chipOff('load', $s)]; }
+        if ($inStock)                     { $chips[] = ['재고', '있는 상품만', product_list_url($_GET, ['instock' => null])]; }
+    }
+    ?>
     <div class="pt-table-header">
-        <h3 class="pt-table-title">
-            품목보기
-            <?php if (!$demoMode && ($query || $categoryId)): ?>
-                <span class="pt-search-count"><?php $shownQ = $correctedQ ?? $query; if ($shownQ): ?>'<?= e($shownQ) ?>' <?php endif; ?>검색결과 <strong><?= number_format($searchTotal) ?></strong>개</span>
+        <div class="pt-head-left<?= $chips ? ' has-chips' : '' ?>">
+            <h3 class="pt-table-title">
+                품목보기
+                <?php if (!$demoMode && ($query || $categoryId)): ?>
+                    <span class="pt-search-count"><?php $shownQ = $correctedQ ?? $query; if ($shownQ): ?>'<?= e($shownQ) ?>' <?php endif; ?>검색결과 <strong><?= number_format($searchTotal) ?></strong>개</span>
+                <?php endif; ?>
+            </h3>
+            <?php if ($chips): ?>
+            <div class="pt-active-flt">
+                <span class="pt-af-lbl" id="pt-af-lbl">적용된 필터</span>
+                <div class="pt-chips" role="list" aria-labelledby="pt-af-lbl" tabindex="0">
+                    <?php foreach ($chips as $c): ?><span class="pt-chip" role="listitem"><span class="pt-chip-txt"><?= e($c[0]) ?>: <?= e((string) $c[1]) ?></span><a class="pt-chip-x" href="<?= e($c[2]) ?>" title="이 필터 해제" aria-label="<?= e($c[0]) ?>: <?= e((string) $c[1]) ?> 필터 해제">×</a></span><?php endforeach; ?>
+                </div>
+            </div>
             <?php endif; ?>
-        </h3>
+        </div>
         <div class="pt-head-right">
             <?php if (!$demoMode && ($query || $categoryId)): ?>
             <form method="get" action="/products.php" class="pt-sort-form">
-                <?php foreach ($_GET as $k => $v): if ($k === 'sort' || $k === 'p' || $k === 'instock') continue;
+                <?php foreach ($_GET as $k => $v): if ($k === 'sort' || $k === 'p') continue;
                     if (is_array($v)) { foreach ($v as $vv): ?><input type="hidden" name="<?= e($k) ?>[]" value="<?= e((string) $vv) ?>"><?php endforeach; }
                     else { ?><input type="hidden" name="<?= e($k) ?>" value="<?= e((string) $v) ?>"><?php }
                 endforeach; ?>
@@ -295,10 +318,6 @@ render_header($pageTitle);
                     <option value="stock_desc" <?= $sort==='stock_desc'?'selected':'' ?>>재고많은순</option>
                     <option value="newest"     <?= $sort==='newest'?'selected':'' ?>>최신순</option>
                 </select>
-                <label class="pt-instock">
-                    <input type="checkbox" name="instock" value="1" <?= $inStock ? 'checked' : '' ?> onchange="this.form.submit()">
-                    <span>재고 있는 상품만 보기</span>
-                </label>
             </form>
             <?php endif; ?>
             <form class="pt-search-form" method="get" action="/products.php">
@@ -309,23 +328,6 @@ render_header($pageTitle);
             </form>
         </div>
     </div>
-    <?php if ($hasFilters): ?>
-    <div class="pt-active-flt">
-        <span class="pt-af-lbl">적용된 필터</span>
-        <?php
-        // 칩: [라벨, 값, 해제 URL] — 해제 URL은 해당 값만 뺀 현재 조건(1페이지)
-        $chipOff = static fn(string $key, $val): string => product_list_url($_GET, [$key => array_values(array_diff($filters[$key], [$val]))]);
-        $chips = [];
-        foreach ($filters['mat'] as $m)   { $chips[] = ['재질', [11=>'철근콘크리트',12=>'콘크리트',13=>'스틸',14=>'석재',15=>'PE/PVC',16=>'기타'][$m] ?? $m, $chipOff('mat', $m)]; }
-        foreach ($filters['spec'] as $sv) { $chips[] = ['규격', $sv, $chipOff('spec', $sv)]; }
-        foreach ($filters['shape'] as $s) { $chips[] = ['형상', $s, $chipOff('shape', $s)]; }
-        foreach ($filters['load'] as $s)  { $chips[] = ['하중', $s, $chipOff('load', $s)]; }
-        if ($inStock)                     { $chips[] = ['재고', '있는 상품만', product_list_url($_GET, ['instock' => null])]; }
-        foreach ($chips as $c): ?><a class="pt-chip" href="<?= e($c[2]) ?>" title="이 필터 해제" aria-label="<?= e($c[0]) ?>: <?= e((string) $c[1]) ?> 필터 해제"><?= e($c[0]) ?>: <?= e((string) $c[1]) ?> <span aria-hidden="true">✕</span></a><?php endforeach; ?>
-        <a class="pt-chip-clear" href="<?= $query ? '/products.php?q='.urlencode($query) : '/products.php?category='.(int)$categoryId ?>">모두 지우기 ✕</a>
-    </div>
-    <?php endif; ?>
-
     <!-- ── 상품 테이블 ──────────────────────────────────────── -->
     <?php
     $tableRows = $demoMode ? $demoProducts : $products;
@@ -484,6 +486,28 @@ render_header($pageTitle);
     </div>
 </div>
 <script>
+// 적용된 필터 칩: 넘치면 양끝 페이드로 스크롤 가능 표시 + 세로 휠을 가로 스크롤로
+(function () {
+    var box = document.querySelector('.pt-chips');
+    if (!box) { return; }
+    function sync() {
+        var max = box.scrollWidth - box.clientWidth;
+        box.classList.toggle('fade-l', max > 1 && box.scrollLeft > 1);
+        box.classList.toggle('fade-r', max > 1 && box.scrollLeft < max - 1);
+    }
+    box.addEventListener('scroll', sync, { passive: true });
+    box.addEventListener('wheel', function (ev) {
+        var max = box.scrollWidth - box.clientWidth;
+        if (max <= 1 || Math.abs(ev.deltaY) <= Math.abs(ev.deltaX)) { return; }
+        // 끝에 닿으면 페이지 세로 스크롤을 막지 않음
+        if ((ev.deltaY > 0 && box.scrollLeft >= max - 1) || (ev.deltaY < 0 && box.scrollLeft <= 1)) { return; }
+        box.scrollLeft += ev.deltaY;
+        ev.preventDefault();
+    }, { passive: false });
+    window.addEventListener('resize', sync);
+    sync();
+})();
+
 function openGallery(url, cap) {
     document.getElementById('gallery-modal-img').src = url;
     document.getElementById('gallery-modal-cap').textContent = cap;

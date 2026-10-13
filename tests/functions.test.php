@@ -96,5 +96,27 @@ eq('칩 개별 해제(빈 배열 → 키 제거)',
     product_list_url(['category' => '5', 'mat' => ['11']], ['mat' => []]),
     '/products.php?category=5');
 
+echo "[사이드바 재고 섹션 render_product_filters]\n";
+$renderFlt = static function (array $facets, bool $inStock): string {
+    ob_start();
+    render_product_filters(['spec' => [], 'shape' => []], null, 9101, 'price_asc', $facets, $inStock);
+    return (string) ob_get_clean();
+};
+$fct  = ['mat' => [], 'shape' => ['사각' => 3, '원형' => 2], 'load' => [], 'spec' => ['300*300' => 2, '400*400' => 3], 'total' => 5];
+$html = $renderFlt($fct, false);
+$pos  = static fn(string $needle) => mb_strpos($html, $needle);
+ok('순서: 규격 → 형상/옵션 → 구분선 → 재고 → 필터 적용',
+    $pos('규격') < $pos('형상 / 옵션') && $pos('형상 / 옵션') < $pos('flt-div')
+    && $pos('flt-div') < $pos('<b>재고</b>') && $pos('<b>재고</b>') < $pos('flt-apply'));
+ok('재고 체크박스 name="instock" value="1"(배열 아님)', strpos($html, 'type="checkbox" name="instock" value="1"') !== false);
+ok('즉시 제출(onchange submit) 없음', stripos($html, 'onchange') === false && strpos($html, '.submit()') === false);
+ok('미적용 상태: 체크 해제', !preg_match('/name="instock" value="1"\s+checked/', $html));
+ok('정렬 조건 유지(hidden sort)', strpos($html, 'name="sort" value="price_asc"') !== false);
+$html2 = $renderFlt($fct, true);
+ok('적용 상태: 체크됨 + hidden instock 중복 없음',
+    preg_match('/name="instock" value="1"\s+checked/', $html2) === 1 && substr_count($html2, 'name="instock"') === 1);
+$html3 = $renderFlt(['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 0], false);
+ok('파세트 없어도 재고 섹션 표시(구분선 없음)', strpos($html3, '<b>재고</b>') !== false && strpos($html3, 'flt-div') === false);
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

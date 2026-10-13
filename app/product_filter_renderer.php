@@ -7,6 +7,7 @@ declare(strict_types=1);
  *  - product_list_url($get, $set): 현재 목록 조건을 유지한 products.php URL(페이지·칩 해제용)
  *  현재 결과 집합에 실제 존재하는 옵션만 개수와 함께 노출한다.
  *  0건 옵션·단일값 수렴(비선택·옵션1개·전체차지) 그룹은 숨긴다 → 결과와 무관한 필터 노출 방지.
+ *  재고(instock) 섹션은 항상 표시. 모든 체크박스는 '필터 적용' 버튼으로만 반영된다(즉시 제출 없음).
  */
 
 const FLT_MAT_LABELS = [11 => '철근콘크리트', 12 => '콘크리트', 13 => '스틸', 14 => '석재', 15 => 'PE/PVC', 16 => '기타'];
@@ -94,7 +95,7 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
         ];
     }
     $v = product_filters_visible($facets, $a);
-    if (!$v['any']) { return; } // 표시할 필터 없음 → 아무것도 렌더하지 않음
+    // 파세트 그룹이 없어도 재고 섹션은 노출(재고 필터는 결과 집합과 무관하게 항상 의미 있음)
 
     $base = $q !== null && $q !== '' ? '/products.php?q=' . urlencode($q) : '/products.php?category=' . (int) $categoryId;
     $opt  = static function (string $field, $val, string $label, int $cnt, bool $active): void { ?>
@@ -110,7 +111,6 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
           <input type="hidden" name="category" value="<?= (int) $categoryId ?>">
         <?php endif; ?>
         <?php if ($sort !== ''): ?><input type="hidden" name="sort" value="<?= e($sort) ?>"><?php endif; ?>
-        <?php if ($inStock): ?><input type="hidden" name="instock" value="1"><?php endif; ?>
 
         <div class="flt-top"><b>필터로 좁히기</b><a href="<?= e($base) ?>">초기화</a></div>
 
@@ -143,8 +143,34 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
         </div>
         <?php endif; ?>
 
+        <?php if ($v['any']): ?><hr class="flt-div"><?php endif; ?>
+        <div class="fgrp fgrp-stock"><b>재고</b>
+          <label class="fopt"><input type="checkbox" name="instock" value="1" <?= $inStock ? 'checked' : '' ?>><span class="fopt-lbl">재고 있는 상품만 보기</span></label>
+        </div>
+
+        <p class="flt-pending" role="status" hidden>변경한 조건은 '필터 적용'을 눌러야 반영됩니다.</p>
         <button type="submit" class="flt-apply">필터 적용</button>
       </form>
     </details>
+    <script>
+    // 선택 중(미적용) 상태 표시: 체크 상태가 적용된 상태(checked 속성)와 다르면 안내 + 버튼 강조. 제출은 버튼으로만.
+    (function () {
+        var form = document.querySelector('form.flt-body');
+        if (!form) { return; }
+        var boxes = form.querySelectorAll('input[type="checkbox"]');
+        var hint  = form.querySelector('.flt-pending');
+        var btn   = form.querySelector('.flt-apply');
+        function sync() {
+            var dirty = false;
+            for (var i = 0; i < boxes.length; i++) {
+                if (boxes[i].checked !== boxes[i].defaultChecked) { dirty = true; break; }
+            }
+            hint.hidden = !dirty;
+            btn.classList.toggle('is-dirty', dirty);
+        }
+        form.addEventListener('change', sync);
+        window.addEventListener('pageshow', sync); // 뒤로가기(bfcache) 복원 시 재계산
+    })();
+    </script>
     <?php
 }
