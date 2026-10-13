@@ -412,7 +412,7 @@ function product_facets(?int $categoryId, ?string $query, array $active = []): a
             $ids = category_descendants($categoryId);
             if (!$ids) { return $empty; }
             $ph  = implode(',', array_fill(0, count($ids), '?'));
-            $st  = db()->prepare("SELECT id, category_id, name, spec FROM products WHERE is_active = 1 AND category_id IN ($ph)");
+            $st  = db()->prepare("SELECT id, category_id, name, spec, stock_qty FROM products WHERE is_active = 1 AND category_id IN ($ph)");
             $st->execute(array_values($ids));
             $rows = $st->fetchAll();
         } catch (\Throwable $e) { return $empty; }
@@ -443,8 +443,12 @@ function product_facets(?int $categoryId, ?string $query, array $active = []): a
         return false;
     };
 
+    // 재고 조건은 축이 아니라 전제 조건 → 재고 없는 상품은 모든 축 개수에서 제외
+    $inStockOnly = !empty($active['instock']);
+
     $matched = 0;
     foreach ($rows as $p) {
+        if ($inStockOnly && (int) ($p['stock_qty'] ?? 0) <= 0) { continue; }
         $name = (string) ($p['name'] ?? '');
         $spec = (string) ($p['spec'] ?? '');
         $root = category_root_of((int) ($p['category_id'] ?? 0));
@@ -475,7 +479,8 @@ function product_facets(?int $categoryId, ?string $query, array $active = []): a
 
 /**
  * 목록 필터 → SQL 조각(AND ...) + 바인딩 파라미터(참조).
- * 지원: mat(재질=루트), spec[](규격 선택), shape[](형상/옵션 상품명), load[](하중 상품명).
+ * 지원: mat(재질=루트), spec[](규격 선택), shape[](형상/옵션 상품명), load[](하중 상품명),
+ *       instock(재고 있는 상품만: stock_qty > 0).
  * 상품 테이블 별칭은 p. 로 가정.
  */
 function product_filter_sql(array $f, array &$params): string
@@ -517,6 +522,10 @@ function product_filter_sql(array $f, array &$params): string
             }
             if ($or) { $c[] = '(' . implode(' OR ', $or) . ')'; }
         }
+    }
+    // 재고 있는 상품만: products.stock_qty > 0 (0·음수는 재고 없음)
+    if (!empty($f['instock'])) {
+        $c[] = 'p.stock_qty > 0';
     }
     return $c ? ' AND ' . implode(' AND ', $c) : '';
 }

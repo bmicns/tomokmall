@@ -15,7 +15,10 @@ $filters = [
     'spec'  => array_values(array_filter(array_map('strval', (array) ($_GET['spec'] ?? [])))),
     'shape' => array_values(array_filter(array_map('strval', (array) ($_GET['shape'] ?? [])))),
     'load'  => array_values(array_filter(array_map('strval', (array) ($_GET['load'] ?? [])))),
+    // 재고 있는 상품만 보기(stock_qty > 0). URL instock=1 일 때만 적용.
+    'instock' => isset($_GET['instock']) && $_GET['instock'] === '1',
 ];
+$inStock    = $filters['instock'];
 $sort       = (string) ($_GET['sort'] ?? '');
 $fparams    = [];
 $filterSql  = product_filter_sql($filters, $fparams);
@@ -262,7 +265,7 @@ render_header($pageTitle);
     <!-- ── 품목보기: 좌측 필터 + 목록 ──────────────────────── -->
     <div class="pt-layout<?= $showFilters ? '' : ' pt-nofilter' ?>">
     <?php if ($showFilters): ?>
-      <aside class="pt-filter"><?php render_product_filters($filters, $query, $categoryId, $sort, $facets); ?></aside>
+      <aside class="pt-filter"><?php render_product_filters($filters, $query, $categoryId, $sort, $facets, $inStock); ?></aside>
     <?php endif; ?>
     <div class="pt-list-main">
     <?php if ($didYouMean): ?>
@@ -281,7 +284,7 @@ render_header($pageTitle);
         <div class="pt-head-right">
             <?php if (!$demoMode && ($query || $categoryId)): ?>
             <form method="get" action="/products.php" class="pt-sort-form">
-                <?php foreach ($_GET as $k => $v): if ($k === 'sort' || $k === 'p') continue;
+                <?php foreach ($_GET as $k => $v): if ($k === 'sort' || $k === 'p' || $k === 'instock') continue;
                     if (is_array($v)) { foreach ($v as $vv): ?><input type="hidden" name="<?= e($k) ?>[]" value="<?= e((string) $vv) ?>"><?php endforeach; }
                     else { ?><input type="hidden" name="<?= e($k) ?>" value="<?= e((string) $v) ?>"><?php }
                 endforeach; ?>
@@ -292,10 +295,15 @@ render_header($pageTitle);
                     <option value="stock_desc" <?= $sort==='stock_desc'?'selected':'' ?>>재고많은순</option>
                     <option value="newest"     <?= $sort==='newest'?'selected':'' ?>>최신순</option>
                 </select>
+                <label class="pt-instock">
+                    <input type="checkbox" name="instock" value="1" <?= $inStock ? 'checked' : '' ?> onchange="this.form.submit()">
+                    <span>재고 있는 상품만 보기</span>
+                </label>
             </form>
             <?php endif; ?>
             <form class="pt-search-form" method="get" action="/products.php">
                 <?php if ($categoryId): ?><input type="hidden" name="category" value="<?= $categoryId ?>"><?php elseif ($query): ?><input type="hidden" name="q" value="<?= e($query) ?>"><?php endif; ?>
+                <?php if ($inStock): ?><input type="hidden" name="instock" value="1"><?php endif; ?>
                 <input type="text" name="s" value="<?= e($search) ?>" placeholder="목록검색">
                 <button type="submit">검색</button>
             </form>
@@ -305,12 +313,15 @@ render_header($pageTitle);
     <div class="pt-active-flt">
         <span class="pt-af-lbl">적용된 필터</span>
         <?php
+        // 칩: [라벨, 값, 해제 URL] — 해제 URL은 해당 값만 뺀 현재 조건(1페이지)
+        $chipOff = static fn(string $key, $val): string => product_list_url($_GET, [$key => array_values(array_diff($filters[$key], [$val]))]);
         $chips = [];
-        foreach ($filters['mat'] as $m)   { $chips[] = ['재질', [11=>'철근콘크리트',12=>'콘크리트',13=>'스틸',14=>'석재',15=>'PE/PVC',16=>'기타'][$m] ?? $m]; }
-        foreach ($filters['spec'] as $sv) { $chips[] = ['규격', $sv]; }
-        foreach ($filters['shape'] as $s) { $chips[] = ['형상', $s]; }
-        foreach ($filters['load'] as $s)  { $chips[] = ['하중', $s]; }
-        foreach ($chips as $c): ?><span class="pt-chip"><?= e($c[0]) ?>: <?= e((string) $c[1]) ?></span><?php endforeach; ?>
+        foreach ($filters['mat'] as $m)   { $chips[] = ['재질', [11=>'철근콘크리트',12=>'콘크리트',13=>'스틸',14=>'석재',15=>'PE/PVC',16=>'기타'][$m] ?? $m, $chipOff('mat', $m)]; }
+        foreach ($filters['spec'] as $sv) { $chips[] = ['규격', $sv, $chipOff('spec', $sv)]; }
+        foreach ($filters['shape'] as $s) { $chips[] = ['형상', $s, $chipOff('shape', $s)]; }
+        foreach ($filters['load'] as $s)  { $chips[] = ['하중', $s, $chipOff('load', $s)]; }
+        if ($inStock)                     { $chips[] = ['재고', '있는 상품만', product_list_url($_GET, ['instock' => null])]; }
+        foreach ($chips as $c): ?><a class="pt-chip" href="<?= e($c[2]) ?>" title="이 필터 해제" aria-label="<?= e($c[0]) ?>: <?= e((string) $c[1]) ?> 필터 해제"><?= e($c[0]) ?>: <?= e((string) $c[1]) ?> <span aria-hidden="true">✕</span></a><?php endforeach; ?>
         <a class="pt-chip-clear" href="<?= $query ? '/products.php?q='.urlencode($query) : '/products.php?category='.(int)$categoryId ?>">모두 지우기 ✕</a>
     </div>
     <?php endif; ?>
@@ -336,7 +347,13 @@ render_header($pageTitle);
     if (empty($tableRows)):
     ?>
         <div class="empty-state">
-            <?php if ($query): ?>
+            <?php if ($inStock && !$demoMode): ?>
+                <p class="empty-title">조건에 맞는 재고 있는 상품이 없습니다.</p>
+                <p class="empty-hint">'재고 있는 상품만 보기'를 해제하면 재고와 관계없이 전체 상품을 볼 수 있습니다.</p>
+                <div class="empty-suggest">
+                    <a class="empty-chip" href="<?= e(product_list_url($_GET, ['instock' => null])) ?>">전체 상품 보기</a>
+                </div>
+            <?php elseif ($query): ?>
                 <p class="empty-title">'<strong><?= e($query) ?></strong>'에 대한 검색 결과가 없습니다.</p>
                 <p class="empty-hint">검색어의 띄어쓰기를 확인하거나, 더 짧은 키워드로 검색해 보세요.</p>
                 <div class="empty-suggest">
@@ -428,8 +445,10 @@ render_header($pageTitle);
     // ── 검색 결과 페이지네이션 ──────────────────────────────
     if ($query && !$categoryId && $searchTotal > $perPage):
         $totalPages = (int) ceil($searchTotal / $perPage);
-        $qenc  = urlencode($correctedQ ?? $query);  // 교정 결과면 교정어로 페이지 이동
-        $mkUrl = fn(int $pg): string => "/products.php?q={$qenc}&p={$pg}";
+        // 검색어·정렬·사이드바 필터·재고 조건 등 현재 조건 유지. 교정 결과면 교정어로 페이지 이동
+        $pageGet = $_GET;
+        $pageGet['q'] = $correctedQ ?? $query;
+        $mkUrl = fn(int $pg): string => product_list_url($pageGet, ['p' => $pg]);
         $start = max(1, $page - 2);
         $end   = min($totalPages, $start + 4);
         $start = max(1, $end - 4);

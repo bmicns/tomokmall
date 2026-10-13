@@ -10,6 +10,7 @@ $_SERVER['HTTPS'] = $_SERVER['HTTPS'] ?? '';
 
 require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/ai_tools.php';
+require __DIR__ . '/../app/product_filter_renderer.php';
 
 $pass = 0; $fail = 0;
 function ok(string $name, bool $cond): void {
@@ -72,6 +73,28 @@ ok('26000kg→25톤+1톤',       (function(){ $t=freight_pick_trucks(26000); ret
 ok('서울내 0.8t 운임=6만원',  (function(){ $r=freight_estimate('서울','서울',800); return $r['ok'] && $r['total']===60000; })());
 ok('경기→부산 19t=58만원',    (function(){ $r=freight_estimate('경기','부산',19000); return $r['ok'] && $r['total']===580000; })());
 ok('중량0 운임 실패',         freight_estimate('서울','부산',0)['ok'] === false);
+
+echo "[재고 필터 product_filter_sql instock]\n";
+$fp = [];
+ok('instock=true → stock_qty > 0 조건', product_filter_sql(['instock' => true], $fp) === ' AND p.stock_qty > 0' && $fp === []);
+$fp = [];
+ok('instock=false → 조건 없음(전체)', product_filter_sql(['instock' => false], $fp) === '');
+$fp = [];
+ok('instock 미지정 → 기존과 동일(조건 없음)', product_filter_sql([], $fp) === '');
+$fp = [];
+$sql = product_filter_sql(['shape' => ['원형'], 'instock' => true], $fp);
+ok('형상+재고 동시 적용(AND)', $sql === ' AND (p.name LIKE :fsh0) AND p.stock_qty > 0' && $fp === [':fsh0' => '%원형%']);
+
+echo "[목록 URL product_list_url]\n";
+eq('재고 해제 시 instock 제거·페이지 초기화',
+    product_list_url(['q' => '수로관', 'instock' => '1', 'p' => '3', 'sort' => 'price_asc'], ['instock' => null]),
+    '/products.php?q=%EC%88%98%EB%A1%9C%EA%B4%80&sort=price_asc');
+eq('페이지 이동 시 검색·정렬·필터·재고 유지',
+    product_list_url(['q' => 'a', 'sort' => 'newest', 'shape' => ['원형'], 'instock' => '1', 'p' => '1'], ['p' => 2]),
+    '/products.php?q=a&sort=newest&shape%5B0%5D=%EC%9B%90%ED%98%95&instock=1&p=2');
+eq('칩 개별 해제(빈 배열 → 키 제거)',
+    product_list_url(['category' => '5', 'mat' => ['11']], ['mat' => []]),
+    '/products.php?category=5');
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

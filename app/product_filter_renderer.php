@@ -4,6 +4,7 @@ declare(strict_types=1);
  * 상품 목록 좌측 파라메트릭 필터 렌더러 (동적 파세트).
  *  - render_product_filters($active, $q, $categoryId, $sort, $facets)
  *  - product_filters_visible($facets, $active): 표시할 그룹/옵션만 계산(호출측 aside 노출 판단용)
+ *  - product_list_url($get, $set): 현재 목록 조건을 유지한 products.php URL(페이지·칩 해제용)
  *  현재 결과 집합에 실제 존재하는 옵션만 개수와 함께 노출한다.
  *  0건 옵션·단일값 수렴(비선택·옵션1개·전체차지) 그룹은 숨긴다 → 결과와 무관한 필터 노출 방지.
  */
@@ -64,7 +65,23 @@ function product_filters_visible(array $facets, array $active): array
     ];
 }
 
-function render_product_filters(array $a, ?string $q, ?int $categoryId, string $sort = '', ?array $facets = null): void
+/**
+ * 현재 목록 조건(GET 배열) → /products.php URL.
+ *  - 'p'(페이지)는 항상 제거 → 조건이 바뀌면 1페이지부터. 페이지 링크는 $set['p']로 다시 지정.
+ *  - $set: 덮어쓸 값. null 또는 빈 배열이면 해당 키 제거(예: ['instock' => null]).
+ * 출력 시 e()로 이스케이프할 것.
+ */
+function product_list_url(array $get, array $set = []): string
+{
+    unset($get['p']);
+    foreach ($set as $k => $v) {
+        if ($v === null || $v === []) { unset($get[$k]); } else { $get[$k] = $v; }
+    }
+    $qs = http_build_query($get, '', '&', PHP_QUERY_RFC3986);
+    return '/products.php' . ($qs !== '' ? '?' . $qs : '');
+}
+
+function render_product_filters(array $a, ?string $q, ?int $categoryId, string $sort = '', ?array $facets = null, bool $inStock = false): void
 {
     // 하위호환: 파세트 미제공 시 전체 옵션 노출(개수 없음)
     if ($facets === null) {
@@ -93,6 +110,7 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
           <input type="hidden" name="category" value="<?= (int) $categoryId ?>">
         <?php endif; ?>
         <?php if ($sort !== ''): ?><input type="hidden" name="sort" value="<?= e($sort) ?>"><?php endif; ?>
+        <?php if ($inStock): ?><input type="hidden" name="instock" value="1"><?php endif; ?>
 
         <div class="flt-top"><b>필터로 좁히기</b><a href="<?= e($base) ?>">초기화</a></div>
 
