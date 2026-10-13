@@ -165,6 +165,7 @@ function render_header(string $title, string $mode = 'normal'): void
         <nav class="header-nav">
             <?php if ($mode === 'chat') echo $megaTabsHtml; ?>
             <button class="btn-header-search btn-header-search--text" onclick="var w=document.getElementById('header-search-wrap');w.classList.toggle('open');if(w.classList.contains('open'))document.getElementById('header-search-input').focus();">검색</button>
+            <a href="/real-estate-safety.php" class="nav-link<?= $path === '/real-estate-safety.php' ? ' active' : '' ?>">부동산안전</a>
             <?php if (is_logged_in()): ?>
             <a href="/chat.php" class="btn-header-ai<?= $path === '/chat.php' ? ' active' : '' ?>">AI 상담</a>
             <a href="/estimate.php" class="btn-header-est<?= $path === '/estimate.php' ? ' active' : '' ?>">견적보기</a>

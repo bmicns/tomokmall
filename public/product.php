@@ -71,7 +71,12 @@ render_header($p['name']);
 /* 가격 */
 .pd-price-row{display:flex;align-items:baseline;gap:8px;margin-bottom:4px}
 .pd-price-label{font-size:15px;color:var(--color-text-secondary);font-weight:500;min-width:40px}
-.pd-price-val{font-size:40px;font-weight:400;color:var(--color-text-primary);letter-spacing:-1px;line-height:1}
+.pd-price-val{font-size:28px;font-weight:600;color:var(--color-text-primary);letter-spacing:-0.5px;line-height:1.2}
+/* 어드민/내부(등급별 4줄)는 라벨·금액 모두 작게 + 볼드 제거 */
+.pd-price-grade{display:flex;flex-direction:column;gap:2px}
+.pd-price-grade .pd-price-label{font-size:13px;font-weight:400}
+.pd-price-grade .pd-price-val{font-size:16px;font-weight:400;letter-spacing:0}
+.pd-price-grade .pd-price-sale,.pd-price-grade .pd-price-cost{font-weight:400}
 .pd-price-unit{font-size:15px;color:var(--color-text-secondary)}
 /* 스펙 */
 .pd-spec-rows{display:flex;flex-direction:column;gap:0}
@@ -132,6 +137,8 @@ render_header($p['name']);
   .pd-img-area{min-height:280px;padding:20px}
   .pd-img-area img{max-height:260px}
   .pd-info-area{border-left:none;border-top:1px solid var(--color-border)}
+  .pd-price-val{font-size:24px}
+  .pd-price-grade .pd-price-val{font-size:15px}
   .gallery-layout{grid-template-columns:1fr}
   .gallery-thumbs{flex-direction:row;flex-wrap:wrap}
 }
@@ -197,10 +204,12 @@ render_header($p['name']);
             <?php if ($tier === 'internal'):
                 $mk = static fn(int $pr): string => ($r = markup_rate($pr, (int) $pb['cost'])) === null ? '' : ' <span class="pd-price-margin">매입가 대비 ' . ($r >= 0 ? '+' : '') . $r . '%</span>';
             ?>
+                <div class="pd-price-grade">
                 <div class="pd-price-row"><span class="pd-price-label">판매가</span><span class="pd-price-val"><?= number_format($pb['list']) ?></span><span class="pd-price-unit">원<?= $unit ?> <small>(부가세별도)</small></span><?= $mk($pb['list']) ?></div>
                 <div class="pd-price-row"><span class="pd-price-label">개인할인가<?= $pb['rate'] > 0 ? ' ('.$pb['rate'].'%)' : '' ?></span><span class="pd-price-val pd-price-sale"><?= number_format($pb['customer']) ?></span><span class="pd-price-unit">원<?= $unit ?></span><?= $mk($pb['customer']) ?></div>
                 <div class="pd-price-row"><span class="pd-price-label">기업할인가</span><span class="pd-price-val pd-price-sale"><?= number_format($pb['corporate']) ?></span><span class="pd-price-unit">원<?= $unit ?></span><?= $mk($pb['corporate']) ?></div>
                 <div class="pd-price-row pd-price-internal"><span class="pd-price-label">매입가</span><span class="pd-price-val pd-price-cost"><?= number_format($pb['cost']) ?></span><span class="pd-price-unit">원<?= $unit ?> <small>내부용</small></span></div>
+                </div>
             <?php elseif ($tier === 'customer' && $pb['has_customer_discount']): ?>
                 <div class="pd-price-row"><span class="pd-price-label">판매가</span><del class="pd-price-was"><?= number_format($pb['list']) ?>원</del></div>
                 <div class="pd-price-row"><span class="pd-price-label">회원할인가</span><span class="pd-price-val pd-price-sale"><?= number_format($pb['customer']) ?></span><span class="pd-price-unit">원<?= $unit ?> <small>(부가세별도)</small></span></div>
