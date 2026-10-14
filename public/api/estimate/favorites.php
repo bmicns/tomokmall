@@ -40,8 +40,10 @@ if (!$pdo) {
 
 // ── GET — 단골품목 목록 조회 ─────────────────────────────────────────────────
 if ($method === 'GET') {
+    // 마이페이지 목록 표시용 image_url·업체명 추가(기존 필드는 그대로 — 즉시견적 호출자 호환)
     $stmt = $pdo->prepare(
-        'SELECT f.id, f.product_id, p.name, p.spec, p.price_b2c, p.price_b2b, p.cost_price, p.category_id, f.quantity
+        'SELECT f.id, f.product_id, p.name, p.spec, p.price_b2c, p.price_b2b, p.cost_price, p.category_id, f.quantity,
+                p.image_url, ' . vendor_names_subquery() . ' AS vendor_names
          FROM favorite_products f
          JOIN products p ON p.id = f.product_id AND p.is_active = 1
          WHERE f.user_id = :uid
@@ -62,6 +64,10 @@ if ($method === 'GET') {
             'spec'       =>         $row['spec'],
             'price_b2b'  => $price,
             'quantity'   => (int)   $row['quantity'],
+            'image_url'  => (string) ($row['image_url'] ?? ''),
+            'vendors'    => array_values(array_filter(array_map('trim', explode('|', (string) ($row['vendor_names'] ?? ''))), 'strlen')),
+            // 규격 치수 표시: 숫자 사이 곱셈 기호만 × 로 통일(400*400*2000 → 400×400×2000)
+            'size'       => (string) preg_replace('/(?<=\d)\s*[*xX]\s*(?=\d)/u', '×', parse_spec_field((string) $row['spec'])['spec']),
         ];
     }, $rows);
 

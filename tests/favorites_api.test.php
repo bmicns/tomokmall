@@ -51,6 +51,7 @@ function cleanup_fav_mock(PDO $pdo): void
     $pdo->exec("DELETE FROM users WHERE email LIKE '%@mock.test'");
     $pdo->exec("DELETE FROM products WHERE external_source = 'MOCK' AND external_id LIKE 'fav-%'");
     $pdo->exec("DELETE FROM categories WHERE id = 9201 AND slug = 'mock-fav'");
+    if (vendors_available()) { $pdo->exec("DELETE FROM vendors WHERE name LIKE '[MOCK] 관심상품업체%'"); }
 }
 
 $pdo = db();
@@ -67,6 +68,16 @@ for ($n = 1; $n <= 55; $n++) {
 }
 $ip->execute(['[MOCK] 관심상품테스트 판매중지', 9000, 8000, 0, 'fav-inactive']);
 $inactiveId = (int) $pdo->lastInsertId();
+// 마이페이지 표시용: 1호에 업체 2곳(A 주거래), 2호에 이미지
+$pdo->prepare("UPDATE products SET image_url = '/assets/images/products-prod.png' WHERE id = ?")->execute([$pids[2]]);
+if (vendors_available()) {
+    $iv = $pdo->prepare('INSERT INTO vendors (name, is_active) VALUES (?, 1)');
+    $ipv = $pdo->prepare('INSERT INTO product_vendors (product_id, vendor_id, is_primary) VALUES (?, ?, ?)');
+    foreach (['[MOCK] 관심상품업체A' => 1, '[MOCK] 관심상품업체B' => 0] as $vn => $prim) {
+        $iv->execute([$vn]);
+        $ipv->execute([$pids[1], (int) $pdo->lastInsertId(), $prim]);
+    }
+}
 
 $iu = $pdo->prepare('INSERT INTO users (role, name, email, password_hash, is_active) VALUES (?, ?, ?, ?, 1)');
 $uids = [];
@@ -136,6 +147,9 @@ ok('조회: 본인 3개', $st === 200 && $favIds($d) === [$pids[2], $pids[3], $p
 $row = $d['favorites'][0] ?? [];
 ok('개인회원 조회 가격: 기업가(price_b2b) 노출 안 함 → 개인 단가(매입가 미설정이면 정가)', ($row['price_b2b'] ?? null) === 20000 + 2);
 ok('기본 수량 1로 저장', ($row['quantity'] ?? null) === 1);
+ok('목록 표시 필드: 이미지·규격(× 표기)·업체 배열', ($row['image_url'] ?? null) === '/assets/images/products-prod.png'
+    && ($row['size'] ?? null) === '400×400×2000' && ($row['vendors'] ?? null) === []
+    && array_key_exists('spec', $row) && array_key_exists('price_b2b', $row));
 [$st, $d] = http('DELETE', $api, ['product_id' => $pids[3]], $jCust);
 ok('삭제 → ok', $st === 200 && ($d['ok'] ?? false));
 [, $d] = http('GET', $api, null, $jCust);
@@ -155,6 +169,8 @@ ok('기존 등록(수량 7) 상품 + 신규 → already/added', $st === 200 && $
 $q1 = 0; foreach ($d['favorites'] as $f) { if ($f['product_id'] === $pids[1]) { $q1 = $f['quantity']; $p1 = $f['price_b2b']; } }
 ok('기존 수량 7 유지(다중 추가가 덮어쓰지 않음)', $q1 === 7);
 ok('기업회원 조회 가격: 기존대로 price_b2b', ($p1 ?? null) === 15000 + 1);
+$v1 = []; foreach ($d['favorites'] as $f) { if ($f['product_id'] === $pids[1]) { $v1 = $f['vendors']; } }
+ok('업체명: 주거래 업체 먼저(' . implode(', ', $v1) . ')', !vendors_available() || $v1 === ['[MOCK] 관심상품업체A', '[MOCK] 관심상품업체B']);
 [$st, $d] = http('POST', $api, ['product_id' => $pids[7], 'quantity' => 3], $jCorp);
 ok('기존 단건 POST 형식 호환 → 201 favorite_id', $st === 201 && ($d['ok'] ?? false) && ($d['favorite_id'] ?? 0) > 0);
 [$st] = http('DELETE', $api, ['product_id' => $pids[7]], $jCorp);
@@ -208,6 +224,9 @@ echo "[마이페이지·상품 목록 화면]\n";
 ok('개인회원 마이페이지: 기업회원 전용 안내 없음 + 목록 영역 있음', $st === 200
     && strpos($html, '기업회원에게 제공되는 기능입니다') === false && strpos($html, 'id="fav-list-wrap"') !== false);
 ok('개인회원 마이페이지: 즉시견적(기업 전용) 링크 없음', strpos($html, 'btn-to-quick') === false);
+ok('마이페이지: 카테고리 탭 4개(아이콘·role=tab) + 자주찾는 품목 활성 + 관심상품 총 개수 영역',
+    substr_count($html, 'role="tab"') === 4 && strpos($html, 'mp-tab-favorites active') !== false
+    && substr_count($html, 'class="mp-tab-ico"') === 4 && strpos($html, 'id="fav-total"') !== false);
 [, , $html] = http('GET', "{$base}/mypage.php?tab=favorites", null, $jCorp);
 ok('기업회원 마이페이지: 목록 + 즉시견적 링크 유지', strpos($html, 'id="fav-list-wrap"') !== false && strpos($html, 'btn-to-quick') !== false);
 [, , $html] = http('GET', "{$base}/estimate-quick.php", null, $jCust);

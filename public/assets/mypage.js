@@ -4,8 +4,11 @@
 function switchTab(tab) {
     document.querySelectorAll('.mp-tab-content').forEach(function(el){ el.style.display='none'; });
     document.getElementById('tab-'+tab).style.display='';
-    document.querySelectorAll('.mp-tab').forEach(function(b){ b.classList.remove('active'); });
-    event.target.classList.add('active');
+    document.querySelectorAll('.mp-tab').forEach(function(b){ b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+    // 탭 안 아이콘(svg)·라벨을 눌러도 버튼 기준으로 활성화
+    var btn = event.target.closest ? event.target.closest('.mp-tab') : event.target;
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected','true');
     if (tab==='favorites') loadFavorites();
     if (tab==='sites') loadSites();
 }
@@ -79,15 +82,32 @@ async function loadFavorites() {
     try {
         const r = await fetch('/api/estimate/favorites.php');
         const d = await r.json();
-        if (!d.ok || !d.favorites.length) { wrap.innerHTML='<div class="mp-empty">등록된 자주찾는 품목이 없습니다.</div>'; return; }
+        if (!d.ok || !d.favorites.length) { setFavTotal(0); wrap.innerHTML='<div class="mp-empty">등록된 자주찾는 품목이 없습니다.</div>'; return; }
+        setFavTotal(d.favorites.length);
         wrap.innerHTML = '<div class="fav-list">' + d.favorites.map(function(f){
+            var url = '/product.php?id='+f.product_id;
+            var vendors = f.vendors || [];
+            var vendor = vendors.length ? esc(vendors[0]) + (vendors.length > 1 ? ' <span class="fav-more">외 '+(vendors.length-1)+'</span>' : '') : '-';
+            var thumb = f.image_url
+                ? '<img src="'+escAttr(f.image_url)+'" alt="" loading="lazy">'
+                : '<span class="fav-noimg">'+esc(String(f.name||'').slice(0,2))+'</span>';
             return '<div class="fav-card" id="fav-'+f.id+'">'
-                +'<div class="fav-info"><div class="fav-name">'+esc(f.name)+'</div><div class="fav-spec">'+esc(f.spec||'')+'</div></div>'
-                +'<div class="fav-price">'+(f.price_b2b>0?f.price_b2b.toLocaleString()+'원':'문의')+'</div>'
-                +'<button class="fav-del" onclick="delFav('+f.product_id+','+f.id+')" title="삭제">×</button>'
+                +'<button type="button" class="fav-del" onclick="delFav('+f.product_id+','+f.id+')" title="삭제" aria-label="'+escAttr(f.name)+' 관심상품 삭제">'
+                +'<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>'
+                +'<div class="fav-thumb">'+thumb+'</div>'
+                +'<div class="fav-name">'+esc(f.name)+'</div>'
+                +'<div class="fav-cell fav-vendor"><span class="fav-val">'+vendor+'</span><span class="fav-lbl">업체</span></div>'
+                +'<div class="fav-cell fav-size"><span class="fav-val">'+(f.size?esc(f.size):'-')+'</span><span class="fav-lbl">규격</span></div>'
+                +'<div class="fav-cell fav-price"><span class="fav-val">'+(f.price_b2b>0?f.price_b2b.toLocaleString()+'원':'문의')+'</span><span class="fav-lbl">판매가</span></div>'
+                +'<a class="fav-view" href="'+url+'">상품보기</a>'
                 +'</div>';
         }).join('') + '</div>';
     } catch { wrap.innerHTML='<div class="mp-empty">불러오기에 실패했습니다.</div>'; }
+}
+
+function setFavTotal(n) {
+    var el = document.getElementById('fav-total');
+    if (el) el.textContent = n;
 }
 
 async function delFav(pid, fid) {
@@ -95,6 +115,9 @@ async function delFav(pid, fid) {
         await fetch('/api/estimate/favorites.php',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:pid})});
         const el = document.getElementById('fav-'+fid);
         if (el) el.remove();
+        const left = document.querySelectorAll('#fav-list-wrap .fav-card').length;
+        setFavTotal(left);
+        if (!left) document.getElementById('fav-list-wrap').innerHTML='<div class="mp-empty">등록된 자주찾는 품목이 없습니다.</div>';
     } catch {}
 }
 
@@ -286,6 +309,7 @@ async function reorder(estimateId) {
 // ── 공통 유틸 ─────────────────────────────────────────────
 function showMsg(el,type,msg){ el.className='info-msg '+type; el.textContent=msg; el.style.display='block'; }
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escAttr(s){ return esc(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 // ── 초기 탭 로드 ──────────────────────────────────────────
 if (MP_INIT.activeTab === 'favorites') loadFavorites();

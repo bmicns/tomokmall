@@ -46,11 +46,19 @@ render_header('마이페이지');
         </div>
     </div>
 
-    <div class="mp-tabs">
-        <button class="mp-tab <?= $activeTab==='info'?'active':'' ?>" onclick="switchTab('info')">정보수정</button>
-        <button class="mp-tab <?= $activeTab==='orders'?'active':'' ?>" onclick="switchTab('orders')">이전주문</button>
-        <button class="mp-tab <?= $activeTab==='favorites'?'active':'' ?>" onclick="switchTab('favorites')">자주찾는 품목</button>
-        <button class="mp-tab <?= $activeTab==='sites'?'active':'' ?>" onclick="switchTab('sites')">현장관리</button>
+    <?php
+    // 카테고리 탭: [키, 라벨, 아이콘(SVG path)] — 아이콘은 장식(aria-hidden), 활성 탭은 aria-selected
+    $mpTabs = [
+        ['info',      '정보수정',      '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'],
+        ['orders',    '이전주문',      '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><polyline points="14 3 14 8 19 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>'],
+        ['favorites', '자주찾는 품목', '<polygon points="12 2.5 15 8.6 21.7 9.6 16.9 14.3 18 21 12 17.8 6 21 7.1 14.3 2.3 9.6 9 8.6 12 2.5"/>'],
+        ['sites',     '현장관리',      '<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>'],
+    ];
+    ?>
+    <div class="mp-tabs" role="tablist">
+        <?php foreach ($mpTabs as [$tk, $tl, $ti]): $on = $activeTab === $tk; ?>
+        <button type="button" role="tab" aria-selected="<?= $on ? 'true' : 'false' ?>" class="mp-tab mp-tab-<?= $tk ?> <?= $on ? 'active' : '' ?>" onclick="switchTab('<?= $tk ?>')"><svg class="mp-tab-ico" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><?= $ti ?></svg><span><?= $tl ?></span></button>
+        <?php endforeach; ?>
     </div>
 
     <!-- ① 정보수정 -->
@@ -185,6 +193,10 @@ render_header('마이페이지');
     <!-- ③ 자주찾는 품목 -->
     <div id="tab-favorites" class="mp-tab-content" style="<?= $activeTab!=='favorites'?'display:none':'' ?>">
         <?php // 관심상품: 로그인 회원 공통(개인·기업). 즉시견적은 기업회원 전용 기능이라 링크만 기업회원에게 노출 ?>
+        <div class="fav-head">
+            <h2 class="fav-title">관심상품</h2>
+            <span class="fav-total">총 <strong id="fav-total">0</strong>개</span>
+        </div>
         <div id="fav-list-wrap"><div class="mp-empty">불러오는 중...</div></div>
         <?php if ($isCorp): ?>
         <a href="/estimate-quick.php" class="btn-to-quick">즉시견적 바로가기 →</a>
