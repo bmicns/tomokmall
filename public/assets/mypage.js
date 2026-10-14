@@ -288,5 +288,5 @@ function showMsg(el,type,msg){ el.className='info-msg '+type; el.textContent=msg
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 // ── 초기 탭 로드 ──────────────────────────────────────────
-if (MP_INIT.activeTab === 'favorites' && MP_INIT.isCorp) loadFavorites();
+if (MP_INIT.activeTab === 'favorites') loadFavorites();
 if (MP_INIT.activeTab === 'sites') loadSites();

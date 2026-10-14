@@ -1637,3 +1637,51 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .pt-chip{height:30px;font-size:11.5px}
   .pt-chip-x{width:28px;height:28px}
 }
+
+/* 상품 목록 관심상품 다중 추가(선택 모드)
+   기본: 툴바에 '관심품목 추가하기'만, 체크박스 열 숨김(기존 테이블 그대로).
+   선택 모드(.pt-list-main.pt-fav-mode): 맨 왼쪽 체크박스 열 + 'N개 선택됨' + 추가하기 완료/취소 */
+.pt-fav-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+/* 관심품목 버튼이 있는 툴바는 목록 폭을 넘지 않고 줄바꿈되게(사이드바가 있는 761~800px 태블릿 폭 가로 넘침 방지) */
+.pt-head-right.has-fav{max-width:100%;justify-content:flex-end}
+.pt-fav-bar [hidden]{display:none !important}
+.pt-fav-btn{display:inline-flex;align-items:center;justify-content:center;min-height:32px;padding:6px 14px;border-radius:4px;font-size:12.5px;font-weight:600;font-family:var(--font);line-height:1.2;white-space:nowrap;cursor:pointer}
+.pt-fav-start{background:#fff;color:var(--color-primary);border:1px solid var(--color-primary)}
+.pt-fav-start:hover{background:#EEF3FA}
+.pt-fav-done{background:var(--color-primary);color:#fff;border:1px solid var(--color-primary)}
+.pt-fav-done:hover:not(:disabled){background:var(--color-primary-hover);border-color:var(--color-primary-hover)}
+.pt-fav-done:disabled{background:#B9C9DD;border-color:#B9C9DD;cursor:not-allowed}
+.pt-fav-cancel{background:#fff;color:var(--color-text-primary);border:1px solid var(--color-border)}
+.pt-fav-cancel:hover:not(:disabled){background:var(--color-surface)}
+.pt-fav-cancel:disabled{color:var(--color-text-disabled);cursor:not-allowed}
+.pt-fav-count{font-size:13px;font-weight:700;color:var(--color-primary);white-space:nowrap}
+.pt-fav-all-m{display:none;align-items:center;gap:6px;min-height:44px;padding:0 4px;font-size:13px;color:var(--color-text-primary);cursor:pointer;white-space:nowrap}
+
+/* 체크박스: 모서리가 살짝 둥근 사각형. 미선택=흰 배경+회색 테두리, 선택=파란 배경+흰 체크. 라벨 44px 터치 영역 */
+.product-table .pt-col-check{display:none;width:44px;padding:0}
+.pt-fav-mode .product-table .pt-col-check{display:table-cell}
+.pt-chk{display:flex;align-items:center;justify-content:center;width:44px;height:44px;margin:0 auto;cursor:pointer}
+.pt-chk input, .pt-fav-all-m input{-webkit-appearance:none;appearance:none;flex:none;width:20px;height:20px;margin:0;border:1px solid #C4C4C4;border-radius:4px;background:#fff center/14px 14px no-repeat;cursor:pointer;transition:background-color .12s,border-color .12s}
+.pt-chk input:checked, .pt-fav-all-m input:checked{background-color:var(--color-primary);border-color:var(--color-primary);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E")}
+.pt-chk input:indeterminate, .pt-fav-all-m input:indeterminate{background-color:var(--color-primary);border-color:var(--color-primary);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round'%3E%3Cline x1='6' y1='12' x2='18' y2='12'/%3E%3C/svg%3E")}
+.pt-fav-mode .product-table tr.is-checked td{background:#F3F7FC}
+
+/* 저장 결과 안내(레이아웃에 영향 없도록 화면 하단 고정) */
+.pt-fav-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:900;max-width:calc(100% - 32px);padding:12px 18px;border-radius:8px;background:#222;color:#fff;font-size:13.5px;line-height:1.5;box-shadow:0 6px 20px rgba(0,0,0,.18)}
+.pt-fav-toast.is-error{background:var(--color-danger)}
+.pt-fav-toast a{color:#fff;font-weight:700;text-decoration:underline;white-space:nowrap}
+
+@media (max-width: 640px) {
+  .pt-head-right.has-fav{justify-content:flex-start}   /* 모바일 정렬·목록검색 배치는 기존 그대로 */
+  .pt-fav-bar{flex:1 1 100%}
+  .pt-fav-btn{min-height:44px;font-size:13px}
+  /* 선택 모드: [N개 선택됨 | 전체선택] / [추가하기 완료 | 취소] 2줄 */
+  .pt-fav-mode .pt-fav-bar{display:grid;grid-template-columns:1fr 1fr;gap:6px 8px}
+  .pt-fav-mode .pt-fav-all-m{display:inline-flex;justify-self:end}
+  /* 카드형 목록: 체크박스를 카드 오른쪽 위에, 내용이 겹치지 않게 오른쪽 여백 확보 */
+  .pt-fav-mode .product-table td.pt-col-check{display:block;position:absolute;right:2px;top:2px;width:44px;padding:0}
+  .pt-fav-mode .product-table tr.pt-prod-row{padding-right:48px}
+  .pt-fav-mode .product-table tr.is-checked{border-color:var(--color-primary)}
+  .pt-fav-mode .product-table tr.is-checked td{background:transparent}
+  .pt-fav-mode .product-table tr.is-checked{background:#F3F7FC}
+}

@@ -184,11 +184,10 @@ render_header('마이페이지');
 
     <!-- ③ 자주찾는 품목 -->
     <div id="tab-favorites" class="mp-tab-content" style="<?= $activeTab!=='favorites'?'display:none':'' ?>">
-        <?php if ($isCorp): ?>
+        <?php // 관심상품: 로그인 회원 공통(개인·기업). 즉시견적은 기업회원 전용 기능이라 링크만 기업회원에게 노출 ?>
         <div id="fav-list-wrap"><div class="mp-empty">불러오는 중...</div></div>
+        <?php if ($isCorp): ?>
         <a href="/estimate-quick.php" class="btn-to-quick">즉시견적 바로가기 →</a>
-        <?php else: ?>
-        <div class="mp-empty">기업회원에게 제공되는 기능입니다.</div>
         <?php endif; ?>
     </div>
 </div>

@@ -160,6 +160,9 @@ $demoProducts  = $demo['products'];
 $demoSimilar   = $demo['similar'];
 $demoNextSteps = $demo['nextSteps'];
 
+// 관심상품 다중 추가(선택 모드): 실제 DB 상품이 표시될 때만. 저장은 /api/estimate/favorites.php(로그인 회원 공통)
+$favEnabled = !$demoMode && !empty($products);
+
 render_header($pageTitle);
 ?>
 <div class="content-wrap">
@@ -296,7 +299,16 @@ render_header($pageTitle);
                 <?php endif; ?>
             </h3>
         </div>
-        <div class="pt-head-right">
+        <div class="pt-head-right<?= $favEnabled ? ' has-fav' : '' ?>">
+            <?php if ($favEnabled): ?>
+            <div class="pt-fav-bar" id="pt-fav-bar" data-logged-in="<?= $loggedIn ? '1' : '0' ?>">
+                <button type="button" class="pt-fav-btn pt-fav-start" id="pt-fav-start">관심품목 추가하기</button>
+                <span class="pt-fav-count" id="pt-fav-count" aria-live="polite" hidden>0개 선택됨</span>
+                <label class="pt-fav-all-m"><input type="checkbox" class="pt-fav-all" autocomplete="off">전체선택</label>
+                <button type="button" class="pt-fav-btn pt-fav-done" id="pt-fav-done" hidden disabled>추가하기 완료</button>
+                <button type="button" class="pt-fav-btn pt-fav-cancel" id="pt-fav-cancel" hidden>취소</button>
+            </div>
+            <?php endif; ?>
             <?php if (!$demoMode && ($query || $categoryId)): ?>
             <form method="get" action="/products.php" class="pt-sort-form">
                 <?php foreach ($_GET as $k => $v): if ($k === 'sort' || $k === 'p') continue;
@@ -374,6 +386,7 @@ render_header($pageTitle);
         <table class="product-table">
             <thead>
                 <tr>
+                    <?php if ($favEnabled): ?><th class="pt-col-check"><label class="pt-chk"><input type="checkbox" class="pt-fav-all" aria-label="현재 페이지 상품 전체 선택" autocomplete="off"></label></th><?php endif; ?>
                     <th class="pt-col-photo">사진</th>
                     <th class="pt-col-name">품명<span>직생제외</span></th>
                     <th class="pt-col-vendor">업체</th>
@@ -423,7 +436,8 @@ render_header($pageTitle);
                 <?php else: ?>
                     <?php foreach ($products as $i => $p): ?>
                     <?php $sp = $parsedSpecs[$i]; ?>
-                    <tr class="pt-prod-row" onclick="location.href='/product.php?id=<?= (int)$p['id'] ?>'" style="cursor:pointer">
+                    <tr class="pt-prod-row" onclick="if (!(window.ptFavRowClick && ptFavRowClick(event, this))) location.href='/product.php?id=<?= (int)$p['id'] ?>'" style="cursor:pointer">
+                        <?php if ($favEnabled): ?><td class="pt-col-check"><label class="pt-chk"><input type="checkbox" class="pt-fav-chk" value="<?= (int)$p['id'] ?>" aria-label="<?= e($p['name']) ?> 선택" autocomplete="off"></label></td><?php endif; ?>
                         <td class="pt-col-photo">
                             <?php if (!empty($p['image_url'])): ?>
                                 <img src="<?= e($p['image_url']) ?>" alt="<?= e($p['name']) ?>">
@@ -487,6 +501,10 @@ render_header($pageTitle);
         <p id="gallery-modal-cap" class="gallery-modal-cap"></p>
     </div>
 </div>
+<?php if ($favEnabled): ?>
+<div class="pt-fav-toast" id="pt-fav-toast" role="status" aria-live="polite" hidden></div>
+<script src="/assets/product-fav.js?v=<?= is_file(__DIR__ . '/assets/product-fav.js') ? filemtime(__DIR__ . '/assets/product-fav.js') : 1 ?>" defer></script>
+<?php endif; ?>
 <script>
 // 적용된 필터 칩: 넘치면 양끝 페이드로 스크롤 가능 표시 + 세로 휠을 가로 스크롤로
 (function () {

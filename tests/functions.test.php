@@ -11,6 +11,7 @@ $_SERVER['HTTPS'] = $_SERVER['HTTPS'] ?? '';
 require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/ai_tools.php';
 require __DIR__ . '/../app/product_filter_renderer.php';
+require __DIR__ . '/../app/favorites.php';
 
 $pass = 0; $fail = 0;
 function ok(string $name, bool $cond): void {
@@ -117,6 +118,25 @@ ok('적용 상태: 체크됨 + hidden instock 중복 없음',
     preg_match('/name="instock" value="1"\s+checked/', $html2) === 1 && substr_count($html2, 'name="instock"') === 1);
 $html3 = $renderFlt(['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 0], false);
 ok('파세트 없어도 재고 섹션 표시(구분선 없음)', strpos($html3, '<b>재고</b>') !== false && strpos($html3, 'flt-div') === false);
+
+echo "[관심상품 다중 추가 favorite_parse_ids / favorite_bulk_plan]\n";
+eq('정수·숫자문자열 허용, 중복 제거(순서 유지)', favorite_parse_ids([3, '5', 3, 7]), [3, 5, 7]);
+ok('빈 배열 거부', favorite_parse_ids([]) === null);
+ok('배열 아님 거부', favorite_parse_ids('1,2') === null && favorite_parse_ids(null) === null);
+ok('0·음수·소수·문자 거부', favorite_parse_ids([1, 0]) === null && favorite_parse_ids([-2]) === null
+    && favorite_parse_ids([1.5]) === null && favorite_parse_ids(['1a']) === null && favorite_parse_ids(['01']) === null);
+ok('1회 최대 개수 초과 거부', favorite_parse_ids(range(1, FAVORITES_BULK_MAX + 1)) === null
+    && count(favorite_parse_ids(range(1, FAVORITES_BULK_MAX)) ?? []) === FAVORITES_BULK_MAX);
+$pl = favorite_bulk_plan([1, 2, 3, 4], [1, 2, 3], [2], 10);
+eq('신규만 추가, 기존은 already(유지), 판매중 아님은 invalid', $pl,
+    ['add' => [1, 3], 'already' => [2], 'failed' => [['product_id' => 4, 'reason' => 'invalid']]]);
+$pl = favorite_bulk_plan([1, 2, 3], [1, 2, 3], [], FAVORITES_MAX - 1);
+ok('한도 50: 남은 1개만 추가, 나머지 limit', $pl['add'] === [1]
+    && array_column($pl['failed'], 'reason') === ['limit', 'limit']);
+$pl = favorite_bulk_plan([5, 6], [5, 6], [5], FAVORITES_MAX);
+ok('한도 도달 상태: 이미 등록된 상품은 already(실패 아님)', $pl['already'] === [5] && $pl['add'] === []
+    && $pl['failed'] === [['product_id' => 6, 'reason' => 'limit']]);
+ok('최대 개수 상수 50 유지', FAVORITES_MAX === 50);
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);
