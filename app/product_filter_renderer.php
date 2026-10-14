@@ -148,24 +148,21 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
           <label class="fopt"><input type="checkbox" name="instock" value="1" <?= $inStock ? 'checked' : '' ?>><span class="fopt-lbl">재고 있는 상품만 보기</span></label>
         </div>
 
-        <p class="flt-pending" role="status" hidden>변경한 조건은 '필터 적용'을 눌러야 반영됩니다.</p>
         <button type="submit" class="flt-apply">필터 적용</button>
       </form>
     </details>
     <script>
-    // 선택 중(미적용) 상태 표시: 체크 상태가 적용된 상태(checked 속성)와 다르면 안내 + 버튼 강조. 제출은 버튼으로만.
+    // 선택 중(미적용) 상태 표시: 체크 상태가 적용된 상태(checked 속성)와 다르면 버튼 강조. 제출은 버튼으로만.
     (function () {
         var form = document.querySelector('form.flt-body');
         if (!form) { return; }
         var boxes = form.querySelectorAll('input[type="checkbox"]');
-        var hint  = form.querySelector('.flt-pending');
         var btn   = form.querySelector('.flt-apply');
         function sync() {
             var dirty = false;
             for (var i = 0; i < boxes.length; i++) {
                 if (boxes[i].checked !== boxes[i].defaultChecked) { dirty = true; break; }
             }
-            hint.hidden = !dirty;
             btn.classList.toggle('is-dirty', dirty);
         }
         form.addEventListener('change', sync);

@@ -288,21 +288,13 @@ render_header($pageTitle);
     }
     ?>
     <div class="pt-table-header">
-        <div class="pt-head-left<?= $chips ? ' has-chips' : '' ?>">
+        <div class="pt-head-left">
             <h3 class="pt-table-title">
                 품목보기
                 <?php if (!$demoMode && ($query || $categoryId)): ?>
                     <span class="pt-search-count"><?php $shownQ = $correctedQ ?? $query; if ($shownQ): ?>'<?= e($shownQ) ?>' <?php endif; ?>검색결과 <strong><?= number_format($searchTotal) ?></strong>개</span>
                 <?php endif; ?>
             </h3>
-            <?php if ($chips): ?>
-            <div class="pt-active-flt">
-                <span class="pt-af-lbl" id="pt-af-lbl">적용된 필터</span>
-                <div class="pt-chips" role="list" aria-labelledby="pt-af-lbl" tabindex="0">
-                    <?php foreach ($chips as $c): ?><span class="pt-chip" role="listitem"><span class="pt-chip-txt"><?= e($c[0]) ?>: <?= e((string) $c[1]) ?></span><a class="pt-chip-x" href="<?= e($c[2]) ?>" title="이 필터 해제" aria-label="<?= e($c[0]) ?>: <?= e((string) $c[1]) ?> 필터 해제">×</a></span><?php endforeach; ?>
-                </div>
-            </div>
-            <?php endif; ?>
         </div>
         <div class="pt-head-right">
             <?php if (!$demoMode && ($query || $categoryId)): ?>
@@ -327,6 +319,14 @@ render_header($pageTitle);
                 <button type="submit">검색</button>
             </form>
         </div>
+    </div>
+    <?php // 적용된 필터 칩 영역: 칩 유무와 관계없이 항상 같은 높이로 렌더 → 테이블 시작 위치 고정. 넘치면 이 영역만 가로 스크롤. ?>
+    <div class="pt-active-flt">
+        <?php if ($chips): ?>
+        <div class="pt-chips" role="list" aria-label="적용된 필터" tabindex="0">
+            <?php foreach ($chips as $c): ?><span class="pt-chip" role="listitem"><span class="pt-chip-txt"><?= e($c[0]) ?>: <?= e((string) $c[1]) ?></span><a class="pt-chip-x" href="<?= e($c[2]) ?>" title="이 필터 해제" aria-label="<?= e($c[0]) ?>: <?= e((string) $c[1]) ?> 필터 해제">×</a></span><?php endforeach; ?>
+        </div>
+        <?php endif; ?>
     </div>
     <!-- ── 상품 테이블 ──────────────────────────────────────── -->
     <?php
