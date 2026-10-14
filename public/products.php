@@ -326,6 +326,8 @@ render_header($pageTitle);
         <div class="pt-chips" role="list" aria-label="적용된 필터" tabindex="0">
             <?php foreach ($chips as $c): ?><span class="pt-chip" role="listitem"><span class="pt-chip-txt"><?= e($c[0]) ?>: <?= e((string) $c[1]) ?></span><a class="pt-chip-x" href="<?= e($c[2]) ?>" title="이 필터 해제" aria-label="<?= e($c[0]) ?>: <?= e((string) $c[1]) ?> 필터 해제">×</a></span><?php endforeach; ?>
         </div>
+        <?php elseif (!$demoMode && ($query || $categoryId)): ?>
+        <span class="pt-flt-none">적용된 필터: 없음</span>
         <?php endif; ?>
     </div>
     <!-- ── 상품 테이블 ──────────────────────────────────────── -->
