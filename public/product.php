@@ -25,11 +25,18 @@ $sp       = parse_spec_field($p['spec'] ?? '');
 $loggedIn = !empty($_SESSION['user']);
 
 // 시공사례 (중분류 기준)
+// category_gallery 는 database/ 스키마·마이그레이션에 없는 테이블이라 로컬 DB 등에는 없을 수 있다.
+// 조회 실패(테이블 없음) 시 상세 전체가 500 이 되지 않도록 상품 목록(products.php)과 같이 '준비 중' 표시로 폴백.
 $galleryImgs = [];
 if ($p['mid_id'] && db()) {
-    $gst = db()->prepare("SELECT image_url, caption FROM category_gallery WHERE category_id = ? ORDER BY sort_order LIMIT 6");
-    $gst->execute([(int)$p['mid_id']]);
-    $galleryImgs = $gst->fetchAll();
+    try {
+        $gst = db()->prepare("SELECT image_url, caption FROM category_gallery WHERE category_id = ? ORDER BY sort_order LIMIT 6");
+        $gst->execute([(int)$p['mid_id']]);
+        $galleryImgs = $gst->fetchAll();
+    } catch (\Throwable $e) {
+        error_log('product.php category_gallery 조회 실패: ' . $e->getMessage());
+        $galleryImgs = [];
+    }
 }
 
 // 동일 소분류 다른 규격 (최대 8개)
