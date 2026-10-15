@@ -24,6 +24,19 @@ if (!$p) { header('Location: /index.php'); exit; }
 $sp       = parse_spec_field($p['spec'] ?? '');
 $loggedIn = !empty($_SESSION['user']);
 
+// 관심상품 등록 여부(상세 진입 시 버튼 초기 상태). 저장·중복 방지·50개 제한은 /api/estimate/favorites.php
+$isFavorite = false;
+$favUserId  = (int) ($_SESSION['user']['id'] ?? 0);
+if ($favUserId > 0) {
+    try {
+        $fst = db()->prepare('SELECT 1 FROM favorite_products WHERE user_id = ? AND product_id = ? LIMIT 1');
+        $fst->execute([$favUserId, $id]);
+        $isFavorite = (bool) $fst->fetchColumn();
+    } catch (\Throwable $e) {
+        error_log('product.php favorite_products 조회 실패: ' . $e->getMessage());
+    }
+}
+
 // 시공사례 (중분류 기준)
 // category_gallery 는 database/ 스키마·마이그레이션에 없는 테이블이라 로컬 DB 등에는 없을 수 있다.
 // 조회 실패(테이블 없음) 시 상세 전체가 500 이 되지 않도록 상품 목록(products.php)과 같이 '준비 중' 표시로 폴백.
@@ -68,6 +81,15 @@ render_header($p['name']);
 /* 정보 영역 */
 .pd-info-area{border-left:1px solid var(--color-border);padding:32px 28px;display:flex;flex-direction:column;gap:0}
 .pd-product-name{font-size:24px;font-weight:400;color:var(--color-text-primary);line-height:1.3;margin-bottom:6px;letter-spacing:-0.5px}
+/* 상품명 + 관심상품 버튼 한 줄 */
+.pd-name-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.pd-name-row .pd-product-name{flex:1;min-width:0;overflow-wrap:anywhere}
+/* 관심상품 버튼 — 전역 button:hover(진한 파랑 배경·흰 글자)·button:disabled(회색)가 덮지 않도록 상태별 색을 명시.
+   글자 길이가 달라도(추가/추가됨) 크기가 변하지 않게 min-width 고정. focus-visible 은 전역 규칙 유지 */
+.pd-fav-btn{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;min-width:152px;min-height:44px;padding:0 16px;border-radius:4px;font-size:14px;font-weight:600;font-family:var(--font);line-height:1.2;white-space:nowrap;cursor:pointer;transition:none}
+.pd-fav-btn, .pd-fav-btn:hover, .pd-fav-btn:disabled{background:#fff;color:var(--color-primary);border:1px solid var(--color-primary)}
+.pd-fav-btn.is-added, .pd-fav-btn.is-added:hover, .pd-fav-btn.is-added:disabled{background:#EEF4FC;color:var(--color-primary);border-color:#A9C3E6}
+.pd-fav-btn:disabled{cursor:wait}
 .pd-brand-text{font-size:13px;color:var(--color-text-secondary);margin-bottom:16px}
 .pd-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
 .pd-bdg{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:6px}
@@ -149,6 +171,11 @@ render_header($p['name']);
   .gallery-layout{grid-template-columns:1fr}
   .gallery-thumbs{flex-direction:row;flex-wrap:wrap}
 }
+/* 좁은 화면: 상품명이 버튼에 밀려 세로로 길어지지 않도록 버튼을 상품명 아래 줄로 */
+@media(max-width:640px){
+  .pd-name-row{flex-wrap:wrap;gap:4px 12px}
+  .pd-name-row .pd-product-name{flex-basis:100%}
+}
 </style>
 
 <div class="pd-wrap">
@@ -185,7 +212,11 @@ render_header($p['name']);
 
         <!-- 우: 제품 정보 -->
         <div class="pd-info-area">
-            <div class="pd-product-name"><?= e($p['name']) ?></div>
+            <div class="pd-name-row">
+                <div class="pd-product-name"><?= e($p['name']) ?></div>
+                <button type="button" class="pd-fav-btn<?= $isFavorite ? ' is-added' : '' ?>" id="pd-fav-btn"
+                        data-pid="<?= (int)$p['id'] ?>" data-logged-in="<?= $loggedIn ? '1' : '0' ?>"><?= $isFavorite ? '관심상품에 추가됨' : '관심상품에 추가' ?></button>
+            </div>
             <?php if ($p['brand']): ?><div class="pd-brand-text"><?= e($p['brand']) ?></div><?php endif; ?>
             <?php
             // 상품명·설명에서 상태 배지 도출
@@ -472,6 +503,60 @@ function addCart(pid) {
         showToast(d.ok ? '견적에 추가했습니다.' : (d.error || '오류가 발생했습니다.'), d.ok);
     });
 }
+// 관심상품 추가 — 기존 API 다중 형식({product_ids:[id]})으로 저장: 이미 등록된 상품은 기존 내역(수량) 유지·중복 저장 없음
+(function () {
+    const btn = document.getElementById('pd-fav-btn');
+    if (!btn) return;
+    let busy = false;
+    function setAdded() {
+        btn.classList.add('is-added');
+        btn.textContent = '관심상품에 추가됨';
+    }
+    function askLogin(msg) {
+        if (!confirm(msg + '\n로그인하시겠습니까?')) return;
+        // 상품 목록 관심상품과 같은 로그인 모달(로그인 성공 시 새로고침 → 등록 여부 다시 표시). 없으면 로그인 페이지로.
+        if (typeof window.openAuthModal === 'function') { window.openAuthModal('login'); return; }
+        location.href = '/login.php?redirect=' + encodeURIComponent(location.pathname + location.search);
+    }
+    btn.addEventListener('click', async function () {
+        if (btn.getAttribute('data-logged-in') !== '1') { askLogin('관심상품은 로그인 후 이용할 수 있습니다.'); return; }
+        if (busy) return;
+        busy = true;
+        btn.disabled = true;
+        try {
+            const r = await fetch('/api/estimate/favorites.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                credentials: 'same-origin',
+                body: JSON.stringify({product_ids: [parseInt(btn.dataset.pid, 10)]})
+            });
+            if (r.status === 401) { askLogin('로그인이 만료되었습니다. 관심상품은 저장되지 않았습니다.'); return; }
+            let d = null;
+            try { d = await r.json(); } catch (e) { d = null; }
+            if (!r.ok || !d || !d.ok) {
+                showToast((d && d.error) || '관심상품 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.', false);
+                return;
+            }
+            if ((d.added || []).length) {
+                setAdded();
+                showToast('관심상품에 추가했습니다.');
+            } else if ((d.already || []).length) {
+                setAdded();
+                showToast('이미 관심상품에 등록된 상품입니다.');
+            } else {
+                const f = (d.failed || [])[0];
+                showToast(f && f.reason === 'limit'
+                    ? '관심상품은 최대 ' + (d.max || 50) + '개까지 등록할 수 있습니다.'
+                    : '판매 중인 상품이 아니어서 추가할 수 없습니다.', false);
+            }
+        } catch (e) {
+            showToast('네트워크 오류로 관심상품을 저장하지 못했습니다. 다시 시도해 주세요.', false);
+        } finally {
+            busy = false;
+            btn.disabled = false;
+        }
+    });
+})();
 function showToast(msg, ok = true) {
     const t = document.createElement('div');
     t.textContent = msg;

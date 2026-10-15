@@ -5,7 +5,7 @@ declare(strict_types=1);
  *
  * 목 데이터 원칙(tests/stock_filter.test.php 와 동일):
  *  - DB 이름이 '_test'로 끝나고 호스트가 로컬일 때만 실행(아니면 SKIP). 운영/개발 DB에는 쓰지 않는다.
- *  - 상품: external_source='MOCK', external_id 'fav-...', 이름 '[MOCK] ...', 카테고리 slug 'mock-fav'(id 9201)
+ *  - 상품: external_source='MOCK', external_id 'fav-...', 이름 '[MOCK] ...', 카테고리 slug 'mock-fav'(id 9201)·하위 'mock-fav-sub'(id 9202)
  *  - 회원: 이메일 '*@mock.test', 이름 '[MOCK] ...' (개인 1명, 기업 2명). 관심상품 행은 이 회원들 것만 생성.
  *  - 실행할 때마다 위 목 행을 지우고 다시 넣는다.
  *
@@ -50,6 +50,7 @@ function cleanup_fav_mock(PDO $pdo): void
     $pdo->exec("DELETE FROM favorite_products WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@mock.test')");
     $pdo->exec("DELETE FROM users WHERE email LIKE '%@mock.test'");
     $pdo->exec("DELETE FROM products WHERE external_source = 'MOCK' AND external_id LIKE 'fav-%'");
+    $pdo->exec("DELETE FROM categories WHERE id = 9202 AND slug = 'mock-fav-sub'");
     $pdo->exec("DELETE FROM categories WHERE id = 9201 AND slug = 'mock-fav'");
     if (vendors_available()) { $pdo->exec("DELETE FROM vendors WHERE name LIKE '[MOCK] 관심상품업체%'"); }
 }
@@ -249,6 +250,54 @@ ok('행 클릭 상세 이동 유지', strpos($html, "location.href='/product.php
 ok('로그인 상품 목록: data-logged-in=1', strpos($html, 'data-logged-in="1"') !== false);
 [, , $html] = http('GET', "{$base}/products.php?category=9201&instock=1&s=" . urlencode('없는목록검색어zz'));
 ok('결과 0건이면 관심품목 버튼·체크박스 없음', strpos($html, 'id="pt-fav-start"') === false && strpos($html, 'pt-fav-chk') === false);
+
+echo "[상품 상세: 하위 카테고리 상품 표시 + 관심상품 버튼]\n";
+// 하위 카테고리 상품: 상세의 시공사례(category_gallery) 조회 경로. 테이블이 없는 DB에서도 500 없이 표시돼야 함
+// (목록 55개 검증에 섞이지 않도록 목록 확인 뒤에 추가)
+$pdo->exec("INSERT INTO categories (id, parent_id, name, slug, sort_order, is_active) VALUES (9202, 9201, '[MOCK] 관심상품테스트 하위', 'mock-fav-sub', 0, 1)");
+$pdo->exec("INSERT INTO products (category_id, name, spec, price_b2c, price_b2b, stock_qty, is_active, external_source, external_id)
+            VALUES (9202, '[MOCK] 관심상품테스트 하위상품', '규격: 400*400*2000 | 단위: 본 | 중량: 100kg', 30000, 25000, 1, 1, 'MOCK', 'fav-sub')");
+$subId  = (int) $pdo->lastInsertId();
+$detail = static function (int $id, ?string $jar = null) use ($base): array { return http('GET', "{$base}/product.php?id={$id}", null, $jar); };
+$btnRe  = static function (int $id, bool $added, string $loggedIn): string {
+    return '/class="pd-fav-btn' . ($added ? ' is-added' : '') . '" id="pd-fav-btn"\\s+data-pid="' . $id . '" data-logged-in="' . $loggedIn . '">'
+        . ($added ? '관심상품에 추가됨' : '관심상품에 추가') . '<\\/button>/u';
+};
+[$st, , $html] = $detail($subId);
+ok('비로그인 하위 카테고리 상품 상세 → 200 + 페이지 끝까지 출력', $st === 200 && strpos($html, '[MOCK] 관심상품테스트 하위상품') !== false && strpos($html, '</html>') !== false);
+ok('비로그인 상세: 관심상품에 추가(기본 상태) + data-logged-in=0', preg_match($btnRe($subId, false, '0'), $html) === 1);
+ok('상세 기존 구조 유지(가격·규격·견적 버튼·시공사례 준비 중 안내)', strpos($html, 'pd-price-row') !== false && strpos($html, '<span class="pd-spec-key">규격</span>') !== false
+    && strpos($html, '견적에 넣기') !== false && strpos($html, '시공사례 이미지를 준비 중입니다.') !== false);
+[$st] = $detail(999999999);
+ok('존재하지 않는 상품 id → 기존대로 홈으로 이동(302)', $st === 302);
+[$st] = $detail($inactiveId);
+ok('판매중지 상품 id → 기존대로 홈으로 이동(302)', $st === 302);
+
+[$st, , $html] = $detail($subId, $jCorp2);
+ok('기업회원B 상세(미등록): 기본 상태 + data-logged-in=1', $st === 200 && preg_match($btnRe($subId, false, '1'), $html) === 1);
+[$st, $d] = http('POST', $api, ['product_ids' => [$subId]], $jCorp2);
+ok('상세 버튼과 같은 요청({product_ids:[id]}) → added', $st === 200 && ($d['added'] ?? null) === [$subId]);
+[$st, , $html] = $detail($subId, $jCorp2);
+ok('등록 후 상세 진입 → 관심상품에 추가됨 상태', $st === 200 && preg_match($btnRe($subId, true, '1'), $html) === 1);
+[$st, $d] = http('POST', $api, ['product_ids' => [$subId]], $jCorp2);
+ok('다시 눌러도 already, DB 1행', ($d['already'] ?? null) === [$subId]
+    && (int) $pdo->query("SELECT COUNT(*) FROM favorite_products WHERE user_id={$uids['corp2']} AND product_id={$subId}")->fetchColumn() === 1);
+[, $d] = http('GET', $api, null, $jCorp2);
+ok('마이페이지 목록에 하위 상품 포함 + 상품보기 URL 형식(/product.php?id=상품ID) 유지', in_array($subId, $favIds($d), true)
+    && strpos((string) file_get_contents(__DIR__ . '/../public/assets/mypage.js'), "'/product.php?id='+f.product_id") !== false);
+
+[$st, , $html] = $detail($pids[1], $jCorp);
+ok('기업회원A: 기존 등록 상품(수량 7) 상세 → 추가됨 상태', $st === 200 && preg_match($btnRe($pids[1], true, '1'), $html) === 1);
+http('POST', $api, ['product_ids' => [$pids[1]]], $jCorp);
+ok('상세에서 다시 눌러도 기존 수량 7 유지', (int) $pdo->query("SELECT quantity FROM favorite_products WHERE user_id={$uids['corp']} AND product_id={$pids[1]}")->fetchColumn() === 7);
+
+[$st, , $html] = $detail($pids[2], $jCust);
+ok('일반회원: 등록 상품 상세 → 추가됨 상태', $st === 200 && preg_match($btnRe($pids[2], true, '1'), $html) === 1);
+[$st, , $html] = $detail($subId, $jCust);
+ok('일반회원: 미등록 하위 상품 상세 → 기본 상태', $st === 200 && preg_match($btnRe($subId, false, '1'), $html) === 1);
+[$st, $d] = http('POST', $api, ['product_ids' => [$subId]], $jCust);
+ok('일반회원 50개 상태에서 상세 추가 → failed(limit), 50개 유지', $st === 200 && array_column($d['failed'] ?? [], 'reason') === ['limit']
+    && (int) $pdo->query("SELECT COUNT(*) FROM favorite_products WHERE user_id={$uids['cust']}")->fetchColumn() === FAVORITES_MAX);
 
 foreach ([$jCust, $jCorp, $jCorp2] as $j) { @unlink($j); }
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
