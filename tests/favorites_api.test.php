@@ -255,9 +255,13 @@ echo "[상품 상세: 하위 카테고리 상품 표시 + 관심상품 버튼]\n
 // 하위 카테고리 상품: 상세의 시공사례(category_gallery) 조회 경로. 테이블이 없는 DB에서도 500 없이 표시돼야 함
 // (목록 55개 검증에 섞이지 않도록 목록 확인 뒤에 추가)
 $pdo->exec("INSERT INTO categories (id, parent_id, name, slug, sort_order, is_active) VALUES (9202, 9201, '[MOCK] 관심상품테스트 하위', 'mock-fav-sub', 0, 1)");
-$pdo->exec("INSERT INTO products (category_id, name, spec, price_b2c, price_b2b, stock_qty, is_active, external_source, external_id)
-            VALUES (9202, '[MOCK] 관심상품테스트 하위상품', '규격: 400*400*2000 | 단위: 본 | 중량: 100kg', 30000, 25000, 1, 1, 'MOCK', 'fav-sub')");
+$pdo->exec("INSERT INTO products (category_id, name, spec, description, price_b2c, price_b2b, stock_qty, is_active, external_source, external_id)
+            VALUES (9202, '[MOCK] 관심상품테스트 하위상품', '규격: 400*400*2000 | 단위: 본 | 중량: 100kg', '[MOCK] 하위상품 설명', 30000, 25000, 1, 1, 'MOCK', 'fav-sub')");
 $subId  = (int) $pdo->lastInsertId();
+if (vendors_available()) {
+    $pdo->exec("INSERT INTO product_vendors (product_id, vendor_id, is_primary)
+                SELECT {$subId}, id, 1 FROM vendors WHERE name = '[MOCK] 관심상품업체A'");
+}
 $detail = static function (int $id, ?string $jar = null) use ($base): array { return http('GET', "{$base}/product.php?id={$id}", null, $jar); };
 $btnRe  = static function (int $id, bool $added, string $loggedIn): string {
     return '/class="pd-fav-btn' . ($added ? ' is-added' : '') . '" id="pd-fav-btn"\\s+data-pid="' . $id . '" data-logged-in="' . $loggedIn . '">'
@@ -268,6 +272,18 @@ ok('비로그인 하위 카테고리 상품 상세 → 200 + 페이지 끝까지
 ok('비로그인 상세: 관심상품에 추가(기본 상태) + data-logged-in=0', preg_match($btnRe($subId, false, '0'), $html) === 1);
 ok('상세 기존 구조 유지(가격·규격·견적 버튼·시공사례 준비 중 안내)', strpos($html, 'pd-price-row') !== false && strpos($html, '<span class="pd-spec-key">규격</span>') !== false
     && strpos($html, '견적에 넣기') !== false && strpos($html, '시공사례 이미지를 준비 중입니다.') !== false);
+$pos = static function (string $needle) use (&$html): int { $i = strpos($html, $needle); return $i === false ? -1 : $i; };
+ok('상세 순서: 상품명 → 설명 → 가격', $pos('class="pd-name-row"') >= 0 && $pos('class="pd-name-row"') < $pos('class="pd-desc"')
+    && $pos('class="pd-desc"') < $pos('class="pd-price-row"') && substr_count($html, 'class="pd-desc"') === 1);
+ok('공급업체·규격·단위·중량이 한 정보 그룹(pd-spec-rows 1개)', substr_count($html, 'class="pd-spec-rows"') === 1
+    && (!vendors_available() || $pos('>공급업체<') < $pos('>규격<')) && $pos('>규격<') < $pos('>단위<') && $pos('>단위<') < $pos('>중량<'));
+ok('견적 수량 스테퍼(− 1 +)가 계산기 바로 위, 계산기 수량과 별도 id', preg_match('/id="pdQtyMinus"[^>]*disabled>&minus;<\\/button>\\s*<input type="number" class="pd-qty-input" id="pdQty" value="1" min="1" max="999"/', $html) === 1
+    && $pos('class="pd-qty-row"') < $pos('class="pd-freight"') && $pos('id="frQty"') > $pos('class="pd-freight"'));
+ok('계산기: "현장" 라벨 제거, 지역 선택+계산 버튼 같은 행(pd-freight-dest)', strpos($html, '<label for="frDest">') === false
+    && preg_match('/class="pd-freight-dest">\\s*<select id="frDest"[^>]*aria-label="현장\\(도착\\) 지역"/', $html) === 1
+    && $pos('class="pd-freight-dest"') < $pos('class="pd-freight-btn"'));
+ok('견적에 넣기는 견적 수량(pdQtyValue) 사용, 계산기 수량과 동기화 없음', strpos($html, 'quantity: pdQtyValue()') !== false
+    && strpos($html, "getElementById('frQty').value =") === false);
 [$st] = $detail(999999999);
 ok('존재하지 않는 상품 id → 기존대로 홈으로 이동(302)', $st === 302);
 [$st] = $detail($inactiveId);

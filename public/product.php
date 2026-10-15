@@ -90,6 +90,16 @@ render_header($p['name']);
 .pd-fav-btn, .pd-fav-btn:hover, .pd-fav-btn:disabled{background:#fff;color:var(--color-primary);border:1px solid var(--color-primary)}
 .pd-fav-btn.is-added, .pd-fav-btn.is-added:hover, .pd-fav-btn.is-added:disabled{background:#EEF4FC;color:var(--color-primary);border-color:#A9C3E6}
 .pd-fav-btn:disabled{cursor:wait}
+/* 견적 수량 [ − | 1 | + ] — 전역 button:hover(진한 파랑·흰 글자)·button:disabled(회색 배경·테두리)를 덮도록 상태별로 명시. focus-visible 은 전역 규칙 유지 */
+.pd-qty-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.pd-qty-label{font-size:13px;font-weight:700;color:var(--color-text-primary);width:72px;flex-shrink:0}
+.pd-qty-stepper{display:inline-flex;align-items:stretch;height:44px;border:1px solid var(--color-border);border-radius:6px;background:#fff;overflow:hidden}
+.pd-qty-btn, .pd-qty-btn:hover, .pd-qty-btn:disabled{width:44px;padding:0;border:none;border-radius:0;background:#fff;color:var(--color-text-primary);font-size:18px;font-weight:400;line-height:1;cursor:pointer;transition:none}
+.pd-qty-btn:hover{background:var(--color-surface)}
+.pd-qty-btn:disabled{color:var(--color-text-disabled);cursor:not-allowed}
+.pd-qty-stepper .pd-qty-input, .pd-qty-stepper .pd-qty-input:focus{width:64px;padding:0 4px;border:none;border-left:1px solid var(--color-border);border-right:1px solid var(--color-border);border-radius:0;background:#fff;font-size:15px;font-weight:600;color:var(--color-text-primary);text-align:center;-moz-appearance:textfield;appearance:textfield}
+.pd-qty-input::-webkit-outer-spin-button, .pd-qty-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.pd-qty-unit{font-size:13px;color:var(--color-text-secondary)}
 .pd-brand-text{font-size:13px;color:var(--color-text-secondary);margin-bottom:16px}
 .pd-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
 .pd-bdg{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:6px}
@@ -175,6 +185,11 @@ render_header($p['name']);
 @media(max-width:640px){
   .pd-name-row{flex-wrap:wrap;gap:4px 12px}
   .pd-name-row .pd-product-name{flex-basis:100%}
+  /* 견적 수량: 라벨·스테퍼·단위가 한 줄에 들어가도록 폭만 줄임(높이 44px 유지) */
+  .pd-qty-row{gap:8px}
+  .pd-qty-label{width:auto}
+  .pd-qty-btn, .pd-qty-btn:hover, .pd-qty-btn:disabled{width:40px}
+  .pd-qty-stepper .pd-qty-input, .pd-qty-stepper .pd-qty-input:focus{width:52px}
 }
 </style>
 
@@ -217,6 +232,9 @@ render_header($p['name']);
                 <button type="button" class="pd-fav-btn<?= $isFavorite ? ' is-added' : '' ?>" id="pd-fav-btn"
                         data-pid="<?= (int)$p['id'] ?>" data-logged-in="<?= $loggedIn ? '1' : '0' ?>"><?= $isFavorite ? '관심상품에 추가됨' : '관심상품에 추가' ?></button>
             </div>
+            <?php if (!empty($p['description'])): ?>
+            <div class="pd-desc"><?= nl2br(e($p['description'])) ?></div>
+            <?php endif; ?>
             <?php if ($p['brand']): ?><div class="pd-brand-text"><?= e($p['brand']) ?></div><?php endif; ?>
             <?php
             // 상품명·설명에서 상태 배지 도출
@@ -266,15 +284,10 @@ render_header($p['name']);
             <hr class="pd-divider">
             <?php endif; ?>
 
-            <?php $vnames = render_vendor_names($p['vendor_names'] ?? null, true); if ($vnames !== ''): ?>
+            <?php $vnames = render_vendor_names($p['vendor_names'] ?? null, true); ?>
+            <?php if ($vnames !== '' || $sp['spec'] || $sp['unit'] || $sp['weight'] || $sp['load'] || $sp['freight']): ?>
             <div class="pd-spec-rows">
-                <div class="pd-spec-row"><span class="pd-spec-key">공급업체</span><span class="pd-spec-val pd-vendor-val"><?= $vnames ?></span></div>
-            </div>
-            <hr class="pd-divider">
-            <?php endif; ?>
-
-            <?php if ($sp['spec'] || $sp['unit'] || $sp['weight'] || $sp['load'] || $sp['freight']): ?>
-            <div class="pd-spec-rows">
+                <?php if ($vnames !== ''): ?><div class="pd-spec-row"><span class="pd-spec-key">공급업체</span><span class="pd-spec-val pd-vendor-val"><?= $vnames ?></span></div><?php endif; ?>
                 <?php if ($sp['spec']):   ?><div class="pd-spec-row"><span class="pd-spec-key">규격</span><span class="pd-spec-val"><?= e($sp['spec']) ?></span></div><?php endif; ?>
                 <?php if ($sp['unit']):   ?><div class="pd-spec-row"><span class="pd-spec-key">단위</span><span class="pd-spec-val"><?= e($sp['unit']) ?></span></div><?php endif; ?>
                 <?php if ($sp['weight']): ?><div class="pd-spec-row"><span class="pd-spec-key">중량</span><span class="pd-spec-val"><?= e($sp['weight']) ?></span></div><?php endif; ?>
@@ -292,6 +305,17 @@ render_header($p['name']);
             }
             $frUnit = $sp['unit'] ?: '개';
             ?>
+            <!-- 견적 수량: '견적에 넣기'로 담을 수량(운반비 계산기 수량과 별개, 동기화하지 않음). 범위는 장바구니 API와 같은 1~999 -->
+            <div class="pd-qty-row">
+                <span class="pd-qty-label" id="pdQtyLabel">견적 수량</span>
+                <div class="pd-qty-stepper" role="group" aria-labelledby="pdQtyLabel">
+                    <button type="button" class="pd-qty-btn" id="pdQtyMinus" aria-label="견적 수량 줄이기" disabled>&minus;</button>
+                    <input type="number" class="pd-qty-input" id="pdQty" value="1" min="1" max="999" step="1" inputmode="numeric" aria-label="견적 수량">
+                    <button type="button" class="pd-qty-btn" id="pdQtyPlus" aria-label="견적 수량 늘리기">+</button>
+                </div>
+                <?php if ($sp['unit']): ?><span class="pd-qty-unit"><?= e($sp['unit']) ?></span><?php endif; ?>
+            </div>
+            <hr class="pd-divider">
             <?php if ($unitKg > 0): ?>
             <?php $sidoList = array_keys(FREIGHT_SIDO_COORDS); ?>
             <div class="pd-freight" data-pid="<?= (int) $p['id'] ?>" data-unitkg="<?= $unitKg ?>">
@@ -300,8 +324,9 @@ render_header($p['name']);
                     <label for="frQty">수량</label>
                     <input type="number" id="frQty" min="1" value="1" oninput="calcFreight()">
                     <span class="pd-freight-unit"><?= e($frUnit) ?></span>
-                    <label for="frDest">현장</label>
-                    <select id="frDest" onchange="calcFreight()">
+                </div>
+                <div class="pd-freight-dest">
+                    <select id="frDest" onchange="calcFreight()" aria-label="현장(도착) 지역">
                         <option value="">지역 선택</option>
                         <?php foreach ($sidoList as $s): ?><option value="<?= e($s) ?>"><?= e($s) ?></option><?php endforeach; ?>
                     </select>
@@ -338,11 +363,6 @@ render_header($p['name']);
               calcFreight();
             })();
             </script>
-            <hr class="pd-divider">
-            <?php endif; ?>
-
-            <?php if (!empty($p['description'])): ?>
-            <div class="pd-desc"><?= nl2br(e($p['description'])) ?></div>
             <hr class="pd-divider">
             <?php endif; ?>
 
@@ -494,11 +514,34 @@ function setGallery(url, el) {
     document.querySelectorAll('.gallery-thumb').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
 }
+// 견적 수량 스테퍼: 1~999(장바구니 API 범위). 운반비 계산기 수량(frQty)과는 연결하지 않음
+const PD_QTY_MIN = 1, PD_QTY_MAX = 999;
+function pdQtyValue() {
+    const el = document.getElementById('pdQty');
+    const n = el ? parseInt(el.value, 10) : PD_QTY_MIN;
+    return Math.min(PD_QTY_MAX, Math.max(PD_QTY_MIN, isNaN(n) ? PD_QTY_MIN : n));
+}
+(function () {
+    const input = document.getElementById('pdQty');
+    const minus = document.getElementById('pdQtyMinus');
+    const plus  = document.getElementById('pdQtyPlus');
+    if (!input || !minus || !plus) return;
+    function set(n) {
+        input.value = String(Math.min(PD_QTY_MAX, Math.max(PD_QTY_MIN, n)));
+        const v = parseInt(input.value, 10);
+        minus.disabled = v <= PD_QTY_MIN;
+        plus.disabled  = v >= PD_QTY_MAX;
+    }
+    minus.addEventListener('click', function () { set(pdQtyValue() - 1); });
+    plus.addEventListener('click', function () { set(pdQtyValue() + 1); });
+    input.addEventListener('change', function () { set(pdQtyValue()); });   // 직접 입력: 빈 값·0·범위 밖 → 1~999로 보정
+    set(pdQtyValue());
+})();
 function addCart(pid) {
     fetch('/api/cart.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({action:'add', product_id: pid, quantity: 1})
+        body: JSON.stringify({action:'add', product_id: pid, quantity: pdQtyValue()})
     }).then(r => r.json()).then(d => {
         showToast(d.ok ? '견적에 추가했습니다.' : (d.error || '오류가 발생했습니다.'), d.ok);
     });

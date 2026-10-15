@@ -1364,6 +1364,10 @@ a.pt-name-text:hover { color: var(--color-primary); }
 .pd-freight-unit { font-size:13px; color:var(--color-text-secondary); }
 .pd-freight-btn { margin-left:auto; padding:6px 14px; background:var(--color-primary); color:#fff; border:none; border-radius:6px; font-size:13px; cursor:pointer; }
 .pd-freight-in select { padding:6px 8px; border:1px solid var(--color-border); border-radius:6px; font-size:14px; background:#fff; }
+/* 지역 선택 + 계산 버튼 한 행: 드롭다운이 남는 폭 차지, 두 요소 높이 통일(좁은 화면에서도 한 행 유지) */
+.pd-freight-dest { display:flex; align-items:stretch; gap:8px; margin-top:8px; }
+.pd-freight-dest select { flex:1 1 auto; min-width:0; height:40px; padding:0 8px; border:1px solid var(--color-border); border-radius:6px; font-size:14px; background:#fff; }
+.pd-freight-dest .pd-freight-btn { flex-shrink:0; height:40px; margin-left:0; padding:0 18px; }
 .pd-freight-out { margin-top:10px; font-size:14px; color:var(--color-text-primary); line-height:1.6; }
 .pd-freight-out strong { color:var(--color-primary); font-weight:700; }
 .pd-freight-cost { margin-top:6px; font-size:15px; }
