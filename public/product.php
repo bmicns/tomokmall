@@ -125,11 +125,6 @@ render_header($p['name']);
 .pd-spec-val{font-size:13px;color:var(--color-text-secondary)}
 /* 제품 설명 */
 .pd-desc{font-size:13px;color:#555;line-height:1.8;margin-top:4px}
-/* 색상 썸네일 */
-.pd-variant-thumbs{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
-.pd-variant-thumb{width:72px;height:72px;border:1px solid var(--color-border);border-radius:6px;overflow:hidden;cursor:pointer;flex-shrink:0}
-.pd-variant-thumb img{width:100%;height:100%;object-fit:cover}
-.pd-variant-thumb:hover{border-color:var(--color-primary)}
 /* 견적 버튼 */
 .pd-btn-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:auto;padding-top:20px}
 .pd-login-notice{width:100%;font-size:12px;color:var(--color-text-secondary);text-align:center;padding-top:4px}
@@ -305,7 +300,7 @@ render_header($p['name']);
             }
             $frUnit = $sp['unit'] ?: '개';
             ?>
-            <!-- 견적 수량: '견적에 넣기'로 담을 수량(운반비 계산기 수량과 별개, 동기화하지 않음). 범위는 장바구니 API와 같은 1~999 -->
+            <!-- 견적 수량: '견적에 넣기'로 담을 수량. 운반비 계산기 수량(frQty)과 양방향 동기화. 범위는 장바구니 API와 같은 1~999 -->
             <div class="pd-qty-row">
                 <span class="pd-qty-label" id="pdQtyLabel">견적 수량</span>
                 <div class="pd-qty-stepper" role="group" aria-labelledby="pdQtyLabel">
@@ -322,7 +317,7 @@ render_header($p['name']);
                 <div class="pd-freight-title">🚚 물량·운반비 계산기</div>
                 <div class="pd-freight-in">
                     <label for="frQty">수량</label>
-                    <input type="number" id="frQty" min="1" value="1" oninput="calcFreight()">
+                    <input type="number" id="frQty" min="1" max="999" value="1" oninput="calcFreight()">
                     <span class="pd-freight-unit"><?= e($frUnit) ?></span>
                 </div>
                 <div class="pd-freight-dest">
@@ -364,20 +359,6 @@ render_header($p['name']);
             })();
             </script>
             <hr class="pd-divider">
-            <?php endif; ?>
-
-            <?php if (count($others) > 0): ?>
-            <div class="pd-variant-thumbs">
-                <?php foreach (array_slice($others, 0, 4) as $o): ?>
-                <a href="/product.php?id=<?= (int)$o['id'] ?>" class="pd-variant-thumb" title="<?= e($o['name']) ?>">
-                    <?php if ($o['image_url']): ?>
-                        <img src="<?= e($o['image_url']) ?>" alt="<?= e($o['name']) ?>">
-                    <?php else: ?>
-                        <div style="width:100%;height:100%;background:var(--color-bg-secondary);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--color-text-secondary)">이미지없음</div>
-                    <?php endif; ?>
-                </a>
-                <?php endforeach; ?>
-            </div>
             <?php endif; ?>
 
             <div class="pd-btn-row">
@@ -514,28 +495,65 @@ function setGallery(url, el) {
     document.querySelectorAll('.gallery-thumb').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
 }
-// 견적 수량 스테퍼: 1~999(장바구니 API 범위). 운반비 계산기 수량(frQty)과는 연결하지 않음
+// 견적 수량(pdQty) ↔ 운반비 계산기 수량(frQty) 양방향 동기화. 범위 1~999(장바구니 API 범위)
+// - 루프 방지: 값은 .value 대입으로만 바꾸고(프로그램 대입은 input/change 이벤트를 발생시키지 않음) dispatchEvent 하지 않음
+// - 커서 튐 방지: 입력 중(input)에는 상대 칸만 갱신하고, 입력 중인 칸은 확정(change·blur) 때 보정. 999 초과만 즉시 999로
+// - 보정: 빈 값·0·음수·숫자 아님 → 1 (기존 견적 수량 정책)
 const PD_QTY_MIN = 1, PD_QTY_MAX = 999;
+function pdQtyClamp(raw) {
+    const n = parseInt(raw, 10);
+    return isNaN(n) ? PD_QTY_MIN : Math.min(PD_QTY_MAX, Math.max(PD_QTY_MIN, n));
+}
 function pdQtyValue() {
     const el = document.getElementById('pdQty');
-    const n = el ? parseInt(el.value, 10) : PD_QTY_MIN;
-    return Math.min(PD_QTY_MAX, Math.max(PD_QTY_MIN, isNaN(n) ? PD_QTY_MIN : n));
+    return el ? pdQtyClamp(el.value) : PD_QTY_MIN;
 }
 (function () {
     const input = document.getElementById('pdQty');
     const minus = document.getElementById('pdQtyMinus');
     const plus  = document.getElementById('pdQtyPlus');
+    const fr    = document.getElementById('frQty');   // 계산기는 단위중량이 있는 상품에만 있음
     if (!input || !minus || !plus) return;
-    function set(n) {
-        input.value = String(Math.min(PD_QTY_MAX, Math.max(PD_QTY_MIN, n)));
-        const v = parseInt(input.value, 10);
+    function recalc() {
+        if (fr && typeof window.calcFreight === 'function') window.calcFreight();   // 기존 계산 로직 그대로 재실행
+    }
+    function buttons(v) {
         minus.disabled = v <= PD_QTY_MIN;
         plus.disabled  = v >= PD_QTY_MAX;
     }
-    minus.addEventListener('click', function () { set(pdQtyValue() - 1); });
-    plus.addEventListener('click', function () { set(pdQtyValue() + 1); });
-    input.addEventListener('change', function () { set(pdQtyValue()); });   // 직접 입력: 빈 값·0·범위 밖 → 1~999로 보정
-    set(pdQtyValue());
+    // 확정 값 v 를 두 칸에 같이 표시. 계산기가 쓰던 수량(직전 칸 값을 보정한 값)이 바뀐 경우에만 운임 재계산
+    // (값이 같은데 다시 계산하면 결과 영역 높이가 잠깐 바뀌어 바로 누른 '견적에 넣기' 클릭이 빗나갈 수 있음)
+    function setAll(v) {
+        const prevFr = fr ? pdQtyClamp(fr.value) : v;
+        input.value = String(v);
+        if (fr) fr.value = String(v);
+        buttons(v);
+        if (prevFr !== v) recalc();
+    }
+    // 입력 중인 칸(src) → 상대 칸(other) 즉시 반영. 아직 유효하지 않은 값(빈 값·0 등)은 확정 때 보정하므로 상대 칸 유지
+    function live(src, other) {
+        const n = parseInt(src.value, 10);
+        if (isNaN(n) || n < PD_QTY_MIN) return false;
+        const v = Math.min(PD_QTY_MAX, n);
+        if (n > PD_QTY_MAX) src.value = String(PD_QTY_MAX);
+        if (other) other.value = String(v);
+        buttons(v);
+        return true;
+    }
+    minus.addEventListener('click', function () { setAll(pdQtyClamp(pdQtyValue() - 1)); });
+    plus.addEventListener('click', function () { setAll(pdQtyClamp(pdQtyValue() + 1)); });
+    input.addEventListener('input', function () { if (live(input, fr)) recalc(); });
+    input.addEventListener('change', function () { setAll(pdQtyClamp(input.value)); });
+    if (fr) {
+        // 계산기 칸의 운임 재계산은 기존 oninput="calcFreight()"가 먼저 처리. 999 초과로 값이 바뀐 경우만 다시 계산
+        fr.addEventListener('input', function () {
+            const before = fr.value;
+            if (live(fr, input) && fr.value !== before) recalc();
+        });
+        fr.addEventListener('change', function () { setAll(pdQtyClamp(fr.value)); });
+    }
+    // 진입 시 두 칸을 같은 값(기본 1)으로 — 뒤로가기 등으로 브라우저가 이전 입력값을 복원한 경우도 견적 수량 기준으로 맞춤
+    setAll(pdQtyValue());
 })();
 function addCart(pid) {
     fetch('/api/cart.php', {

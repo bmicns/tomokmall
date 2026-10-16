@@ -282,8 +282,13 @@ ok('견적 수량 스테퍼(− 1 +)가 계산기 바로 위, 계산기 수량�
 ok('계산기: "현장" 라벨 제거, 지역 선택+계산 버튼 같은 행(pd-freight-dest)', strpos($html, '<label for="frDest">') === false
     && preg_match('/class="pd-freight-dest">\\s*<select id="frDest"[^>]*aria-label="현장\\(도착\\) 지역"/', $html) === 1
     && $pos('class="pd-freight-dest"') < $pos('class="pd-freight-btn"'));
-ok('견적에 넣기는 견적 수량(pdQtyValue) 사용, 계산기 수량과 동기화 없음', strpos($html, 'quantity: pdQtyValue()') !== false
-    && strpos($html, "getElementById('frQty').value =") === false);
+ok('견적에 넣기는 공통 수량(pdQtyValue) 사용 + 계산기 수량과 양방향 동기화(1~999), 계산기 입력 UI(숫자 입력) 유지',
+    strpos($html, 'quantity: pdQtyValue()') !== false
+    && strpos($html, "fr.addEventListener('input'") !== false && strpos($html, "input.addEventListener('input'") !== false
+    && strpos($html, '.dispatchEvent(') === false
+    && strpos($html, '<input type="number" id="frQty" min="1" max="999" value="1" oninput="calcFreight()">') !== false);
+ok('견적에 넣기 위 다른 상품 썸네일 4개 영역 제거(메인 이미지 영역 유지)', strpos($html, 'pd-variant-thumb') === false
+    && strpos($html, 'class="pd-img-area"') !== false);
 [$st] = $detail(999999999);
 ok('존재하지 않는 상품 id → 기존대로 홈으로 이동(302)', $st === 302);
 [$st] = $detail($inactiveId);
