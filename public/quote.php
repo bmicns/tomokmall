@@ -38,6 +38,8 @@ $result = estimate_create([
     'sid'                   => $sid,
     'requested_delivery_at' => $deliveryAt ?: null,
     'mode'                  => $mode,
+    // 화면에서 보낸 품목·수량 — 세션 품목과 다르면 접수 거부(estimate_items_match)
+    'expected_items'        => is_array($body['items'] ?? null) ? $body['items'] : null,
 ]);
 
 if (!$result['ok']) {

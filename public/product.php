@@ -294,10 +294,7 @@ render_header($p['name']);
 
             <?php
             // ── 물량·운반 계산기: 단위중량(kg)이 있으면 수량→총중량·권장차량 산출 ──
-            $unitKg = 0.0;
-            if (preg_match('/([0-9]+(?:\.[0-9]+)?)\s*kg/i', (string) ($sp['weight'] ?? ''), $wm)) {
-                $unitKg = (float) $wm[1];
-            }
+            $unitKg = freight_unit_kg((string) ($sp['weight'] ?? '')); // '2,640kg' 천단위 쉼표 허용
             $frUnit = $sp['unit'] ?: '개';
             ?>
             <!-- 견적 수량: '견적에 넣기'로 담을 수량. 운반비 계산기 수량(frQty)과 양방향 동기화. 범위는 장바구니 API와 같은 1~999 -->

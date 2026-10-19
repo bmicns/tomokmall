@@ -58,12 +58,9 @@ if (!$p) {
     exit;
 }
 
-// 단위중량(kg) 추출 (spec의 '중량: 950kg')
+// 단위중량(kg) 추출 (spec의 '중량: 950kg' / '2,640kg' — 천단위 쉼표 허용)
 $sp     = parse_spec_field((string) $p['spec']);
-$unitKg = 0.0;
-if (preg_match('/([0-9]+(?:\.[0-9]+)?)\s*kg/i', (string) $sp['weight'], $m)) {
-    $unitKg = (float) $m[1];
-}
+$unitKg = freight_unit_kg((string) $sp['weight']);
 if ($unitKg <= 0) {
     echo json_encode(['ok' => false, 'error' => '이 상품은 중량 정보가 없어 운임을 예상할 수 없습니다. 견적요청 시 안내드립니다.']);
     exit;

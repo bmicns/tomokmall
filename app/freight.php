@@ -54,6 +54,22 @@ const FREIGHT_SIDO_COORDS = [
     '제주' => [33.499, 126.531],
 ];
 
+// 육로 거리 엔진으로 산출할 수 없는 도착지(해상 운송) — 별도 협의
+const FREIGHT_NEGOTIATE_SIDO = ['제주'];
+
+/**
+ * spec '중량' 값 → 단위중량(kg). 천단위 쉼표 허용('2,640kg' → 2640.0).
+ * kg 표기가 없거나 0 이하이면 0.0(중량 정보 없음).
+ */
+function freight_unit_kg(string $weight): float
+{
+    if (!preg_match('/([0-9][0-9,]*(?:\.[0-9]+)?)\s*kg/i', $weight, $m)) {
+        return 0.0;
+    }
+    $kg = (float) str_replace(',', '', $m[1]);
+    return $kg > 0 ? $kg : 0.0;
+}
+
 /**
  * 두 시도 간 도로거리 추정(km). haversine × 1.3, 동일 시도는 25km로 간주.
  * 미지의 시도명은 null.
@@ -138,5 +154,57 @@ function freight_estimate(string $fromSido, string $toSido, float $totalKg): arr
         'over400' => $km > 400,
         'trucks'  => $detail,
         'total'   => $total, // 부가세 별도·지게차 상하차·편도 기준 예상
+    ];
+}
+
+/**
+ * 견적(여러 품목) 예상 운임. 상품별 운임을 더하지 않고 출하지별 총중량으로 1회 배차해 산출.
+ * 중량 정보가 없는 품목이 하나라도 있으면 일부만 계산한 금액을 전체 운임처럼 보이지 않도록 금액을 내지 않는다.
+ *
+ * @param list<array{unit_kg:float,qty:int,origin:string}> $lines
+ * @return array{status:string, freight?:int, total_kg?:float, km?:float, trucks?:array, origins?:array, missing?:int}
+ *   status: ok | missing_weight(중량 없는 품목 포함) | negotiate(제주·400km 초과 — 별도 협의) | invalid(지역·품목 오류)
+ */
+function freight_estimate_lines(array $lines, string $dest): array
+{
+    if (!$lines || !isset(FREIGHT_SIDO_COORDS[$dest])) {
+        return ['status' => 'invalid'];
+    }
+    if (in_array($dest, FREIGHT_NEGOTIATE_SIDO, true)) {
+        return ['status' => 'negotiate'];
+    }
+
+    $missing    = 0;
+    $kgByOrigin = [];
+    foreach ($lines as $l) {
+        $kg = (float) $l['unit_kg'] * (int) $l['qty'];
+        if ($kg <= 0) { $missing++; continue; }
+        $origin = (string) $l['origin'];
+        $kgByOrigin[$origin] = ($kgByOrigin[$origin] ?? 0.0) + $kg;
+    }
+    if ($missing > 0) {
+        return ['status' => 'missing_weight', 'missing' => $missing];
+    }
+
+    $total   = 0;
+    $totalKg = 0.0;
+    $maxKm   = 0.0;
+    $trucks  = [];
+    foreach ($kgByOrigin as $origin => $kg) {
+        $est = freight_estimate((string) $origin, $dest, $kg);
+        if (!$est['ok']) { return ['status' => 'invalid']; }
+        if ($est['over400']) { return ['status' => 'negotiate']; }
+        $total   += $est['total'];
+        $totalKg += $kg;
+        $maxKm    = max($maxKm, (float) $est['km']);
+        $trucks   = array_merge($trucks, $est['trucks']);
+    }
+    return [
+        'status'   => 'ok',
+        'freight'  => $total, // 부가세 별도·지게차 상하차·편도 기준 예상
+        'total_kg' => $totalKg,
+        'km'       => $maxKm,
+        'trucks'   => $trucks,
+        'origins'  => array_map('strval', array_keys($kgByOrigin)),
     ];
 }

@@ -49,6 +49,61 @@ $sp = parse_spec_field('규격: 400*400 | 단위: 본 | 중량: 100kg');
 ok('규격 추출', $sp['spec'] === '400*400');
 ok('단위 추출', $sp['unit'] === '본');
 
+echo "[중량 파싱 freight_unit_kg — 천단위 쉼표]\n";
+eq('950kg',            freight_unit_kg('950kg'), 950.0);
+eq('2,640kg',          freight_unit_kg('2,640kg'), 2640.0);
+eq('12,345kg',         freight_unit_kg('12,345kg'), 12345.0);
+eq('0.5 kg',           freight_unit_kg('0.5 kg'), 0.5);
+eq('빈 값 → 0',        freight_unit_kg(''), 0.0);
+eq('kg 표기 없음 → 0', freight_unit_kg('문의'), 0.0);
+eq('0kg → 0',          freight_unit_kg('0kg'), 0.0);
+// 변경 전 정규식은 쉼표 앞을 버려 2,640kg → 640kg 로 읽었다(회귀 방지용 기록)
+$oldKg = (function (string $w): float { return preg_match('/([0-9]+(?:\.[0-9]+)?)\s*kg/i', $w, $m) ? (float) $m[1] : 0.0; });
+ok('변경 전 2,640kg → 640 (버그 재현)', $oldKg('2,640kg') === 640.0);
+// 1련암거(2,640kg) 2본, 경기→경기: 변경 전 1,280kg=2.5톤 10만원 → 변경 후 5,280kg=8톤 15만원
+ok('변경 전 운임 2.5톤 100,000원', freight_estimate('경기', '경기', $oldKg('2,640kg') * 2)['total'] === 100000);
+ok('변경 후 운임 8톤 150,000원',   freight_estimate('경기', '경기', freight_unit_kg('2,640kg') * 2)['total'] === 150000);
+
+echo "[견적 합산 운임 freight_estimate_lines]\n";
+$r = freight_estimate_lines([
+    ['unit_kg' => 600.0, 'qty' => 1, 'origin' => '경기'],
+    ['unit_kg' => 300.0, 'qty' => 2, 'origin' => '경기'],
+], '경기');
+ok('총중량 1,200kg 1회 배차 = 2.5톤 100,000원(상품별 6만+6만 합산 아님)', $r['status'] === 'ok' && $r['freight'] === 100000 && $r['total_kg'] === 1200.0);
+$r = freight_estimate_lines([['unit_kg' => 120.0, 'qty' => 10, 'origin' => '경기']], '서울');
+ok('경기→서울 1,200kg = 2.5톤(≤60km) 100,000원', $r['status'] === 'ok' && $r['freight'] === 100000);
+$r = freight_estimate_lines([
+    ['unit_kg' => 600.0, 'qty' => 1, 'origin' => '경기'],
+    ['unit_kg' => 0.0,   'qty' => 3, 'origin' => '경기'],
+], '경기');
+ok('중량 없는 품목 포함 → missing_weight, 금액 없음', $r['status'] === 'missing_weight' && $r['missing'] === 1 && !isset($r['freight']));
+ok('제주 → negotiate', freight_estimate_lines([['unit_kg' => 100.0, 'qty' => 1, 'origin' => '경기']], '제주')['status'] === 'negotiate');
+ok('미지 지역 → invalid', freight_estimate_lines([['unit_kg' => 100.0, 'qty' => 1, 'origin' => '경기']], '없는시도')['status'] === 'invalid');
+ok('품목 없음 → invalid', freight_estimate_lines([], '경기')['status'] === 'invalid');
+$r = freight_estimate_lines([
+    ['unit_kg' => 800.0, 'qty' => 1, 'origin' => '경기'],
+    ['unit_kg' => 800.0, 'qty' => 1, 'origin' => '서울'],
+], '서울');
+ok('출하지 2곳 → 출하지별 배차 합산(경기→서울 44km 1톤 7만 + 서울→서울 1톤 6만)', $r['status'] === 'ok' && $r['freight'] === 130000 && count($r['origins']) === 2);
+
+echo "[견적 금액 요약 estimate_amount_summary]\n";
+$s = estimate_amount_summary(404400, 30000);
+ok('404,400 + 운임 30,000 → 부가세 43,440 / 최종 477,840', $s['taxable'] === 434400 && $s['vat'] === 43440 && $s['final'] === 477840 && $s['freight_included']);
+$s = estimate_amount_summary(218600, null);
+ok('운임 미산출 218,600 → 부가세 21,860 / 최종 240,460(기존 화면과 동일)', $s['vat'] === 21860 && $s['final'] === 240460 && !$s['freight_included']);
+ok('부가세 원 단위 반올림(1,005 → 101)', estimate_amount_summary(1005, null)['vat'] === 101);
+ok('부가세 원 단위 반올림(1,004 → 100)', estimate_amount_summary(1004, null)['vat'] === 100);
+ok('운임 0원도 산출로 간주(freight_included)', estimate_amount_summary(1000, 0)['freight_included'] === true);
+
+echo "[신청 수량 대조 estimate_items_match]\n";
+$sess = [['product_id' => 1, 'quantity' => 2], ['product_id' => 5, 'quantity' => 4]];
+ok('동일(순서 무관) → true',  estimate_items_match($sess, [['product_id' => 5, 'quantity' => 4], ['product_id' => 1, 'quantity' => 2]]));
+ok('수량 다름 → false',       !estimate_items_match($sess, [['product_id' => 1, 'quantity' => 3], ['product_id' => 5, 'quantity' => 4]]));
+ok('품목 누락 → false',       !estimate_items_match($sess, [['product_id' => 1, 'quantity' => 2]]));
+ok('품목 추가 → false',       !estimate_items_match($sess, [['product_id' => 1, 'quantity' => 2], ['product_id' => 5, 'quantity' => 4], ['product_id' => 9, 'quantity' => 1]]));
+ok('중복 product_id → false', !estimate_items_match($sess, [['product_id' => 1, 'quantity' => 2], ['product_id' => 1, 'quantity' => 2], ['product_id' => 5, 'quantity' => 4]]));
+ok('형식 오류 → false',       !estimate_items_match($sess, ['x', 'y']));
+
 echo "[자모 편집거리 jamo_distance]\n";
 ok('그레이팅~그래이팅 = 1', jamo_distance('그레이팅', '그래이팅') === 1);
 ok('측구~칙구 = 1',        jamo_distance('측구', '칙구') === 1);

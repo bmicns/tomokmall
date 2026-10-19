@@ -20,6 +20,15 @@ if (empty($cartItems)) {
     }
 }
 [$cartCount, $cartTotal] = cart_summary_from_items($cartItems);
+// '문의'(단가 0) 품목 포함 여부 — 금액에서 제외되므로 최종 금액이 확정 금액처럼 보이지 않게 표시
+$hasInquiry = false;
+foreach ($cartItems as $ci) {
+    if ((int) $ci['unit_price'] <= 0) { $hasInquiry = true; break; }
+}
+$totalText = $cartTotal > 0 ? number_format($cartTotal).'원'.($hasInquiry ? ' + 문의' : '') : '담당자 문의';
+$sum0      = estimate_amount_summary($cartTotal, null); // 초기 상태: 배송 지역 미선택 → 운임 미포함
+// 수량 상한 = 저장 API 상한(장바구니 api/cart.php 999, 즉시견적 quick-items.php 9999)
+$qtyMax    = $isQuick ? 9999 : 999;
 $user  = current_user();
 $nowMin = date('Y-m-d\TH:i');
 
@@ -44,6 +53,27 @@ render_header('견적 요청');
 .est-vat-row{display:flex;justify-content:flex-end;align-items:center;gap:16px;padding:8px 14px;background:var(--color-bg-secondary);font-size:13px;color:var(--color-text-secondary);border-top:1px solid var(--color-border)}
 .est-final-row{display:flex;justify-content:flex-end;align-items:center;gap:16px;padding:14px 14px;background:var(--color-bg-secondary);font-size:15px;font-weight:700;border-top:2px solid var(--color-border);margin-bottom:32px}
 .est-final-row span:last-child{font-size:20px;color:var(--color-primary)}
+/* 배송 지역·예상 운임 */
+.est-freight-row{display:flex;flex-direction:column;align-items:flex-end;gap:6px;padding:12px 14px;background:var(--color-bg-secondary);border-top:1px solid var(--color-border)}
+.est-freight-grid{display:grid;grid-template-columns:auto 220px;align-items:center;column-gap:16px;row-gap:8px;font-size:14px;font-weight:700}
+.est-freight-grid label{font-weight:700;color:var(--color-text-primary)}
+.est-freight-grid select{height:40px;padding:0 10px;border:1px solid var(--color-border);border-radius:0;background:#fff;font-size:13px;font-family:var(--font);color:var(--color-text-primary);cursor:pointer}
+.est-freight-grid select:focus{outline:none;border-color:var(--color-primary)}
+.est-freight-val{text-align:right;font-size:15px}
+.est-freight-val.is-pending{font-size:13px;font-weight:600;color:var(--color-text-secondary)}
+.est-freight-note{margin:0;font-size:12px;color:var(--color-text-secondary);text-align:right;line-height:1.5}
+.est-vat-row small{font-size:12px;font-weight:400}
+.est-final-row .est-amt-suffix{font-size:13px;font-weight:600;color:var(--color-text-secondary)}
+.est-final-note{text-align:right;font-size:12px;color:var(--color-text-secondary);padding:6px 14px 0;line-height:1.6}
+@media (max-width:600px){
+  .est-freight-row{align-items:stretch}
+  .est-freight-grid{grid-template-columns:auto minmax(0,1fr)}
+  .est-freight-grid select{height:44px;font-size:14px}
+  .est-freight-note,.est-final-note{text-align:left}
+  .est-final-row{flex-wrap:wrap;gap:4px 16px}
+  .est-total-row span:last-child,.est-vat-row span:last-child,.est-final-row span:last-child,.est-freight-val{white-space:nowrap}
+  .est-vat-row small{display:block}
+}
 .est-empty{padding:40px 0;text-align:center;color:var(--color-text-secondary);font-size:14px;border:1px solid var(--color-border);margin-bottom:32px}
 
 /* 폼 */
@@ -84,6 +114,9 @@ render_header('견적 요청');
 .pv-total-row{display:flex;justify-content:space-between;align-items:center;padding:12px 8px;border-top:3px solid #000;border-bottom:none;font-size:15px;font-weight:700;margin-top:0}
 .pv-vat-row{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;font-size:12px;color:#666;border-bottom:1px solid #bbb}
 .pv-final-row{display:flex;justify-content:space-between;align-items:center;padding:12px 8px;font-size:15px;font-weight:700;background:#f4f4f4;border-top:2px solid #000;border-bottom:2px solid #000;margin-bottom:0}
+.pv-vat-row small{font-size:10px}
+.pv-final-row small{font-size:11px;font-weight:400;color:#555}
+.pv-note{text-align:right;font-size:10px;color:#888;padding:4px 8px 0;line-height:1.6}
 .pv-footer{display:flex;flex-direction:column;gap:16px;margin-top:20px;font-size:12px;color:#555}
 .pv-footer-title{font-size:15px;font-weight:700;color:#222;margin-bottom:6px}
 .pv-notice-list{margin:0;padding-left:16px;display:flex;flex-direction:column;gap:3px}
@@ -132,13 +165,13 @@ render_header('견적 요청');
             <tbody id="items-body">
             <?php foreach ($cartItems as $item): ?>
             <?php $sp = parse_spec_field($item['spec'] ?? ''); ?>
-            <tr data-pid="<?= (int)$item['product_id'] ?>" data-price="<?= (int)$item['unit_price'] ?>" data-spec="<?= e($sp['spec']) ?>">
+            <tr data-pid="<?= (int)$item['product_id'] ?>" data-price="<?= (int)$item['unit_price'] ?>" data-spec="<?= e($sp['spec']) ?>" data-synced="<?= (int)$item['quantity'] ?>">
                 <td><?= e($item['name']) ?></td>
                 <td style="font-size:12px;color:#555"><?= e($sp['spec']) ?></td>
                 <td>
                     <div class="qty-cell">
-                        <input class="qty-input" type="number" value="<?= (int)$item['quantity'] ?>" min="1" max="9999"
-                               onchange="updateSubtotal(this)">
+                        <input class="qty-input" type="number" value="<?= (int)$item['quantity'] ?>" min="1" max="<?= $qtyMax ?>"
+                               aria-label="<?= e($item['name']) ?> 수량" onchange="updateSubtotal(this)">
                     </div>
                 </td>
                 <td class="num"><?= $item['unit_price'] > 0 ? number_format((int)$item['unit_price']).'원' : '문의' ?></td>
@@ -149,18 +182,30 @@ render_header('견적 요청');
             </tbody>
         </table>
         <div class="est-total-row">
-            <span>합계 (부가세 별도)</span>
-            <span id="total-display"><?= $cartTotal > 0 ? number_format($cartTotal).'원' : '담당자 문의' ?></span>
+            <span>상품 합계 (부가세 별도)</span>
+            <span id="total-display"><?= $totalText ?></span>
+        </div>
+        <div class="est-freight-row">
+            <div class="est-freight-grid">
+                <label for="ship-region">배송 지역</label>
+                <select id="ship-region" onchange="refreshFreight(0)">
+                    <option value="">지역 선택</option>
+                    <?php foreach (array_keys(FREIGHT_SIDO_COORDS) as $sido): ?><option value="<?= e($sido) ?>"><?= e($sido) ?></option><?php endforeach; ?>
+                </select>
+                <span>예상 운임비</span>
+                <span id="freight-display" class="est-freight-val is-pending" aria-live="polite">지역 선택 시 산출</span>
+            </div>
+            <p id="freight-note" class="est-freight-note">배송 지역 선택에 따라 운임비가 달라집니다.</p>
         </div>
         <div class="est-vat-row">
-            <span>부가세 (10%)</span>
-            <span id="vat-display"><?= $cartTotal > 0 ? number_format((int)round($cartTotal * 0.1)).'원' : '-' ?></span>
+            <span>부가세 (10%) <small id="vat-basis">(상품 합계 기준, 운임 제외)</small></span>
+            <span id="vat-display"><?= $cartTotal > 0 ? number_format($sum0['vat']).'원' : '-' ?></span>
         </div>
         <div class="est-final-row">
-            <span>최종 결제금액</span>
-            <span id="final-display"><?= $cartTotal > 0 ? number_format((int)round($cartTotal * 1.1)).'원' : '담당자 문의' ?></span>
+            <span>최종 예상 결제금액</span>
+            <span><span id="final-display"><?= $cartTotal > 0 ? number_format($sum0['final']).'원' : '담당자 문의' ?></span><small id="final-suffix" class="est-amt-suffix"><?= $cartTotal > 0 ? ' + 운임 별도'.($hasInquiry ? ' + 문의 품목' : '') : '' ?></small></span>
         </div>
-        <div style="text-align:right;font-size:12px;color:var(--color-text-secondary);padding:6px 14px 0">※ 배송비는 별도 비용입니다.</div>
+        <div id="final-note" class="est-final-note">※ 예상 운임비는 화물 시세 기준 참고 금액(부가세 별도·지게차 상하차·편도)이며, 실제 운임은 담당자 확인 후 확정됩니다.</div>
         <?php else: ?>
         <div class="est-empty">
             견적에 담긴 품목이 없습니다.<br>
@@ -216,54 +261,209 @@ render_header('견적 요청');
 
 <script>
 var IS_QUICK = <?= $isQuick ? 'true' : 'false' ?>;
+// 수량 저장 API — 화면 수량을 세션에 반영해야 실제 신청 수량과 일치한다(quote.php 는 세션 품목 기준 저장)
+var QTY_API = IS_QUICK ? '/api/estimate/quick-items.php' : '/api/cart.php';
+var QTY_MAX = <?= $qtyMax ?>;
 
 function toggleDelivery(cb) {
     document.getElementById('delivery-date').disabled = cb.checked;
     document.getElementById('delivery-time').disabled = cb.checked;
 }
 
+function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function itemRows() { return Array.from(document.querySelectorAll('#items-body tr')); }
+function rowQty(row) { return Math.max(1, parseInt(row.querySelector('.qty-input')?.value) || 1); }
+
+// ── 수량·삭제 저장 (요청 순서 보장: 하나의 체인으로 직렬화) ─────────────────
+var syncChain = Promise.resolve();
+var syncError = '';
+
+function postItem(body) {
+    return fetch(QTY_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    }).then(r => r.json().catch(() => ({})).then(d => {
+        if (!r.ok || !d.ok) throw new Error(d.error || '변경한 내용을 저장하지 못했습니다.');
+        return d;
+    }));
+}
+
+function showSyncError(msg) {
+    const errBox = document.getElementById('error-box');
+    errBox.textContent = msg + ' 화면을 새로고침한 뒤 다시 시도해 주세요.';
+    errBox.style.display = 'block';
+}
+
+function queueQty(row, qty) {
+    syncChain = syncChain
+        .then(() => postItem({ action: 'update', product_id: parseInt(row.dataset.pid), quantity: qty }))
+        .then(() => { row.dataset.synced = String(qty); })
+        .catch(e => { syncError = e.message; showSyncError(e.message); });
+    return syncChain;
+}
+
+function queueRemove(pid) {
+    syncChain = syncChain
+        .then(() => postItem({ action: 'remove', product_id: pid }))
+        .catch(e => { syncError = e.message; showSyncError(e.message); });
+    return syncChain;
+}
+
+// 신청 직전: 진행 중인 저장을 기다리고, 저장 안 된 수량이 있으면 다시 저장 후 일치 여부 확인
+async function ensureQtySynced() {
+    syncError = '';
+    await syncChain;
+    for (const row of itemRows()) {
+        const q = rowQty(row);
+        if (String(q) !== row.dataset.synced) await queueQty(row, q);
+    }
+    const unsynced = itemRows().some(row => String(rowQty(row)) !== row.dataset.synced);
+    if (unsynced || syncError) {
+        return { ok: false, error: (syncError || '변경한 수량을 저장하지 못했습니다.') + ' 화면을 새로고침한 뒤 다시 시도해 주세요.' };
+    }
+    return { ok: true };
+}
+
 function updateSubtotal(input) {
     const row   = input.closest('tr');
     const price = parseInt(row.dataset.price) || 0;
-    const qty   = Math.max(1, parseInt(input.value) || 1);
+    const qty   = Math.min(QTY_MAX, Math.max(1, parseInt(input.value) || 1));
     input.value = qty;
     const cell  = row.querySelector('.subtotal-cell');
     if (price > 0) cell.textContent = (price * qty).toLocaleString() + '원';
     recalcTotal();
+    refreshFreight(300);
+    if (String(qty) !== row.dataset.synced) queueQty(row, qty);
+}
+
+// ── 예상 운임 (/api/freight-cart.php — 품목 총중량으로 1회 배차) ─────────────
+// FR.state: empty(품목 없음) | none(지역 미선택) | loading | ok | missing(중량 없는 품목) | negotiate(제주·장거리) | error
+var FR = { state: 'none' };
+var frSeq = 0, frCtrl = null, frTimer = null, frPromise = Promise.resolve();
+
+function refreshFreight(delay) {
+    const sel  = document.getElementById('ship-region');
+    const dest = sel ? sel.value : '';
+    const rows = itemRows();
+    const seq  = ++frSeq;
+    if (frCtrl) frCtrl.abort();
+    clearTimeout(frTimer);
+    if (!rows.length) { FR = { state: 'empty' }; recalcTotal(); return frPromise = Promise.resolve(); }
+    if (!dest)        { FR = { state: 'none' };  recalcTotal(); return frPromise = Promise.resolve(); }
+    FR = { state: 'loading', dest };
+    recalcTotal();
+    const q = rows.map(row => parseInt(row.dataset.pid) + ':' + rowQty(row)).join(',');
+    frPromise = new Promise(resolve => {
+        frTimer = setTimeout(() => {
+            frCtrl = new AbortController();
+            fetch('/api/freight-cart.php?dest=' + encodeURIComponent(dest) + '&items=' + encodeURIComponent(q), { signal: frCtrl.signal })
+                .then(r => r.json())
+                .then(d => {
+                    if (seq !== frSeq) return;
+                    if (!d.ok)                            FR = { state: 'error', dest, msg: d.error || '' };
+                    else if (d.status === 'ok')           FR = { state: 'ok', dest, amount: parseInt(d.freight) || 0, data: d };
+                    else if (d.status === 'missing_weight') FR = { state: 'missing', dest, names: d.missing_names || [], count: d.missing || 0 };
+                    else                                  FR = { state: 'negotiate', dest };
+                })
+                .catch(e => { if (e.name !== 'AbortError' && seq === frSeq) FR = { state: 'error', dest, msg: '' }; })
+                .finally(() => { if (seq === frSeq) { recalcTotal(); resolve(); } });
+        }, delay || 0);
+    });
+    return frPromise;
+}
+
+function fmtWon(n, unit) { return n.toLocaleString() + unit; }
+
+function fmtKg(kg) {
+    return kg >= 1000 ? (Math.round(kg / 100) / 10).toLocaleString() + '톤' : Math.round(kg).toLocaleString() + 'kg';
+}
+
+// 금액 요약 — app/estimate.php estimate_amount_summary() 와 같은 공식(정수 연산)
+// 과세 대상 = 상품 합계 + 예상 운임, 부가세 = round(과세 대상 × 10%), 최종 = 과세 대상 + 부가세
+function estSummary(goods, freight) {
+    const taxable = Math.max(0, goods) + Math.max(0, freight === null ? 0 : freight);
+    const vat     = Math.floor((taxable + 5) / 10);
+    return { taxable, vat, final: taxable + vat, freightIncluded: freight !== null };
+}
+
+// 화면·인쇄 공용 금액 문구 — 같은 상태(FR + 현재 수량)에서 같은 값을 만든다
+function amountTexts(unit) {
+    let goods = 0, hasInquiry = false;
+    itemRows().forEach(row => {
+        const price = parseInt(row.dataset.price) || 0;
+        if (price > 0) goods += price * rowQty(row); else hasInquiry = true;
+    });
+    const fOk = FR.state === 'ok';
+    const s   = estSummary(goods, fOk ? FR.amount : null);
+    const t   = { region: FR.dest || '미선택', freightPending: !fOk, notes: [] };
+
+    t.total = goods > 0 ? fmtWon(goods, unit) + (hasInquiry ? ' + 문의' : '') : '담당자 문의';
+    t.freight = {
+        empty:     '-',
+        none:      '지역 선택 시 산출',
+        loading:   '계산 중…',
+        ok:        fOk ? fmtWon(FR.amount, unit) : '',
+        missing:   '운임 별도 확인 필요',
+        negotiate: '별도 협의',
+        error:     '운임 별도 확인 필요'
+    }[FR.state];
+    if (FR.state === 'ok') {
+        const d  = FR.data;
+        const tr = (d.trucks || []).map(x => x.ton + '톤×' + x.count).join(' + ');
+        t.freightNote = (d.origins || []).join('·') + '→' + d.dest + ' 약 ' + Math.round(d.km) + 'km · 총중량 ' + fmtKg(d.total_kg) + ' · 차량 ' + tr;
+    } else if (FR.state === 'missing') {
+        const n = FR.names;
+        t.freightNote = '중량 정보가 없는 품목(' + (n[0] || '') + (n.length > 1 ? ' 외 ' + (n.length - 1) + '개' : '') + ')이 있어 전체 운임을 산출할 수 없습니다. 담당자 확인 후 안내드립니다.';
+    } else if (FR.state === 'negotiate') {
+        t.freightNote = '제주 등 육로 운임표로 산출할 수 없는 지역은 담당자와 별도 협의가 필요합니다.';
+    } else if (FR.state === 'error') {
+        t.freightNote = (FR.msg || '운임을 계산하지 못했습니다.') + ' 담당자 확인 후 안내드립니다.';
+    } else {
+        t.freightNote = '배송 지역 선택에 따라 운임비가 달라집니다.';
+    }
+
+    t.vatBasis = fOk ? '(상품 합계 + 예상 운임비)' : '(상품 합계 기준, 운임 제외)';
+    t.vat      = goods > 0 ? fmtWon(s.vat, unit) : '-';
+    t.final    = goods > 0 ? fmtWon(s.final, unit) : '담당자 문의';
+    t.finalSuffix = goods > 0 ? (fOk ? '' : ' + 운임 별도') + (hasInquiry ? ' + 문의 품목' : '') : '';
+
+    t.notes.push('※ 예상 운임비는 화물 시세 기준 참고 금액(부가세 별도·지게차 상하차·편도)이며, 실제 운임은 담당자 확인 후 확정됩니다.');
+    if (goods > 0 && !fOk) t.notes.push('※ 최종 예상 결제금액에 운임이 포함되지 않았습니다.');
+    if (hasInquiry)        t.notes.push("※ '문의' 품목은 금액에 포함되지 않았으며, 담당자가 별도로 안내드립니다.");
+    return t;
+}
+
+function setNotes(el, notes) {
+    el.textContent = '';
+    notes.forEach(n => { const d = document.createElement('div'); d.textContent = n; el.appendChild(d); });
 }
 
 function recalcTotal() {
-    let total = 0;
-    let hasInquiry = false;
-    document.querySelectorAll('#items-body tr').forEach(row => {
-        const price = parseInt(row.dataset.price) || 0;
-        const qty   = parseInt(row.querySelector('.qty-input')?.value) || 0;
-        if (price > 0) total += price * qty;
-        else hasInquiry = true;
-    });
-    const vat   = Math.round(total * 0.1);
-    const final = total + vat;
-    document.getElementById('total-display').textContent =
-        total > 0 ? total.toLocaleString() + '원' + (hasInquiry ? ' + 문의' : '') : '담당자 문의';
-    document.getElementById('vat-display').textContent =
-        total > 0 ? vat.toLocaleString() + '원' : '-';
-    document.getElementById('final-display').textContent =
-        total > 0 ? final.toLocaleString() + '원' : '담당자 문의';
+    if (!document.getElementById('total-display')) return;
+    const t = amountTexts('원');
+    document.getElementById('total-display').textContent = t.total;
+    const fd = document.getElementById('freight-display');
+    fd.textContent = t.freight;
+    fd.classList.toggle('is-pending', t.freightPending);
+    document.getElementById('freight-note').textContent = t.freightNote;
+    document.getElementById('vat-basis').textContent    = t.vatBasis;
+    document.getElementById('vat-display').textContent  = t.vat;
+    document.getElementById('final-display').textContent = t.final;
+    document.getElementById('final-suffix').textContent  = t.finalSuffix;
+    setNotes(document.getElementById('final-note'), t.notes);
 }
 
-async function removeRow(btn) {
+function removeRow(btn) {
     const row = btn.closest('tr');
     const pid = parseInt(row.dataset.pid);
     row.remove();
     recalcTotal();
-    if (pid) {
-        const url = IS_QUICK ? '/api/estimate/quick-items.php' : '/api/cart.php';
-        fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'remove', product_id: pid })
-        });
-    }
+    refreshFreight(0);
+    if (pid) queueRemove(pid);
 }
 
 async function submitEst(e) {
@@ -272,12 +472,26 @@ async function submitEst(e) {
     const btn    = document.getElementById('btn-submit');
     errBox.style.display = 'none';
 
+    const failSubmit = (msg) => {
+        errBox.textContent = msg;
+        errBox.style.display = 'block';
+        errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        btn.disabled = false;
+        btn.textContent = '담당자에게 신청하기';
+    };
+
+    btn.disabled = true;
+    btn.textContent = '수량 확인 중...';
+
+    // 화면 수량 = 저장 수량 보장 (서버도 items 와 세션 품목을 다시 대조한다)
+    const synced = await ensureQtySynced();
+    if (!synced.ok) { failSubmit(synced.error); return; }
+
     // 품목 수집
     const items = [];
-    document.querySelectorAll('#items-body tr').forEach(row => {
+    itemRows().forEach(row => {
         const pid = parseInt(row.dataset.pid);
-        const qty = parseInt(row.querySelector('.qty-input')?.value) || 1;
-        if (pid) items.push({ product_id: pid, quantity: qty });
+        if (pid) items.push({ product_id: pid, quantity: rowQty(row) });
     });
 
     const fd = new FormData(document.getElementById('est-form'));
@@ -296,7 +510,6 @@ async function submitEst(e) {
         sid: ''
     };
 
-    btn.disabled = true;
     btn.textContent = '접수 중...';
 
     try {
@@ -311,22 +524,16 @@ async function submitEst(e) {
             document.getElementById('result-box').style.display = 'block';
             document.getElementById('result-box').scrollIntoView({ behavior: 'smooth', block: 'center' });
         } else {
-            errBox.textContent = d.error || '오류가 발생했습니다.';
-            errBox.style.display = 'block';
-            errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            btn.disabled = false;
-            btn.textContent = '담당자에게 신청하기';
+            failSubmit(d.error || '오류가 발생했습니다.');
         }
     } catch {
-        errBox.textContent = '네트워크 오류가 발생했습니다.';
-        errBox.style.display = 'block';
-        errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        btn.disabled = false;
-        btn.textContent = '담당자에게 신청하기';
+        failSubmit('네트워크 오류가 발생했습니다.');
     }
 }
 
-function doPrint() {
+async function doPrint() {
+    // 운임 계산 중이면 결과를 기다린 뒤 인쇄 (화면·인쇄 금액 일치)
+    await frPromise;
     // 폼 데이터 → 인쇄 뷰에 반영
     const fd = new FormData(document.getElementById('est-form'));
     document.getElementById('pv-company').textContent  = fd.get('company_name') || '-';
@@ -337,33 +544,37 @@ function doPrint() {
     const t = document.getElementById('delivery-time').value;
     document.getElementById('pv-delivery').textContent = d ? `${d} ${t||''}`.trim() : '미정';
     // 품목 동기화
-    const rows = document.querySelectorAll('#items-body tr');
     const tbody = document.getElementById('pv-tbody');
-    tbody.innerHTML = '';
-    let total = 0;
-    rows.forEach((row, i) => {
+    let html = '';
+    itemRows().forEach((row, i) => {
         const name  = row.querySelector('td:first-child')?.textContent.trim() || '';
         const spec  = row.dataset.spec || '-';
-        const qty   = parseInt(row.querySelector('.qty-input')?.value) || 0;
+        const qty   = rowQty(row);
         const price = parseInt(row.dataset.price) || 0;
         const sub   = price * qty;
-        total += sub;
-        tbody.innerHTML += `<tr>
+        html += `<tr>
             <td>${i+1}</td>
-            <td class="left">${name}</td>
-            <td class="left">${spec}</td>
+            <td class="left">${esc(name)}</td>
+            <td class="left">${esc(spec)}</td>
             <td>${qty}</td>
             <td class="right">${price>0?price.toLocaleString()+' 원':'-'}</td>
             <td class="right">${sub>0?sub.toLocaleString()+' 원':'-'}</td>
         </tr>`;
     });
-    const vat   = Math.round(total * 0.1);
-    const final = total + vat;
-    document.getElementById('pv-total').textContent = total > 0 ? total.toLocaleString() + ' 원' : '담당자 문의';
-    document.getElementById('pv-vat').textContent   = total > 0 ? vat.toLocaleString() + ' 원' : '-';
-    document.getElementById('pv-final').textContent = total > 0 ? final.toLocaleString() + ' 원' : '담당자 문의';
+    tbody.innerHTML = html;
+    const a = amountTexts(' 원');
+    document.getElementById('pv-total').textContent       = a.total;
+    document.getElementById('pv-region').textContent      = a.region;
+    document.getElementById('pv-freight').textContent     = a.freight;
+    document.getElementById('pv-vat-basis').textContent   = a.vatBasis;
+    document.getElementById('pv-vat').textContent         = a.vat;
+    document.getElementById('pv-final').textContent       = a.final;
+    document.getElementById('pv-final-suffix').textContent = a.finalSuffix;
+    setNotes(document.getElementById('pv-note'), a.notes);
     window.print();
 }
+
+recalcTotal();
 </script>
 
 <!-- 인쇄 전용 견적서 -->
@@ -413,18 +624,26 @@ function doPrint() {
     </table>
 
     <div class="pv-total-row">
-        <span>견적금액 합계 (부가세 별도)</span>
-        <span id="pv-total"><?= $cartTotal > 0 ? number_format($cartTotal).' 원' : '담당자 문의' ?></span>
+        <span>상품 합계 (부가세 별도)</span>
+        <span id="pv-total"><?= $cartTotal > 0 ? number_format($cartTotal).' 원'.($hasInquiry ? ' + 문의' : '') : '담당자 문의' ?></span>
     </div>
     <div class="pv-vat-row">
-        <span>부가세 (10%)</span>
-        <span id="pv-vat"><?= $cartTotal > 0 ? number_format((int)round($cartTotal * 0.1)).' 원' : '-' ?></span>
+        <span>배송 지역</span>
+        <span id="pv-region">미선택</span>
+    </div>
+    <div class="pv-vat-row">
+        <span>예상 운임비 (부가세 별도)</span>
+        <span id="pv-freight">지역 선택 시 산출</span>
+    </div>
+    <div class="pv-vat-row">
+        <span>부가세 (10%) <small id="pv-vat-basis">(상품 합계 기준, 운임 제외)</small></span>
+        <span id="pv-vat"><?= $cartTotal > 0 ? number_format($sum0['vat']).' 원' : '-' ?></span>
     </div>
     <div class="pv-final-row">
-        <span>최종 결제금액 (부가세 포함)</span>
-        <span id="pv-final"><?= $cartTotal > 0 ? number_format((int)round($cartTotal * 1.1)).' 원' : '담당자 문의' ?></span>
+        <span>최종 예상 결제금액 (부가세 포함)</span>
+        <span><span id="pv-final"><?= $cartTotal > 0 ? number_format($sum0['final']).' 원' : '담당자 문의' ?></span><small id="pv-final-suffix"><?= $cartTotal > 0 ? ' + 운임 별도'.($hasInquiry ? ' + 문의 품목' : '') : '' ?></small></span>
     </div>
-    <div style="text-align:right;font-size:10px;color:#888;padding:4px 8px 0">※ 배송비는 별도 비용입니다.</div>
+    <div id="pv-note" class="pv-note">※ 예상 운임비는 화물 시세 기준 참고 금액(부가세 별도·지게차 상하차·편도)이며, 실제 운임은 담당자 확인 후 확정됩니다.</div>
 
     <div class="pv-footer">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">

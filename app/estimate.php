@@ -8,7 +8,9 @@ declare(strict_types=1);
  * 금지: UI 렌더링, AI Tool 정의
  *
  * 제공 함수:
- *  estimate_create() — AI 상담 + 즉시견적 양쪽에서 공유하는 견적 생성 로직
+ *  estimate_create()         — AI 상담 + 즉시견적 양쪽에서 공유하는 견적 생성 로직
+ *  estimate_items_match()    — 화면에서 보낸 품목·수량과 세션 품목 일치 여부
+ *  estimate_amount_summary() — 견적 화면 금액 요약(상품 합계 + 예상 운임 → 부가세·최종 예상 금액)
  */
 
 require_once __DIR__ . '/cart.php';
@@ -24,7 +26,8 @@ require_once __DIR__ . '/cart.php';
  *
  * @param  array{customer_name:string,phone:string,email?:string,
  *               company_name?:string,site_address?:string,memo?:string,
- *               sid?:string,requested_delivery_at?:string|null,mode?:string} $data
+ *               sid?:string,requested_delivery_at?:string|null,mode?:string,
+ *               expected_items?:array|null} $data
  * @return array{ok:bool,estimate_id?:int,error?:string,field?:string}
  */
 function estimate_create(array $data): array
@@ -87,6 +90,13 @@ function estimate_create(array $data): array
         return ['ok' => false, 'error' => '견적서가 비어있습니다.'];
     }
 
+    // 신청 직전 수량 검증: 화면에서 보낸 품목·수량(expected_items)이 세션 품목과 다르면 접수하지 않는다.
+    // (expected_items 를 넘기지 않는 호출부 — AI 상담 tool 등 — 는 기존과 동일하게 검증 생략)
+    if (isset($data['expected_items']) && is_array($data['expected_items'])
+        && !estimate_items_match($items, $data['expected_items'])) {
+        return ['ok' => false, 'error' => '화면의 품목·수량이 저장된 견적 내용과 다릅니다. 화면을 새로고침한 뒤 수량을 확인하고 다시 신청해 주세요.'];
+    }
+
     // 로그인 상태이면 user_id 자동 연결
     $userId = null;
     if (session_status() === PHP_SESSION_ACTIVE) {
@@ -147,4 +157,49 @@ function estimate_create(array $data): array
     session_write_close();
 
     return ['ok' => true, 'estimate_id' => $estimateId];
+}
+
+/**
+ * 화면에서 보낸 품목·수량과 세션 품목(cart_fetch_items / quick_items_fetch 결과)이 정확히 일치하는지.
+ * 품목 구성(product_id 집합)과 각 수량이 모두 같아야 true. 형식 오류·중복 product_id 는 false.
+ *
+ * @param list<array{product_id:int,quantity:int}> $items     세션 기준 품목
+ * @param array                                     $expected 클라이언트가 보낸 [{product_id, quantity}, ...]
+ */
+function estimate_items_match(array $items, array $expected): bool
+{
+    $actual = [];
+    foreach ($items as $it) {
+        $actual[(int) $it['product_id']] = (int) $it['quantity'];
+    }
+    $sent = [];
+    foreach ($expected as $e) {
+        if (!is_array($e)) { return false; }
+        $pid = (int) ($e['product_id'] ?? 0);
+        if ($pid <= 0 || isset($sent[$pid])) { return false; }
+        $sent[$pid] = (int) ($e['quantity'] ?? 0);
+    }
+    ksort($actual);
+    ksort($sent);
+    return $actual === $sent;
+}
+
+/**
+ * 견적 화면 금액 요약. 과세 대상 = 상품 합계 + 예상 운임, 부가세 = 과세 대상 × 10%(원 단위 반올림).
+ * 운임을 산출하지 못했으면($freight = null) 운임 없이 상품 합계만 과세 대상으로 계산하고 freight_included=false
+ * — 이 경우 화면은 최종 금액을 확정 금액처럼 표시하지 않는다.
+ * ⚠️ public/estimate.php 의 JS estSummary() 와 같은 공식(정수 연산)이다. 변경 시 함께 수정.
+ *
+ * @return array{taxable:int, vat:int, final:int, freight_included:bool}
+ */
+function estimate_amount_summary(int $goodsTotal, ?int $freight): array
+{
+    $taxable = max(0, $goodsTotal) + max(0, $freight ?? 0);
+    $vat     = intdiv($taxable + 5, 10); // round(taxable × 0.1) 를 부동소수 오차 없이
+    return [
+        'taxable'          => $taxable,
+        'vat'              => $vat,
+        'final'            => $taxable + $vat,
+        'freight_included' => $freight !== null,
+    ];
 }
