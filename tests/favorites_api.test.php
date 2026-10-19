@@ -273,8 +273,13 @@ ok('비로그인 상세: 관심상품에 추가(기본 상태) + data-logged-in=
 ok('상세 기존 구조 유지(가격·규격·견적 버튼·시공사례 준비 중 안내)', strpos($html, 'pd-price-row') !== false && strpos($html, '<span class="pd-spec-key">규격</span>') !== false
     && strpos($html, '견적에 넣기') !== false && strpos($html, '시공사례 이미지를 준비 중입니다.') !== false);
 $pos = static function (string $needle) use (&$html): int { $i = strpos($html, $needle); return $i === false ? -1 : $i; };
-ok('상세 순서: 상품명 → 설명 → 가격', $pos('class="pd-name-row"') >= 0 && $pos('class="pd-name-row"') < $pos('class="pd-desc"')
+ok('상세 순서: 상품명 → 설명 → 가격', $pos('class="pd-product-name"') >= 0 && $pos('class="pd-product-name"') < $pos('class="pd-desc"')
     && $pos('class="pd-desc"') < $pos('class="pd-price-row"') && substr_count($html, 'class="pd-desc"') === 1);
+ok('상품명 행에 버튼 없음 → 배지 행(왼쪽 배지·오른쪽 관심상품 버튼) → 구분선 → 가격', strpos($html, 'pd-name-row') === false
+    && preg_match('/<div class="pd-product-name">[^<]*<\/div>\s*<div class="pd-desc">/u', $html) === 1
+    && $pos('class="pd-desc"') < $pos('class="pd-badge-row"') && $pos('class="pd-badge-row"') < $pos('class="pd-badges"')
+    && $pos('class="pd-badges"') < $pos('id="pd-fav-btn"') && $pos('id="pd-fav-btn"') < $pos('class="pd-price-row"')
+    && preg_match('/id="pd-fav-btn"[^>]*>[^<]*<\/button>\s*<\/div>\s*<hr class="pd-divider">/u', $html) === 1);
 ok('공급업체·규격·단위·중량이 한 정보 그룹(pd-spec-rows 1개)', substr_count($html, 'class="pd-spec-rows"') === 1
     && (!vendors_available() || $pos('>공급업체<') < $pos('>규격<')) && $pos('>규격<') < $pos('>단위<') && $pos('>단위<') < $pos('>중량<'));
 ok('견적 수량 스테퍼(− 1 +)가 계산기 바로 위, 계산기 수량과 별도 id', preg_match('/id="pdQtyMinus"[^>]*disabled>&minus;<\\/button>\\s*<input type="number" class="pd-qty-input" id="pdQty" value="1" min="1" max="999"/', $html) === 1

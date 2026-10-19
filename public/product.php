@@ -81,9 +81,12 @@ render_header($p['name']);
 /* 정보 영역 */
 .pd-info-area{border-left:1px solid var(--color-border);padding:32px 28px;display:flex;flex-direction:column;gap:0}
 .pd-product-name{font-size:24px;font-weight:400;color:var(--color-text-primary);line-height:1.3;margin-bottom:6px;letter-spacing:-0.5px}
-/* 상품명 + 관심상품 버튼 한 줄 */
-.pd-name-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.pd-name-row .pd-product-name{flex:1;min-width:0;overflow-wrap:anywhere}
+/* 상품명: 우측 정보 영역 전체 너비 사용(긴 이름만 줄바꿈) */
+.pd-info-area > .pd-product-name{overflow-wrap:anywhere}
+/* 상품명 아래 줄: 왼쪽 상태 배지, 오른쪽 관심상품 버튼(배지가 없어도 버튼은 오른쪽 정렬) */
+.pd-badge-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 12px;margin-top:12px}
+.pd-badge-row .pd-badges{margin-top:0}
+.pd-badge-row .pd-fav-btn{margin-left:auto}
 /* 관심상품 버튼 — 전역 button:hover(진한 파랑 배경·흰 글자)·button:disabled(회색)가 덮지 않도록 상태별 색을 명시.
    글자 길이가 달라도(추가/추가됨) 크기가 변하지 않게 min-width 고정. focus-visible 은 전역 규칙 유지 */
 .pd-fav-btn{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;min-width:152px;min-height:44px;padding:0 16px;border-radius:4px;font-size:14px;font-weight:600;font-family:var(--font);line-height:1.2;white-space:nowrap;cursor:pointer;transition:none}
@@ -176,10 +179,7 @@ render_header($p['name']);
   .gallery-layout{grid-template-columns:1fr}
   .gallery-thumbs{flex-direction:row;flex-wrap:wrap}
 }
-/* 좁은 화면: 상품명이 버튼에 밀려 세로로 길어지지 않도록 버튼을 상품명 아래 줄로 */
 @media(max-width:640px){
-  .pd-name-row{flex-wrap:wrap;gap:4px 12px}
-  .pd-name-row .pd-product-name{flex-basis:100%}
   /* 견적 수량: 라벨·스테퍼·단위가 한 줄에 들어가도록 폭만 줄임(높이 44px 유지) */
   .pd-qty-row{gap:8px}
   .pd-qty-label{width:auto}
@@ -222,11 +222,7 @@ render_header($p['name']);
 
         <!-- 우: 제품 정보 -->
         <div class="pd-info-area">
-            <div class="pd-name-row">
-                <div class="pd-product-name"><?= e($p['name']) ?></div>
-                <button type="button" class="pd-fav-btn<?= $isFavorite ? ' is-added' : '' ?>" id="pd-fav-btn"
-                        data-pid="<?= (int)$p['id'] ?>" data-logged-in="<?= $loggedIn ? '1' : '0' ?>"><?= $isFavorite ? '관심상품에 추가됨' : '관심상품에 추가' ?></button>
-            </div>
+            <div class="pd-product-name"><?= e($p['name']) ?></div>
             <?php if (!empty($p['description'])): ?>
             <div class="pd-desc"><?= nl2br(e($p['description'])) ?></div>
             <?php endif; ?>
@@ -239,11 +235,16 @@ render_header($p['name']);
             elseif (mb_strpos($pdNm, '중하중') !== false)       $pdBadges[] = ['load', '중하중'];
             if (mb_stripos($pdNm, 'KS') !== false || mb_strpos($pdDesc, 'KS') !== false) $pdBadges[] = ['ks', 'KS'];
             if ((int) ($p['stock_qty'] ?? 0) > 0)               $pdBadges[] = ['stock', '재고 보유'];
-            if ($pdBadges): ?>
-            <div class="pd-badges">
-                <?php foreach ($pdBadges as $b): ?><span class="pd-bdg pd-bdg-<?= $b[0] ?>"><?= e($b[1]) ?></span><?php endforeach; ?>
+            ?>
+            <div class="pd-badge-row">
+                <?php if ($pdBadges): ?>
+                <div class="pd-badges">
+                    <?php foreach ($pdBadges as $b): ?><span class="pd-bdg pd-bdg-<?= $b[0] ?>"><?= e($b[1]) ?></span><?php endforeach; ?>
+                </div>
+                <?php endif; ?>
+                <button type="button" class="pd-fav-btn<?= $isFavorite ? ' is-added' : '' ?>" id="pd-fav-btn"
+                        data-pid="<?= (int)$p['id'] ?>" data-logged-in="<?= $loggedIn ? '1' : '0' ?>"><?= $isFavorite ? '관심상품에 추가됨' : '관심상품에 추가' ?></button>
             </div>
-            <?php endif; ?>
 
             <hr class="pd-divider">
 
