@@ -566,10 +566,11 @@ function addCart(pid) {
 (function () {
     const btn = document.getElementById('pd-fav-btn');
     if (!btn) return;
-    let busy = false;
-    function setAdded() {
-        btn.classList.add('is-added');
-        btn.textContent = '관심상품에 추가됨';
+    let busy = false;   // 요청 중 추가 클릭 무시(중복 요청 방지)
+    // 버튼 상태 = 서버 저장 상태. 최초 상태는 PHP가 favorite_products 조회 결과로 렌더링, 이후 API 성공 시에만 변경
+    function setFav(on) {
+        btn.classList.toggle('is-added', on);
+        btn.textContent = on ? '관심상품에 추가됨' : '관심상품에 추가';
     }
     function askLogin(msg) {
         if (!confirm(msg + '\n로그인하시겠습니까?')) return;
@@ -582,12 +583,32 @@ function addCart(pid) {
         if (busy) return;
         busy = true;
         btn.disabled = true;
+        const pid = parseInt(btn.dataset.pid, 10);
         try {
+            // 등록된 상태 → 해제: 마이페이지 자주찾는 품목 삭제와 같은 API(DELETE {product_id}, 본인 행만 삭제)
+            if (btn.classList.contains('is-added')) {
+                const r = await fetch('/api/estimate/favorites.php', {
+                    method: 'DELETE',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
+                    body: JSON.stringify({product_id: pid})
+                });
+                if (r.status === 401) { askLogin('로그인이 만료되었습니다. 관심상품은 해제되지 않았습니다.'); return; }
+                let d = null;
+                try { d = await r.json(); } catch (e) { d = null; }
+                if (!r.ok || !d || !d.ok) {
+                    showToast((d && d.error) || '관심상품 해제에 실패했습니다. 잠시 후 다시 시도해 주세요.', false);
+                    return;
+                }
+                setFav(false);
+                showToast('관심상품에서 해제했습니다.');
+                return;
+            }
             const r = await fetch('/api/estimate/favorites.php', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 credentials: 'same-origin',
-                body: JSON.stringify({product_ids: [parseInt(btn.dataset.pid, 10)]})
+                body: JSON.stringify({product_ids: [pid]})
             });
             if (r.status === 401) { askLogin('로그인이 만료되었습니다. 관심상품은 저장되지 않았습니다.'); return; }
             let d = null;
@@ -596,12 +617,10 @@ function addCart(pid) {
                 showToast((d && d.error) || '관심상품 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.', false);
                 return;
             }
-            if ((d.added || []).length) {
-                setAdded();
+            if ((d.added || []).length || (d.already || []).length) {
+                // already: 다른 창에서 먼저 등록된 경우 — 서버 상태(등록됨)에 맞춤
+                setFav(true);
                 showToast('관심상품에 추가했습니다.');
-            } else if ((d.already || []).length) {
-                setAdded();
-                showToast('이미 관심상품에 등록된 상품입니다.');
             } else {
                 const f = (d.failed || [])[0];
                 showToast(f && f.reason === 'limit'
@@ -609,7 +628,7 @@ function addCart(pid) {
                     : '판매 중인 상품이 아니어서 추가할 수 없습니다.', false);
             }
         } catch (e) {
-            showToast('네트워크 오류로 관심상품을 저장하지 못했습니다. 다시 시도해 주세요.', false);
+            showToast('네트워크 오류로 관심상품을 변경하지 못했습니다. 다시 시도해 주세요.', false);
         } finally {
             busy = false;
             btn.disabled = false;
