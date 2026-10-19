@@ -413,8 +413,7 @@ function amountTexts(unit) {
     }[FR.state];
     if (FR.state === 'ok') {
         const d  = FR.data;
-        const tr = (d.trucks || []).map(x => x.ton + '톤×' + x.count).join(' + ');
-        t.freightNote = (d.origins || []).join('·') + '→' + d.dest + ' 약 ' + Math.round(d.km) + 'km · 총중량 ' + fmtKg(d.total_kg) + ' · 차량 ' + tr;
+        t.freightNote = (d.origins || []).join('·') + '→' + d.dest + ' 약 ' + Math.round(d.km) + 'km · 총중량 ' + fmtKg(d.total_kg);
     } else if (FR.state === 'missing') {
         const n = FR.names;
         t.freightNote = '중량 정보가 없는 품목(' + (n[0] || '') + (n.length > 1 ? ' 외 ' + (n.length - 1) + '개' : '') + ')이 있어 전체 운임을 산출할 수 없습니다. 담당자 확인 후 안내드립니다.';
