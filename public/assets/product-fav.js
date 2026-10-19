@@ -72,8 +72,9 @@
         toastTimer = setTimeout(function () { toastEl.hidden = true; }, type === 'error' ? 8000 : 5000);
     }
 
+    // 확인창 없이 바로 로그인 모달(견적에 넣기·견적 요청 버튼과 같은 openAuthModal). msg가 있으면(세션 만료) 토스트로 안내.
     function askLogin(msg) {
-        if (!confirm(msg + '\n로그인하시겠습니까?')) { return; }
+        if (msg) { toast(msg, 'error'); }
         // 헤더 '로그인'과 같은 로그인 모달(로그인 성공 시 현재 목록 페이지 새로고침). 없으면 로그인 페이지로.
         if (typeof window.openAuthModal === 'function') { window.openAuthModal('login'); return; }
         leaving = true;
@@ -81,7 +82,7 @@
     }
 
     btnStart.addEventListener('click', function () {
-        if (!loggedIn) { askLogin('관심상품은 로그인 후 이용할 수 있습니다.'); return; }
+        if (!loggedIn) { askLogin(); return; }
         setMode(true);
     });
     btnCancel.addEventListener('click', function () {

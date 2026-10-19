@@ -572,14 +572,15 @@ function addCart(pid) {
         btn.classList.toggle('is-added', on);
         btn.textContent = on ? '관심상품에 추가됨' : '관심상품에 추가';
     }
+    // 확인창 없이 바로 로그인 모달(견적에 넣기·견적 요청 버튼과 같은 openAuthModal). msg가 있으면(세션 만료) 토스트로 안내.
     function askLogin(msg) {
-        if (!confirm(msg + '\n로그인하시겠습니까?')) return;
+        if (msg) showToast(msg, false);
         // 상품 목록 관심상품과 같은 로그인 모달(로그인 성공 시 새로고침 → 등록 여부 다시 표시). 없으면 로그인 페이지로.
         if (typeof window.openAuthModal === 'function') { window.openAuthModal('login'); return; }
         location.href = '/login.php?redirect=' + encodeURIComponent(location.pathname + location.search);
     }
     btn.addEventListener('click', async function () {
-        if (btn.getAttribute('data-logged-in') !== '1') { askLogin('관심상품은 로그인 후 이용할 수 있습니다.'); return; }
+        if (btn.getAttribute('data-logged-in') !== '1') { askLogin(); return; }
         if (busy) return;
         busy = true;
         btn.disabled = true;
