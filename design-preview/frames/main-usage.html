@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>메인 — 용도별 탐색 (Figma 5885:10732)</title>
+    <meta name="figma-url" content="https://www.figma.com/design/ZsvQn4eoCINwBmlKNVupZC/KTOMOK?node-id=5885-10732">
+    <link rel="stylesheet" href="/design-preview/frames/ktomok-common.css">
+    <style>
+        /* 프레임 5885:10732 전용. 치수는 1536px 폭 원본 기준 측정값 */
+        :root {
+            --kt-wrap:          1412px;
+            --kt-primary:       #0050B5;
+            --kt-primary-hover: #003F90;
+            --kt-text:          #0A1A40;
+            --kt-text-2:        #3A4771;
+            --kt-header-bg:     #F5F8FA;
+            --kt-header-line:   #E2E6EE;
+            --kt-nav:           #2C3E6A;
+            --kt-util:          #6575A6;
+            --kt-ai-bg:         #0754F4;
+            --kt-quote-border:  #0754F4;
+            --kt-quote-text:    #0754F4;
+            --kt-hero-title:    #0149B2;
+            --kt-search-border: #2A6FD6;
+            --kt-placeholder:   #8190B9;
+            --kt-chip-bg:       #ECF5FE;
+            --kt-chip-border:   #CEE5FB;
+            --kt-chip-text:     #135BCD;
+
+            --a-navy:   #10208C;   /* 카드 라벨·자재명 */
+            --a-link:   #0754F4;   /* 텍스트 링크 */
+            --a-muted:  #6575A6;   /* 설명·페이지 번호 */
+            --a-line:   #DAE8F7;   /* 카드 테두리 */
+            --a-img-bg: #F7F9FA;   /* 자재 이미지 배경 */
+        }
+
+        .kt-hero { padding-top: 35px; }
+        .kt-hero-sub { margin-top: 4px; }
+        .kt-search { margin-top: 23px; }
+        .kt-chips { margin-top: 14px; }
+
+        .a-section-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+        .a-section-title { font-size: 28px; font-weight: 700; line-height: 1.3; color: var(--kt-text); letter-spacing: -0.03em; }
+        .a-head-side { display: flex; align-items: center; gap: 22px; }
+        .a-link { display: inline-flex; align-items: center; gap: 4px; font-size: 17px; font-weight: 500; color: var(--a-link); white-space: nowrap; }
+        .a-link:hover { text-decoration: underline; }
+        .a-pager { font-size: 18px; color: var(--a-muted); white-space: nowrap; }
+
+        /* 어떤 작업에 사용할 예정인가요? */
+        .a-usage { margin-top: 44px; }
+        .a-usage-body { position: relative; margin-top: 13px; }
+        .a-usage-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+        .a-usage-card { display: flex; flex-direction: column; background: #FFFFFF; border: 1px solid var(--a-line); border-radius: 3px; overflow: hidden; }
+        .a-usage-img { height: 150px; }
+        .a-usage-label {
+            display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 43px; padding: 0 18px;
+            font-size: 19px; font-weight: 700; color: var(--a-navy); letter-spacing: -0.03em; white-space: nowrap;
+        }
+        .a-usage-label .kt-icon { font-size: 17px; stroke-width: 2.4; }
+        .a-usage-card:hover { border-color: #A9C8EE; }
+        .a-arrow {
+            position: absolute; top: 66px; display: inline-flex; align-items: center; justify-content: center;
+            width: 45px; height: 45px; border-radius: 50%; background: #FFFFFF; border: 1px solid #D6E9FC;
+            color: #0B4BF0; font-size: 22px; box-shadow: 0 1px 3px rgba(16, 32, 140, .06);
+        }
+        .a-arrow:hover { background: #F2F7FE; }
+        .a-arrow-prev { left: -49px; }
+        .a-arrow-next { right: -49px; }
+        .a-ai-link { display: block; width: fit-content; margin: 19px auto 0; font-size: 18px; font-weight: 500; color: var(--a-link); }
+        .a-ai-link:hover { text-decoration: underline; }
+
+        /* 주요 자재 둘러보기 */
+        .a-materials { margin-top: 37px; padding-bottom: 81px; }
+        .a-mat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px 10px; margin-top: 9px; }
+        .a-mat-card { display: flex; height: 100px; background: #FFFFFF; border: 1px solid var(--a-line); border-radius: 3px; overflow: hidden; }
+        .a-mat-card:hover { border-color: #A9C8EE; }
+        .a-mat-img { flex: 0 0 152px; display: flex; align-items: center; justify-content: center; background: var(--a-img-bg); }
+        .a-mat-img img { width: 100%; height: 100%; object-fit: cover; }
+        .a-mat-text { display: flex; flex-direction: column; justify-content: center; min-width: 0; padding: 0 14px 0 20px; }
+        .a-mat-name { font-size: 18px; font-weight: 700; color: var(--a-navy); letter-spacing: -0.03em; }
+        .a-mat-desc { margin-top: 3px; font-size: 16px; line-height: 1.4; color: var(--a-muted); }
+
+        /* 화살표가 콘텐츠 밖 여백(62px)에 놓이므로 여백이 부족하면 카드 위로 겹친다(가로 스크롤 방지) */
+        @media (max-width: 1535px) {
+            .a-arrow-prev { left: -14px; }
+            .a-arrow-next { right: -14px; }
+        }
+        @media (max-width: 1200px) {
+            .a-mat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 900px) {
+            .a-usage-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .a-arrow { display: none; }
+        }
+        @media (max-width: 640px) {
+            .kt-hero { padding-top: 24px; }
+            .kt-search { margin-top: 16px; }
+            .a-usage { margin-top: 32px; }
+            .a-section-title { font-size: 20px; }
+            .a-link { font-size: 14px; }
+            .a-pager { display: none; }
+            .a-usage-grid { gap: 8px; }
+            .a-usage-img { height: 104px; }
+            .a-usage-label { height: 44px; padding: 0 10px; font-size: 14px; }
+            .a-usage-label .kt-icon { font-size: 14px; }
+            .a-ai-link { font-size: 15px; text-align: center; }
+            .a-materials { margin-top: 32px; padding-bottom: 40px; }
+            .a-mat-grid { grid-template-columns: 1fr; gap: 8px; }
+            .a-mat-card { height: 88px; }
+            .a-mat-img { flex-basis: 112px; }
+            .a-mat-text { padding: 0 12px 0 14px; }
+            .a-mat-name { font-size: 16px; }
+            .a-mat-desc { font-size: 14px; }
+        }
+    </style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8 0 0 1-12.3 7.2L4 20l1.3-3.9A8.5 8 0 1 1 21 11.5z"/><path d="M8.5 11.5h.01M12.5 11.5h.01M16.5 11.5h.01" stroke-width="2.6"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3v5h5M9 17l.8-2.6 4.4-4.4 1.8 1.8-4.4 4.4z"/></symbol>
+    <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="M9 5.5l6.5 6.5L9 18.5"/></symbol>
+    <symbol id="i-chev-l" viewBox="0 0 24 24"><path d="M15 5.5L8.5 12l6.5 6.5"/></symbol>
+    <symbol id="i-arrow-r" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"/></symbol>
+</svg>
+
+<header class="kt-header">
+    <div class="kt-header-inner">
+        <a class="kt-brand" href="#"><span class="kt-logo" aria-hidden="true">TM</span>비엠아이토목건축자재</a>
+        <nav class="kt-nav" aria-label="자재 분류">
+            <a href="#">철근콘크리트</a>
+            <a href="#">콘크리트</a>
+            <a href="#">스틸</a>
+            <a href="#">석재</a>
+            <a href="#">PE/PVC</a>
+        </nav>
+        <div class="kt-actions">
+            <a class="kt-util kt-util-safety" href="#">부동산안전</a>
+            <a class="kt-hbtn kt-hbtn-ai" href="#"><svg class="kt-icon" aria-hidden="true"><use href="#i-chat"/></svg>AI 상담</a>
+            <a class="kt-hbtn kt-hbtn-quote" href="#"><svg class="kt-icon" aria-hidden="true"><use href="#i-doc"/></svg>견적보기</a>
+            <a class="kt-util" href="#">마이페이지</a>
+            <a class="kt-util" href="#">로그아웃</a>
+        </div>
+    </div>
+</header>
+
+<main>
+    <section class="kt-hero kt-wrap">
+        <h1 class="kt-hero-title">현장에서 바로 쓰는 건축자재</h1>
+        <p class="kt-hero-sub">품목별 단가 조회부터 견적 요청까지 한 번에</p>
+        <form class="kt-search" role="search" onsubmit="return false">
+            <label class="kt-sr" for="q">자재 검색</label>
+            <input id="q" type="search" placeholder="수로관, 암거, 그레이팅...">
+            <button type="submit"><svg class="kt-icon" aria-hidden="true"><use href="#i-search"/></svg>검색</button>
+        </form>
+        <div class="kt-chips" aria-label="추천 검색어">
+            <a class="kt-chip" href="#">측구수로관</a>
+            <a class="kt-chip" href="#">그레이팅</a>
+            <a class="kt-chip" href="#">흄관</a>
+            <a class="kt-chip" href="#">경계석</a>
+            <a class="kt-chip" href="#">PE이중벽관</a>
+        </div>
+    </section>
+
+    <section class="a-usage kt-wrap" aria-labelledby="usage-title">
+        <div class="a-section-head">
+            <h2 class="a-section-title" id="usage-title">어떤 작업에 사용할 예정인가요?</h2>
+            <div class="a-head-side">
+                <a class="a-link" href="#">전체 용도 보기<svg class="kt-icon" aria-hidden="true"><use href="#i-arrow-r"/></svg></a>
+                <span class="a-pager" aria-label="2페이지 중 1페이지">1 / 2</span>
+            </div>
+        </div>
+        <div class="a-usage-body">
+            <!-- 시안은 1/2 페이지만 있어 2페이지 카드 내용은 구현하지 않음(화살표는 표시만) -->
+            <button class="a-arrow a-arrow-prev" type="button" aria-label="이전 용도"><svg class="kt-icon" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
+            <div class="a-usage-grid">
+                <a class="a-usage-card" href="#">
+                    <div class="a-usage-img"><div class="kt-ph" role="img" aria-label="배수로·물길 정비 사진 자리">사진 자리 (시안 이미지 미제공)</div></div>
+                    <span class="a-usage-label">배수로·물길 정비<svg class="kt-icon" aria-hidden="true"><use href="#i-chev-r"/></svg></span>
+                </a>
+                <a class="a-usage-card" href="#">
+                    <div class="a-usage-img"><div class="kt-ph" role="img" aria-label="배관 설치·연결 사진 자리">사진 자리 (시안 이미지 미제공)</div></div>
+                    <span class="a-usage-label">배관 설치·연결<svg class="kt-icon" aria-hidden="true"><use href="#i-chev-r"/></svg></span>
+                </a>
+                <a class="a-usage-card" href="#">
+                    <div class="a-usage-img"><div class="kt-ph" role="img" aria-label="맨홀·집수정 설치 사진 자리">사진 자리 (시안 이미지 미제공)</div></div>
+                    <span class="a-usage-label">맨홀·집수정 설치<svg class="kt-icon" aria-hidden="true"><use href="#i-chev-r"/></svg></span>
+                </a>
+                <a class="a-usage-card" href="#">
+                    <div class="a-usage-img"><div class="kt-ph" role="img" aria-label="바닥·보행로 포장 사진 자리">사진 자리 (시안 이미지 미제공)</div></div>
+                    <span class="a-usage-label">바닥·보행로 포장<svg class="kt-icon" aria-hidden="true"><use href="#i-chev-r"/></svg></span>
+                </a>
+            </div>
+            <button class="a-arrow a-arrow-next" type="button" aria-label="다음 용도"><svg class="kt-icon" aria-hidden="true"><use href="#i-chev-r"/></svg></button>
+        </div>
+        <a class="a-ai-link" href="#">해당하는 상황이 없어요 · AI에게 설명하기 →</a>
+    </section>
+
+    <section class="a-materials kt-wrap" aria-labelledby="mat-title">
+        <div class="a-section-head">
+            <h2 class="a-section-title" id="mat-title">주요 자재 둘러보기</h2>
+            <a class="a-link" href="#">전체 자재 보기<svg class="kt-icon" aria-hidden="true"><use href="#i-arrow-r"/></svg></a>
+        </div>
+        <div class="a-mat-grid">
+            <a class="a-mat-card" href="#">
+                <div class="a-mat-img"><img src="/assets/images/home-플륨관.png" alt="플륨관"></div>
+                <div class="a-mat-text"><strong class="a-mat-name">플륨관</strong><span class="a-mat-desc">물을 흘려보내는<br>콘크리트 수로</span></div>
+            </a>
+            <a class="a-mat-card" href="#">
+                <div class="a-mat-img"><img src="/assets/images/home-수로관.png" alt="수로관"></div>
+                <div class="a-mat-text"><strong class="a-mat-name">수로관</strong><span class="a-mat-desc">배수로를 만드는 자재</span></div>
+            </a>
+            <a class="a-mat-card" href="#">
+                <div class="a-mat-img"><img src="/assets/images/home-옹벽블록.png" alt="옹벽블록"></div>
+                <div class="a-mat-text"><strong class="a-mat-name">옹벽블록</strong><span class="a-mat-desc">흙을 지지하는 블록</span></div>
+            </a>
+            <a class="a-mat-card" href="#">
+                <div class="a-mat-img"><img src="/assets/images/home-블록.png" alt="블록"></div>
+                <div class="a-mat-text"><strong class="a-mat-name">블록</strong><span class="a-mat-desc">바닥 · 조경 시공</span></div>
+            </a>
+            <a class="a-mat-card" href="#">
+                <div class="a-mat-img"><div class="kt-ph" role="img" aria-label="벽돌 이미지 자리">이미지 자리</div></div>
+                <div class="a-mat-text"><strong class="a-mat-name">벽돌</strong><span class="a-mat-desc">벽체 · 조경 시공</span></div>
+            </a>
+            <a class="a-mat-card" href="#">
+                <div class="a-mat-img"><img src="/assets/images/home-그레이팅.png" alt="그레이팅"></div>
+                <div class="a-mat-text"><strong class="a-mat-name">그레이팅</strong><span class="a-mat-desc">배수로 위 금속 덮개</span></div>
+            </a>
+            <a class="a-mat-card" href="#">
+                <div class="a-mat-img"><div class="kt-ph" role="img" aria-label="돌망태 이미지 자리">이미지 자리</div></div>
+                <div class="a-mat-text"><strong class="a-mat-name">돌망태</strong><span class="a-mat-desc">돌을 채운 철망 구조물</span></div>
+            </a>
+            <a class="a-mat-card" href="#">
+                <div class="a-mat-img"><img src="/assets/images/home-PE이중벽관.png" alt="PE이중벽관"></div>
+                <div class="a-mat-text"><strong class="a-mat-name">PE이중벽관</strong><span class="a-mat-desc">땅속 배수용 관</span></div>
+            </a>
+        </div>
+    </section>
+</main>
+</body>
+</html>

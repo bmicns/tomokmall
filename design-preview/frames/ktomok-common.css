@@ -1,0 +1,130 @@
+/* KTOMOK 메인 시안 공통 스타일 — 헤더·히어로 검색·추천 칩·아이콘
+   기준: Figma KTOMOK 프레임 5885:10732, 5894:10840 (1536px 폭 기준으로 측정한 값)
+   두 프레임은 래스터 이미지로만 되어 있어 색상·치수는 이미지 픽셀을 측정해 옮겼다.
+   프레임별 색 차이는 각 HTML의 :root 변수로 덮어쓴다. 운영 CSS(public/assets/styles.css)와 무관. */
+
+/* Pretendard: 시안 글꼴과 가장 가까운 한글 산세리프(시안은 래스터라 원본 폰트명 확인 불가) */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+
+:root {
+  --kt-font:          'Pretendard Variable', Pretendard, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+  --kt-wrap:          1412px;
+  --kt-gutter:        24px;
+
+  --kt-primary:       #00499F;
+  --kt-primary-hover: #003A80;
+  --kt-text:          #111111;
+  --kt-text-2:        #383939;
+  --kt-muted:         #7C7C7C;
+
+  --kt-header-bg:     #F7F7F7;
+  --kt-header-line:   #E4E5E5;
+  --kt-nav:           #222222;
+  --kt-util:          #6B6B6B;
+  --kt-ai-bg:         #00499F;
+  --kt-quote-border:  #C6C6C6;
+  --kt-quote-text:    #201F1F;
+
+  --kt-hero-title:    #024191;
+  --kt-search-border: #4B7DBA;
+  --kt-placeholder:   #8A8A8A;
+
+  --kt-chip-bg:       #E8F5FE;
+  --kt-chip-border:   #D6E7F9;
+  --kt-chip-text:     #1F5AAE;
+
+  /* 프레임별 치수(각 HTML에서 덮어씀) */
+  --kt-search-w:      655px;
+  --kt-search-h:      54px;
+  --kt-search-btn-w:  100px;
+  --kt-chip-h:        32px;
+  --kt-chip-fs:       13px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body { font-family: var(--kt-font); font-size: 15px; line-height: 1.5; color: var(--kt-text); background: #FFFFFF; letter-spacing: -0.01em; word-break: keep-all; overflow-wrap: break-word; }
+a { color: inherit; text-decoration: none; }
+button, input, select { font: inherit; color: inherit; letter-spacing: inherit; }
+button { cursor: pointer; background: none; border: 0; }
+img { display: block; max-width: 100%; }
+.kt-icon { width: 1em; height: 1em; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.kt-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.kt-wrap { max-width: calc(var(--kt-wrap) + var(--kt-gutter) * 2); margin: 0 auto; padding: 0 var(--kt-gutter); }
+
+/* 이미지가 시안에만 있고 프로젝트에 없는 자리 (임의 이미지로 대체하지 않음) */
+.kt-ph {
+  display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;
+  font-size: 12px; color: #8A94A6; text-align: center;
+  background: repeating-linear-gradient(135deg, #EEF1F5 0 10px, #E6EAF0 10px 20px);
+}
+
+/* ── 헤더 (시안: 높이 69 + 하단선 1) ───────────────────── */
+.kt-header { background: var(--kt-header-bg); border-bottom: 1px solid var(--kt-header-line); }
+.kt-header-inner {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  height: 69px; padding: 0 12px 0 64px;
+}
+.kt-brand { display: inline-flex; align-items: center; gap: 17px; font-size: 18px; font-weight: 700; color: #111111; justify-self: start; white-space: nowrap; }
+.kt-logo {
+  display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px;
+  background: var(--kt-primary); color: #FFFFFF; font-size: 15px; font-weight: 800; letter-spacing: -0.04em;
+}
+.kt-nav { display: flex; gap: 42px; }
+.kt-nav a { font-size: 18px; font-weight: 500; color: var(--kt-nav); white-space: nowrap; }
+.kt-nav a:hover { color: var(--kt-primary); }
+.kt-actions { display: flex; align-items: center; justify-self: end; gap: 14px; }
+.kt-util { font-size: 14px; color: var(--kt-util); white-space: nowrap; }
+.kt-util:hover { color: var(--kt-text); }
+.kt-util-safety { margin-right: 8px; }
+.kt-hbtn {
+  display: inline-flex; align-items: center; gap: 7px; height: 39px; padding: 0 14px;
+  font-size: 14px; font-weight: 600; border-radius: 4px; white-space: nowrap;
+}
+.kt-hbtn .kt-icon { font-size: 17px; }
+.kt-hbtn-ai { background: var(--kt-ai-bg); color: #FFFFFF; }
+.kt-hbtn-ai:hover { filter: brightness(0.92); }
+.kt-hbtn-quote { background: #FFFFFF; color: var(--kt-quote-text); border: 1px solid var(--kt-quote-border); }
+.kt-hbtn-quote:hover { background: #F4F6F9; }
+
+/* ── 히어로 검색 ─────────────────────────────────────── */
+.kt-hero { text-align: center; }
+.kt-hero-title { font-size: 44px; font-weight: 700; line-height: 1.2; color: var(--kt-hero-title); letter-spacing: -0.03em; }
+.kt-hero-sub { font-size: 24px; font-weight: 400; line-height: 1.4; color: var(--kt-text-2); letter-spacing: -0.02em; }
+.kt-search { display: flex; width: min(100%, var(--kt-search-w)); height: var(--kt-search-h); margin: 0 auto; border: 1.5px solid var(--kt-search-border); border-radius: 2px; background: #FFFFFF; }
+.kt-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 15px; padding: 0 22px; color: var(--kt-text); }
+.kt-search input::placeholder { color: var(--kt-placeholder); }
+.kt-search:focus-within { box-shadow: 0 0 0 3px rgba(0, 80, 181, .15); }
+.kt-search button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex-shrink: 0; width: var(--kt-search-btn-w);
+  background: var(--kt-primary); color: #FFFFFF; font-size: 16px; font-weight: 600; margin: -1.5px -1.5px -1.5px 0;
+}
+.kt-search button:hover { background: var(--kt-primary-hover); }
+.kt-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.kt-chip {
+  display: inline-flex; align-items: center; height: var(--kt-chip-h); padding: 0 14px; border-radius: 999px; font-size: var(--kt-chip-fs);
+  background: var(--kt-chip-bg); border: 1px solid var(--kt-chip-border); color: var(--kt-chip-text); font-weight: 500;
+}
+.kt-chip:hover { filter: brightness(0.97); }
+
+/* ── 반응형 (기존 프로젝트 브레이크포인트 1200/900/640 재사용) ── */
+@media (max-width: 1200px) {
+  .kt-header-inner { grid-template-columns: auto 1fr; height: auto; padding: 12px var(--kt-gutter) 0; row-gap: 10px; }
+  .kt-nav { grid-column: 1 / -1; order: 3; gap: 28px; overflow-x: auto; padding: 4px 0 12px; scrollbar-width: none; }
+  .kt-nav a { font-size: 16px; }
+}
+@media (max-width: 640px) {
+  :root { --kt-gutter: 16px; --kt-search-h: 48px; --kt-search-btn-w: 84px; --kt-chip-h: 36px; }
+  .kt-header-inner { grid-template-columns: 1fr; }
+  .kt-brand { font-size: 16px; gap: 10px; }
+  .kt-logo { width: 32px; height: 32px; font-size: 13px; }
+  .kt-actions { justify-self: start; flex-wrap: wrap; gap: 6px 12px; }
+  .kt-util-safety { margin-right: 0; }
+  .kt-hbtn { height: 44px; }
+  .kt-nav { gap: 20px; }
+  .kt-hero-title { font-size: 28px; }
+  .kt-hero-sub { font-size: 16px; margin-top: 6px; }
+  .kt-search input { padding: 0 14px; }
+  .kt-search button { font-size: 15px; }
+}
