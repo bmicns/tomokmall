@@ -1,0 +1,63 @@
+/* 디자인 미리보기 셸(목록·뷰어) 전용 스타일 — 시안 자체 스타일은 각 frames/*.html 또는 frames/*.css 에 둔다.
+   public/assets/styles.css 의 토큰 값을 복사해 사용(원본 파일은 수정하지 않음). */
+
+@font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-4Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-6SemiBold.woff2') format('woff2'); font-weight: 600; font-display: swap; }
+
+:root {
+  --dp-bg:        #FFFFFF;
+  --dp-surface:   #F7F7F7;
+  --dp-border:    #DDDDDD;
+  --dp-text:      #222222;
+  --dp-text-2:    #777777;
+  --dp-primary:   #004EA1;
+  --dp-warning:   #E6A817;
+  --dp-font:      'Paperozi', -apple-system, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+.dp-shell { font-family: var(--dp-font); font-size: 15px; color: var(--dp-text); background: var(--dp-surface); line-height: 1.5; }
+:where(.dp-shell) a { color: inherit; text-decoration: none; }
+
+.dp-bar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+  padding: 12px 24px; background: var(--dp-bg); border-bottom: 1px solid var(--dp-border);
+}
+.dp-bar-title { font-size: 16px; font-weight: 600; margin-right: auto; }
+.dp-badge { font-size: 12px; font-weight: 500; padding: 4px 10px; background: #FFF6DE; color: #8A5E00; border: 1px solid var(--dp-warning); }
+
+.dp-main { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
+.dp-heading { font-size: 24px; font-weight: 400; margin-bottom: 20px; }
+.dp-heading span { font-size: 14px; color: var(--dp-text-2); }
+
+.dp-empty { padding: 48px 24px; background: var(--dp-bg); border: 1px dashed var(--dp-border); text-align: center; }
+.dp-empty h1 { font-size: 20px; font-weight: 600; margin-bottom: 12px; }
+.dp-empty p { color: var(--dp-text-2); margin-top: 6px; }
+.dp-empty code, .dp-main code { font-size: 13px; background: var(--dp-surface); padding: 1px 6px; }
+
+.dp-list { list-style: none; display: grid; gap: 12px; }
+.dp-item { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 20px; background: var(--dp-bg); border: 1px solid var(--dp-border); }
+.dp-item-title { font-weight: 600; margin-right: auto; }
+.dp-item-title:hover { color: var(--dp-primary); }
+.dp-item-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* 터치 영역 44px 확보 */
+.dp-btn {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px;
+  font-size: 13px; font-weight: 500; background: var(--dp-primary); color: #FFFFFF;
+}
+.dp-btn:hover { background: #003A7A; }
+.dp-btn-dim { background: var(--dp-surface); color: var(--dp-text); border: 1px solid var(--dp-border); }
+.dp-btn-dim:hover { background: #EEEEEE; }
+.dp-btn.is-active { outline: 2px solid var(--dp-text); outline-offset: 2px; }
+
+.dp-stage { padding: 24px; overflow-x: auto; }
+.dp-frame { display: block; margin: 0 auto; height: calc(100vh - 140px); min-height: 480px; background: #FFFFFF; border: 1px solid var(--dp-border); }
+
+@media (max-width: 640px) {
+  .dp-bar { padding: 10px 16px; }
+  .dp-main { padding: 20px 16px; }
+  .dp-stage { padding: 12px 0; }
+}

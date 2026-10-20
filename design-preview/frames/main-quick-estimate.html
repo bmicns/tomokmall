@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>메인 — 빠른 견적하기 (Figma 5894:10840)</title>
+    <meta name="figma-url" content="https://www.figma.com/design/ZsvQn4eoCINwBmlKNVupZC/KTOMOK?node-id=5894-10840">
+    <link rel="stylesheet" href="/design-preview/frames/ktomok-common.css">
+    <style>
+        /* 프레임 5894:10840 전용. 원본 2255px 폭을 1536px 기준으로 환산(÷1.468)한 측정값 */
+        :root {
+            --kt-wrap:         1454px;
+            --kt-search-w:     661px;
+            --kt-search-h:     51px;
+            --kt-search-btn-w: 104px;
+            --kt-chip-h:       34px;
+            --kt-chip-fs:      14px;
+
+            --b-line:      #DFE0DF;   /* 패널 테두리 */
+            --b-row-line:  #EDEEEE;   /* 표 행 구분선 */
+            --b-th-bg:     #EEEEEE;   /* 표 머리 배경 */
+            --b-th-text:   #555555;
+            --b-filter-bg: #EFEFEF;
+            --b-input-line:#DCDCDC;
+            --b-spec:      #7D7C7D;
+            --b-tile-line: #908F8F;
+        }
+
+        .kt-hero { padding-top: 26px; }
+        .kt-hero-sub { margin-top: 2px; }
+        .kt-search { margin-top: 21px; }
+        .kt-chips { margin-top: 14px; }
+
+        .b-section-title { font-size: 30px; font-weight: 700; line-height: 1.3; letter-spacing: -0.03em; }
+        .b-quick { margin-top: 9px; }
+        .b-quick-grid { display: grid; grid-template-columns: minmax(0, 876fr) minmax(0, 568fr); gap: 10px; margin-top: 14px; align-items: start; }
+        .b-panel { background: #FFFFFF; border: 1px solid var(--b-line); border-radius: 4px; }
+
+        /* 왼쪽: 품목 선택 */
+        .b-pick { padding: 18px 18px 8px; }
+        .b-tabs { display: flex; gap: 20px; border-bottom: 1px solid #DEDFDF; padding-left: 9px; }
+        .b-tab {
+            position: relative; height: 35px; padding: 0 12px; font-size: 17px; font-weight: 500; color: #3D3D3D;
+        }
+        .b-tab[aria-selected="true"] { color: var(--kt-primary); font-weight: 700; }
+        .b-tab[aria-selected="true"]::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; background: var(--kt-primary); }
+        .b-filter {
+            display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 8px; padding: 9px 10px;
+            background: var(--b-filter-bg); border: 1px solid #E8E8E8; border-radius: 3px;
+        }
+        .b-filter-label { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #505150; }
+        .b-step {
+            display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px;
+            background: #FFFFFF; border: 1px solid #CFCFCF; border-radius: 2px; font-size: 13px; font-weight: 700; color: #141313;
+        }
+        .b-select { position: relative; margin-top: 9px; }
+        .b-select select {
+            width: 100%; height: 38px; padding: 0 36px 0 14px; appearance: none; background: #FFFFFF;
+            border: 1px solid #DDDDDD; border-radius: 3px; font-size: 15px; color: #292A2A;
+        }
+        .b-select .kt-icon { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 16px; pointer-events: none; stroke-width: 2.4; }
+        .b-sub-title { margin-top: 16px; font-size: 20px; font-weight: 700; letter-spacing: -0.03em; }
+
+        .b-spec-table { margin-top: 7px; }
+        .b-spec-row { display: grid; grid-template-columns: minmax(0, 1fr) 80px 138px 134px 103px; align-items: center; }
+        .b-spec-head { height: 37px; background: var(--b-th-bg); font-size: 14px; color: var(--b-th-text); text-align: center; }
+        .b-spec-head span:first-child { text-align: left; padding-left: 21px; }
+        .b-spec-item { min-height: 88px; border-bottom: 1px solid var(--b-row-line); text-align: center; }
+        .b-spec-item:last-child { border-bottom: 0; }
+        .b-prod { display: flex; align-items: center; gap: 21px; padding-left: 10px; text-align: left; min-width: 0; }
+        .b-thumb { flex: 0 0 94px; height: 61px; border-radius: 2px; overflow: hidden; }
+        .b-prod-name { font-size: 18px; font-weight: 700; letter-spacing: -0.03em; }
+        .b-prod-spec { margin-top: 6px; font-size: 16px; color: var(--b-spec); overflow-wrap: anywhere; }
+        .b-unit { font-size: 17px; }
+        .b-price { font-size: 18px; font-weight: 500; }
+        .b-qty {
+            width: 82px; height: 48px; border: 1px solid var(--b-input-line); border-radius: 3px; background: #FFFFFF;
+            font-size: 18px; text-align: center; -moz-appearance: textfield;
+        }
+        .b-qty::-webkit-outer-spin-button, .b-qty::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .b-add {
+            width: 90px; height: 51px; border: 1.5px solid #1D5AA8; border-radius: 3px; background: #FFFFFF;
+            font-size: 18px; font-weight: 700; color: var(--kt-primary);
+        }
+        .b-add:hover { background: #F0F5FC; }
+
+        /* 오른쪽: 담은 품목 */
+        .b-cart { padding: 16px 18px 9px; }
+        .b-cart-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-left: 4px; }
+        .b-cart-title { font-size: 24px; font-weight: 700; letter-spacing: -0.03em; }
+        .b-cart-count { margin-left: 8px; color: var(--kt-primary); }
+        .b-more { display: inline-flex; align-items: center; gap: 4px; font-size: 17px; font-weight: 600; color: var(--kt-primary); white-space: nowrap; }
+        .b-more:hover { text-decoration: underline; }
+        .b-cart-row { display: grid; grid-template-columns: minmax(0, 1fr) 65px 168px 40px; align-items: center; }
+        .b-cart-th { height: 36px; margin-top: 10px; background: var(--b-th-bg); font-size: 14px; color: #7F8080; text-align: center; }
+        .b-cart-th span:first-child { text-align: left; padding-left: 14px; }
+        .b-cart-item { min-height: 82px; border-bottom: 1px solid var(--b-row-line); }
+        .b-cart-item .b-prod { gap: 8px; padding-left: 6px; }
+        .b-cart-item .b-thumb { flex-basis: 71px; height: 56px; }
+        .b-cart-item .b-prod-name { font-size: 17px; }
+        .b-cart-item .b-prod-spec { margin-top: 2px; font-size: 15px; }
+        .b-cart-qty { width: 63px; height: 43px; font-size: 18px; }
+        .b-amount { font-size: 18px; font-weight: 500; text-align: right; padding-right: 32px; white-space: nowrap; }
+        .b-remove { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 44px; color: #949495; font-size: 18px; }
+        .b-remove:hover { color: #333333; }
+        .b-cart-empty { padding: 28px 0; text-align: center; color: var(--kt-muted); border-bottom: 1px solid var(--b-row-line); }
+        .b-total { display: flex; align-items: flex-start; justify-content: space-between; padding: 10px 5px 0 4px; }
+        .b-total-label { margin-top: 6px; font-size: 24px; font-weight: 700; letter-spacing: -0.03em; }
+        .b-total-sum { text-align: right; }
+        .b-total-amount { font-size: 32px; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; }
+        .b-total-note { font-size: 14px; line-height: 1.4; color: var(--kt-muted); }
+        .b-cta {
+            display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 52px; margin-top: 8px;
+            background: var(--kt-primary); color: #FFFFFF; border-radius: 3px; font-size: 21px; font-weight: 700;
+        }
+        .b-cta:hover { background: var(--kt-primary-hover); }
+        .b-cta .kt-icon { font-size: 20px; stroke-width: 2.4; }
+        .b-cta-note { margin-top: 12px; text-align: center; font-size: 15px; color: var(--kt-muted); }
+
+        /* 주요 자재 둘러보기 */
+        .b-materials { margin-top: 19px; padding-bottom: 29px; }
+        .b-tiles { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+        .b-tile {
+            position: relative; display: flex; align-items: center; justify-content: center; height: 46px; padding: 0 30px;
+            background: #FFFFFF; border: 1.5px solid var(--b-tile-line); border-radius: 3px;
+            font-size: 17px; font-weight: 700; letter-spacing: -0.03em; white-space: nowrap;
+        }
+        .b-tile .kt-icon { position: absolute; right: 14px; font-size: 16px; stroke-width: 2.4; }
+        .b-tile:hover { border-color: var(--kt-primary); color: var(--kt-primary); }
+
+        @media (max-width: 1200px) {
+            .b-quick-grid { grid-template-columns: 1fr; }
+            .b-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        }
+        @media (max-width: 900px) {
+            .b-spec-row { grid-template-columns: minmax(0, 1fr) 56px 104px 96px 96px; }
+            .b-qty { width: 72px; }
+            .b-add { width: 84px; }
+        }
+        @media (max-width: 640px) {
+            .kt-hero { padding-top: 24px; }
+            .kt-search { margin-top: 16px; }
+            .b-section-title { font-size: 22px; }
+            .b-quick { margin-top: 24px; }
+            .b-pick, .b-cart { padding: 14px 12px; }
+            .b-tabs { gap: 4px; padding-left: 0; overflow-x: auto; scrollbar-width: none; }
+            .b-tab { height: 44px; font-size: 15px; white-space: nowrap; }
+            .b-filter { grid-template-columns: 1fr; gap: 10px; }
+            .b-select select { height: 44px; }
+            .b-sub-title { font-size: 18px; margin-top: 18px; }
+            /* 규격별 상품: 표 → 카드형 (상품 정보 위, 단위·단가·수량·담기 아래) */
+            .b-spec-head { display: none; }
+            .b-spec-row { grid-template-columns: auto 1fr auto auto; gap: 8px 10px; padding: 12px 0; }
+            .b-spec-item .b-prod { grid-column: 1 / -1; padding-left: 0; gap: 12px; }
+            .b-thumb { flex-basis: 72px; height: 48px; }
+            .b-prod-name { font-size: 16px; }
+            .b-prod-spec { font-size: 14px; margin-top: 2px; }
+            .b-unit { font-size: 14px; color: var(--b-spec); }
+            .b-price { font-size: 16px; text-align: left; }
+            .b-qty { width: 60px; height: 44px; font-size: 16px; }
+            .b-add { width: 72px; height: 44px; font-size: 16px; }
+            .b-cart-title { font-size: 20px; }
+            .b-more { font-size: 15px; }
+            .b-cart-row { grid-template-columns: minmax(0, 1fr) 56px 92px 36px; }
+            .b-cart-item .b-thumb { display: none; }
+            .b-cart-item .b-prod { padding-left: 4px; }
+            .b-cart-item .b-prod-name { font-size: 15px; }
+            .b-cart-item .b-prod-spec { font-size: 13px; }
+            .b-cart-qty { width: 52px; height: 44px; font-size: 16px; }
+            .b-amount { font-size: 15px; padding-right: 4px; }
+            .b-total-label { font-size: 18px; }
+            .b-total-amount { font-size: 24px; }
+            .b-total-note { font-size: 13px; }
+            .b-cta { font-size: 18px; }
+            .b-cta-note { font-size: 13px; }
+            .b-materials { margin-top: 28px; }
+            .b-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+            .b-tile { height: 48px; font-size: 15px; padding: 0 26px 0 12px; }
+        }
+    </style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8 0 0 1-12.3 7.2L4 20l1.3-3.9A8.5 8 0 1 1 21 11.5z"/><path d="M8.5 11.5h.01M12.5 11.5h.01M16.5 11.5h.01" stroke-width="2.6"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3v5h5M9 17l.8-2.6 4.4-4.4 1.8 1.8-4.4 4.4z"/></symbol>
+    <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="M9 5.5l6.5 6.5L9 18.5"/></symbol>
+    <symbol id="i-chev-d" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+    <symbol id="i-arrow-r" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+</svg>
+
+<header class="kt-header">
+    <div class="kt-header-inner">
+        <a class="kt-brand" href="#"><span class="kt-logo" aria-hidden="true">TM</span>비엠아이토목건축자재</a>
+        <nav class="kt-nav" aria-label="자재 분류">
+            <a href="#">철근콘크리트</a>
+            <a href="#">콘크리트</a>
+            <a href="#">스틸</a>
+            <a href="#">석재</a>
+            <a href="#">PE/PVC</a>
+        </nav>
+        <div class="kt-actions">
+            <a class="kt-util kt-util-safety" href="#">부동산안전</a>
+            <a class="kt-hbtn kt-hbtn-ai" href="#"><svg class="kt-icon" aria-hidden="true"><use href="#i-chat"/></svg>AI 상담</a>
+            <a class="kt-hbtn kt-hbtn-quote" href="#"><svg class="kt-icon" aria-hidden="true"><use href="#i-doc"/></svg>견적보기</a>
+            <a class="kt-util" href="#">마이페이지</a>
+            <a class="kt-util" href="#">로그아웃</a>
+        </div>
+    </div>
+</header>
+
+<main>
+    <section class="kt-hero kt-wrap">
+        <h1 class="kt-hero-title">현장에서 바로 쓰는 건축자재</h1>
+        <p class="kt-hero-sub">품목·규격을 찾고 필요한 수량으로 견적을 구성하세요</p>
+        <form class="kt-search" role="search" onsubmit="return false">
+            <label class="kt-sr" for="q">품목·규격 검색</label>
+            <input id="q" type="search" placeholder="품목명 또는 규격으로 검색">
+            <button type="submit"><svg class="kt-icon" aria-hidden="true"><use href="#i-search"/></svg>검색</button>
+        </form>
+        <div class="kt-chips" aria-label="추천 검색어">
+            <a class="kt-chip" href="#">수로관</a>
+            <a class="kt-chip" href="#">암거</a>
+            <a class="kt-chip" href="#">그레이팅</a>
+            <a class="kt-chip" href="#">맨홀</a>
+            <a class="kt-chip" href="#">PE이중벽관</a>
+        </div>
+    </section>
+
+    <section class="b-quick kt-wrap" aria-labelledby="quick-title">
+        <h2 class="b-section-title" id="quick-title">빠른 견적하기</h2>
+        <div class="b-quick-grid">
+            <div class="b-panel b-pick">
+                <!-- 시안에는 '신규 선택' 탭 내용만 있어 다른 탭은 선택 표시만 바뀜 -->
+                <div class="b-tabs" role="tablist" aria-label="품목 찾기 방식">
+                    <button class="b-tab" type="button" role="tab" aria-selected="true">신규 선택</button>
+                    <button class="b-tab" type="button" role="tab" aria-selected="false">단골품목</button>
+                    <button class="b-tab" type="button" role="tab" aria-selected="false">이전 견적서</button>
+                </div>
+                <div class="b-filter">
+                    <div>
+                        <label class="b-filter-label" for="cat1"><span class="b-step">1</span>대분류</label>
+                        <div class="b-select"><select id="cat1"><option>철근콘크리트</option></select><svg class="kt-icon" aria-hidden="true"><use href="#i-chev-d"/></svg></div>
+                    </div>
+                    <div>
+                        <label class="b-filter-label" for="cat2"><span class="b-step">2</span>중분류</label>
+                        <div class="b-select"><select id="cat2"><option>플륨관·수로관</option></select><svg class="kt-icon" aria-hidden="true"><use href="#i-chev-d"/></svg></div>
+                    </div>
+                    <div>
+                        <label class="b-filter-label" for="cat3"><span class="b-step">3</span>품목</label>
+                        <div class="b-select"><select id="cat3"><option>벤치플륨관(벤치2종)</option></select><svg class="kt-icon" aria-hidden="true"><use href="#i-chev-d"/></svg></div>
+                    </div>
+                </div>
+
+                <h3 class="b-sub-title">규격별 상품</h3>
+                <div class="b-spec-table" role="table" aria-label="규격별 상품">
+                    <div class="b-spec-row b-spec-head" role="row">
+                        <span role="columnheader">품목·규격</span><span role="columnheader">단위</span><span role="columnheader">단가</span><span role="columnheader">수량</span><span role="columnheader">선택</span>
+                    </div>
+                    <div id="spec-list"></div>
+                </div>
+            </div>
+
+            <aside class="b-panel b-cart" aria-labelledby="cart-title">
+                <div class="b-cart-head">
+                    <h3 class="b-cart-title" id="cart-title">담은 품목<span class="b-cart-count" id="cart-count">3</span></h3>
+                    <a class="b-more" href="#">전체 보기<svg class="kt-icon" aria-hidden="true"><use href="#i-arrow-r"/></svg></a>
+                </div>
+                <div class="b-cart-row b-cart-th" aria-hidden="true"><span>품목·규격</span><span>수량</span><span>금액</span><span></span></div>
+                <div id="cart-list"></div>
+                <div class="b-total">
+                    <span class="b-total-label">상품 합계</span>
+                    <div class="b-total-sum">
+                        <div class="b-total-amount" id="cart-total" aria-live="polite">386,700원</div>
+                        <div class="b-total-note">부가세·운송비 별도</div>
+                    </div>
+                </div>
+                <a class="b-cta" href="#">견적서 작성하기<svg class="kt-icon" aria-hidden="true"><use href="#i-arrow-r"/></svg></a>
+                <p class="b-cta-note">다음 화면에서 배송·신청 정보를 입력합니다.</p>
+            </aside>
+        </div>
+    </section>
+
+    <section class="b-materials kt-wrap" aria-labelledby="mat-title">
+        <h2 class="b-section-title" id="mat-title">주요 자재 둘러보기</h2>
+        <div class="b-tiles">
+            <a class="b-tile" href="#">플륨관<svg class="kt-icon" aria-hidden="true"><use href="#i-chev-r"/></svg></a>
+            <a class="b-tile" href="#">수로관<svg class="kt-icon" aria-hidden="true"><use href="#i-chev-r"/></svg></a>
+            <a class="b-tile" href="#">옹벽블록<svg class="kt-icon" aria-hidden="true"><use href="#i-chev-r"/></svg></a>
+            <a class="b-tile" href="#">블록<svg class="kt-icon" aria-hidden="true"><use href="#i-chev-r"/></svg></a>
+            <a class="b-tile" href="#">벽돌<svg class="kt-icon" aria-hidden="true"><use href="#i-chev-r"/></svg></a>
+            <a class="b-tile" href="#">그레이팅<svg class="kt-icon" aria-hidden="true"><use href="#i-chev-r"/></svg></a>
+            <a class="b-tile" href="#">돌망태<svg class="kt-icon" aria-hidden="true"><use href="#i-chev-r"/></svg></a>
+            <a class="b-tile" href="#">PE이중벽관<svg class="kt-icon" aria-hidden="true"><use href="#i-chev-r"/></svg></a>
+        </div>
+    </section>
+</main>
+
+<script>
+// 시안 동작 확인용 (서버·DB 연동 없음). 상품·가격·초기 담은 수량은 Figma 시안에 적힌 값 그대로.
+(function () {
+    var products = [
+        { id: 'b1', name: '벤치플륨관', spec: '300×200×2000×40T', unit: '본', price: 29900 },
+        { id: 'b2', name: '벤치플륨관', spec: '400×260×2000×50T', unit: '본', price: 40200 },
+        { id: 'b3', name: '벤치플륨관', spec: '600×380×2000×60T', unit: '본', price: 58300 }
+    ];
+    var cart = [{ id: 'b1', qty: 5 }, { id: 'b2', qty: 3 }, { id: 'b3', qty: 2 }];
+
+    var specList = document.getElementById('spec-list');
+    var cartList = document.getElementById('cart-list');
+    var won = function (n) { return n.toLocaleString('ko-KR') + '원'; };
+    var find = function (id) { return products.filter(function (p) { return p.id === id; })[0]; };
+    var toQty = function (v) { var n = parseInt(v, 10); return isNaN(n) || n < 1 ? 1 : Math.min(n, 9999); };
+    var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); };
+    var thumb = '<div class="b-thumb"><div class="kt-ph" role="img" aria-label="벤치플륨관 이미지 자리">이미지</div></div>';
+
+    specList.innerHTML = products.map(function (p) {
+        return '<div class="b-spec-row b-spec-item" role="row">' +
+            '<div class="b-prod" role="cell">' + thumb + '<div><div class="b-prod-name">' + esc(p.name) + '</div>' +
+            '<div class="b-prod-spec">규격: ' + esc(p.spec) + '</div></div></div>' +
+            '<span class="b-unit" role="cell">' + esc(p.unit) + '</span>' +
+            '<span class="b-price" role="cell">' + won(p.price) + '</span>' +
+            '<span role="cell"><input class="b-qty" type="number" min="1" value="1" inputmode="numeric" aria-label="' + esc(p.spec) + ' 수량" data-qty="' + p.id + '"></span>' +
+            '<span role="cell"><button class="b-add" type="button" data-add="' + p.id + '">+ 담기</button></span>' +
+            '</div>';
+    }).join('');
+
+    function renderCart() {
+        var total = 0;
+        cartList.innerHTML = cart.length ? cart.map(function (c) {
+            var p = find(c.id); var amount = p.price * c.qty; total += amount;
+            return '<div class="b-cart-row b-cart-item">' +
+                '<div class="b-prod">' + thumb + '<div><div class="b-prod-name">' + esc(p.name) + '</div>' +
+                '<div class="b-prod-spec">' + esc(p.spec) + '</div></div></div>' +
+                '<input class="b-qty b-cart-qty" type="number" min="1" value="' + c.qty + '" inputmode="numeric" aria-label="' + esc(p.spec) + ' 담은 수량" data-cart-qty="' + c.id + '">' +
+                '<span class="b-amount">' + won(amount) + '</span>' +
+                '<button class="b-remove" type="button" aria-label="' + esc(p.spec) + ' 삭제" data-remove="' + c.id + '"><svg class="kt-icon" aria-hidden="true"><use href="#i-close"/></svg></button>' +
+                '</div>';
+        }).join('') : '<p class="b-cart-empty">담은 품목이 없습니다.</p>';
+        document.getElementById('cart-count').textContent = cart.length;
+        document.getElementById('cart-total').textContent = won(total);
+    }
+
+    document.addEventListener('click', function (e) {
+        var add = e.target.closest('[data-add]');
+        var remove = e.target.closest('[data-remove]');
+        var tab = e.target.closest('.b-tab');
+        if (add) {
+            var id = add.getAttribute('data-add');
+            var qty = toQty(document.querySelector('[data-qty="' + id + '"]').value);
+            var hit = cart.filter(function (c) { return c.id === id; })[0];
+            if (hit) { hit.qty = Math.min(hit.qty + qty, 9999); } else { cart.push({ id: id, qty: qty }); }
+            renderCart();
+        } else if (remove) {
+            var rid = remove.getAttribute('data-remove');
+            cart = cart.filter(function (c) { return c.id !== rid; });
+            renderCart();
+        } else if (tab) {
+            document.querySelectorAll('.b-tab').forEach(function (t) { t.setAttribute('aria-selected', String(t === tab)); });
+        }
+    });
+    cartList.addEventListener('change', function (e) {
+        var id = e.target.getAttribute('data-cart-qty');
+        if (!id) { return; }
+        cart.forEach(function (c) { if (c.id === id) { c.qty = toQty(e.target.value); } });
+        renderCart();
+    });
+
+    renderCart();
+})();
+</script>
+</body>
+</html>
