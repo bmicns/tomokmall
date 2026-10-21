@@ -141,6 +141,20 @@ $fp = [];
 $sql = product_filter_sql(['shape' => ['원형'], 'instock' => true], $fp);
 ok('형상+재고 동시 적용(AND)', $sql === ' AND (p.name LIKE :fsh0) AND p.stock_qty > 0' && $fp === [':fsh0' => '%원형%']);
 
+echo "[목록검색 product_list_search_sql — 개수·페이지와 일치하도록 SQL로 거름]\n";
+$fp = [];
+ok('빈 목록검색 → 조건 없음', product_list_search_sql('  ', $fp) === '' && $fp === []);
+$fp = [];
+$sql = product_list_search_sql(' 원형 ', $fp);
+ok('품명·규격·브랜드·설명 OR 조건', $sql === ' AND (p.name LIKE :ls0 OR p.spec LIKE :ls1 OR p.brand LIKE :ls2 OR p.description LIKE :ls3)'
+    && $fp === [':ls0' => '%원형%', ':ls1' => '%원형%', ':ls2' => '%원형%', ':ls3' => '%원형%']);
+$fp = [];
+product_list_search_sql('50%_a', $fp);
+eq('LIKE 와일드카드 이스케이프', $fp[':ls0'], '%50\\%\\_a%');
+$fp = [':fsh0' => '%원형%'];
+$sql = product_filter_sql(['shape' => ['원형']], $fp) . product_list_search_sql('PE', $fp);
+ok('필터와 함께 쓰면 파라미터 병합(키 충돌 없음)', count($fp) === 5 && str_contains($sql, ':fsh0') && str_contains($sql, ':ls0'));
+
 echo "[목록 URL product_list_url]\n";
 eq('재고 해제 시 instock 제거·페이지 초기화',
     product_list_url(['q' => '수로관', 'instock' => '1', 'p' => '3', 'sort' => 'price_asc'], ['instock' => null]),
