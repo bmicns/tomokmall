@@ -24,6 +24,11 @@ $fparams    = [];
 $filterSql  = product_filter_sql($filters, $fparams);
 $sortSql    = product_sort_sql($sort);
 $hasFilters = $filterSql !== '';
+// 목록검색(s)도 조회 SQL에 포함 → 검색결과 개수·페이지네이션이 실제 목록과 일치. ($hasFilters·필터 칩과는 별개)
+$listSearchParams = [];
+$listSearchSql    = product_list_search_sql($search, $listSearchParams);
+$filterSql       .= $listSearchSql;
+$fparams          = array_merge($fparams, $listSearchParams);
 
 if (!$query && !$categoryId) {
     redirect('/index.php');
@@ -77,8 +82,8 @@ if (db()) {
         // 키워드 검색: FULLTEXT 토큰화 + 관련도 정렬 + 페이지네이션
         try { $products = search_products($query, $perPage, ($page - 1) * $perPage, $searchTotal, $filterSql, $fparams, $sortSql); } catch (\Throwable $e) {}
 
-        // 오타 교정: 0건 + 필터 없음 + exact 요청 아님일 때만, 교정어로 재검색해 결과가 있으면 구글식으로 대체 표시
-        if (empty($products) && !$hasFilters && empty($_GET['exact'])) {
+        // 오타 교정: 0건 + 필터·목록검색 없음 + exact 요청 아님일 때만, 교정어로 재검색해 결과가 있으면 구글식으로 대체 표시
+        if (empty($products) && !$hasFilters && $search === '' && empty($_GET['exact'])) {
             $sc = suggest_correction($query);
             if ($sc) {
                 $ct = 0;
@@ -126,14 +131,6 @@ if ($categoryId && db()) {
         $st->execute([$galleryCatId]);
         $galleryImgs = $st->fetchAll();
     } catch (\Throwable $e) {}
-}
-
-// 인-테이블 검색 필터
-if ($search && $products) {
-    $needle = mb_strtolower($search);
-    $products = array_values(array_filter($products, function ($p) use ($needle) {
-        return mb_strpos(mb_strtolower(($p['name'] ?? '') . ($p['spec'] ?? '') . ($p['brand'] ?? '') . ($p['description'] ?? '') . ($p['vendor_names'] ?? '')), $needle) !== false;
-    }));
 }
 
 $pageTitle = $category['name'] ?? $query ?: '상품 목록';

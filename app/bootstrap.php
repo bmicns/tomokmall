@@ -531,6 +531,27 @@ function product_filter_sql(array $f, array &$params): string
 }
 
 /**
+ * 목록검색(products.php ?s=) → SQL 조각(AND ...) + 바인딩 파라미터(참조).
+ * 품명·규격·브랜드·설명·업체명 부분일치. 조회 SQL에 넣어야 COUNT(검색결과 N개)·페이지네이션과 일치한다.
+ * (예전엔 현재 페이지 60건만 PHP로 걸러 개수·페이지가 실제 목록과 어긋났음)
+ * LIKE 와일드카드(%, _)는 문자 그대로 찾도록 이스케이프. 상품 테이블 별칭은 p. 로 가정.
+ */
+function product_list_search_sql(string $s, array &$params): string
+{
+    $s = trim($s);
+    if ($s === '') { return ''; }
+    $like = '%' . addcslashes($s, '%_\\') . '%';
+    $cols = ['p.name', 'p.spec', 'p.brand', 'p.description'];
+    $vendorSel = vendor_names_subquery();
+    if ($vendorSel !== 'NULL') { $cols[] = $vendorSel; }
+    $or = [];
+    foreach ($cols as $i => $col) {
+        $k = ":ls{$i}"; $or[] = "{$col} LIKE {$k}"; $params[$k] = $like;
+    }
+    return ' AND (' . implode(' OR ', $or) . ')';
+}
+
+/**
  * 정렬 키 → ORDER BY 조각(별칭 p.). 빈 문자열이면 각 함수 기본 정렬 사용.
  */
 function product_sort_sql(string $sort): string
