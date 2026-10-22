@@ -27,7 +27,8 @@ CREATE TABLE IF NOT EXISTS products (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_products_category (category_id),
     UNIQUE KEY uq_products_external (external_source, external_id),
-    FULLTEXT KEY ft_products_search (name, brand, spec, description),
+    -- 운영 DB와 동일(2026-10-22 확인): 검색 코드 MATCH(p.name, p.spec, p.description)와 컬럼·순서 일치 필수, 한글 2글자 검색용 ngram
+    FULLTEXT KEY idx_ngram_products (name, spec, description) WITH PARSER ngram,
     CONSTRAINT fk_products_category FOREIGN KEY (category_id) REFERENCES categories(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
