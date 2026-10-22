@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS ai_sessions (
 
 -- products 추가 컬럼은 schema.sql에 이미 포함됨 (unit, weight_kg, main_category)
 
--- FULLTEXT 인덱스: schema.sql이 이미 생성함 (brand 포함 버전 유지)
+-- FULLTEXT 인덱스: schema.sql이 이미 생성함 (운영과 동일한 idx_ngram_products: name, spec, description / ngram)
 
 -- AI 견적 주문 연결 테이블
 CREATE TABLE IF NOT EXISTS ai_orders (
