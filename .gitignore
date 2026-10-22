@@ -9,3 +9,6 @@ public/uploads/*
 .env.*
 !.env.example
 
+
+# 배포 백업(scripts/deploy-files.sh가 생성 — 운영 서버 파일 사본, 커밋 금지)
+/backup/
