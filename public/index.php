@@ -188,17 +188,38 @@ if ($query) {
         </div>
     </div>
 <?php } else {
-    // 홈(일반회원·비로그인): 확정 디자인 '일반회원용 메인화면' — 히어로 검색 + 작업(용도)별 슬라이드 + 주요 자재
-    // 작업 카드는 상세화면이 생기기 전까지 해당 작업의 대표 자재(q) 검색결과로 연결한다.
+    // 홈(일반회원·비로그인): 확정 디자인 '일반회원용 메인화면' — 히어로 검색 + 작업(용도)별 슬라이드·필요 자재 패널 + 주요 자재
+    // 작업별 필요 자재 구성은 확정 시안 기준. 자재 카드는 해당 자재 검색결과로 연결한다.
+    $needImg = [
+        'flume'     => ['플륨관',     '/assets/images/home-플륨관.png'],
+        'channel'   => ['수로관',     '/assets/images/home-수로관.png'],
+        'grating'   => ['그레이팅',   '/assets/images/home-그레이팅.png'],
+        'basin'     => ['집수정',     '/assets/images/home-집수정.png'],
+        'pe'        => ['PE이중벽관', '/assets/images/home-PE이중벽관.png'],
+        'manhole'   => ['맨홀',       '/assets/images/home-맨홀.png'],
+        'block'     => ['블록',       '/assets/images/home-블록.png'],
+        'curb'      => ['경계석',     '/assets/images/home-경계석.png'],
+        'brick'     => ['벽돌',       '/assets/images/home-need-벽돌.png'],
+        'gabion'    => ['돌망태',     '/assets/images/home-need-돌망태.png'],
+        'retaining' => ['옹벽블록',   '/assets/images/home-옹벽블록.png'],
+    ];
     $useItems = [
-        ['label' => '배수로 · 물길 정비', 'q' => '플륨관',     'img' => '/assets/images/home-use-배수로.png', 'alt' => '보도 옆 배수로에 그레이팅이 설치된 모습', 'product' => false],
-        ['label' => '배관 설치 · 연결',   'q' => 'PE이중벽관', 'img' => '/assets/images/home-use-배관.png',   'alt' => '땅속에 연결된 배관',                     'product' => false],
-        ['label' => '맨홀 · 집수정 설치', 'q' => '집수정',     'img' => '/assets/images/home-use-맨홀.png',   'alt' => '집수정 구조물과 맨홀 뚜껑',              'product' => false],
-        ['label' => '바닥 · 보행로 포장', 'q' => '블록',       'img' => '/assets/images/home-use-포장.png',   'alt' => '블록으로 포장된 정원 보행로',            'product' => false],
-        ['label' => '옹벽 · 흙막이',      'q' => '옹벽블록',   'img' => '/assets/images/home-옹벽블록.png',   'alt' => '옹벽블록',                               'product' => true],
-        ['label' => '사면 · 하천 보호',   'q' => '돌망태',     'img' => '/assets/images/home-돌망태.png',     'alt' => '돌망태',                                 'product' => true],
-        ['label' => '담장 · 조경',        'q' => '벽돌',       'img' => '/assets/images/home-use-담장.png',   'alt' => '벽돌',                                   'product' => true],
-        ['label' => '도로 경계 · 측구',   'q' => '경계석',     'img' => '/assets/images/home-경계석.png',     'alt' => '경계석',                                 'product' => true],
+        ['label' => '배수로 · 물길 정비', 'img' => '/assets/images/home-use-배수로.png', 'alt' => '보도 옆 배수로에 그레이팅이 설치된 모습', 'product' => false,
+         'needs' => [['flume', '배수로 본체'], ['channel', '물길 연결'], ['grating', '배수로 덮개'], ['basin', '빗물 집수'], ['manhole', '점검구 덮개'], ['pe', '땅속 배수관'], ['curb', '배수로 테두리'], ['gabion', '유출부 보호'], ['block', '주변 포장 복구'], ['retaining', '배수로 측벽']]],
+        ['label' => '배관 설치 · 연결', 'img' => '/assets/images/home-use-배관.png', 'alt' => '땅속에 연결된 배관', 'product' => false,
+         'needs' => [['pe', '땅속 배수용 관'], ['channel', '물길 연결'], ['flume', '개거 배수'], ['basin', '배관 접속'], ['manhole', '점검구 덮개'], ['grating', '유입구 덮개'], ['block', '굴착부 포장 복구']]],
+        ['label' => '맨홀 · 집수정 설치', 'img' => '/assets/images/home-use-맨홀.png', 'alt' => '집수정 구조물과 맨홀 뚜껑', 'product' => false,
+         'needs' => [['basin', '빗물 집수'], ['manhole', '점검구 덮개'], ['grating', '집수구 덮개'], ['pe', '연결 배관']]],
+        ['label' => '바닥 · 보행로 포장', 'img' => '/assets/images/home-use-포장.png', 'alt' => '블록으로 포장된 정원 보행로', 'product' => false,
+         'needs' => [['block', '바닥 포장'], ['curb', '포장 테두리'], ['brick', '조경 마감'], ['retaining', '단차 흙막이'], ['grating', '포장면 배수구'], ['flume', '측면 배수']]],
+        ['label' => '옹벽 · 흙막이', 'img' => '/assets/images/home-옹벽블록.png', 'alt' => '옹벽블록', 'product' => true,
+         'needs' => [['retaining', '흙막이 벽체'], ['gabion', '사면 보강'], ['pe', '배면 배수'], ['curb', '마감 테두리'], ['flume', '상단 배수로']]],
+        ['label' => '사면 · 하천 보호', 'img' => '/assets/images/home-need-돌망태.png', 'alt' => '돌망태', 'product' => true,
+         'needs' => [['gabion', '하천 사면 보호'], ['retaining', '제방 보강'], ['flume', '배수 유도'], ['channel', '물길 연결'], ['basin', '유입수 집수'], ['pe', '배수 배관'], ['block', '산책로 포장'], ['curb', '산책로 테두리']]],
+        ['label' => '담장 · 조경', 'img' => '/assets/images/home-need-벽돌.png', 'alt' => '벽돌', 'product' => true,
+         'needs' => [['brick', '담장 쌓기'], ['block', '바닥 조경'], ['curb', '화단 테두리']]],
+        ['label' => '도로 경계 · 측구', 'img' => '/assets/images/home-경계석.png', 'alt' => '경계석', 'product' => true,
+         'needs' => [['curb', '도로 경계'], ['channel', '측구 배수'], ['grating', '측구 덮개'], ['basin', '빗물 집수'], ['manhole', '점검구 덮개'], ['pe', '횡단 배수관'], ['flume', '노측 배수'], ['block', '보도 포장'], ['retaining', '노측 흙막이']]],
     ];
     $usePerPage  = 4;
     $usePages    = (int) ceil(count($useItems) / $usePerPage);
@@ -237,7 +258,10 @@ if ($query) {
         <section class="gh-section gh-use" data-use-carousel data-per-page="<?= $usePerPage ?>">
             <div class="gh-section-head">
                 <h2 class="gh-section-title">어떤 작업에 사용할 예정인가요?</h2>
-                <span class="gh-use-page" data-use-label aria-live="polite">1 / <?= $usePages ?></span>
+                <div class="gh-section-side">
+                    <a class="gh-use-ai" href="/chat.php">해당하는 상황이 없어요 · AI에게 설명하기 →</a>
+                    <span class="gh-use-page" data-use-label aria-live="polite">1 / <?= $usePages ?></span>
+                </div>
             </div>
             <div class="gh-use-frame">
                 <button class="gh-car-btn gh-car-prev" type="button" aria-label="이전 용도" data-use-prev disabled>
@@ -248,25 +272,59 @@ if ($query) {
                 </button>
                 <div class="gh-use-view">
                     <div class="gh-use-track" data-use-track>
-                        <?php foreach ($useItems as $u): ?>
-                        <a class="gh-use-card" href="/products.php?q=<?= urlencode($u['q']) ?>">
+                        <?php foreach ($useItems as $i => $u): ?>
+                        <button type="button" class="gh-use-card" data-use-idx="<?= $i ?>" aria-expanded="false" aria-controls="gh-need-panel">
                             <img class="<?= $u['product'] ? 'is-product' : '' ?>" src="<?= e($u['img']) ?>" alt="<?= e($u['alt']) ?>" loading="lazy">
                             <span class="gh-use-label"><?= e($u['label']) ?>
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
                             </span>
-                        </a>
+                        </button>
                         <?php endforeach; ?>
                     </div>
                 </div>
             </div>
-            <div class="gh-use-ai">
-                <a href="/chat.php">해당하는 상황이 없어요 · AI에게 설명하기 →</a>
+
+            <!-- 작업별 자재: 접힘(구분선 + ▼) / 펼침(아래 주요 자재 위를 덮는 패널) -->
+            <div class="gh-need">
+                <div class="gh-need-bar" data-need-bar>
+                    <span class="gh-need-line" aria-hidden="true"></span>
+                    <button type="button" class="gh-need-pill" data-need-open aria-label="작업별 자재 보기" aria-expanded="false" aria-controls="gh-need-panel">
+                        <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16l-8 11z" fill="currentColor"/></svg>
+                    </button>
+                    <span class="gh-need-tip" aria-hidden="true">작업별 자재 보기</span>
+                </div>
+                <div class="gh-need-pop" data-need-pop hidden>
+                    <div id="gh-need-panel" class="gh-need-panel" role="region" aria-labelledby="gh-need-title">
+                        <span class="gh-need-notch" data-need-notch aria-hidden="true"></span>
+                        <h3 class="gh-need-title" id="gh-need-title"><span data-need-title></span>에 필요한 자재</h3>
+                        <?php foreach ($useItems as $i => $u): ?>
+                        <div class="gh-need-grid" data-need-for="<?= $i ?>" hidden>
+                            <?php foreach ($u['needs'] as [$key, $desc]): ?>
+                            <?php [$nName, $nImg] = $needImg[$key]; ?>
+                            <a class="gh-need-card" href="/products.php?q=<?= urlencode($nName) ?>">
+                                <span class="gh-need-img"><img src="<?= e($nImg) ?>" alt="" loading="lazy"></span>
+                                <span class="gh-need-name"><span><?= e($nName) ?></span>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+                                </span>
+                                <span class="gh-need-desc"><?= e($desc) ?></span>
+                            </a>
+                            <?php endforeach; ?>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <div class="gh-need-foot">
+                        <button type="button" class="gh-need-close" data-need-close aria-controls="gh-need-panel" aria-expanded="true">
+                            <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17h16L12 6z" fill="currentColor"/></svg>접기
+                        </button>
+                    </div>
+                </div>
             </div>
         </section>
 
         <section class="gh-section gh-mat">
             <div class="gh-section-head">
                 <h2 class="gh-section-title">주요 자재 둘러보기</h2>
+                <a class="gh-mat-all" href="#" data-open-gnb>전체 자재 보기 →</a>
             </div>
             <div class="gh-mat-grid">
                 <?php foreach ($matItems as $m): ?>
@@ -282,36 +340,102 @@ if ($query) {
         </section>
     </div>
     <script>
-    // 작업(용도) 슬라이드: 데스크톱(>1200px)은 4개씩 페이지 이동, 그 이하는 가로 스크롤(CSS)
+    // 작업(용도) 슬라이드 + 작업별 필요 자재 패널
+    // 데스크톱(>1200px): 4개씩 페이지 이동, 패널은 아래 '주요 자재' 위를 덮음 / 그 이하: 가로 스크롤, 패널은 문서 흐름 안에 표시(CSS)
     (function () {
         var root = document.querySelector('[data-use-carousel]');
         if (!root) return;
+        var wrap  = root.closest('.gh-wrap');
         var track = root.querySelector('[data-use-track]');
         var cards = Array.prototype.slice.call(track.children);
         var prev  = root.querySelector('[data-use-prev]');
         var next  = root.querySelector('[data-use-next]');
         var label = root.querySelector('[data-use-label]');
+        var bar   = root.querySelector('[data-need-bar]');
+        var pill  = root.querySelector('[data-need-open]');
+        var pop   = root.querySelector('[data-need-pop]');
+        var notch = root.querySelector('[data-need-notch]');
+        var title = root.querySelector('[data-need-title]');
+        var grids = Array.prototype.slice.call(root.querySelectorAll('[data-need-for]'));
         var per   = parseInt(root.getAttribute('data-per-page'), 10) || 4;
         var pages = Math.max(1, Math.ceil(cards.length / per));
         var mq    = window.matchMedia('(min-width: 1201px)');
         var page  = 0;
+        var open  = -1;
+
+        // 펼친 패널이 페이지 아래(푸터)를 덮지 않도록 필요한 만큼 여백 확보 (데스크톱 오버레이일 때만)
+        function fitWrap() {
+            wrap.style.paddingBottom = '';
+            if (open < 0 || !mq.matches) return;
+            var over = pop.getBoundingClientRect().bottom - wrap.getBoundingClientRect().bottom;
+            if (over > 0) wrap.style.paddingBottom = (parseFloat(getComputedStyle(wrap).paddingBottom) + over + 24) + 'px';
+        }
         function render() {
             var paged = mq.matches;
             track.style.transform = paged ? 'translateX(calc(' + (-page) + ' * (100% + 12px)))' : '';
             cards.forEach(function (c, i) {
                 var hidden = paged && Math.floor(i / per) !== page;
+                var on = i === open;
                 if (hidden) { c.setAttribute('aria-hidden', 'true'); c.setAttribute('tabindex', '-1'); }
                 else { c.removeAttribute('aria-hidden'); c.removeAttribute('tabindex'); }
+                c.setAttribute('aria-expanded', on ? 'true' : 'false');
+                c.classList.toggle('is-open', on);
+                c.querySelector('.gh-use-label path').setAttribute('d', on ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6');
             });
             prev.disabled = page <= 0;
             next.disabled = page >= pages - 1;
             label.textContent = (page + 1) + ' / ' + pages;
+
+            var isOpen = open >= 0;
+            pop.hidden = !isOpen;
+            bar.classList.toggle('is-hidden', isOpen);
+            pill.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            grids.forEach(function (g, i) { g.hidden = i !== open; });
+            if (isOpen) {
+                title.textContent = cards[open].querySelector('.gh-use-label').textContent.trim();
+                var col = open % per;
+                notch.style.left = 'calc((100% - 36px) / 4 * ' + (col + 0.5) + ' + ' + (12 * col) + 'px - 8px)';
+            }
+            fitWrap();
         }
-        prev.addEventListener('click', function () { if (page > 0) { page--; render(); } });
-        next.addEventListener('click', function () { if (page < pages - 1) { page++; render(); } });
-        if (mq.addEventListener) mq.addEventListener('change', function () { page = 0; render(); });
-        else if (mq.addListener) mq.addListener(function () { page = 0; render(); });
+        function setOpen(i) { open = i; bar.classList.remove('is-hint'); render(); }
+
+        cards.forEach(function (c, i) {
+            c.addEventListener('click', function () { setOpen(open === i ? -1 : i); });
+        });
+        pill.addEventListener('click', function () { setOpen(mq.matches ? page * per : 0); });
+        ['mouseenter', 'focus'].forEach(function (ev) { pill.addEventListener(ev, function () { bar.classList.add('is-hint'); }); });
+        ['mouseleave', 'blur'].forEach(function (ev) { pill.addEventListener(ev, function () { bar.classList.remove('is-hint'); }); });
+        root.querySelector('[data-need-close]').addEventListener('click', function () {
+            var last = open;
+            setOpen(-1);
+            if (cards[last]) cards[last].focus();
+        });
+        prev.addEventListener('click', function () { if (page > 0) { page--; open = -1; render(); } });
+        next.addEventListener('click', function () { if (page < pages - 1) { page++; open = -1; render(); } });
+        var onMq = function () { page = 0; open = -1; render(); };
+        if (mq.addEventListener) mq.addEventListener('change', onMq);
+        else if (mq.addListener) mq.addListener(onMq);
+        window.addEventListener('resize', fitWrap);
         render();
+
+        // '전체 자재 보기': 전체 목록 페이지가 없어 상단 카테고리 메뉴(GNB)로 포커스를 옮기고 강조
+        var allLink = document.querySelector('[data-open-gnb]');
+        var gnb = document.querySelector('.gnb-bar');
+        var firstTab = gnb && gnb.querySelector('.mega-tab');
+        if (allLink && firstTab) {
+            allLink.addEventListener('click', function (e) {
+                e.preventDefault();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                firstTab.focus({ preventScroll: true });
+                gnb.classList.remove('gh-gnb-hint');
+                void gnb.offsetWidth;
+                gnb.classList.add('gh-gnb-hint');
+                setTimeout(function () { gnb.classList.remove('gh-gnb-hint'); }, 1800);
+            });
+        } else if (allLink) {
+            allLink.hidden = true;
+        }
     })();
     </script>
 <?php } ?>
