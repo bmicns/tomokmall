@@ -12,6 +12,7 @@ require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/ai_tools.php';
 require __DIR__ . '/../app/product_filter_renderer.php';
 require __DIR__ . '/../app/favorites.php';
+require __DIR__ . '/../app/work_types.php';
 
 $pass = 0; $fail = 0;
 function ok(string $name, bool $cond): void {
@@ -210,6 +211,28 @@ $pl = favorite_bulk_plan([5, 6], [5, 6], [5], FAVORITES_MAX);
 ok('한도 도달 상태: 이미 등록된 상품은 already(실패 아님)', $pl['already'] === [5] && $pl['add'] === []
     && $pl['failed'] === [['product_id' => 6, 'reason' => 'limit']]);
 ok('최대 개수 상수 50 유지', FAVORITES_MAX === 50);
+
+echo "[작업 유형 설정 work_types_validate]\n";
+$wt = work_types();
+eq('현재 설정 규칙 위반 없음', work_types_validate($wt), []);
+ok('작업당 대표 자재 최대 10개', max(array_map(static fn($t) => count($t['materials']), $wt)) <= 10);
+$allIds = [];
+foreach ($wt as $t) { $allIds = array_merge($allIds, array_column($t['materials'], 0)); }
+ok('PE망(203)·몰드(215~229) 미연결', !array_intersect($allIds, WORK_TYPE_EXCLUDED_CATEGORY_IDS) && count(WORK_TYPE_EXCLUDED_CATEGORY_IDS) === 16);
+ok('대분류(1~8, 11~16) 미연결', !array_intersect($allIds, WORK_TYPE_STRUCTURE_CATEGORY_IDS));
+$mainNames = array_column(array_filter($wt, static fn($t) => !empty($t['main'])), 'name');
+ok('메인 노출 7개, 첫 작업은 배수시설 설치·정비', count($mainNames) === 7 && $mainNames[0] === '배수시설 설치·정비');
+ok('통합 전 작업명(빗물 배수로 설치·정비 / 기존 배수시설 보수·교체) 없음',
+    !array_intersect(array_column($wt, 'name'), ['빗물 배수로 설치·정비', '기존 배수시설 보수·교체']));
+$bad = [['key' => 'x', 'name' => 'X', 'main' => true, 'materials' => array_map(static fn($i) => [$i, 'n', 'd'], range(30, 40))]];
+ok('11개 연결 시 위반 검출', count(work_types_validate($bad)) === 1);
+$bad = [['key' => 'x', 'name' => 'X', 'main' => true, 'materials' => [[203, 'PE망', ''], [1, '철근/시멘트', ''], [24, 'a', ''], [24, 'a', '']]]];
+ok('제외 대상·대분류·중복 각각 검출', count(work_types_validate($bad)) === 3);
+$m = work_type_materials(['materials' => [[24, '수로관', '본체'], [133, 'SUS', '덮개'], [999, '없음', '']]],
+    [24 => ['name' => '수로관(벤치3종)', 'is_active' => true, 'thumb' => ''], 133 => ['name' => 'SUS그레이팅', 'is_active' => false, 'thumb' => '']]);
+eq('DB 정보 기준: 비활성·없는 카테고리는 제외, 이름은 DB 값, 링크는 카테고리 페이지',
+    array_map(static fn($x) => [$x['id'], $x['name'], $x['href']], $m), [[24, '수로관(벤치3종)', '/products.php?category=24']]);
+eq('DB 미연결 시 설정 이름으로 모두 표시', count(work_type_materials(['materials' => [[24, '수로관', ''], [116, '그레이팅', '']]], [])), 2);
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

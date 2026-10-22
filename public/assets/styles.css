@@ -1848,3 +1848,37 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .gh-mat-grid{grid-template-columns:minmax(0,1fr)}
   .gh-mat-card img{width:128px;height:96px}
 }
+
+/* ── 작업 유형: 메인 '전체 작업 보기' 링크·이미지 없음 대체 + 전체 작업 보기 페이지 (index.php, work-types.php) ── */
+.gh-use-all{display:inline-block;padding:8px 0;font-weight:600;color:var(--color-primary)}
+.gh-use-all:hover{color:var(--color-primary-hover);text-decoration:underline}
+.gh-use-noimg{display:flex;align-items:center;justify-content:center;height:140px;background:#F4F8FC;color:#8AA4C4;font-size:28px;font-weight:600}
+.gh-need-noimg[hidden]{display:none}
+.gh-need-noimg{display:flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:50%;background:#F4F8FC;color:#8AA4C4;font-size:18px;font-weight:600}
+.wt-page{padding-top:28px}
+.wt-crumb{font-size:13px;color:var(--color-text-secondary)}
+.wt-crumb a{color:var(--color-text-secondary)}
+.wt-crumb a:hover{color:var(--color-primary)}
+.wt-title{margin-top:8px;font-size:30px;font-weight:600;letter-spacing:-0.6px}
+.wt-lead{margin-top:6px;font-size:15px;color:#555555}
+.wt-index{margin-top:22px}
+.wt-index-title{font-size:15px;font-weight:600;color:var(--color-text-secondary)}
+.wt-index-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;list-style:none}
+.wt-index-list a{display:inline-flex;align-items:center;min-height:40px;padding:0 16px;border:1px solid #D3E5F5;border-radius:999px;background:#fff;color:var(--color-primary);font-size:14px;font-weight:500}
+.wt-index-list a:hover{background:#EEF4FA;border-color:var(--color-primary)}
+.wt-section{margin-top:28px;padding:20px;border:1px solid #E2E2E2;border-radius:10px;background:#F4F4F4;scroll-margin-top:140px}
+.wt-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.wt-section-title{font-size:22px;font-weight:600;letter-spacing:-0.5px}
+.wt-section-tag{font-size:12px;color:var(--color-text-secondary);border:1px solid var(--color-border);background:#fff;border-radius:999px;padding:3px 10px}
+.wt-section-sum{margin-top:4px;font-size:15px;color:#555555}
+.wt-empty{margin-top:12px;font-size:14px;color:var(--color-text-secondary)}
+.wt-foot{margin-top:28px;text-align:center}
+@media (max-width: 640px) {
+  .wt-page{padding-top:16px}
+  .wt-title{font-size:24px}
+  .wt-index-list a{min-height:44px}
+  .wt-section{padding:16px 14px}
+  .wt-section-title{font-size:19px}
+  .gh-use-noimg{height:140px}
+  .gh-need-name span, .gh-need-desc{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+}

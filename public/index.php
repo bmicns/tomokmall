@@ -188,39 +188,14 @@ if ($query) {
         </div>
     </div>
 <?php } else {
-    // 홈(일반회원·비로그인): 확정 디자인 '일반회원용 메인화면' — 히어로 검색 + 작업(용도)별 슬라이드·필요 자재 패널 + 주요 자재
-    // 작업별 필요 자재 구성은 확정 시안 기준. 자재 카드는 해당 자재 검색결과로 연결한다.
-    $needImg = [
-        'flume'     => ['플륨관',     '/assets/images/home-플륨관.png'],
-        'channel'   => ['수로관',     '/assets/images/home-수로관.png'],
-        'grating'   => ['그레이팅',   '/assets/images/home-그레이팅.png'],
-        'basin'     => ['집수정',     '/assets/images/home-집수정.png'],
-        'pe'        => ['PE이중벽관', '/assets/images/home-PE이중벽관.png'],
-        'manhole'   => ['맨홀',       '/assets/images/home-맨홀.png'],
-        'block'     => ['블록',       '/assets/images/home-블록.png'],
-        'curb'      => ['경계석',     '/assets/images/home-경계석.png'],
-        'brick'     => ['벽돌',       '/assets/images/home-need-벽돌.png'],
-        'gabion'    => ['돌망태',     '/assets/images/home-need-돌망태.png'],
-        'retaining' => ['옹벽블록',   '/assets/images/home-옹벽블록.png'],
-    ];
-    $useItems = [
-        ['label' => '배수로 · 물길 정비', 'img' => '/assets/images/home-use-배수로.png', 'alt' => '보도 옆 배수로에 그레이팅이 설치된 모습', 'product' => false,
-         'needs' => [['flume', '배수로 본체'], ['channel', '물길 연결'], ['grating', '배수로 덮개'], ['basin', '빗물 집수'], ['manhole', '점검구 덮개'], ['pe', '땅속 배수관'], ['curb', '배수로 테두리'], ['gabion', '유출부 보호'], ['block', '주변 포장 복구'], ['retaining', '배수로 측벽']]],
-        ['label' => '배관 설치 · 연결', 'img' => '/assets/images/home-use-배관.png', 'alt' => '땅속에 연결된 배관', 'product' => false,
-         'needs' => [['pe', '땅속 배수용 관'], ['channel', '물길 연결'], ['flume', '개거 배수'], ['basin', '배관 접속'], ['manhole', '점검구 덮개'], ['grating', '유입구 덮개'], ['block', '굴착부 포장 복구']]],
-        ['label' => '맨홀 · 집수정 설치', 'img' => '/assets/images/home-use-맨홀.png', 'alt' => '집수정 구조물과 맨홀 뚜껑', 'product' => false,
-         'needs' => [['basin', '빗물 집수'], ['manhole', '점검구 덮개'], ['grating', '집수구 덮개'], ['pe', '연결 배관']]],
-        ['label' => '바닥 · 보행로 포장', 'img' => '/assets/images/home-use-포장.png', 'alt' => '블록으로 포장된 정원 보행로', 'product' => false,
-         'needs' => [['block', '바닥 포장'], ['curb', '포장 테두리'], ['brick', '조경 마감'], ['retaining', '단차 흙막이'], ['grating', '포장면 배수구'], ['flume', '측면 배수']]],
-        ['label' => '옹벽 · 흙막이', 'img' => '/assets/images/home-옹벽블록.png', 'alt' => '옹벽블록', 'product' => true,
-         'needs' => [['retaining', '흙막이 벽체'], ['gabion', '사면 보강'], ['pe', '배면 배수'], ['curb', '마감 테두리'], ['flume', '상단 배수로']]],
-        ['label' => '사면 · 하천 보호', 'img' => '/assets/images/home-need-돌망태.png', 'alt' => '돌망태', 'product' => true,
-         'needs' => [['gabion', '하천 사면 보호'], ['retaining', '제방 보강'], ['flume', '배수 유도'], ['channel', '물길 연결'], ['basin', '유입수 집수'], ['pe', '배수 배관'], ['block', '산책로 포장'], ['curb', '산책로 테두리']]],
-        ['label' => '담장 · 조경', 'img' => '/assets/images/home-need-벽돌.png', 'alt' => '벽돌', 'product' => true,
-         'needs' => [['brick', '담장 쌓기'], ['block', '바닥 조경'], ['curb', '화단 테두리']]],
-        ['label' => '도로 경계 · 측구', 'img' => '/assets/images/home-경계석.png', 'alt' => '경계석', 'product' => true,
-         'needs' => [['curb', '도로 경계'], ['channel', '측구 배수'], ['grating', '측구 덮개'], ['basin', '빗물 집수'], ['manhole', '점검구 덮개'], ['pe', '횡단 배수관'], ['flume', '노측 배수'], ['block', '보도 포장'], ['retaining', '노측 흙막이']]],
-    ];
+    // 홈(일반회원·비로그인): 확정 디자인 '일반회원용 메인화면' — 히어로 검색 + 작업 유형 슬라이드·필요 자재 패널 + 주요 자재
+    // 작업 유형·대표 자재(카테고리 ID)는 app/work_types.php 설정을 사용. 메인에는 main=true 작업만, 나머지는 /work-types.php(전체 작업 보기)
+    require_once __DIR__ . '/../app/work_types.php';
+    $useItems = array_values(array_filter(work_types(), static fn(array $t): bool => !empty($t['main'])));
+    $wtIds    = [];
+    foreach ($useItems as $u) { $wtIds = array_merge($wtIds, array_column($u['materials'], 0)); }
+    $wtInfo = work_type_category_info($wtIds);
+    foreach ($useItems as $i => $u) { $useItems[$i]['needs'] = work_type_materials($u, $wtInfo); }
     $usePerPage  = 4;
     $usePages    = (int) ceil(count($useItems) / $usePerPage);
     $matItems = [
@@ -259,6 +234,7 @@ if ($query) {
             <div class="gh-section-head">
                 <h2 class="gh-section-title">어떤 작업에 사용할 예정인가요?</h2>
                 <div class="gh-section-side">
+                    <a class="gh-use-all" href="/work-types.php">전체 작업 보기 →</a>
                     <a class="gh-use-ai" href="/chat.php">해당하는 상황이 없어요 · AI에게 설명하기 →</a>
                     <span class="gh-use-page" data-use-label aria-live="polite">1 / <?= $usePages ?></span>
                 </div>
@@ -274,8 +250,12 @@ if ($query) {
                     <div class="gh-use-track" data-use-track>
                         <?php foreach ($useItems as $i => $u): ?>
                         <button type="button" class="gh-use-card" data-use-idx="<?= $i ?>" aria-expanded="false" aria-controls="gh-need-panel">
-                            <img class="<?= $u['product'] ? 'is-product' : '' ?>" src="<?= e($u['img']) ?>" alt="<?= e($u['alt']) ?>" loading="lazy">
-                            <span class="gh-use-label"><?= e($u['label']) ?>
+                            <?php if (!empty($u['img'])): ?>
+                            <img class="<?= $u['img_kind'] === 'product' ? 'is-product' : '' ?>" src="<?= e($u['img']) ?>" alt="<?= e($u['img_alt']) ?>" loading="lazy">
+                            <?php else: ?>
+                            <span class="gh-use-noimg" aria-hidden="true"><?= e(mb_substr($u['name'], 0, 2)) ?></span>
+                            <?php endif; ?>
+                            <span class="gh-use-label"><?= e($u['name']) ?>
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
                             </span>
                         </button>
@@ -299,15 +279,8 @@ if ($query) {
                         <h3 class="gh-need-title" id="gh-need-title"><span data-need-title></span>에 필요한 자재</h3>
                         <?php foreach ($useItems as $i => $u): ?>
                         <div class="gh-need-grid" data-need-for="<?= $i ?>" hidden>
-                            <?php foreach ($u['needs'] as [$key, $desc]): ?>
-                            <?php [$nName, $nImg] = $needImg[$key]; ?>
-                            <a class="gh-need-card" href="/products.php?q=<?= urlencode($nName) ?>">
-                                <span class="gh-need-img"><img src="<?= e($nImg) ?>" alt="" loading="lazy"></span>
-                                <span class="gh-need-name"><span><?= e($nName) ?></span>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
-                                </span>
-                                <span class="gh-need-desc"><?= e($desc) ?></span>
-                            </a>
+                            <?php foreach ($u['needs'] as $n): ?>
+                            <?= work_type_material_card_html($n) ?>
                             <?php endforeach; ?>
                         </div>
                         <?php endforeach; ?>
