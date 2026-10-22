@@ -220,13 +220,15 @@ $allIds = [];
 foreach ($wt as $t) { $allIds = array_merge($allIds, array_column($t['materials'], 0)); }
 ok('PE망(203)·몰드(215~229) 미연결', !array_intersect($allIds, WORK_TYPE_EXCLUDED_CATEGORY_IDS) && count(WORK_TYPE_EXCLUDED_CATEGORY_IDS) === 16);
 ok('대분류(1~8, 11~16) 미연결', !array_intersect($allIds, WORK_TYPE_STRUCTURE_CATEGORY_IDS));
-$mainNames = array_column(array_filter($wt, static fn($t) => !empty($t['main'])), 'name');
-ok('메인 노출 7개, 첫 작업은 배수시설 설치·정비', count($mainNames) === 7 && $mainNames[0] === '배수시설 설치·정비');
-ok('통합 전 작업명(빗물 배수로 설치·정비 / 기존 배수시설 보수·교체) 없음',
-    !array_intersect(array_column($wt, 'name'), ['빗물 배수로 설치·정비', '기존 배수시설 보수·교체']));
-$bad = [['key' => 'x', 'name' => 'X', 'main' => true, 'materials' => array_map(static fn($i) => [$i, 'n', 'd'], range(30, 40))]];
+$names = array_column($wt, 'name');
+ok('작업 유형 12개(메인 전부 노출), 첫 작업은 배수로 설치·정비', count($wt) === 12 && $names[0] === '배수로 설치·정비');
+ok('통합 전 작업명 없음(배수시설·노면배수·지하배수관·집수정·횡단·안전시설·담장·급수 등)',
+    !array_intersect($names, ['배수시설 설치·정비', '도로·진입로 노면 배수 정비', '지하 배수관 매설', '집수정·맨홀 설치',
+        '도로 밑 횡단 배수로 놓기', '도로·단지 안전시설 설치', '주차장 만들기·정비', '담장 쌓기', '건물 기초·바닥 콘크리트',
+        '전기·통신·가로등 지중시설', '수도 급수관 연결']));
+$bad = [['key' => 'x', 'name' => 'X', 'materials' => array_map(static fn($i) => [$i, 'n', 'd'], range(30, 40))]];
 ok('11개 연결 시 위반 검출', count(work_types_validate($bad)) === 1);
-$bad = [['key' => 'x', 'name' => 'X', 'main' => true, 'materials' => [[203, 'PE망', ''], [1, '철근/시멘트', ''], [24, 'a', ''], [24, 'a', '']]]];
+$bad = [['key' => 'x', 'name' => 'X', 'materials' => [[203, 'PE망', ''], [1, '철근/시멘트', ''], [24, 'a', ''], [24, 'a', '']]]];
 ok('제외 대상·대분류·중복 각각 검출', count(work_types_validate($bad)) === 3);
 $m = work_type_materials(['materials' => [[24, '수로관', '본체'], [133, 'SUS', '덮개'], [999, '없음', '']]],
     [24 => ['name' => '수로관(벤치3종)', 'is_active' => true, 'thumb' => ''], 133 => ['name' => 'SUS그레이팅', 'is_active' => false, 'thumb' => '']]);
