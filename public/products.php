@@ -143,21 +143,27 @@ if ($categoryId && db()) {
 }
 
 $pageTitle = $category['name'] ?? $query ?: '상품 목록';
+// 작업별 목록: 카테고리 행을 못 읽었으면(DB 미연결 등) 설정의 자재명으로 제목 표시
+if ($workType && !$category) {
+    foreach ($workType['materials'] as [$mid, $mname]) { if ($mid === $categoryId) { $pageTitle = $mname; break; } }
+}
 $loggedIn  = !empty($_SESSION['user']);
 $isInternal = price_tier() === 'internal';   // 직원·관리자: 원가 컬럼 노출
+
+// ── Figma 하드코딩 데모 데이터 (DB 미연결 시에만) ──────────
+// ⚠️ 검색 결과 0건을 데모로 표시하면 "엉뚱한 제품"으로 보이므로,
+//    DB가 연결된 경우에는 절대 데모 모드로 넘어가지 않는다.
+// 작업별 목록은 선택한 자재와 무관한 데모 상품이 보이지 않도록 데모 제외(→ '불러오지 못함' 안내).
+// 아래 파세트·사이드바 판단보다 먼저 정해야 한다(이전엔 정의 전에 읽어 항상 비데모로 판단됨).
+$demoMode = empty($products) && !db() && !$workType;
 
 // 동적 파세트: 현재 결과 집합(필터 미적용) 기준으로 실제 좁혀지는 필터만 노출.
 $facets = ['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 0];
 if (!$demoMode && ($query || $categoryId)) {
     try { $facets = product_facets($categoryId, $correctedQ ?? $query, $filters); } catch (\Throwable $e) {}
 }
-// 사이드바: 파세트 그룹이 없어도 '재고' 섹션이 있으므로 목록이면 항상 노출
-$showFilters = !$demoMode && ($query || $categoryId);
-
-// ── Figma 하드코딩 데모 데이터 (DB 미연결 시에만) ──────────
-// ⚠️ 검색 결과 0건을 데모로 표시하면 "엉뚱한 제품"으로 보이므로,
-//    DB가 연결된 경우에는 절대 데모 모드로 넘어가지 않는다.
-$demoMode = empty($products) && !db();
+// 사이드바: 파세트 그룹이 없어도 '재고' 섹션이 있으므로 목록이면 항상 노출 (DB 미연결이면 필터 의미 없음 → 숨김)
+$showFilters = !$demoMode && db() !== null && ($query || $categoryId);
 
 // 색상맵·데모 데이터(DB 미연결 시에만) — app/products_demo_data.php 파셜
 $demo          = require __DIR__ . '/../app/products_demo_data.php';
@@ -397,7 +403,10 @@ render_header($pageTitle);
     if (empty($tableRows)):
     ?>
         <div class="empty-state">
-            <?php if ($inStock && !$demoMode): ?>
+            <?php if (!db()): ?>
+                <p class="empty-title">상품 정보를 불러오지 못했습니다.</p>
+                <p class="empty-hint">잠시 후 다시 시도해 주세요.</p>
+            <?php elseif ($inStock && !$demoMode): ?>
                 <p class="empty-title">조건에 맞는 재고 있는 상품이 없습니다.</p>
                 <p class="empty-hint">'재고 있는 상품만 보기'를 해제하면 재고와 관계없이 전체 상품을 볼 수 있습니다.</p>
                 <div class="empty-suggest">

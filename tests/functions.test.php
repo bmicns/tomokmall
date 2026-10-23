@@ -246,5 +246,15 @@ $imgOk = true;
 foreach (work_types() as $t) { foreach (array_filter([$t['img'] ?? null, $t['banner'] ?? null]) as $im) { if (!is_file(__DIR__ . '/../public' . $im)) { $imgOk = false; } } }
 ok('작업 카드·배너 이미지 파일 존재', $imgOk);
 
+echo "[작업별 목록 필터 = 기존 products.php 필터 render_product_filters]\n";
+$fc = ['mat' => [11 => 28, 13 => 10], 'shape' => ['U형' => 2], 'load' => [], 'spec' => ['200*200' => 3, '300*300' => 1], 'total' => 38];
+$act = ['mat' => [11], 'spec' => [], 'shape' => [], 'load' => []];
+ob_start(); render_product_filters($act, null, 24, '', $fc, false);                       $plain = ob_get_clean();
+ob_start(); render_product_filters($act, null, 24, '', $fc, false, ['work' => 'drainage']); $work  = ob_get_clean();
+$groups = static fn(string $h): array => preg_match_all('/<div class="fgrp[^"]*"><b>([^<]+)/u', $h, $m) ? array_map('trim', $m[1]) : [];
+eq('필터 그룹 동일(재질·규격·형상/옵션·재고)', $groups($work), $groups($plain));
+ok('그룹 4개 모두 표시', $groups($plain) === ['재질', '규격', '형상 / 옵션', '재고']);
+ok('차이는 work 유지(hidden·초기화 링크)뿐', str_replace(['<input type="hidden" name="work" value="drainage">', '&amp;work=drainage'], '', $work) === $plain);
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);
