@@ -235,6 +235,16 @@ $m = work_type_materials(['materials' => [[24, '수로관', '본체'], [133, 'SU
 eq('DB 정보 기준: 비활성·없는 카테고리는 제외, 이름은 DB 값, 링크는 카테고리 페이지',
     array_map(static fn($x) => [$x['id'], $x['name'], $x['href']], $m), [[24, '수로관(벤치3종)', '/products.php?category=24']]);
 eq('DB 미연결 시 설정 이름으로 모두 표시', count(work_type_materials(['materials' => [[24, '수로관', ''], [116, '그레이팅', '']]], [])), 2);
+$m = work_type_materials(['key' => 'drainage', 'materials' => [[24, '수로관', '본체']]], []);
+eq('작업 키가 있으면 작업별 목록 링크(work=키)', $m[0]['href'], '/products.php?category=24&work=drainage');
+ok('work_type_find: 있는 키·없는 키·빈 키', (work_type_find('drainage')['key'] ?? '') === 'drainage'
+    && work_type_find('nope') === null && work_type_find('') === null);
+$dr = work_type_find('drainage');
+ok('work_type_has_material: 대표 자재만 true', work_type_has_material($dr, 24) && !work_type_has_material($dr, 999)
+    && !work_type_has_material($dr, 0));
+$imgOk = true;
+foreach (work_types() as $t) { foreach (array_filter([$t['img'] ?? null, $t['banner'] ?? null]) as $im) { if (!is_file(__DIR__ . '/../public' . $im)) { $imgOk = false; } } }
+ok('작업 카드·배너 이미지 파일 존재', $imgOk);
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

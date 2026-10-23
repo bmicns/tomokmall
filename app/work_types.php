@@ -9,6 +9,7 @@ declare(strict_types=1);
  *  - work_types_validate()      설정 규칙 검사(순수 함수, 단위 테스트 대상)
  *  - work_type_category_info()  대표 자재 카테고리의 이름·활성 여부·썸네일 일괄 조회(DB)
  *  - work_type_materials()      화면에 표시할 대표 자재 목록(비활성·없는 카테고리 제외)
+ *  - work_type_find() / work_type_has_material()  작업별 상품 목록(products.php?category=ID&work=키) 판별(순수 함수)
  *
  * 규칙(확정 정책):
  *  - 작업 유형별 대표 자재는 최대 WORK_TYPE_MAX_MATERIALS(10)개, 같은 작업 안에서 중복 금지
@@ -26,6 +27,7 @@ const WORK_TYPE_STRUCTURE_CATEGORY_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 14
  * 작업 유형 목록 — 메인페이지에 모두(순서대로) 노출. 사용자가 하려는 공사·상황 기준으로 12개로 통합.
  * materials: [카테고리ID, 이름(DB 미연결 시 표시용), 짧은 용도 설명]
  * img: 작업 카드 이미지(로컬, null이면 첫 대표 자재 이미지), img_kind: photo(현장 사진) | product(자재 이미지, 여백·배경 적용)
+ * banner: (선택) 작업별 상품 목록 상단 배너용 가로형 이미지. 없으면 img 사용
  */
 function work_types(): array
 {
@@ -34,6 +36,7 @@ function work_types(): array
         ['key' => 'drainage', 'name' => '배수로 설치·정비',
          'summary' => '마당·도로변·진입로에 배수로를 놓거나, 깨진 덮개를 바꿀 때',
          'img' => '/assets/images/home-use-배수로.png', 'img_kind' => 'photo', 'img_alt' => '보도 옆 배수로에 그레이팅이 설치된 모습',
+         'banner' => '/assets/images/home-use-배수로-wide.png',
          'materials' => [
              [24,  '수로관(벤치3종)',            '배수로 본체(U형)'],
              [23,  '벤치플륨관(벤치2종)',        '소형 배수로 본체'],
@@ -309,11 +312,29 @@ function work_type_materials(array $type, array $info): array
             'id'   => $id,
             'name' => $name,
             'desc' => $desc,
-            'href' => '/products.php?category=' . $id,
+            // 작업 키가 있으면 작업별 목록(작업 배너 + 자재 종류 패널)으로 연결
+            'href' => '/products.php?category=' . $id . (isset($type['key']) ? '&work=' . rawurlencode((string) $type['key']) : ''),
             'img'  => $localImg[$id] ?? ($info[$id]['thumb'] ?? ''),
         ];
     }
     return $out;
+}
+
+/** 키로 작업 유형 1건 조회(없으면 null) */
+function work_type_find(string $key): ?array
+{
+    foreach (work_types() as $t) {
+        if ($key !== '' && $t['key'] === $key) {
+            return $t;
+        }
+    }
+    return null;
+}
+
+/** 카테고리가 작업 유형의 대표 자재인지 — 작업별 목록 화면을 쓸지 판단 */
+function work_type_has_material(array $type, int $categoryId): bool
+{
+    return $categoryId > 0 && in_array($categoryId, array_column($type['materials'] ?? [], 0), true);
 }
 
 /** 로컬에 고해상도 자재 이미지가 있는 카테고리 (DB 썸네일보다 우선) */
