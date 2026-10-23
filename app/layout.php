@@ -141,6 +141,12 @@ function render_header(string $title, string $mode = 'normal'): void
         };
     ?>
     <link rel="stylesheet" href="<?= e($assetV('/assets/styles.css')) ?>">
+    <?php if ($mode === 'corp'): // 기업회원 메인 전용 스타일(확정 디자인: Noto Sans KR) ?>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600&amp;display=swap">
+    <link rel="stylesheet" href="<?= e($assetV('/assets/corp-home.css')) ?>">
+    <?php endif; ?>
     <script src="<?= e($assetV('/assets/search-suggest.js')) ?>" defer></script>
     <script>
     // 깨진/누락 이미지 → 브라우저 기본 깨진아이콘 대신 중립 플레이스홀더로 대체
@@ -153,7 +159,7 @@ function render_header(string $title, string $mode = 'normal'): void
     }, true);
     </script>
 </head>
-<body class="mode-<?= $mode === 'chat' ? 'chat' : 'normal' ?>">
+<body class="mode-<?= in_array($mode, ['chat', 'corp'], true) ? $mode : 'normal' ?>">
 
 <!-- ── 상단 헤더 + GNB ───────────────────────────────────── -->
 <header class="site-header">
@@ -162,9 +168,14 @@ function render_header(string $title, string $mode = 'normal'): void
             <span class="brand-mark">TM</span>
             <span class="brand-name">비엠아이토목건축자재</span>
         </a>
+        <?php if ($mode === 'corp'): // 기업회원 메인 전용: 대분류 메뉴를 헤더 한 줄 가운데에 배치(검색은 본문 히어로에 있음) ?>
+        <nav class="header-cats" aria-label="자재 카테고리"><?= $megaTabsHtml ?></nav>
+        <?php endif; ?>
         <nav class="header-nav">
             <?php if ($mode === 'chat') echo $megaTabsHtml; ?>
+            <?php if ($mode !== 'corp'): ?>
             <button class="btn-header-search btn-header-search--text" onclick="var w=document.getElementById('header-search-wrap');w.classList.toggle('open');if(w.classList.contains('open'))document.getElementById('header-search-input').focus();">검색</button>
+            <?php endif; ?>
             <a href="/real-estate-safety.php" class="nav-link<?= $path === '/real-estate-safety.php' ? ' active' : '' ?>">부동산안전</a>
             <?php if (is_logged_in()): ?>
             <a href="/chat.php" class="btn-header-ai<?= $path === '/chat.php' ? ' active' : '' ?>">AI 상담</a>
@@ -179,7 +190,7 @@ function render_header(string $title, string $mode = 'normal'): void
             <?php endif; ?>
         </nav>
     </div>
-    <?php if ($mode !== 'chat'): ?>
+    <?php if ($mode !== 'chat' && $mode !== 'corp'): ?>
     <div class="gnb-bar">
         <?= $megaTabsHtml ?>
     </div>

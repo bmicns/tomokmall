@@ -194,6 +194,10 @@ ok('빈 배열 → 400', $st === 400 && ($d['ok'] ?? true) === false);
 ok('잘못된 id → 400', $st === 400);
 [$st] = http('POST', $api, ['product_ids' => range(1, FAVORITES_BULK_MAX + 1)], $jCust);
 ok('1회 최대 개수 초과 → 400', $st === 400);
+// 회귀: 카테고리 목록 '전체선택'(60개 초과) 요청이 통째로 400 되던 오류 — 한도(50) 안에서 저장, 나머지는 failed
+$many = array_merge([$pids[9]], range(900000001, 900000239));
+[$st, $d] = http('POST', $api, ['product_ids' => $many], $jCust);
+ok('60개 초과(240개) 요청 → 200, 판매중 1개 저장·나머지 failed', $st === 200 && $d['added'] === [$pids[9]] && count($d['failed']) === 239);
 [$st, $d] = http('POST', $api, ['product_ids' => [$pids[8], $inactiveId, 999999999]], $jCust);
 ok('판매중지·없는 상품은 failed(invalid), 나머지 저장', $st === 200 && $d['added'] === [$pids[8]]
     && array_column($d['failed'], 'reason') === ['invalid', 'invalid']);

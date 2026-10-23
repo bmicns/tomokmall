@@ -1736,3 +1736,159 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .fav-thumb{width:64px;height:52px}
 }
 
+
+/* ── 홈(일반회원·비로그인) — 확정 디자인 '일반회원용 메인화면' (index.php) ── */
+.gh-wrap{max-width:1312px;margin:0 auto;padding:0 0 40px;word-break:keep-all;overflow-wrap:anywhere}
+.gh-sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.gh-hero{display:flex;flex-direction:column;align-items:center;text-align:center;padding:56px 0 40px}
+.gh-hero-title{font-size:48px;font-weight:600;color:var(--color-primary);letter-spacing:-1.2px;line-height:1.2}
+.gh-hero-sub{margin-top:10px;font-size:24px;font-weight:500;color:#333333;letter-spacing:-0.5px}
+.gh-search{display:flex;width:100%;max-width:600px;margin-top:28px;border:2px solid var(--color-primary);background:#fff}
+.gh-search input{flex:1;min-width:0;height:46px;border:0;outline:none;padding:0 18px;font-size:15px;font-family:var(--font);color:var(--color-text-primary);background:transparent}
+.gh-search input::placeholder{color:#8A8A8A}
+.gh-search button{flex-shrink:0;height:46px;padding:0 24px;border:0;background:var(--color-primary);color:#fff;font-size:15px;font-weight:600;gap:6px}
+.gh-search button:hover{background:var(--color-primary-hover)}
+.gh-search:focus-within{box-shadow:0 0 0 3px rgba(0,78,161,0.18)}
+.gh-chips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:16px}
+.gh-chips a{padding:7px 14px;border-radius:999px;background:#E6F2FB;border:1px solid #D3E5F5;color:#1A5AA6;font-size:13px;font-weight:500}
+.gh-chips a:hover{background:var(--color-primary);border-color:var(--color-primary);color:#fff}
+.gh-section{padding-top:16px}
+.gh-section + .gh-section{padding-top:48px}
+.gh-section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.gh-section-title{font-size:26px;font-weight:600;letter-spacing:-0.6px;color:var(--color-text-primary)}
+.gh-section-side{display:flex;align-items:center;gap:24px;font-size:15px}
+.gh-use-ai, .gh-mat-all{display:inline-block;padding:8px 0;font-weight:500;color:var(--color-primary)}
+.gh-mat-all{font-size:16px}
+.gh-mat-all[hidden]{display:none}
+.gh-use-ai:hover, .gh-mat-all:hover{color:var(--color-primary-hover);text-decoration:underline}
+.gh-use-page{color:#666666}
+.gh-use-frame{position:relative}
+.gh-car-btn{position:absolute;top:70px;z-index:1;width:44px;height:44px;padding:0;border-radius:50%;border:1px solid #D3E5F5;background:#fff;color:var(--color-primary);box-shadow:0 2px 8px rgba(16,40,80,0.10)}
+.gh-car-btn:hover{background:#fff;color:var(--color-primary)}
+.gh-car-btn:hover:not(:disabled){border-color:var(--color-primary)}
+.gh-car-btn:disabled{opacity:.4;cursor:default}
+.gh-car-prev{left:-22px}
+.gh-car-next{right:-22px}
+.gh-use-view{overflow:hidden;padding:1px;margin:-1px}
+.gh-use-track{display:flex;gap:12px;transition:transform .35s ease}
+.gh-use-card{flex:0 0 calc((100% - 36px) / 4);min-width:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:0;padding:0;border:1px solid var(--color-border);background:#fff;color:var(--color-text-primary);font-family:var(--font);text-align:left;overflow:hidden}
+.gh-use-card:hover{border-color:var(--color-primary);background:#fff;color:var(--color-text-primary)}
+.gh-use-card.is-open{border-color:var(--color-primary);box-shadow:0 0 0 1px var(--color-primary)}
+.gh-use-card:focus-visible, .gh-need-card:focus-visible{outline:2px solid var(--color-primary);outline-offset:2px}
+.gh-use-card img{display:block;width:100%;height:140px;object-fit:cover}
+.gh-use-card img[hidden], .gh-need-img img[hidden]{display:none}
+.gh-use-card img.is-product{object-fit:contain;background:#F4F8FC;padding:12px}
+.gh-use-label{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 16px;font-size:18px;font-weight:600;letter-spacing:-0.4px}
+.gh-use-card.is-open .gh-use-label{color:var(--color-primary)}
+.gh-use-label svg{color:var(--color-primary)}
+/* 작업별 필요 자재: 구분선 + ▼ / 펼침 패널 */
+.gh-need{position:relative;z-index:5;margin-top:14px}
+.gh-need-bar{position:relative;height:48px;display:flex;align-items:center;justify-content:center}
+.gh-need-bar.is-hidden{visibility:hidden}
+.gh-need-line{position:absolute;left:0;right:0;top:50%;border-top:2px solid #A9C4E4}
+.gh-need-bar.is-hint .gh-need-line{border-top-color:var(--color-primary)}
+.gh-need-pill{position:relative;width:60px;height:44px;padding:0;border-radius:999px;border:1px solid #D3E5F5;background:#fff;color:var(--color-primary);box-shadow:0 2px 6px rgba(16,40,80,0.08)}
+.gh-need-pill:hover, .gh-need-bar.is-hint .gh-need-pill{background:#EEF4FA;color:var(--color-primary)}
+.gh-need-pill svg{animation:gh-nudge 1.6s ease-in-out infinite}
+@keyframes gh-nudge{0%,100%{transform:translateY(0)}50%{transform:translateY(3px)}}
+.gh-need-tip{display:none;position:absolute;bottom:46px;left:50%;transform:translateX(-50%);background:#333333;color:#fff;font-size:13px;padding:6px 10px;border-radius:4px;white-space:nowrap}
+.gh-need-bar.is-hint .gh-need-tip{display:block}
+.gh-need-pop{position:absolute;left:0;right:0;top:10px;animation:gh-need-in .22s ease-out}
+.gh-need-pop[hidden]{display:none}
+@keyframes gh-need-in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.gh-need-panel{position:relative;background:#F4F4F4;border:1px solid #E2E2E2;border-radius:10px;box-shadow:0 12px 32px rgba(16,40,80,0.14);padding:18px 20px 20px}
+.gh-need-notch{position:absolute;top:-8px;width:14px;height:14px;background:#F4F4F4;border-left:1px solid #E2E2E2;border-top:1px solid #E2E2E2;transform:rotate(45deg)}
+.gh-need-title{font-size:22px;font-weight:600;letter-spacing:-0.5px;color:var(--color-text-primary)}
+.gh-need-title span{color:var(--color-primary)}
+.gh-need-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:14px}
+.gh-need-grid[hidden]{display:none}
+.gh-need-card{display:flex;flex-direction:column;min-width:0;border:1px solid #DDE5EE;border-radius:8px;background:#fff;color:var(--color-text-primary);overflow:hidden;transition:border-color .15s,box-shadow .15s}
+.gh-need-card:hover{border-color:var(--color-primary);box-shadow:0 4px 12px rgba(16,40,80,0.10)}
+.gh-need-img{display:flex;align-items:center;justify-content:center;height:96px;background:#fff}
+.gh-need-img img{width:72%;height:80px;object-fit:contain}
+.gh-need-name{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:10px 12px 2px;font-size:16px;font-weight:600;letter-spacing:-0.3px}
+.gh-need-name span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gh-need-name svg{color:var(--color-primary)}
+.gh-need-desc{padding:0 12px 12px;font-size:13px;color:#666666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gh-need-foot{display:flex;justify-content:center;margin-top:12px}
+.gh-need-close{height:44px;padding:0 20px;gap:8px;border-radius:999px;border:1px solid #D3E5F5;background:#fff;color:var(--color-primary);font-size:15px;font-weight:500;box-shadow:0 2px 6px rgba(16,40,80,0.08)}
+.gh-need-close:hover{border-color:var(--color-primary);background:#fff;color:var(--color-primary)}
+.gh-mat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.gh-mat-card{display:flex;align-items:center;height:132px;border:1px solid var(--color-border);background:#fff;color:var(--color-text-primary)}
+.gh-mat-card:hover{border-color:var(--color-primary)}
+.gh-mat-card img{width:160px;height:120px;object-fit:contain;flex-shrink:0}
+.gh-mat-text{display:block;min-width:0;padding:0 18px 0 10px}
+.gh-mat-name{display:block;font-size:19px;font-weight:600;letter-spacing:-0.3px}
+.gh-mat-desc{display:block;margin-top:6px;font-size:15px;line-height:1.45;color:#666666}
+/* '전체 자재 보기' 클릭 시 상단 카테고리 메뉴 강조 */
+.gnb-bar.gh-gnb-hint{animation:gh-gnb-hint 1.8s ease-out}
+@keyframes gh-gnb-hint{0%,60%{box-shadow:inset 0 0 0 2px var(--color-primary);background:#EEF4FA}100%{box-shadow:none}}
+@media (prefers-reduced-motion: reduce){
+  .gh-use-track{transition:none}
+  .gh-need-pill svg, .gh-need-pop, .gnb-bar.gh-gnb-hint{animation:none}
+}
+@media (max-width: 1200px) {
+  .gh-car-btn, .gh-use-page, .gh-need-notch{display:none}
+  .gh-use-view{overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+  .gh-use-track{transform:none !important}
+  .gh-use-card{flex-basis:calc((100% - 12px) / 2);scroll-snap-align:start}
+  .gh-need-pop{position:static;margin-top:-38px}
+  .gh-need-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .gh-mat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width: 640px) {
+  .gh-hero{padding:36px 0 28px}
+  .gh-hero-title{font-size:34px}
+  .gh-hero-sub{font-size:18px}
+  .gh-section-title{font-size:22px}
+  .gh-chips a{display:inline-flex;align-items:center;min-height:44px;padding:0 16px}
+  .gh-use-card{flex-basis:80%}
+  .gh-need-panel{padding:16px 14px}
+  .gh-need-title{font-size:19px}
+  .gh-need-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .gh-mat-grid{grid-template-columns:minmax(0,1fr)}
+  .gh-mat-card img{width:128px;height:96px}
+}
+
+/* ── 작업 유형: 이미지 없음·불러오기 실패 대체 표시 (index.php) ── */
+.gh-use-noimg[hidden]{display:none}
+.gh-use-noimg{display:flex;align-items:center;justify-content:center;height:140px;background:#F4F8FC;color:#8AA4C4;font-size:28px;font-weight:600}
+.gh-need-noimg[hidden]{display:none}
+.gh-need-noimg{display:flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:50%;background:#F4F8FC;color:#8AA4C4;font-size:18px;font-weight:600}
+@media (max-width: 640px) {
+  .gh-use-noimg{height:140px}
+  .gh-need-name span, .gh-need-desc{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+}
+
+/* ── 작업별 상품 목록 (products.php?category=ID&work=키) ─────────────── */
+.ut-banner{position:relative;overflow:hidden;height:150px;margin-top:24px;background:#EEF3F9;border:1px solid #E3EAF2;display:flex;align-items:center}
+.ut-banner-img{position:absolute;right:0;top:0;width:58%;height:100%;object-fit:cover;-webkit-mask-image:linear-gradient(to right,transparent 0%,#000 35%);mask-image:linear-gradient(to right,transparent 0%,#000 35%)}
+.ut-banner-img.is-product{width:30%;object-fit:contain;padding:12px;box-sizing:border-box;-webkit-mask-image:none;mask-image:none}
+.ut-banner-text{position:relative;padding:0 40px}
+.ut-banner-title{margin:0;font-size:34px;font-weight:600;color:var(--color-primary);letter-spacing:-0.8px}
+.ut-banner-sub{margin:8px 0 0;font-size:16px;color:#333}
+.pt-filter-usage{display:flex;flex-direction:column;gap:12px}
+.ut-mats{border:1px solid var(--color-border);border-radius:10px;background:#fff;padding:4px 14px 12px}
+.ut-mats-title{margin:0;padding:12px 0 10px;font-size:13px;font-weight:800}
+.ut-mats-list{list-style:none;margin:0;padding:6px 0 0;border-top:1px solid #EDF1F5}
+.ut-mat{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12.5px;color:#37444F;text-decoration:none}
+.ut-mat:hover{color:var(--color-primary)}
+.ut-mat-box{flex:none;width:14px;height:14px;border:1px solid #767676;border-radius:3px;background:#fff;box-sizing:border-box;position:relative}
+.ut-mat.is-on{color:var(--color-text-primary);font-weight:600}
+.ut-mat.is-on .ut-mat-box{background:var(--color-primary);border-color:var(--color-primary)}
+.ut-mat.is-on .ut-mat-box::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.pt-table-title.is-usage{font-weight:700;color:var(--color-primary);letter-spacing:-0.3px}
+@media (min-width:761px){
+  .pt-filter.pt-filter-usage{position:static}  /* 자재 종류 + 필터로 길어져 sticky 시 하단이 가려짐 → 고정 해제 */
+}
+@media (max-width:760px){
+  .ut-mats-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px}
+  .ut-mat{min-height:44px;padding:0;font-size:14px}
+}
+@media (max-width:640px){
+  .ut-banner{height:120px;margin-top:16px}
+  .ut-banner-img{width:100%;opacity:.35}
+  .ut-banner-text{padding:0 20px}
+  .ut-banner-title{font-size:26px}
+  .ut-banner-sub{font-size:14px}
+}

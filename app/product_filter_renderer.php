@@ -82,7 +82,8 @@ function product_list_url(array $get, array $set = []): string
     return '/products.php' . ($qs !== '' ? '?' . $qs : '');
 }
 
-function render_product_filters(array $a, ?string $q, ?int $categoryId, string $sort = '', ?array $facets = null, bool $inStock = false): void
+/** $keep: 필터 적용·초기화 후에도 유지할 추가 GET 값(예: 작업별 목록의 ['work' => 키]) */
+function render_product_filters(array $a, ?string $q, ?int $categoryId, string $sort = '', ?array $facets = null, bool $inStock = false, array $keep = []): void
 {
     // 하위호환: 파세트 미제공 시 전체 옵션 노출(개수 없음)
     if ($facets === null) {
@@ -98,6 +99,7 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
     // 파세트 그룹이 없어도 재고 섹션은 노출(재고 필터는 결과 집합과 무관하게 항상 의미 있음)
 
     $base = $q !== null && $q !== '' ? '/products.php?q=' . urlencode($q) : '/products.php?category=' . (int) $categoryId;
+    if ($keep) { $base .= '&' . http_build_query($keep); }
     $opt  = static function (string $field, $val, string $label, int $cnt, bool $active): void { ?>
         <label class="fopt"><input type="checkbox" name="<?= e($field) ?>[]" value="<?= e((string) $val) ?>" <?= $active ? 'checked' : '' ?>><span class="fopt-lbl"><?= e($label) ?></span><?php if ($cnt > 0): ?><span class="fcnt"><?= $cnt ?></span><?php endif; ?></label>
     <?php };
@@ -111,6 +113,7 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
           <input type="hidden" name="category" value="<?= (int) $categoryId ?>">
         <?php endif; ?>
         <?php if ($sort !== ''): ?><input type="hidden" name="sort" value="<?= e($sort) ?>"><?php endif; ?>
+        <?php foreach ($keep as $k => $kv): ?><input type="hidden" name="<?= e((string) $k) ?>" value="<?= e((string) $kv) ?>"><?php endforeach; ?>
 
         <div class="flt-top"><b>필터로 좁히기</b><a href="<?= e($base) ?>">초기화</a></div>
 

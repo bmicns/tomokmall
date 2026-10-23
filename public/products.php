@@ -4,6 +4,7 @@ declare(strict_types=1);
 require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/layout.php';
 require __DIR__ . '/../app/product_filter_renderer.php';
+require __DIR__ . '/../app/work_types.php';
 
 $categoryId = isset($_GET['category']) ? max(0, (int) $_GET['category']) : null;
 $query      = trim((string) ($_GET['q'] ?? ''));
@@ -32,6 +33,14 @@ $fparams          = array_merge($fparams, $listSearchParams);
 
 if (!$query && !$categoryId) {
     redirect('/index.php');
+}
+
+// 작업별 목록: 메인 '어떤 작업에 사용할 예정인가요?'에서 대표 자재를 눌러 들어온 경우(category=ID&work=키).
+// 카테고리가 그 작업의 대표 자재일 때만 적용 → 상단 작업 배너 + 좌측 '자재 종류' 패널. 조회·필터·정렬은 기존 카테고리 목록 그대로.
+$workType = null;
+if ($categoryId && is_string($_GET['work'] ?? null)) {
+    $wt = work_type_find($_GET['work']);
+    if ($wt && work_type_has_material($wt, $categoryId)) { $workType = $wt; }
 }
 
 // 검색 페이지네이션
@@ -134,21 +143,27 @@ if ($categoryId && db()) {
 }
 
 $pageTitle = $category['name'] ?? $query ?: '상품 목록';
+// 작업별 목록: 카테고리 행을 못 읽었으면(DB 미연결 등) 설정의 자재명으로 제목 표시
+if ($workType && !$category) {
+    foreach ($workType['materials'] as [$mid, $mname]) { if ($mid === $categoryId) { $pageTitle = $mname; break; } }
+}
 $loggedIn  = !empty($_SESSION['user']);
 $isInternal = price_tier() === 'internal';   // 직원·관리자: 원가 컬럼 노출
+
+// ── Figma 하드코딩 데모 데이터 (DB 미연결 시에만) ──────────
+// ⚠️ 검색 결과 0건을 데모로 표시하면 "엉뚱한 제품"으로 보이므로,
+//    DB가 연결된 경우에는 절대 데모 모드로 넘어가지 않는다.
+// 작업별 목록은 선택한 자재와 무관한 데모 상품이 보이지 않도록 데모 제외(→ '불러오지 못함' 안내).
+// 아래 파세트·사이드바 판단보다 먼저 정해야 한다(이전엔 정의 전에 읽어 항상 비데모로 판단됨).
+$demoMode = empty($products) && !db() && !$workType;
 
 // 동적 파세트: 현재 결과 집합(필터 미적용) 기준으로 실제 좁혀지는 필터만 노출.
 $facets = ['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 0];
 if (!$demoMode && ($query || $categoryId)) {
     try { $facets = product_facets($categoryId, $correctedQ ?? $query, $filters); } catch (\Throwable $e) {}
 }
-// 사이드바: 파세트 그룹이 없어도 '재고' 섹션이 있으므로 목록이면 항상 노출
-$showFilters = !$demoMode && ($query || $categoryId);
-
-// ── Figma 하드코딩 데모 데이터 (DB 미연결 시에만) ──────────
-// ⚠️ 검색 결과 0건을 데모로 표시하면 "엉뚱한 제품"으로 보이므로,
-//    DB가 연결된 경우에는 절대 데모 모드로 넘어가지 않는다.
-$demoMode = empty($products) && !db();
+// 사이드바: 파세트 그룹이 없어도 '재고' 섹션이 있으므로 목록이면 항상 노출 (DB 미연결이면 필터 의미 없음 → 숨김)
+$showFilters = !$demoMode && db() !== null && ($query || $categoryId);
 
 // 색상맵·데모 데이터(DB 미연결 시에만) — app/products_demo_data.php 파셜
 $demo          = require __DIR__ . '/../app/products_demo_data.php';
@@ -166,7 +181,22 @@ render_header($pageTitle);
 
     <!-- ── 카테고리 상단 정보 ─────────────────────────────── -->
     <?php
-    $hasCatSection = $category || $similar || $nextSteps || $demoMode;
+    // 작업별 목록은 카테고리 정보 대신 작업 배너를 표시
+    $hasCatSection = !$workType && ($category || $similar || $nextSteps || $demoMode);
+    $workMats = [];
+    if ($workType):
+        $workMats  = work_type_materials($workType, work_type_category_info(array_column($workType['materials'], 0)));
+        $bannerImg = $workType['banner'] ?? $workType['img'] ?? ($workMats[0]['img'] ?? '');
+        $bannerFit = isset($workType['banner']) || ($workType['img_kind'] ?? '') === 'photo' ? '' : ' is-product';
+    ?>
+    <section class="ut-banner">
+        <?php if ($bannerImg !== ''): ?><img class="ut-banner-img<?= $bannerFit ?>" src="<?= e($bannerImg) ?>" alt=""><?php endif; ?>
+        <div class="ut-banner-text">
+            <h1 class="ut-banner-title"><?= e($workType['name']) ?></h1>
+            <p class="ut-banner-sub"><?= e($workType['summary']) ?></p>
+        </div>
+    </section>
+    <?php endif;
     if ($hasCatSection):
         $catImg  = $category['image_url'] ?? '';
         // 대표이미지 없으면 해당 카테고리 첫 번째 제품 이미지 사용
@@ -263,9 +293,21 @@ render_header($pageTitle);
     <?php endif; ?>
 
     <!-- ── 품목보기: 좌측 필터 + 목록 ──────────────────────── -->
-    <div class="pt-layout<?= $showFilters ? '' : ' pt-nofilter' ?>">
-    <?php if ($showFilters): ?>
-      <aside class="pt-filter"><?php render_product_filters($filters, $query, $categoryId, $sort, $facets, $inStock); ?></aside>
+    <div class="pt-layout<?= $showFilters || $workType ? '' : ' pt-nofilter' ?>">
+    <?php if ($showFilters || $workType): ?>
+      <aside class="pt-filter<?= $workType ? ' pt-filter-usage' : '' ?>">
+        <?php if ($workType): ?>
+        <nav class="ut-mats" aria-labelledby="ut-mats-title">
+          <h2 class="ut-mats-title" id="ut-mats-title">자재 종류</h2>
+          <ul class="ut-mats-list">
+            <?php foreach ($workMats as $n): $on = (int) $n['id'] === $categoryId; ?>
+            <li><a class="ut-mat<?= $on ? ' is-on' : '' ?>" href="<?= e($n['href']) ?>"<?= $on ? ' aria-current="page"' : '' ?>><span class="ut-mat-box" aria-hidden="true"></span><?= e($n['name']) ?></a></li>
+            <?php endforeach; ?>
+          </ul>
+        </nav>
+        <?php endif; ?>
+        <?php if ($showFilters) { render_product_filters($filters, $query, $categoryId, $sort, $facets, $inStock, $workType ? ['work' => $workType['key']] : []); } ?>
+      </aside>
     <?php endif; ?>
     <div class="pt-list-main">
     <?php if ($didYouMean): ?>
@@ -289,8 +331,8 @@ render_header($pageTitle);
     ?>
     <div class="pt-table-header">
         <div class="pt-head-left">
-            <h3 class="pt-table-title">
-                품목보기
+            <h3 class="pt-table-title<?= $workType ? ' is-usage' : '' ?>">
+                <?= $workType ? e($pageTitle) : '품목보기' ?>
                 <?php if (!$demoMode && ($query || $categoryId)): ?>
                     <span class="pt-search-count"><?php $shownQ = $correctedQ ?? $query; if ($shownQ): ?>'<?= e($shownQ) ?>' <?php endif; ?>검색결과 <strong><?= number_format($searchTotal) ?></strong>개</span>
                 <?php endif; ?>
@@ -324,6 +366,7 @@ render_header($pageTitle);
             <form class="pt-search-form" method="get" action="/products.php">
                 <?php if ($categoryId): ?><input type="hidden" name="category" value="<?= $categoryId ?>"><?php elseif ($query): ?><input type="hidden" name="q" value="<?= e($query) ?>"><?php endif; ?>
                 <?php if ($inStock): ?><input type="hidden" name="instock" value="1"><?php endif; ?>
+                <?php if ($workType): ?><input type="hidden" name="work" value="<?= e($workType['key']) ?>"><?php endif; ?>
                 <input type="text" name="s" value="<?= e($search) ?>" placeholder="목록검색">
                 <button type="submit">검색</button>
             </form>
@@ -360,7 +403,10 @@ render_header($pageTitle);
     if (empty($tableRows)):
     ?>
         <div class="empty-state">
-            <?php if ($inStock && !$demoMode): ?>
+            <?php if (!db()): ?>
+                <p class="empty-title">상품 정보를 불러오지 못했습니다.</p>
+                <p class="empty-hint">잠시 후 다시 시도해 주세요.</p>
+            <?php elseif ($inStock && !$demoMode): ?>
                 <p class="empty-title">조건에 맞는 재고 있는 상품이 없습니다.</p>
                 <p class="empty-hint">'재고 있는 상품만 보기'를 해제하면 재고와 관계없이 전체 상품을 볼 수 있습니다.</p>
                 <div class="empty-suggest">

@@ -12,6 +12,8 @@ require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/ai_tools.php';
 require __DIR__ . '/../app/product_filter_renderer.php';
 require __DIR__ . '/../app/favorites.php';
+require __DIR__ . '/../app/work_types.php';
+require __DIR__ . '/../app/corp_home.php';
 
 $pass = 0; $fail = 0;
 function ok(string $name, bool $cond): void {
@@ -210,6 +212,84 @@ $pl = favorite_bulk_plan([5, 6], [5, 6], [5], FAVORITES_MAX);
 ok('한도 도달 상태: 이미 등록된 상품은 already(실패 아님)', $pl['already'] === [5] && $pl['add'] === []
     && $pl['failed'] === [['product_id' => 6, 'reason' => 'limit']]);
 ok('최대 개수 상수 50 유지', FAVORITES_MAX === 50);
+
+echo "[작업 유형 설정 work_types_validate]\n";
+$wt = work_types();
+eq('현재 설정 규칙 위반 없음', work_types_validate($wt), []);
+ok('작업당 대표 자재 최대 10개', max(array_map(static fn($t) => count($t['materials']), $wt)) <= 10);
+$allIds = [];
+foreach ($wt as $t) { $allIds = array_merge($allIds, array_column($t['materials'], 0)); }
+ok('PE망(203)·몰드(215~229) 미연결', !array_intersect($allIds, WORK_TYPE_EXCLUDED_CATEGORY_IDS) && count(WORK_TYPE_EXCLUDED_CATEGORY_IDS) === 16);
+ok('대분류(1~8, 11~16) 미연결', !array_intersect($allIds, WORK_TYPE_STRUCTURE_CATEGORY_IDS));
+$names = array_column($wt, 'name');
+ok('작업 유형 12개(메인 전부 노출), 첫 작업은 배수로 설치·정비', count($wt) === 12 && $names[0] === '배수로 설치·정비');
+ok('통합 전 작업명 없음(배수시설·노면배수·지하배수관·집수정·횡단·안전시설·담장·급수 등)',
+    !array_intersect($names, ['배수시설 설치·정비', '도로·진입로 노면 배수 정비', '지하 배수관 매설', '집수정·맨홀 설치',
+        '도로 밑 횡단 배수로 놓기', '도로·단지 안전시설 설치', '주차장 만들기·정비', '담장 쌓기', '건물 기초·바닥 콘크리트',
+        '전기·통신·가로등 지중시설', '수도 급수관 연결']));
+$bad = [['key' => 'x', 'name' => 'X', 'materials' => array_map(static fn($i) => [$i, 'n', 'd'], range(30, 40))]];
+ok('11개 연결 시 위반 검출', count(work_types_validate($bad)) === 1);
+$bad = [['key' => 'x', 'name' => 'X', 'materials' => [[203, 'PE망', ''], [1, '철근/시멘트', ''], [24, 'a', ''], [24, 'a', '']]]];
+ok('제외 대상·대분류·중복 각각 검출', count(work_types_validate($bad)) === 3);
+$m = work_type_materials(['materials' => [[24, '수로관', '본체'], [133, 'SUS', '덮개'], [999, '없음', '']]],
+    [24 => ['name' => '수로관(벤치3종)', 'is_active' => true, 'thumb' => ''], 133 => ['name' => 'SUS그레이팅', 'is_active' => false, 'thumb' => '']]);
+eq('DB 정보 기준: 비활성·없는 카테고리는 제외, 이름은 DB 값, 링크는 카테고리 페이지',
+    array_map(static fn($x) => [$x['id'], $x['name'], $x['href']], $m), [[24, '수로관(벤치3종)', '/products.php?category=24']]);
+eq('DB 미연결 시 설정 이름으로 모두 표시', count(work_type_materials(['materials' => [[24, '수로관', ''], [116, '그레이팅', '']]], [])), 2);
+$m = work_type_materials(['key' => 'drainage', 'materials' => [[24, '수로관', '본체']]], []);
+eq('작업 키가 있으면 작업별 목록 링크(work=키)', $m[0]['href'], '/products.php?category=24&work=drainage');
+ok('work_type_find: 있는 키·없는 키·빈 키', (work_type_find('drainage')['key'] ?? '') === 'drainage'
+    && work_type_find('nope') === null && work_type_find('') === null);
+$dr = work_type_find('drainage');
+ok('work_type_has_material: 대표 자재만 true', work_type_has_material($dr, 24) && !work_type_has_material($dr, 999)
+    && !work_type_has_material($dr, 0));
+$imgOk = true;
+foreach (work_types() as $t) { foreach (array_filter([$t['img'] ?? null, $t['banner'] ?? null]) as $im) { if (!is_file(__DIR__ . '/../public' . $im)) { $imgOk = false; } } }
+ok('작업 카드·배너 이미지 파일 존재', $imgOk);
+
+echo "[작업별 목록 필터 = 기존 products.php 필터 render_product_filters]\n";
+$fc = ['mat' => [11 => 28, 13 => 10], 'shape' => ['U형' => 2], 'load' => [], 'spec' => ['200*200' => 3, '300*300' => 1], 'total' => 38];
+$act = ['mat' => [11], 'spec' => [], 'shape' => [], 'load' => []];
+ob_start(); render_product_filters($act, null, 24, '', $fc, false);                       $plain = ob_get_clean();
+ob_start(); render_product_filters($act, null, 24, '', $fc, false, ['work' => 'drainage']); $work  = ob_get_clean();
+$groups = static fn(string $h): array => preg_match_all('/<div class="fgrp[^"]*"><b>([^<]+)/u', $h, $m) ? array_map('trim', $m[1]) : [];
+eq('필터 그룹 동일(재질·규격·형상/옵션·재고)', $groups($work), $groups($plain));
+ok('그룹 4개 모두 표시', $groups($plain) === ['재질', '규격', '형상 / 옵션', '재고']);
+ok('차이는 work 유지(hidden·초기화 링크)뿐', str_replace(['<input type="hidden" name="work" value="drainage">', '&amp;work=drainage'], '', $work) === $plain);
+
+echo "[규격 치수 표시 spec_size_label]\n";
+eq('곱셈 기호 × 통일',      spec_size_label('규격: 200*150*2000*35T | 중량: 90kg | 단위: 본'), '200×150×2000×35T');
+eq('관경·옵션 유지',        spec_size_label('규격: D300*6000_국산 | 단위: 본'), 'D300×6000_국산');
+eq('x 표기도 ×',            spec_size_label('규격: 400x400 | 단위: 개'), '400×400');
+eq('규격 항목 없음 → 빈 값', spec_size_label('단위: 본'), '');
+
+echo "[기업회원 메인 corp_home_*]\n";
+eq('기업가 있으면 기업가', corp_home_unit_price(27000, 29900), 27000);
+eq('기업가 0 → 정가',      corp_home_unit_price(0, 29900), 29900);
+eq('요약: 여러 품목',      corp_home_items_summary('벤치플륨관(벤치2종)', 4), '벤치플륨관(벤치2종) 외 3개 품목');
+eq('요약: 1개 품목',       corp_home_items_summary('그레이팅수로용', 1), '그레이팅수로용');
+eq('요약: 품목 없음',      corp_home_items_summary(null, 0), '품목 없음');
+$tree = corp_home_category_tree([
+    ['id' => 12, 'parent_id' => null, 'name' => '콘크리트제품'],
+    ['id' => 11, 'parent_id' => null, 'name' => '철근콘크리트제품'],
+    ['id' => 6,  'parent_id' => null, 'name' => '기타'],
+    ['id' => 256, 'parent_id' => 11, 'name' => '플륨관/수로관'],
+    ['id' => 23, 'parent_id' => '256', 'name' => '벤치플륨관(벤치2종)'],
+]);
+eq('대분류: GNB 5개만, 순서 고정, 제품 접미사 제거', $tree['lv1'], [['id' => 11, 'name' => '철근콘크리트'], ['id' => 12, 'name' => '콘크리트']]);
+eq('하위: 부모 id 기준', $tree['byParent'][256] ?? null, [['id' => 23, 'name' => '벤치플륨관(벤치2종)']]);
+ok('매입 상태 = 완료·납품완료', CORP_HOME_PURCHASED_STATUSES === ['APPROVED', 'DELIVERED']);
+
+echo "[DB 접속 실패 진단 db_connect_error_hint / env_shadowed_keys]\n";
+eq('1045 → 계정·비밀번호', db_connect_error_hint(1045), '계정·비밀번호 불일치(DB_USER/DB_PASS)');
+eq('1049 → DB 없음',       db_connect_error_hint(1049), 'DB 없음(DB_NAME)');
+eq('2002 → 서버 접속 불가', db_connect_error_hint(2002), 'DB 서버 접속 불가(DB_HOST·MySQL/MariaDB 실행 여부)');
+$envTmp = tempnam(sys_get_temp_dir(), 'env');
+file_put_contents($envTmp, "TM_TEST_SHADOW=from_file\nTM_TEST_SAME=same\nTM_TEST_NEW=new\n");
+putenv('TM_TEST_SHADOW=from_shell'); putenv('TM_TEST_SAME=same');
+load_env_file($envTmp); unlink($envTmp);
+ok('셸 값 우선 유지(기존 동작)', getenv('TM_TEST_SHADOW') === 'from_shell' && getenv('TM_TEST_NEW') === 'new');
+eq('값이 다른 키만 기록(같은 값·새 키 제외)', env_shadowed_keys('TM_TEST_'), ['TM_TEST_SHADOW']);
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

@@ -1,0 +1,146 @@
+# 운영 동일 구조 테스트 DB 구축 절차 (계획 — 아직 실행하지 않음)
+
+- 작성 2026-10-23 · 브랜치 `claude/confident-clarke-dncf12` · 선행 분석: [`../db-test-env-plan.md`](../db-test-env-plan.md)
+- 목표: 운영과 **같은 스키마·카테고리 ID·계층·상품 연결·규격/필터 속성·재고**를 가진 별도 테스트 DB에서
+  메인 자재 선택 → 목록 갱신 → 필터·검색·정렬을 실제 데이터로 검증
+- 현재 상태: **SQL·절차 문서만 작성.** 운영 조회·내보내기·테스트 DB 구축은 각각 승인 후 진행. `main` 병합·운영 배포 없음
+- 결정(2026-10-23): 구축 위치 **A안(클라우드 세션 Docker)**, 매입가·마진율 **0 처리**, `home_featured`·`category_gallery`는 **01의 P4·P5에서 민감정보 없음 확인 후** 복제. 승인 ①(운영 읽기 전용 점검) 완료
+
+| 파일 | 용도 | 실행 시점 |
+|---|---|---|
+| `01_prod_readonly_checks.sql` | 운영 구조(information_schema)·집계·지문 조회. SELECT 전용. **1부**(SELECT 1개 → 결과 표 1개·CSV 1개) + **2부** P1~P5(없을 수 있는 테이블, 하나씩) | 승인 ① 후, 사용자가 phpMyAdmin에서 |
+| `02_prod_export_selects.sql` | 내보낼 데이터 SELECT(제외 항목은 NULL/0 치환). **초안** | 01 결과로 확정 → 승인 ② 후 |
+
+---
+
+## 1. 운영 DB에 영향을 주지 않는 방법
+
+- 운영에는 **SELECT만** 실행한다(information_schema 포함). INSERT/UPDATE/DELETE, DDL, `SHOW`, `CALL`, `LOCK`, `FOR UPDATE` 없음.
+- 실행 주체는 **사용자(phpMyAdmin)**. 이 클라우드 환경은 운영 DB에 접속할 수 없고(3306 차단·인증정보 없음) 접속 경로도 만들지 않는다.
+- InnoDB의 일반 SELECT는 잠금 없는 읽기(consistent read)라 쓰기 작업을 막지 않는다. 대상 규모가 작다(카테고리 약 250, 상품 약 1.5천 행).
+  사이트 이용이 적은 시간에 블록 단위로 실행한다.
+- phpMyAdmin '조회 결과 내보내기'도 같은 SELECT를 다시 실행해 파일로 받는 것이라 운영 데이터는 바뀌지 않는다.
+- 제외 항목(개인정보·업체 연락처·매입가)은 **SELECT에서 NULL/0으로 바꿔 내보낸다** → 원본 값이 운영 밖으로 나오지 않는다.
+
+## 2. 복제 범위
+
+| 구분 | 테이블·컬럼 | 처리 |
+|---|---|---|
+| 그대로 | `categories`(ID·부모·이름·slug·설명·이미지·정렬·활성), `products`(ID·카테고리·이름·브랜드·**규격 spec**·설명·판매가·기업가·**재고 stock_qty**·이미지·활성), `category_relations` | 운영 ID 그대로 INSERT(자동 번호 사용 안 함) |
+| 비식별 | `vendors`: 업체명·지역·활성만 / 담당자·전화·팩스·이메일·주소·메모 → NULL | 목록 '업체' 컬럼 표시용 |
+| 매입가 제외 | `products.cost_price` → 0, `product_vendors.supply_price` → 0, `product_vendors.memo` → NULL | 연결 관계(상품↔업체·주거래)는 유지 |
+| 결정 필요 | `categories.discount_customer/discount_corporate`(마진율) | 기본안 0 — 매입가가 없으면 쓰이지 않음 |
+| 구조만 | 회원·견적·주문·결제·배송·현장·대화기록·AI세션·관심상품·재주문·검색기록·RAG문서·상담가이드, [A2]에서 확인되는 그 밖의 테이블 | 데이터 0행 |
+| 확인 후 | `home_featured`, `category_gallery`(저장소에 CREATE 없음) | [A3]로 컬럼 확인 → 개인정보 없으면 그대로 |
+| 테스트 계정 | `scripts/local-test-accounts.php --apply`(이름 `[TEST]`, 값은 `.env.local`) | 구축 승인에 포함 |
+
+스키마는 [A3] 컬럼·[A4] 인덱스·[A5] 외래키 결과로 CREATE TABLE을 생성한다(운영에 `SHOW CREATE TABLE`을 쓰지 않음).
+FULLTEXT의 ngram 파서는 information_schema에 나오지 않으므로 `schema.sql`(2026-10-22 운영과 일치 확인)의 정의를 쓴다.
+
+## 3. 테스트 DB 분리 방법
+
+| 항목 | 방법 |
+|---|---|
+| 서버 | 운영(닷홈)과 다른 머신의 Docker MySQL. 버전은 [A1] 결과와 같은 이미지(MySQL 8.0.x / MariaDB면 해당 이미지) |
+| 네트워크 | 컨테이너 포트는 `127.0.0.1`에만 공개. 운영으로 가는 DB 접속 경로 없음 |
+| DB·계정 | DB `tomokmall_test`, 계정 `tomokmall_test`(이 DB에만 권한). 운영 인증정보는 어디에도 두지 않음 |
+| 코드 안전장치 | 통합 테스트·테스트 계정 스크립트는 DB 이름 `_test` + 로컬 호스트일 때만 동작(기존). 적재 스크립트도 같은 조건 + 아래 검사 통과 시에만 적재 |
+| 파일 | 내보낸 파일은 저장소 밖(세션 scratchpad)에 두고, 적재 후 삭제. Git·메일·메신저로 옮기지 않음 |
+| 배포 차단 | 테스트 DB용 파일은 `database/`에 두지 않음 → `deploy.sh`/`deploy-files.sh` 대상 아님, `predeploy-db-check.sh`로 확인 |
+
+구축 위치(결정 필요):
+- **A안(권장)**: 이 클라우드 세션의 Docker. 운영과 물리적으로 분리돼 있고, 제가 화면 검증(Playwright)까지 직접 수행. 세션 종료 시 컨테이너·파일 소멸(다음 세션은 재적재). 내보낸 파일을 이 세션에 첨부해 주셔야 함.
+- B안: 사용자 PC의 Docker `tomokmall_test`(유지됨). 화면 검증은 사용자 PC의 Claude Code에서 하거나 직접 확인.
+
+## 4. 적재 시 자동 검사(적재 스크립트가 통과해야 진행)
+
+1. 파일에 허용 테이블(`categories`, `products`, `category_relations`, `vendors`, `product_vendors`, 확인된 보조 테이블) INSERT만 있는지
+2. 제외 컬럼이 전부 NULL/0인지(`contact/phone/fax/email/address/memo`, `cost_price`, `supply_price`)
+3. 이메일·전화번호 형태 문자열 검색 → 발견 시 적재 중단·보고
+4. 적재 후 01의 **[F] 지문 쿼리**를 테스트 DB에서 실행 → 운영 결과와 **값이 모두 같아야** 통과
+   (카테고리 수·최대 ID·지문, 깊이별 개수, 상품 수·재고 수·규격 표기 수·지문, 루트별 개수, 대표 자재별 개수, 관계·업체 연결 지문)
+
+## 5. 구축 후 검증 계획(실제 DB 데이터)
+
+기준값은 테스트 DB에 직접 실행한 SQL(코드와 같은 조건)이고, 화면 값이 이와 일치하는지 본다. 비로그인·`[TEST]` 개인·기업 계정 각각.
+
+| # | 시나리오 | 통과 기준 |
+|---|---|---|
+| 1 | 메인 작업 카드 12개 → 패널의 대표 자재 | 자재명·개수가 DB(활성 카테고리)와 일치, 비활성·없는 카테고리는 빠짐 |
+| 2 | 자재 클릭 → 목록(12개 작업 × 대표 자재 전체) | URL `category=ID&work=키`, 체크 자재·제목·상품 수·첫 페이지 행이 SQL(하위 포함, `p.id DESC`)과 일치 |
+| 3 | 좌측 '자재 종류'로 다른 자재 전환 | 목록·개수가 새 카테고리로 갱신(이전 결과와 다름) |
+| 4 | 필터(규격·형상/옵션·하중·재질) | 표시 그룹·개수가 파세트 SQL과 일치, 적용 후 건수 일치, 초기화·칩 해제 후에도 `work` 유지 |
+| 5 | 재고 있는 상품만 | 건수 = `stock_qty > 0` 건수, 0건이면 안내 문구 |
+| 6 | 목록검색 `s=` | 건수·행이 SQL(이름·규격·브랜드·설명·업체명 LIKE)과 일치 |
+| 7 | 정렬(관련도·낮은/높은 가격·재고 많은·최신) | 순서가 `product_sort_sql`과 같은 SQL 결과와 일치 |
+| 8 | 메인 검색·카테고리 메뉴 | 대분류 11~16 메뉴, 재질 필터 노출(검색 결과가 여러 재질일 때) |
+| 9 | 화면·로그 | 1440/800/360px 레이아웃, PHP 경고 0, 기존 통합 테스트(`stock_filter`·`favorites_api`) 통과 |
+
+알려진 차이(테스트 DB 특성): 매입가 0 → 로그인 회원가가 정가로 표시(비로그인 표시·가격 정렬은 `price_b2c` 기준이라 영향 없음),
+검색기록·RAG 미복제 → 인기 검색어·AI 상담 근거 없음, 외부 이미지 URL은 환경에 따라 로드 실패 가능(검증 대상 아님).
+
+## 6. 진행 순서와 승인 사항
+
+| 단계 | 내용 | 승인 |
+|---|---|---|
+| ① | `01_prod_readonly_checks.sql` 1부·2부 실행(사용자·phpMyAdmin) → 결과 CSV(최대 6개) 공유 | **승인 ①: 운영 SELECT 조회** — 승인됨 |
+| ② | 결과 분석 → `02` 확정, 테스트 DDL·적재·검증 스크립트 작성(실행 안 함), 작업 브랜치 커밋 | 불필요(코드·문서) |
+| ③ | `02` 실행 → 결과를 SQL 파일로 내보내기 → 테스트 환경에 전달 | **승인 ②: 운영 데이터 내보내기** |
+| ④ | 테스트 DB 생성·스키마 적용·적재·지문 비교·`[TEST]` 계정 생성 | **승인 ③: 테스트 DB 구축(위치 A/B 선택 포함)** |
+| ⑤ | 5장 검증 → 결과 보고 | 불필요 |
+| ⑥ | 내보낸 파일 삭제, 세션 종료 시 컨테이너 삭제 | 불필요 |
+
+결정됨: 구축 위치 A안, 마진율 2개 컬럼 0, `home_featured`·`category_gallery`는 P4·P5(이메일·전화번호 형태 0건)와 A3 컬럼 확인 후 복제.
+01 SQL은 빈 스키마(저장소 `schema.sql`, 데이터 없음)의 일회용 MySQL 8.0.46에서 문법 오류 없이 실행됨을 확인했다(확인 후 즉시 삭제).
+
+---
+
+## 7. 진행 현황 (2026-10-23)
+
+| 단계 | 결과 |
+|---|---|
+| ① 운영 읽기 전용 점검 | 완료. MySQL 8.0.46, 테이블 20개, 카테고리 245(최대 ID 281, 루트 14, 고아 0), 상품 1,341(재고>0 12건, 규격 표기 1,319건). `home_featured` 없음, `category_gallery` 78행(이메일·전화번호 형태 0건), `favorite_products` 없음(관심상품 기능 미배포) |
+| 스키마 | `scripts/testdb/build-schema.php`로 A2~A5에서 DDL 생성 → 테스트 DB 적용 후 **A1~A6 구조 대조 전부 일치** |
+| 테스트 DB | 이 세션 Docker `mysql:8.0.46`, `127.0.0.1:3306`만 공개, DB·계정 `tomokmall_test`(이 DB에만 권한, 무작위 비밀번호는 세션 scratchpad에만) |
+| ③ 운영 데이터 내보내기 | 완료(사용자 phpMyAdmin). 적재 전 검사 통과: 카테고리 245·상품 1,341·관계 10·업체 4·상품-업체 1,788·갤러리 78, 매입가·마진율·공급단가 0, 업체 연락처 NULL, 이메일·전화번호 형태 0건 |
+| ④ 적재·대조 | `load-export.php --apply` 후 `compare.php` **21개 블록 전부 일치**(구조 A1~A6, 카테고리 B1~B5, 상품·규격·필터·재고 C1~C6, 관계·업체·연결·갤러리 P1~P3·P5) |
+| ⑤ 기능 검증 | `verify-work-list.php` **1,574 통과 / 0 실패**: 작업 12개 × 대표 자재 113개 조합의 체크 자재·제목·상품 수·상품 ID 순서(독립 SQL), 필터 패널 = 기존 목록, 필터 옵션 적용 108건, 재고 필터, 정렬 4종·목록검색. 브라우저 클릭(작업 12개 → 자재 → 자재 전환 → 규격 필터 UI 적용) 35 통과 / 0 실패, 1440·800·360px 화면, PHP 경고 0 |
+| 참고 | 재질 필터는 카테고리 목록에선 숨김(한 카테고리 = 한 재질, 기존 설계). 여러 재질이 섞인 검색(예: 맨홀)에선 철근콘크리트 69·스틸 56·PE/PVC 4로 표시. 통합 테스트 `stock_filter`·`favorites_api`는 MOCK 데이터를 넣으므로 복제 DB에서는 실행하지 않음(`favorite_products`는 운영에 없음). 검색 페이지 조회는 `search_logs`에 기록되므로 검증 후 비움 |
+
+## 8. 도구 (`scripts/testdb/`, 배포 대상 아님 · 로컬 `_test` DB에서만 동작)
+
+```bash
+php scripts/testdb/build-schema.php <01_1부.csv> > prod_schema.sql      # 운영 구조 DDL 생성(데이터 없음, DB 접속 없음)
+php scripts/testdb/load-export.php <02.csv>                              # 적재 전 검사만(건수·컬럼·비식별·연락처 형태)
+php scripts/testdb/load-export.php <02.csv> --apply                      # 검사 통과 시 6개 테이블 교체 적재
+php scripts/testdb/compare.php <01_1부.csv> <P1.csv> <P2.csv> ...        # 01을 테스트 DB에 실행해 운영 결과와 블록별 대조
+php scripts/testdb/verify-work-list.php http://127.0.0.1:8080          # 작업별 목록·필터 전 조합 검증(SELECT·GET만)
+```
+
+운영 CSV·생성된 DDL·`.env` 값은 저장소에 두지 않는다(세션 scratchpad). 세션이 바뀌면 컨테이너를 다시 만들고 위 순서로 재적재한다.
+
+## 9. 사용자 PC(XAMPP)에서 직접 확인
+
+클라우드 테스트 DB를 덤프해 PC용 가져오기 파일 `tomokmall_test_import.sql`(약 0.8MB)을 만든다. **저장소·운영 서버에 두지 않는다**(세션 첨부로만 전달, PC에서는 저장소 폴더 밖 `C:\dev\`에 저장).
+
+- 호환: MySQL 8 / MariaDB 10.4+(XAMPP). ngram 파서 제거, `utf8mb4_0900_ai_ci` → `utf8mb4_unicode_ci`.
+  사이트 목록·검색은 `LIKE`라 영향 없음(FULLTEXT는 AI 상담 `rag.php`만 사용).
+- 안전장치: 모든 문장이 `` `tomokmall_test`.`테이블` ``로 DB를 직접 지정 → `tomokmall_test`가 없는 서버(운영 등)에서는
+  오류만 나고 어느 DB에도 테이블이 생기지 않음(MariaDB 10.4에서 `source`·stdin 두 방식 모두 확인).
+  가져오기는 오류 시 즉시 멈추는 stdin 방식(`mysql ... < 파일`) 사용.
+- 검증: MariaDB 10.4.34 컨테이너에 같은 방식으로 가져와 사이트 실행 → `verify-work-list.php` **1,574 통과 / 0 실패**, PHP 경고 0.
+
+PC 절차(PowerShell, XAMPP MySQL 실행 상태):
+
+```powershell
+# (선택) 기존 tomokmall_test 백업 — PowerShell '>' 는 UTF-16으로 저장되므로 --result-file 사용
+& "C:\xampp\mysql\bin\mysqldump.exe" -u root -p --result-file=C:\dev\tomokmall_test_backup.sql tomokmall_test
+# 1) 빈 DB로 다시 만들기(tm_test 권한은 DB 이름 기준이라 유지됨)
+& "C:\xampp\mysql\bin\mysql.exe" -u root -p -e "DROP DATABASE IF EXISTS tomokmall_test; CREATE DATABASE tomokmall_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+# 2) 가져오기(오류 시 즉시 중단)
+cmd /c "C:\xampp\mysql\bin\mysql.exe -u tm_test -p --default-character-set=utf8mb4 tomokmall_test < C:\dev\tomokmall_test_import.sql"
+# 3) 확인: 1341
+& "C:\xampp\mysql\bin\mysql.exe" -u tm_test -p tomokmall_test -e "SELECT COUNT(*) FROM products;"
+# 4) 기존 방식으로 서버 실행 후 http://localhost:8080 , 자동 검증(다른 창, 같은 $env 설정):
+& "C:\xampp\php\php.exe" scripts\testdb\verify-work-list.php http://localhost:8080
+```

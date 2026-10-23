@@ -52,6 +52,14 @@ line('[접속 환경]');
 line('  PHP ' . PHP_VERSION . ' / ' . PHP_OS_FAMILY);
 line("  DB_HOST={$dbHost}  DB_NAME={$dbName}  DB_USER={$dbUser}  (비밀번호는 출력하지 않음)");
 line('  .env.local: ' . (is_file(__DIR__ . '/../.env.local') ? '있음' : '없음 → 프로젝트 루트에 만들어야 로컬 DB 설정이 적용됨'));
+// 셸 환경변수가 .env.local 보다 우선 적용된다(bootstrap.php load_env_file). 서버 창과 이 창의 설정이 다르면
+// 여기서는 접속되는데 웹 로그인은 '서버 오류'가 날 수 있다 → 덮어쓴 키 이름만 알림(값은 출력하지 않음)
+$shadowedDb = env_shadowed_keys('DB_');
+if ($shadowedDb) {
+    line('  ⚠ .env.local 대신 이 셸의 환경변수가 적용됨: ' . implode(', ', $shadowedDb)
+        . ' → 서버도 같은 셸에서 실행하거나, Remove-Item Env:DB_* 로 지운 뒤 서버를 다시 실행하세요');
+}
+line('  참고: 서버(php -S)는 실행한 창의 환경변수를 씁니다. 서버 창에서 Get-ChildItem Env:DB_* 결과가 비어 있어야 .env.local 이 적용됩니다.');
 if (is_file(__DIR__ . '/../app/.env')) {
     line('  ⚠ app/.env 가 있음 → .env.local 보다 먼저 읽혀 DB 설정을 덮어씀(운영용 파일이면 로컬에서 제거 필요)');
 }

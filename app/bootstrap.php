@@ -50,7 +50,35 @@ function load_env_file(string $file): void
             putenv("{$key}={$val}");
             $_ENV[$key]    = $val;
             $_SERVER[$key] = $val;
+        } elseif (getenv($key) !== $val) {
+            // 셸·서버 환경변수가 이미 있어 파일 값이 적용되지 않음 → 진단용으로 키 이름만 기록(값은 기록하지 않음)
+            $GLOBALS['env_shadowed_keys'][$key] = true;
         }
+    }
+}
+
+/**
+ * 파일(.env / .env.local) 값 대신 기존 환경변수가 적용된 키 이름 목록(값 없음). DB 접속 실패 진단용.
+ * @return string[]
+ */
+function env_shadowed_keys(string $prefix = ''): array
+{
+    $keys = array_keys($GLOBALS['env_shadowed_keys'] ?? []);
+    return array_values(array_filter($keys, static fn($k) => $prefix === '' || strpos($k, $prefix) === 0));
+}
+
+/**
+ * DB 접속 실패 원인 안내(서버 로그용). MySQL/MariaDB 오류 번호 → 점검할 항목. 인증정보는 포함하지 않는다.
+ */
+function db_connect_error_hint(int $code): string
+{
+    switch ($code) {
+        case 1045: return '계정·비밀번호 불일치(DB_USER/DB_PASS)';
+        case 1044: return '해당 DB 권한 없음(DB_USER 권한·DB_NAME)';
+        case 1049: return 'DB 없음(DB_NAME)';
+        case 2002: return 'DB 서버 접속 불가(DB_HOST·MySQL/MariaDB 실행 여부)';
+        case 2005: return 'DB 호스트 이름을 찾을 수 없음(DB_HOST)';
+        default:   return '접속 설정(DB_HOST/DB_NAME/DB_USER/DB_PASS) 확인';
     }
 }
 
@@ -92,7 +120,20 @@ function db(): ?PDO
             PDO::ATTR_EMULATE_PREPARES => false,
         ]);
     } catch (\PDOException $e) {
-        // 로컬 개발 환경: DB 없을 때 빈 stub PDO 대신 null 반환
+        // 로컬 개발 환경: DB 없을 때 빈 stub PDO 대신 null 반환.
+        // 원인은 서버 로그에만 남긴다(화면에는 일반 메시지). 오류 번호·안내·덮어쓴 키 이름만 — 계정·비밀번호는 기록하지 않음.
+        $code = (int) ($e->errorInfo[1] ?? 0);
+        if ($code === 0 && preg_match('/\[(\d{4})\]/', $e->getMessage(), $m)) {
+            $code = (int) $m[1];
+        }
+        static $logged = false; // db()는 실패 시 매번 재시도되므로 요청당 1회만 기록
+        if ($logged) {
+            return null;
+        }
+        $logged   = true;
+        $shadowed = env_shadowed_keys('DB_');
+        error_log('[db] 접속 실패 (오류 ' . ($code ?: '?') . '): ' . db_connect_error_hint($code)
+            . ($shadowed ? ' / .env 파일 대신 셸·서버 환경변수가 적용된 키: ' . implode(', ', $shadowed) : ''));
         return null;
     }
 
@@ -904,6 +945,15 @@ function parse_spec_field(string $spec): array
         elseif  (preg_match('/^설치비예상:\s*(.+)/u',$part, $m)) { $result['install'] = trim($m[1]); }
     }
     return $result;
+}
+
+/**
+ * 화면 표시용 규격 치수: spec의 '규격:' 값에서 숫자 사이 곱셈 기호만 × 로 통일.
+ * 예) '규격: 200*150*2000*35T | 단위: 본' → '200×150×2000×35T'
+ */
+function spec_size_label(string $spec): string
+{
+    return (string) preg_replace('/(?<=\d)\s*[*xX]\s*(?=\d)/u', '×', parse_spec_field($spec)['spec']);
 }
 
 function fetch_related_categories(int $categoryId, string $type): array
