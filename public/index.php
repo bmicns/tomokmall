@@ -333,7 +333,7 @@ if ($query) {
     <script>
     // 작업(용도) 슬라이드 + 작업별 필요 자재 패널
     // 데스크톱(>1200px): 4개씩 페이지 이동, 패널은 아래 '주요 자재' 위를 덮음 / 그 이하: 가로 스크롤, 패널은 문서 흐름 안에 표시(CSS)
-    // 자동 슬라이드: 2.5초마다 다음 페이지(데스크톱) / 다음 카드(1200px 이하), 끝에서도 계속 오른쪽으로(무한 반복) — 맨 아래 '자동 슬라이드' 참고
+    // 자동 슬라이드: 4.5초마다 다음 페이지(데스크톱) / 다음 카드(1200px 이하), 끝에서도 계속 오른쪽으로(무한 반복) — 맨 아래 '자동 슬라이드' 참고
     (function () {
         var root = document.querySelector('[data-use-carousel]');
         if (!root) return;
@@ -437,7 +437,7 @@ if ($query) {
         // 멈춤: 마우스를 올렸을 때, 키보드 포커스가 안에 있을 때, 자재 패널이 열려 있을 때, 탭이 가려졌을 때.
         // 이전·다음 버튼·스와이프 등 직접 조작 후에는 잠시(RESUME_MS) 쉬었다가 다시 시작. '동작 줄이기' 설정이면 자동 슬라이드 안 함.
         // 무한 반복: 끝에서 처음으로 되감지 않고 계속 오른쪽으로 — 첫 페이지 카드 복제본을 맨 뒤에 두고, 복제본까지 이동한 뒤 같은 모습의 처음 위치로 전환 없이 바꾼다.
-        var AUTO_MS = 2500, RESUME_MS = 3000, MOVE_MS = 1400;   // MOVE_MS = styles.css .gh-use-track.is-auto 이동 시간
+        var AUTO_MS = 4500, RESUME_MS = 3000, MOVE_MS = 1400;   // MOVE_MS = styles.css .gh-use-track.is-auto 이동 시간
         var view = root.querySelector('.gh-use-view');
         var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
         var hovering = false, kbFocus = false, holdUntil = 0, autoTimer = null, resumeTimer = null, animating = false, wrapTimer = null, scrollIdle = null;
