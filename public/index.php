@@ -222,7 +222,8 @@ if ($query) {
         ['name' => '벽돌',       'desc' => '벽체 · 조경 시공',                'img' => '/assets/images/home-벽돌.png'],
         ['name' => '그레이팅',   'desc' => '배수로 위 금속 덮개',             'img' => '/assets/images/home-그레이팅.png'],
         ['name' => '돌망태',     'desc' => "돌을 채운\n철망 구조물",          'img' => '/assets/images/home-돌망태.png'],
-        ['name' => 'PE이중벽관', 'desc' => '땅속 배수용 관',                  'img' => '/assets/images/home-PE이중벽관.png'],
+        // 관 사진 왼쪽 끝이 잘린 단면이라 카드 밖으로 밀어 잘린 부분을 가린다(img_class, styles.css .gh-mat-img--bleed)
+        ['name' => 'PE이중벽관', 'desc' => '땅속 배수용 관',                  'img' => '/assets/images/home-PE이중벽관.png', 'img_class' => 'gh-mat-img--bleed'],
     ];
     ?>
     <div class="gh-wrap">
@@ -318,7 +319,7 @@ if ($query) {
             <div class="gh-mat-grid">
                 <?php foreach ($matItems as $m): ?>
                 <a class="gh-mat-card" href="/products.php?q=<?= urlencode($m['name']) ?>">
-                    <img src="<?= e($m['img']) ?>" alt="<?= e($m['name']) ?>" loading="lazy">
+                    <img src="<?= e($m['img']) ?>" alt="<?= e($m['name']) ?>" loading="lazy"<?= !empty($m['img_class']) ? ' class="' . e($m['img_class']) . '"' : '' ?>>
                     <span class="gh-mat-text">
                         <span class="gh-mat-name"><?= e($m['name']) ?></span>
                         <span class="gh-mat-desc"><?= nl2br(e($m['desc'])) ?></span>
