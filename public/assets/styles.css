@@ -1,3 +1,10 @@
+/* 300(Light): 홈 섹션 제목(.gh-section-title)용 */
+@font-face {
+    font-family: 'Paperozi';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-3Light.woff2') format('woff2');
+    font-weight: 300;
+    font-display: swap;
+}
 @font-face {
     font-family: 'Paperozi';
     src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-4Regular.woff2') format('woff2');
@@ -1804,7 +1811,7 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .gh-section{padding-top:16px}
 .gh-section + .gh-section{padding-top:48px}
 .gh-section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
-.gh-section-title{font-size:26px;font-weight:600;letter-spacing:-0.6px;color:var(--color-text-primary)}
+.gh-section-title{font-size:26px;font-weight:300;letter-spacing:-0.6px;color:var(--color-text-primary)}
 .gh-section-side{display:flex;align-items:center;gap:24px;font-size:15px}
 .gh-use-ai, .gh-mat-all{display:inline-block;padding:8px 0;font-weight:500;color:var(--color-primary)}
 .gh-mat-all{font-size:16px}
@@ -1822,7 +1829,7 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .gh-use-track{display:flex;gap:12px;transition:transform .35s ease}
 /* 자동 슬라이드(index.php)일 때만 천천히 이동 — 이전·다음 버튼은 기존 속도 */
 .gh-use-track.is-auto{transition-duration:1.4s;transition-timing-function:ease-in-out}
-.gh-use-card{flex:0 0 calc((100% - 36px) / 4);min-width:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:0;padding:0;border:1px solid var(--color-border);background:#fff;color:var(--color-text-primary);font-family:var(--font);text-align:left;overflow:hidden}
+.gh-use-card{flex:0 0 calc((100% - 36px) / 4);min-width:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:0;padding:0;border:1px solid var(--color-border);border-radius:8px;background:#fff;color:var(--color-text-primary);font-family:var(--font);text-align:left;overflow:hidden}
 .gh-use-card:hover{border-color:var(--color-primary);background:#fff;color:var(--color-text-primary)}
 .gh-use-card.is-open{border-color:var(--color-primary);box-shadow:0 0 0 1px var(--color-primary)}
 .gh-use-card:focus-visible, .gh-need-card:focus-visible{outline:2px solid var(--color-primary);outline-offset:2px}
@@ -1865,7 +1872,7 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .gh-need-close{height:44px;padding:0 20px;gap:8px;border-radius:999px;border:1px solid #D3E5F5;background:#fff;color:var(--color-primary);font-size:15px;font-weight:500;box-shadow:0 2px 6px rgba(16,40,80,0.08)}
 .gh-need-close:hover{border-color:var(--color-primary);background:#fff;color:var(--color-primary)}
 .gh-mat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-.gh-mat-card{display:flex;align-items:center;height:132px;border:1px solid var(--color-border);background:#fff;color:var(--color-text-primary);overflow:hidden}
+.gh-mat-card{display:flex;align-items:center;height:132px;border:1px solid var(--color-border);border-radius:8px;background:#fff;color:var(--color-text-primary);overflow:hidden}
 .gh-mat-card:hover{border-color:var(--color-primary)}
 .gh-mat-card img{width:160px;height:120px;object-fit:contain;flex-shrink:0}
 /* 왼쪽 끝이 잘린 사진(PE이중벽관): 왼쪽으로 밀어 잘린 단면을 카드 밖(가려짐)으로 — 레이아웃·글자 위치는 그대로 */
