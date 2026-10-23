@@ -906,6 +906,15 @@ function parse_spec_field(string $spec): array
     return $result;
 }
 
+/**
+ * 화면 표시용 규격 치수: spec의 '규격:' 값에서 숫자 사이 곱셈 기호만 × 로 통일.
+ * 예) '규격: 200*150*2000*35T | 단위: 본' → '200×150×2000×35T'
+ */
+function spec_size_label(string $spec): string
+{
+    return (string) preg_replace('/(?<=\d)\s*[*xX]\s*(?=\d)/u', '×', parse_spec_field($spec)['spec']);
+}
+
 function fetch_related_categories(int $categoryId, string $type): array
 {
     $stmt = db()->prepare(

@@ -10,8 +10,10 @@ $quickHref   = $isCorporate ? '/estimate-quick.php' : '/login.php?redirect=' . u
 
 $categoryId = isset($_GET['category']) ? max(0, (int) $_GET['category']) : null;
 $query      = trim((string) ($_GET['q'] ?? ''));
+// 기업회원(corporate/staff/admin) 홈: 확정 디자인 '기업회원용 메인화면'. 비로그인·개인회원 홈은 아래 기존 화면 그대로.
+$corpHome   = $isCorporate && !$query && !$categoryId;
 
-render_header('홈');
+render_header('홈', $corpHome ? 'corp' : 'normal');
 
 if ($query) {
     // 검색 결과: 상품 목록 (FULLTEXT 토큰화 + 관련도 정렬)
@@ -95,7 +97,16 @@ if ($query) {
         <?php endif; ?>
     </div>
 
-<?php } elseif ($isCorporate) {
+<?php } elseif ($corpHome) {
+    // 기업회원 홈: 빠른 견적하기(데이터 조회는 app/corp_home.php, UI는 렌더러에 위임)
+    require __DIR__ . '/../app/corp_home.php';
+    $corpUid      = (int) current_user()['id'];
+    $corpTree     = corp_home_category_tree(db() ? fetch_categories() : []);
+    $corpRegulars = db() ? corp_home_regulars(db(), $corpUid) : [];
+    $corpHistory  = db() ? corp_home_history(db(), $corpUid) : ['items' => [], 'has_more' => false];
+    require __DIR__ . '/../app/corp_home_renderer.php';
+} elseif ($isCorporate) {
+    // ※ 기업회원 홈은 위 $corpHome 분기(확정 디자인)로 바뀌어 현재 이 분기에는 도달하지 않는다(삭제는 승인 후 별도 진행).
     // 홈(기업회원·직원·관리자): 주요품목 (DB home_featured 테이블 → 없으면 기본값)
     $homeItems = [];
     if (db()) {

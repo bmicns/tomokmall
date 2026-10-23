@@ -13,6 +13,7 @@ require __DIR__ . '/../app/ai_tools.php';
 require __DIR__ . '/../app/product_filter_renderer.php';
 require __DIR__ . '/../app/favorites.php';
 require __DIR__ . '/../app/work_types.php';
+require __DIR__ . '/../app/corp_home.php';
 
 $pass = 0; $fail = 0;
 function ok(string $name, bool $cond): void {
@@ -255,6 +256,29 @@ $groups = static fn(string $h): array => preg_match_all('/<div class="fgrp[^"]*"
 eq('필터 그룹 동일(재질·규격·형상/옵션·재고)', $groups($work), $groups($plain));
 ok('그룹 4개 모두 표시', $groups($plain) === ['재질', '규격', '형상 / 옵션', '재고']);
 ok('차이는 work 유지(hidden·초기화 링크)뿐', str_replace(['<input type="hidden" name="work" value="drainage">', '&amp;work=drainage'], '', $work) === $plain);
+
+echo "[규격 치수 표시 spec_size_label]\n";
+eq('곱셈 기호 × 통일',      spec_size_label('규격: 200*150*2000*35T | 중량: 90kg | 단위: 본'), '200×150×2000×35T');
+eq('관경·옵션 유지',        spec_size_label('규격: D300*6000_국산 | 단위: 본'), 'D300×6000_국산');
+eq('x 표기도 ×',            spec_size_label('규격: 400x400 | 단위: 개'), '400×400');
+eq('규격 항목 없음 → 빈 값', spec_size_label('단위: 본'), '');
+
+echo "[기업회원 메인 corp_home_*]\n";
+eq('기업가 있으면 기업가', corp_home_unit_price(27000, 29900), 27000);
+eq('기업가 0 → 정가',      corp_home_unit_price(0, 29900), 29900);
+eq('요약: 여러 품목',      corp_home_items_summary('벤치플륨관(벤치2종)', 4), '벤치플륨관(벤치2종) 외 3개 품목');
+eq('요약: 1개 품목',       corp_home_items_summary('그레이팅수로용', 1), '그레이팅수로용');
+eq('요약: 품목 없음',      corp_home_items_summary(null, 0), '품목 없음');
+$tree = corp_home_category_tree([
+    ['id' => 12, 'parent_id' => null, 'name' => '콘크리트제품'],
+    ['id' => 11, 'parent_id' => null, 'name' => '철근콘크리트제품'],
+    ['id' => 6,  'parent_id' => null, 'name' => '기타'],
+    ['id' => 256, 'parent_id' => 11, 'name' => '플륨관/수로관'],
+    ['id' => 23, 'parent_id' => '256', 'name' => '벤치플륨관(벤치2종)'],
+]);
+eq('대분류: GNB 5개만, 순서 고정, 제품 접미사 제거', $tree['lv1'], [['id' => 11, 'name' => '철근콘크리트'], ['id' => 12, 'name' => '콘크리트']]);
+eq('하위: 부모 id 기준', $tree['byParent'][256] ?? null, [['id' => 23, 'name' => '벤치플륨관(벤치2종)']]);
+ok('매입 상태 = 완료·납품완료', CORP_HOME_PURCHASED_STATUSES === ['APPROVED', 'DELIVERED']);
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

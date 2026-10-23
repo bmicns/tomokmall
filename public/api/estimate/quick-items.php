@@ -118,7 +118,7 @@ function quick_items_response(\PDO $pdo, array $items): array
     $ph  = implode(',', array_fill(0, count($ids), '?'));
 
     $stmt = $pdo->prepare(
-        "SELECT id, name, spec, price_b2c, price_b2b
+        "SELECT id, name, spec, price_b2c, price_b2b, image_url
          FROM products
          WHERE id IN ({$ph}) AND is_active = 1"
     );
@@ -143,6 +143,9 @@ function quick_items_response(\PDO $pdo, array $items): array
             'quantity'   => $qty,
             'unit_price' => $unitPrice,
             'subtotal'   => $subtotal,
+            // 기업회원 메인 '담은 품목' 표시용(추가 필드 — 기존 호출자 영향 없음)
+            'size'       => spec_size_label((string) $row['spec']),
+            'image_url'  => (string) ($row['image_url'] ?? ''),
         ];
     }
 

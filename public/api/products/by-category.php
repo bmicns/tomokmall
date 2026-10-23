@@ -63,6 +63,9 @@ $products = array_map(function ($row) use ($isCorporate) {
         'price_b2c' => (int)   $row['price_b2c'],
         'stock_qty' => (int)   $row['stock_qty'],
         'image_url' =>         $row['image_url'] ?? null,
+        // 기업회원 메인 표시용(추가 필드 — 기존 호출자 영향 없음): 규격 치수(×)·단위
+        'size'      => spec_size_label((string) $row['spec']),
+        'unit'      => parse_spec_field((string) $row['spec'])['unit'],
     ];
     if ($isCorporate) {
         // price_b2b = 0이면 price_b2c로 폴백
