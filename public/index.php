@@ -333,6 +333,7 @@ if ($query) {
     <script>
     // 작업(용도) 슬라이드 + 작업별 필요 자재 패널
     // 데스크톱(>1200px): 4개씩 페이지 이동, 패널은 아래 '주요 자재' 위를 덮음 / 그 이하: 가로 스크롤, 패널은 문서 흐름 안에 표시(CSS)
+    // 자동 슬라이드: 2.5초마다 다음 페이지(데스크톱) / 다음 카드(1200px 이하), 끝이면 처음으로 — 맨 아래 '자동 슬라이드' 참고
     (function () {
         var root = document.querySelector('[data-use-carousel]');
         if (!root) return;
@@ -402,12 +403,72 @@ if ($query) {
             setOpen(-1);
             if (cards[last]) cards[last].focus();
         });
-        prev.addEventListener('click', function () { if (page > 0) { page--; open = -1; render(); } });
-        next.addEventListener('click', function () { if (page < pages - 1) { page++; open = -1; render(); } });
+        prev.addEventListener('click', function () { if (page > 0) { page--; open = -1; manual(); render(); } });
+        next.addEventListener('click', function () { if (page < pages - 1) { page++; open = -1; manual(); render(); } });
         var onMq = function () { page = 0; open = -1; render(); };
         if (mq.addEventListener) mq.addEventListener('change', onMq);
         else if (mq.addListener) mq.addListener(onMq);
         window.addEventListener('resize', fitWrap);
+
+        // ── 자동 슬라이드 ──────────────────────────────────────
+        // 멈춤: 마우스를 올렸을 때, 키보드 포커스가 안에 있을 때, 자재 패널이 열려 있을 때, 탭이 가려졌을 때.
+        // 이전·다음 버튼·스와이프 등 직접 조작 후에는 잠시(RESUME_MS) 쉬었다가 다시 시작. '동작 줄이기' 설정이면 자동 슬라이드 안 함.
+        var AUTO_MS = 2500, RESUME_MS = 5000, SCROLL_MS = 900;
+        var view = root.querySelector('.gh-use-view');
+        var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+        var hovering = false, kbFocus = false, holdUntil = 0, autoTimer = null, animating = false;
+
+        function manual() {
+            track.classList.remove('is-auto');
+            label.setAttribute('aria-live', 'polite');
+            holdUntil = Date.now() + RESUME_MS;
+        }
+        // 1200px 이하 가로 스크롤: 한 카드만큼 천천히 이동(스냅은 이동 중에만 끔)
+        function scrollViewTo(left) {
+            var from = view.scrollLeft, dist = left - from, t0 = null;
+            animating = true;
+            view.style.scrollSnapType = 'none';
+            function step(ts) {
+                if (t0 === null) t0 = ts;
+                var k = Math.min(1, (ts - t0) / SCROLL_MS);
+                view.scrollLeft = from + dist * (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
+                if (k < 1) { requestAnimationFrame(step); return; }
+                view.style.scrollSnapType = '';
+                animating = false;
+            }
+            requestAnimationFrame(step);
+        }
+        function autoTick() {
+            if (reduce.matches || document.hidden || hovering || kbFocus || open >= 0 || animating || Date.now() < holdUntil) return;
+            if (mq.matches) {
+                if (pages <= 1) return;
+                track.classList.add('is-auto');
+                label.setAttribute('aria-live', 'off');   // 자동 이동 때마다 '2 / 3' 을 읽지 않도록
+                page = (page + 1) % pages;
+                render();
+            } else {
+                var max = view.scrollWidth - view.clientWidth;
+                if (max <= 0 || !cards[1]) return;
+                var stepW = cards[1].offsetLeft - cards[0].offsetLeft;
+                scrollViewTo(view.scrollLeft >= max - 4 ? 0 : Math.min(max, view.scrollLeft + stepW));
+            }
+        }
+        function restartAuto() {
+            clearInterval(autoTimer);
+            autoTimer = setInterval(autoTick, AUTO_MS);
+        }
+        root.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') hovering = true; });
+        root.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse') { hovering = false; restartAuto(); } });
+        root.addEventListener('focusin', function () {
+            try { kbFocus = !!root.querySelector(':focus-visible'); } catch (err) { kbFocus = false; }
+        });
+        root.addEventListener('focusout', function () { kbFocus = false; restartAuto(); });
+        ['touchstart', 'wheel', 'keydown'].forEach(function (ev) {
+            view.addEventListener(ev, function () { manual(); }, { passive: true });
+        });
+        document.addEventListener('visibilitychange', restartAuto);
+        restartAuto();
+
         render();
 
         // '전체 자재 보기': 전체 목록 페이지가 없어 상단 카테고리 메뉴(GNB)로 포커스를 옮기고 강조

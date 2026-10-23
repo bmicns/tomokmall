@@ -1820,6 +1820,8 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .gh-car-next{right:-22px}
 .gh-use-view{overflow:hidden;padding:1px;margin:-1px}
 .gh-use-track{display:flex;gap:12px;transition:transform .35s ease}
+/* 자동 슬라이드(index.php)일 때만 천천히 이동 — 이전·다음 버튼은 기존 속도 */
+.gh-use-track.is-auto{transition-duration:.9s;transition-timing-function:ease-in-out}
 .gh-use-card{flex:0 0 calc((100% - 36px) / 4);min-width:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:0;padding:0;border:1px solid var(--color-border);background:#fff;color:var(--color-text-primary);font-family:var(--font);text-align:left;overflow:hidden}
 .gh-use-card:hover{border-color:var(--color-primary);background:#fff;color:var(--color-text-primary)}
 .gh-use-card.is-open{border-color:var(--color-primary);box-shadow:0 0 0 1px var(--color-primary)}
