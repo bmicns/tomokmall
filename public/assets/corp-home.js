@@ -275,7 +275,8 @@
   }
 
   // ── 담은 품목(즉시견적 세션) ─────────────────────────────────
-  var cart = [], cartTotal = 0, cartPage = 1;
+  var cart = [], cartPage = 1;
+  var pendingQty = {}, saveChain = {}; // 담기: 저장 대기 중인 누적 수량(상품별)·저장 순서 보장용
   var cartBody = $('ch-cart-body'), submitBtn = $('ch-submit');
 
   function quickItems(body) {
@@ -283,23 +284,29 @@
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
     }).then(function (r) {
       return r.json().catch(function () { return { ok: false }; }).then(function (d) {
-        if (d && d.ok) { cart = d.items || []; cartTotal = d.total || 0; renderCart(); return d; }
+        if (d && d.ok) { cart = d.items || []; renderCart(); return d; }
         throw new Error((d && d.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.');
       });
     });
   }
 
   function renderCart() {
-    var n = cart.length;
+    // 저장 대기 중인 수량을 화면에 먼저 반영(서버 응답 후 같은 값으로 확정됨)
+    var view = cart.map(function (it) {
+      var q = pendingQty[it.product_id];
+      return q != null ? Object.assign({}, it, { quantity: q, subtotal: it.unit_price * q }) : it;
+    });
+    var viewTotal = view.reduce(function (sum, it) { return sum + (it.subtotal || 0); }, 0);
+    var n = view.length;
     $('ch-cart-count').textContent = '총 ' + n + '개';
     $('ch-sum-basis').textContent = '총 ' + n + '개 품목 기준';
-    var hasAsk = cart.some(function (it) { return !(it.unit_price > 0); });
-    $('ch-sum-total').textContent = won(cartTotal) + '원' + (hasAsk ? ' + 문의' : '');
+    var hasAsk = view.some(function (it) { return !(it.unit_price > 0); });
+    $('ch-sum-total').textContent = won(viewTotal) + '원' + (hasAsk ? ' + 문의' : '');
     submitBtn.setAttribute('aria-disabled', n ? 'false' : 'true');
 
     var pages = Math.max(1, Math.ceil(n / CART_PER_PAGE));
     cartPage = Math.min(Math.max(1, cartPage), pages);
-    var rows = cart.slice((cartPage - 1) * CART_PER_PAGE, cartPage * CART_PER_PAGE);
+    var rows = view.slice((cartPage - 1) * CART_PER_PAGE, cartPage * CART_PER_PAGE);
     cartBody.innerHTML = rows.length ? rows.map(function (it) {
       var size = it.size || '';
       var label = it.name + (size ? ' ' + size : '');
@@ -341,7 +348,7 @@
   // + 담기 (신규 선택·단골품목 공통)
   function onAddClick(e) {
     var btn = e.target.closest('[data-add]');
-    if (!btn || btn.disabled) return;
+    if (!btn) return;
     var pid = parseInt(btn.getAttribute('data-add'), 10);
     var input = btn.closest('tr').querySelector('[data-qty]');
     var qty = toQty(input && input.value);
@@ -350,24 +357,31 @@
       if (input) input.focus();
       return;
     }
-    // 이미 담긴 상품이면 기존 수량에 더한다(기본 1 → 누를 때마다 +1).
-    // quick-items.php 의 add 는 수량을 '교체'하므로(기존 즉시견적 페이지 호환) 합계를 계산해 update 로 보낸다.
+    // 클릭마다 기존 수량에 입력 수량을 더한다(기본 1 → 클릭마다 +1). 화면 수량은 즉시 올리고,
+    // 서버 저장은 상품별로 순서대로 보낸다(빠르게 여러 번 눌러도 누락 없음).
+    // quick-items.php 의 add 는 수량을 '교체'하므로(기존 즉시견적 페이지 호환) 누적 합계를 update 로 보낸다.
     var inCart = cart.filter(function (it) { return it.product_id === pid; })[0];
-    var total = (inCart ? inCart.quantity : 0) + qty;
+    var base = pendingQty[pid] != null ? pendingQty[pid] : (inCart ? inCart.quantity : 0);
+    var total = base + qty;
     if (total > QTY_MAX) {
-      alert('담은 수량이 최대 ' + won(QTY_MAX) + '개를 넘습니다. (현재 ' + won(inCart ? inCart.quantity : 0) + '개 담김)');
+      alert('담은 수량이 최대 ' + won(QTY_MAX) + '개를 넘습니다. (현재 ' + won(base) + '개 담김)');
       return;
     }
-    btn.disabled = true;
-    quickItems({ action: inCart ? 'update' : 'add', product_id: pid, quantity: total })
+    pendingQty[pid] = total;
+    if (inCart) { renderCart(); showCartItem(pid); }
+    announce('담은 품목 수량 ' + won(total) + '개');
+    saveChain[pid] = (saveChain[pid] || Promise.resolve())
       .then(function () {
-        showCartItem(pid);
-        btn.textContent = '담김';
-        btn.classList.add('is-done');
-        announce('담은 품목 수량 ' + won(total) + '개');
-        setTimeout(function () { btn.textContent = '+ 담기'; btn.classList.remove('is-done'); btn.disabled = false; }, 900);
+        if (pendingQty[pid] !== total) return; // 그 사이 더 눌렀으면 마지막 합계만 저장
+        return quickItems({ action: 'update', product_id: pid, quantity: total }).then(function () {
+          if (pendingQty[pid] === total) { delete pendingQty[pid]; renderCart(); showCartItem(pid); }
+        });
       })
-      .catch(function (err) { btn.disabled = false; alert(err.message); });
+      .catch(function (err) {
+        delete pendingQty[pid];
+        renderCart();
+        alert(err.message);
+      });
   }
   prodBody.addEventListener('click', onAddClick);
   $('ch-fav-body').addEventListener('click', onAddClick);
@@ -382,6 +396,7 @@
       t.value = t.getAttribute('data-prev');
       return;
     }
+    delete pendingQty[parseInt(t.getAttribute('data-cart-qty'), 10)];
     quickItems({ action: 'update', product_id: parseInt(t.getAttribute('data-cart-qty'), 10), quantity: qty })
       .catch(function (err) { t.value = t.getAttribute('data-prev'); alert(err.message); });
   });
@@ -389,6 +404,7 @@
     var b = e.target.closest('[data-del]');
     if (!b) return;
     b.disabled = true;
+    delete pendingQty[parseInt(b.getAttribute('data-del'), 10)];
     quickItems({ action: 'remove', product_id: parseInt(b.getAttribute('data-del'), 10) })
       .then(function () { announce('담은 품목에서 삭제했습니다.'); })
       .catch(function (err) { b.disabled = false; alert(err.message); });
