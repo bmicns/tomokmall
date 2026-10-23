@@ -437,10 +437,10 @@ if ($query) {
         // 멈춤: 마우스를 올렸을 때, 키보드 포커스가 안에 있을 때, 자재 패널이 열려 있을 때, 탭이 가려졌을 때.
         // 이전·다음 버튼·스와이프 등 직접 조작 후에는 잠시(RESUME_MS) 쉬었다가 다시 시작. '동작 줄이기' 설정이면 자동 슬라이드 안 함.
         // 무한 반복: 끝에서 처음으로 되감지 않고 계속 오른쪽으로 — 첫 페이지 카드 복제본을 맨 뒤에 두고, 복제본까지 이동한 뒤 같은 모습의 처음 위치로 전환 없이 바꾼다.
-        var AUTO_MS = 2500, RESUME_MS = 5000, MOVE_MS = 1400;   // MOVE_MS = styles.css .gh-use-track.is-auto 이동 시간
+        var AUTO_MS = 2500, RESUME_MS = 3000, MOVE_MS = 1400;   // MOVE_MS = styles.css .gh-use-track.is-auto 이동 시간
         var view = root.querySelector('.gh-use-view');
         var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
-        var hovering = false, kbFocus = false, holdUntil = 0, autoTimer = null, animating = false, wrapTimer = null, scrollIdle = null;
+        var hovering = false, kbFocus = false, holdUntil = 0, autoTimer = null, resumeTimer = null, animating = false, wrapTimer = null, scrollIdle = null;
 
         // 복제 카드: 화면낭독기·키보드 탐색에서 제외, 눌렀을 때는 원래 카드로 전달
         var clones = cards.slice(0, per).map(function (c, i) {
@@ -489,6 +489,10 @@ if ($query) {
             track.classList.remove('is-auto');
             label.setAttribute('aria-live', 'polite');
             holdUntil = Date.now() + RESUME_MS;
+            // 조작 시점부터 RESUME_MS 뒤에 바로 다음 이동(주기 타이머에 맞춰 더 늦어지지 않게)
+            clearInterval(autoTimer);
+            clearTimeout(resumeTimer);
+            resumeTimer = setTimeout(function () { holdUntil = 0; autoTick(); restartAuto(); }, RESUME_MS);
         }
         // 1200px 이하 가로 스크롤: 한 카드만큼 천천히 이동(스냅은 이동 중에만 끔)
         function scrollViewTo(left) {
