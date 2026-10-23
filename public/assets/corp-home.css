@@ -107,7 +107,7 @@ body.mode-corp .footer-inner { max-width: 1360px; padding: 28px 24px 32px; }
   display: flex; align-items: center; gap: 4px; height: 36px; padding: 0 10px; border: 1px solid var(--ch-primary); border-radius: 4px;
   background: #FFFFFF; color: var(--ch-primary); font-size: 14px; font-weight: 600; cursor: pointer; flex-shrink: 0;
 }
-.ch-btn-flt:hover { background: #EEF4FA; }
+.ch-btn-flt:hover { background: #EEF4FA; color: var(--ch-primary); }
 .ch-btn-flt[hidden], .ch-flt[hidden] { display: none; }
 
 /* 규격 필터 */
@@ -131,6 +131,8 @@ body.mode-corp .footer-inner { max-width: 1360px; padding: 28px 24px 32px; }
 .ch-table th:first-child, .ch-table td:first-child { padding-left: 16px; }
 .ch-table th:last-child, .ch-table td:last-child { padding-right: 16px; }
 .ch-table .t-left { text-align: left; }
+/* 전역 tr:hover td(회색 행 배경) 무효화 */
+.ch-table tr:hover td { background: transparent; }
 .ch-table td.ch-empty { padding: 36px 16px; color: var(--ch-sub-text); font-size: 14px; text-align: center; }
 .ch-thumb { display: block; width: 84px; height: 56px; object-fit: cover; background: #F2F2F2; }
 .ch-thumb--ph { display: flex; align-items: center; justify-content: center; color: #9A9A9A; font-size: 12px; }
@@ -150,7 +152,8 @@ body.mode-corp .footer-inner { max-width: 1360px; padding: 28px 24px 32px; }
   width: 96px; height: 44px; border: 1px solid var(--ch-primary); border-radius: 4px; background: #FFFFFF;
   color: var(--ch-primary); font-size: 15px; font-weight: 600; cursor: pointer;
 }
-.ch-btn-add:hover { background: #EEF4FA; }
+/* 호버 효과 없음 — 전역 button:hover(배경·흰 글자)를 무효화 */
+.ch-btn-add:hover { background: #FFFFFF; color: var(--ch-primary); }
 .ch-btn-add:disabled { opacity: .6; background: #FFFFFF; color: var(--ch-primary); border-color: var(--ch-primary); cursor: default; }
 
 /* 상품 표 컬럼(사진 84 · 단위 64 · 단가 120 · 수량 90 · 선택 120, 간격 14) */
@@ -240,7 +243,7 @@ body.mode-corp .footer-inner { max-width: 1360px; padding: 28px 24px 32px; }
   flex-shrink: 0; height: 44px; padding: 0 18px; border: 1px solid var(--ch-primary); border-radius: 4px; background: #FFFFFF;
   color: var(--ch-primary); font-size: 15px; font-weight: 600; cursor: pointer;
 }
-.ch-btn-load:hover:not(:disabled) { background: #EEF4FA; }
+.ch-btn-load:hover:not(:disabled) { background: #EEF4FA; color: var(--ch-primary); }
 .ch-btn-load:disabled { border-color: #CCCCCC; background: #FFFFFF; color: #8A8A8A; cursor: default; }
 .ch-btn-more {
   display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 48px; margin-top: 14px;
