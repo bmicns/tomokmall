@@ -13,7 +13,8 @@ $query      = trim((string) ($_GET['q'] ?? ''));
 // 기업회원(corporate/staff/admin) 홈: 확정 디자인 '기업회원용 메인화면'. 비로그인·개인회원 홈은 아래 기존 화면 그대로.
 $corpHome   = $isCorporate && !$query && !$categoryId;
 
-render_header('홈', $corpHome ? 'corp' : 'normal');
+// 비로그인·개인회원 홈(검색·카테고리 지정 없음)도 기업회원 홈처럼 대분류 메뉴를 헤더 한 줄에 둔다('home' 모드)
+render_header('홈', $corpHome ? 'corp' : (!$query && !$categoryId ? 'home' : 'normal'));
 
 if ($query) {
     // 검색 결과: 상품 목록 (FULLTEXT 토큰화 + 관련도 정렬)

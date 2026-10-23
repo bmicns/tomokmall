@@ -159,7 +159,7 @@ function render_header(string $title, string $mode = 'normal'): void
     }, true);
     </script>
 </head>
-<body class="mode-<?= in_array($mode, ['chat', 'corp'], true) ? $mode : 'normal' ?>">
+<body class="mode-<?= in_array($mode, ['chat', 'corp', 'home'], true) ? $mode : 'normal' ?>">
 
 <!-- ── 상단 헤더 + GNB ───────────────────────────────────── -->
 <header class="site-header">
@@ -168,7 +168,7 @@ function render_header(string $title, string $mode = 'normal'): void
             <span class="brand-mark">TM</span>
             <span class="brand-name">비엠아이토목건축자재</span>
         </a>
-        <?php if ($mode === 'corp'): // 기업회원 메인 전용: 대분류 메뉴를 헤더 한 줄 가운데에 배치(검색은 본문 히어로에 있음) ?>
+        <?php if ($mode === 'corp' || $mode === 'home'): // 메인 전용(기업회원 corp / 비로그인·개인회원 home): 대분류 메뉴를 헤더 한 줄 가운데에 배치 ?>
         <nav class="header-cats" aria-label="자재 카테고리"><?= $megaTabsHtml ?></nav>
         <?php endif; ?>
         <nav class="header-nav">
@@ -190,7 +190,7 @@ function render_header(string $title, string $mode = 'normal'): void
             <?php endif; ?>
         </nav>
     </div>
-    <?php if ($mode !== 'chat' && $mode !== 'corp'): ?>
+    <?php if (!in_array($mode, ['chat', 'corp', 'home'], true)): ?>
     <div class="gnb-bar">
         <?= $megaTabsHtml ?>
     </div>
