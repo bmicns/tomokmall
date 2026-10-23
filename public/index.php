@@ -333,7 +333,7 @@ if ($query) {
     <script>
     // 작업(용도) 슬라이드 + 작업별 필요 자재 패널
     // 데스크톱(>1200px): 4개씩 페이지 이동, 패널은 아래 '주요 자재' 위를 덮음 / 그 이하: 가로 스크롤, 패널은 문서 흐름 안에 표시(CSS)
-    // 자동 슬라이드: 2.5초마다 다음 페이지(데스크톱) / 다음 카드(1200px 이하), 끝이면 처음으로 — 맨 아래 '자동 슬라이드' 참고
+    // 자동 슬라이드: 2.5초마다 다음 페이지(데스크톱) / 다음 카드(1200px 이하), 끝에서도 계속 오른쪽으로(무한 반복) — 맨 아래 '자동 슬라이드' 참고
     (function () {
         var root = document.querySelector('[data-use-carousel]');
         if (!root) return;
@@ -354,6 +354,7 @@ if ($query) {
         var mq    = window.matchMedia('(min-width: 1201px)');
         var page  = 0;
         var open  = -1;
+        var wrapping = false;   // 자동 슬라이드: 마지막 페이지 → 복제 카드(첫 페이지와 같음)로 오른쪽 이동 중
 
         // 펼친 패널이 페이지 아래(푸터)를 덮지 않도록 필요한 만큼 여백 확보 (데스크톱 오버레이일 때만)
         function fitWrap() {
@@ -364,7 +365,8 @@ if ($query) {
         }
         function render() {
             var paged = mq.matches;
-            track.style.transform = paged ? 'translateX(calc(' + (-page) + ' * (100% + 12px)))' : '';
+            // 카드 1장 간격 = (100% + 12px) / per → 페이지 p 는 p*per 번째 카드부터, 이어 넘기기 중에는 복제 카드(cards.length 번째)부터
+            track.style.transform = paged ? 'translateX(calc(' + (-(wrapping ? cards.length : page * per)) + ' * (100% + 12px) / ' + per + '))' : '';
             cards.forEach(function (c, i) {
                 var hidden = paged && Math.floor(i / per) !== page;
                 var on = i === open;
@@ -403,9 +405,9 @@ if ($query) {
             setOpen(-1);
             if (cards[last]) cards[last].focus();
         });
-        prev.addEventListener('click', function () { if (page > 0) { page--; open = -1; manual(); render(); } });
-        next.addEventListener('click', function () { if (page < pages - 1) { page++; open = -1; manual(); render(); } });
-        var onMq = function () { page = 0; open = -1; render(); };
+        prev.addEventListener('click', function () { finishWrap(); if (page > 0) { page--; open = -1; manual(); render(); } });
+        next.addEventListener('click', function () { finishWrap(); if (page < pages - 1) { page++; open = -1; manual(); render(); } });
+        var onMq = function () { finishWrap(); page = 0; open = -1; render(); };
         if (mq.addEventListener) mq.addEventListener('change', onMq);
         else if (mq.addListener) mq.addListener(onMq);
         window.addEventListener('resize', fitWrap);
@@ -413,10 +415,53 @@ if ($query) {
         // ── 자동 슬라이드 ──────────────────────────────────────
         // 멈춤: 마우스를 올렸을 때, 키보드 포커스가 안에 있을 때, 자재 패널이 열려 있을 때, 탭이 가려졌을 때.
         // 이전·다음 버튼·스와이프 등 직접 조작 후에는 잠시(RESUME_MS) 쉬었다가 다시 시작. '동작 줄이기' 설정이면 자동 슬라이드 안 함.
-        var AUTO_MS = 2500, RESUME_MS = 5000, SCROLL_MS = 900;
+        // 무한 반복: 끝에서 처음으로 되감지 않고 계속 오른쪽으로 — 첫 페이지 카드 복제본을 맨 뒤에 두고, 복제본까지 이동한 뒤 같은 모습의 처음 위치로 전환 없이 바꾼다.
+        var AUTO_MS = 2500, RESUME_MS = 5000, MOVE_MS = 1400;   // MOVE_MS = styles.css .gh-use-track.is-auto 이동 시간
         var view = root.querySelector('.gh-use-view');
         var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
-        var hovering = false, kbFocus = false, holdUntil = 0, autoTimer = null, animating = false;
+        var hovering = false, kbFocus = false, holdUntil = 0, autoTimer = null, animating = false, wrapTimer = null, scrollIdle = null;
+
+        // 복제 카드: 화면낭독기·키보드 탐색에서 제외, 눌렀을 때는 원래 카드로 전달
+        var clones = cards.slice(0, per).map(function (c, i) {
+            var k = c.cloneNode(true);
+            ['data-use-idx', 'aria-controls', 'aria-expanded'].forEach(function (a) { k.removeAttribute(a); });
+            k.setAttribute('aria-hidden', 'true');
+            k.setAttribute('tabindex', '-1');
+            Array.prototype.forEach.call(k.querySelectorAll('img'), function (im) { im.loading = 'eager'; });   // 넘어오는 순간 빈 사진이 보이지 않게
+            k.addEventListener('click', function () { cards[i].click(); });
+            track.appendChild(k);
+            return k;
+        });
+        // 데스크톱: 마지막 페이지 → 복제본으로 오른쪽 이동(페이지 번호는 1) → 이동이 끝나면 전환 없이 실제 첫 페이지로
+        function wrapToStart() {
+            wrapping = true;
+            page = 0;
+            render();
+            wrapTimer = setTimeout(finishWrap, MOVE_MS + 50);
+        }
+        function finishWrap() {
+            if (!wrapping) return;
+            clearTimeout(wrapTimer);
+            wrapping = false;
+            track.style.transition = 'none';
+            render();
+            void track.offsetWidth;
+            track.style.transition = '';
+        }
+        // 1200px 이하: 복제본 구간에 들어오면 같은 모습의 앞쪽 위치로 바꿈(자동 이동 끝·직접 스와이프가 멈춘 뒤)
+        function fixLoop() {
+            var span = clones[0].offsetLeft - cards[0].offsetLeft;
+            if (mq.matches || view.scrollLeft < span - 2) return;
+            view.style.scrollSnapType = 'none';
+            view.scrollLeft -= span;
+            void view.offsetWidth;
+            view.style.scrollSnapType = '';
+        }
+        view.addEventListener('scroll', function () {
+            if (animating) return;
+            clearTimeout(scrollIdle);
+            scrollIdle = setTimeout(fixLoop, 150);
+        }, { passive: true });
 
         function manual() {
             track.classList.remove('is-auto');
@@ -430,27 +475,27 @@ if ($query) {
             view.style.scrollSnapType = 'none';
             function step(ts) {
                 if (t0 === null) t0 = ts;
-                var k = Math.min(1, (ts - t0) / SCROLL_MS);
+                var k = Math.min(1, (ts - t0) / MOVE_MS);
                 view.scrollLeft = from + dist * (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
                 if (k < 1) { requestAnimationFrame(step); return; }
                 view.style.scrollSnapType = '';
                 animating = false;
+                fixLoop();
             }
             requestAnimationFrame(step);
         }
         function autoTick() {
-            if (reduce.matches || document.hidden || hovering || kbFocus || open >= 0 || animating || Date.now() < holdUntil) return;
+            if (reduce.matches || document.hidden || hovering || kbFocus || open >= 0 || animating || wrapping || Date.now() < holdUntil) return;
             if (mq.matches) {
                 if (pages <= 1) return;
                 track.classList.add('is-auto');
                 label.setAttribute('aria-live', 'off');   // 자동 이동 때마다 '2 / 3' 을 읽지 않도록
-                page = (page + 1) % pages;
+                if (page >= pages - 1) { wrapToStart(); return; }
+                page++;
                 render();
             } else {
-                var max = view.scrollWidth - view.clientWidth;
-                if (max <= 0 || !cards[1]) return;
-                var stepW = cards[1].offsetLeft - cards[0].offsetLeft;
-                scrollViewTo(view.scrollLeft >= max - 4 ? 0 : Math.min(max, view.scrollLeft + stepW));
+                if (view.scrollWidth <= view.clientWidth || !cards[1]) return;
+                scrollViewTo(view.scrollLeft + cards[1].offsetLeft - cards[0].offsetLeft);
             }
         }
         function restartAuto() {
