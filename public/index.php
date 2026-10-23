@@ -257,7 +257,7 @@ if ($query) {
                 </div>
             </div>
             <div class="gh-use-frame">
-                <button class="gh-car-btn gh-car-prev" type="button" aria-label="이전 용도" data-use-prev disabled>
+                <button class="gh-car-btn gh-car-prev" type="button" aria-label="이전 용도" data-use-prev<?= $usePages <= 1 ? ' disabled' : '' ?>>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
                 </button>
                 <button class="gh-car-btn gh-car-next" type="button" aria-label="다음 용도" data-use-next<?= $usePages <= 1 ? ' disabled' : '' ?>>
@@ -376,8 +376,6 @@ if ($query) {
                 c.classList.toggle('is-open', on);
                 c.querySelector('.gh-use-label path').setAttribute('d', on ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6');
             });
-            prev.disabled = page <= 0;
-            next.disabled = page >= pages - 1;
             label.textContent = (page + 1) + ' / ' + pages;
 
             var isOpen = open >= 0;
@@ -405,8 +403,31 @@ if ($query) {
             setOpen(-1);
             if (cards[last]) cards[last].focus();
         });
-        prev.addEventListener('click', function () { finishWrap(); if (page > 0) { page--; open = -1; manual(); render(); } });
-        next.addEventListener('click', function () { finishWrap(); if (page < pages - 1) { page++; open = -1; manual(); render(); } });
+        // 이전·다음 버튼은 항상 활성(끝에서도 같은 방향으로 이어짐): 1페이지에서 '이전' → 마지막 페이지, 마지막 페이지에서 '다음' → 1페이지
+        prev.addEventListener('click', function () {
+            finishWrap();
+            if (pages <= 1) return;
+            if (page === 0) {
+                // 같은 모습의 복제본 위치로 전환 없이 옮긴 뒤 마지막 페이지로 → 왼쪽 방향 그대로 이어짐
+                wrapping = true;
+                track.style.transition = 'none';
+                render();
+                void track.offsetWidth;
+                track.style.transition = '';
+                wrapping = false;
+                page = pages - 1;
+            } else {
+                page--;
+            }
+            open = -1; manual(); render();
+        });
+        next.addEventListener('click', function () {
+            finishWrap();
+            if (pages <= 1) return;
+            open = -1; manual();
+            if (page >= pages - 1) { wrapToStart(); return; }
+            page++; render();
+        });
         var onMq = function () { finishWrap(); page = 0; open = -1; render(); };
         if (mq.addEventListener) mq.addEventListener('change', onMq);
         else if (mq.addListener) mq.addListener(onMq);
@@ -437,7 +458,8 @@ if ($query) {
             wrapping = true;
             page = 0;
             render();
-            wrapTimer = setTimeout(finishWrap, MOVE_MS + 50);
+            // 이동 시간: 자동(.is-auto 1.4초) / 버튼(0.35초) — 실제 적용된 전환 시간 기준
+            wrapTimer = setTimeout(finishWrap, (parseFloat(getComputedStyle(track).transitionDuration) || 0) * 1000 + 50);
         }
         function finishWrap() {
             if (!wrapping) return;
