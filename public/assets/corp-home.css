@@ -207,6 +207,10 @@ body.mode-corp .footer-inner { max-width: 1360px; padding: 28px 24px 32px; }
 .ch-cart-item .ch-thumb { width: 56px; height: 46px; border-radius: 4px; flex-shrink: 0; }
 .ch-cart-item > div { min-width: 0; }
 .ch-amt { text-align: right !important; white-space: nowrap; }
+/* 방금 담은(수량이 늘어난) 품목 강조 */
+.ch-table--cart tr.is-added td { animation: ch-added 1.6s ease-out; }
+@keyframes ch-added { from { background: #E6F2FB; } to { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .ch-table--cart tr.is-added td { animation: none; background: #E6F2FB; } }
 .ch-btn-del { display: flex; align-items: center; justify-content: center; width: 24px; height: 44px; margin: 0 auto; padding: 0; border: 0; background: transparent; color: #777777; cursor: pointer; }
 .ch-btn-del:hover, .ch-btn-del:disabled { color: #C0392B; background: transparent; border: 0; }
 .ch-pager--cart { margin-top: 16px; padding-bottom: 20px; border-bottom: 1px solid #E2E2E2; }

@@ -303,7 +303,7 @@
     cartBody.innerHTML = rows.length ? rows.map(function (it) {
       var size = it.size || '';
       var label = it.name + (size ? ' ' + size : '');
-      return '<tr>' +
+      return '<tr data-cart-row="' + it.product_id + '">' +
         '<td class="t-left"><div class="ch-cart-item">' + thumbHtml(it.image_url) +
           '<div><div class="ch-name" title="' + esc(it.name) + '">' + esc(it.name) + '</div><div class="ch-spec" title="' + esc(size) + '">' + esc(size || '-') + '</div></div></div></td>' +
         '<td><input class="ch-qty" type="text" inputmode="numeric" maxlength="4" value="' + it.quantity + '" data-cart-qty="' + it.product_id + '" data-prev="' + it.quantity + '" aria-label="' + esc(label) + ' 수량"></td>' +
@@ -312,6 +312,21 @@
       '</tr>';
     }).join('') : '<tr><td colspan="4" class="ch-empty">담은 품목이 없습니다.<br>왼쪽 목록에서 수량을 입력하고 담아 주세요.</td></tr>';
     renderPager($('ch-cart-pager'), cartPage, pages, function (p) { cartPage = p; renderCart(); });
+  }
+
+  // 방금 담은 품목이 있는 페이지로 이동해 행을 잠시 강조
+  function showCartItem(pid) {
+    var idx = -1;
+    cart.forEach(function (it, i) { if (it.product_id === pid) idx = i; });
+    if (idx < 0) return;
+    var page = Math.floor(idx / CART_PER_PAGE) + 1;
+    if (page !== cartPage) { cartPage = page; renderCart(); }
+    var row = cartBody.querySelector('[data-cart-row="' + pid + '"]');
+    if (row) {
+      row.classList.remove('is-added');
+      void row.offsetWidth; // 연속 클릭 시 강조 다시 시작
+      row.classList.add('is-added');
+    }
   }
 
   // 숫자만 입력(최대 4자리)
@@ -335,12 +350,21 @@
       if (input) input.focus();
       return;
     }
+    // 이미 담긴 상품이면 기존 수량에 더한다(기본 1 → 누를 때마다 +1).
+    // quick-items.php 의 add 는 수량을 '교체'하므로(기존 즉시견적 페이지 호환) 합계를 계산해 update 로 보낸다.
+    var inCart = cart.filter(function (it) { return it.product_id === pid; })[0];
+    var total = (inCart ? inCart.quantity : 0) + qty;
+    if (total > QTY_MAX) {
+      alert('담은 수량이 최대 ' + won(QTY_MAX) + '개를 넘습니다. (현재 ' + won(inCart ? inCart.quantity : 0) + '개 담김)');
+      return;
+    }
     btn.disabled = true;
-    quickItems({ action: 'add', product_id: pid, quantity: qty })
+    quickItems({ action: inCart ? 'update' : 'add', product_id: pid, quantity: total })
       .then(function () {
+        showCartItem(pid);
         btn.textContent = '담김';
         btn.classList.add('is-done');
-        announce('담은 품목에 추가했습니다.');
+        announce('담은 품목 수량 ' + won(total) + '개');
         setTimeout(function () { btn.textContent = '+ 담기'; btn.classList.remove('is-done'); btn.disabled = false; }, 900);
       })
       .catch(function (err) { btn.disabled = false; alert(err.message); });
