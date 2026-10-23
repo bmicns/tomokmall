@@ -92,3 +92,25 @@ FULLTEXT의 ngram 파서는 information_schema에 나오지 않으므로 `schema
 
 결정됨: 구축 위치 A안, 마진율 2개 컬럼 0, `home_featured`·`category_gallery`는 P4·P5(이메일·전화번호 형태 0건)와 A3 컬럼 확인 후 복제.
 01 SQL은 빈 스키마(저장소 `schema.sql`, 데이터 없음)의 일회용 MySQL 8.0.46에서 문법 오류 없이 실행됨을 확인했다(확인 후 즉시 삭제).
+
+---
+
+## 7. 진행 현황 (2026-10-23)
+
+| 단계 | 결과 |
+|---|---|
+| ① 운영 읽기 전용 점검 | 완료. MySQL 8.0.46, 테이블 20개, 카테고리 245(최대 ID 281, 루트 14, 고아 0), 상품 1,341(재고>0 12건, 규격 표기 1,319건). `home_featured` 없음, `category_gallery` 78행(이메일·전화번호 형태 0건), `favorite_products` 없음(관심상품 기능 미배포) |
+| 스키마 | `scripts/testdb/build-schema.php`로 A2~A5에서 DDL 생성 → 테스트 DB 적용 후 **A1~A6 구조 대조 전부 일치** |
+| 테스트 DB | 이 세션 Docker `mysql:8.0.46`, `127.0.0.1:3306`만 공개, DB·계정 `tomokmall_test`(이 DB에만 권한, 무작위 비밀번호는 세션 scratchpad에만) |
+| ③ 운영 데이터 내보내기 | `02_prod_export_selects.sql` 확정(운영 실제 컬럼 기준). 사용자 실행 대기 |
+
+## 8. 도구 (`scripts/testdb/`, 배포 대상 아님 · 로컬 `_test` DB에서만 동작)
+
+```bash
+php scripts/testdb/build-schema.php <01_1부.csv> > prod_schema.sql      # 운영 구조 DDL 생성(데이터 없음, DB 접속 없음)
+php scripts/testdb/load-export.php <02.csv>                              # 적재 전 검사만(건수·컬럼·비식별·연락처 형태)
+php scripts/testdb/load-export.php <02.csv> --apply                      # 검사 통과 시 6개 테이블 교체 적재
+php scripts/testdb/compare.php <01_1부.csv> <P1.csv> <P2.csv> ...        # 01을 테스트 DB에 실행해 운영 결과와 블록별 대조
+```
+
+운영 CSV·생성된 DDL·`.env` 값은 저장소에 두지 않는다(세션 scratchpad). 세션이 바뀌면 컨테이너를 다시 만들고 위 순서로 재적재한다.
