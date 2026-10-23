@@ -280,5 +280,16 @@ eq('대분류: GNB 5개만, 순서 고정, 제품 접미사 제거', $tree['lv1'
 eq('하위: 부모 id 기준', $tree['byParent'][256] ?? null, [['id' => 23, 'name' => '벤치플륨관(벤치2종)']]);
 ok('매입 상태 = 완료·납품완료', CORP_HOME_PURCHASED_STATUSES === ['APPROVED', 'DELIVERED']);
 
+echo "[DB 접속 실패 진단 db_connect_error_hint / env_shadowed_keys]\n";
+eq('1045 → 계정·비밀번호', db_connect_error_hint(1045), '계정·비밀번호 불일치(DB_USER/DB_PASS)');
+eq('1049 → DB 없음',       db_connect_error_hint(1049), 'DB 없음(DB_NAME)');
+eq('2002 → 서버 접속 불가', db_connect_error_hint(2002), 'DB 서버 접속 불가(DB_HOST·MySQL/MariaDB 실행 여부)');
+$envTmp = tempnam(sys_get_temp_dir(), 'env');
+file_put_contents($envTmp, "TM_TEST_SHADOW=from_file\nTM_TEST_SAME=same\nTM_TEST_NEW=new\n");
+putenv('TM_TEST_SHADOW=from_shell'); putenv('TM_TEST_SAME=same');
+load_env_file($envTmp); unlink($envTmp);
+ok('셸 값 우선 유지(기존 동작)', getenv('TM_TEST_SHADOW') === 'from_shell' && getenv('TM_TEST_NEW') === 'new');
+eq('값이 다른 키만 기록(같은 값·새 키 제외)', env_shadowed_keys('TM_TEST_'), ['TM_TEST_SHADOW']);
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);
