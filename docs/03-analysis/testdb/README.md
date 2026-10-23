@@ -102,7 +102,10 @@ FULLTEXT의 ngram 파서는 information_schema에 나오지 않으므로 `schema
 | ① 운영 읽기 전용 점검 | 완료. MySQL 8.0.46, 테이블 20개, 카테고리 245(최대 ID 281, 루트 14, 고아 0), 상품 1,341(재고>0 12건, 규격 표기 1,319건). `home_featured` 없음, `category_gallery` 78행(이메일·전화번호 형태 0건), `favorite_products` 없음(관심상품 기능 미배포) |
 | 스키마 | `scripts/testdb/build-schema.php`로 A2~A5에서 DDL 생성 → 테스트 DB 적용 후 **A1~A6 구조 대조 전부 일치** |
 | 테스트 DB | 이 세션 Docker `mysql:8.0.46`, `127.0.0.1:3306`만 공개, DB·계정 `tomokmall_test`(이 DB에만 권한, 무작위 비밀번호는 세션 scratchpad에만) |
-| ③ 운영 데이터 내보내기 | `02_prod_export_selects.sql` 확정(운영 실제 컬럼 기준). 사용자 실행 대기 |
+| ③ 운영 데이터 내보내기 | 완료(사용자 phpMyAdmin). 적재 전 검사 통과: 카테고리 245·상품 1,341·관계 10·업체 4·상품-업체 1,788·갤러리 78, 매입가·마진율·공급단가 0, 업체 연락처 NULL, 이메일·전화번호 형태 0건 |
+| ④ 적재·대조 | `load-export.php --apply` 후 `compare.php` **21개 블록 전부 일치**(구조 A1~A6, 카테고리 B1~B5, 상품·규격·필터·재고 C1~C6, 관계·업체·연결·갤러리 P1~P3·P5) |
+| ⑤ 기능 검증 | `verify-work-list.php` **1,574 통과 / 0 실패**: 작업 12개 × 대표 자재 113개 조합의 체크 자재·제목·상품 수·상품 ID 순서(독립 SQL), 필터 패널 = 기존 목록, 필터 옵션 적용 108건, 재고 필터, 정렬 4종·목록검색. 브라우저 클릭(작업 12개 → 자재 → 자재 전환 → 규격 필터 UI 적용) 35 통과 / 0 실패, 1440·800·360px 화면, PHP 경고 0 |
+| 참고 | 재질 필터는 카테고리 목록에선 숨김(한 카테고리 = 한 재질, 기존 설계). 여러 재질이 섞인 검색(예: 맨홀)에선 철근콘크리트 69·스틸 56·PE/PVC 4로 표시. 통합 테스트 `stock_filter`·`favorites_api`는 MOCK 데이터를 넣으므로 복제 DB에서는 실행하지 않음(`favorite_products`는 운영에 없음). 검색 페이지 조회는 `search_logs`에 기록되므로 검증 후 비움 |
 
 ## 8. 도구 (`scripts/testdb/`, 배포 대상 아님 · 로컬 `_test` DB에서만 동작)
 
@@ -111,6 +114,7 @@ php scripts/testdb/build-schema.php <01_1부.csv> > prod_schema.sql      # 운�
 php scripts/testdb/load-export.php <02.csv>                              # 적재 전 검사만(건수·컬럼·비식별·연락처 형태)
 php scripts/testdb/load-export.php <02.csv> --apply                      # 검사 통과 시 6개 테이블 교체 적재
 php scripts/testdb/compare.php <01_1부.csv> <P1.csv> <P2.csv> ...        # 01을 테스트 DB에 실행해 운영 결과와 블록별 대조
+php scripts/testdb/verify-work-list.php http://127.0.0.1:8080          # 작업별 목록·필터 전 조합 검증(SELECT·GET만)
 ```
 
 운영 CSV·생성된 DDL·`.env` 값은 저장소에 두지 않는다(세션 scratchpad). 세션이 바뀌면 컨테이너를 다시 만들고 위 순서로 재적재한다.
