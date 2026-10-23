@@ -188,8 +188,8 @@ if ($query) {
         </div>
     </div>
 <?php } else {
-    // 홈(일반회원·비로그인): 확정 디자인 '일반회원용 메인화면' — 히어로 검색 + 작업 유형 그리드·필요 자재 패널 + 주요 자재
-    // 작업 유형 12개·대표 자재(카테고리 ID)는 app/work_types.php 설정을 사용 (메인에서 전부 노출)
+    // 홈(일반회원·비로그인): 확정 디자인 '일반회원용 메인화면' — 히어로 검색 + 작업 유형 슬라이드(4개씩)·필요 자재 패널 + 주요 자재
+    // 작업 유형 12개·대표 자재(카테고리 ID)는 app/work_types.php 설정을 사용 (4개씩 좌우 슬라이드, 3페이지)
     require_once __DIR__ . '/../app/work_types.php';
     $useItems = work_types();
     $wtIds    = [];
@@ -201,6 +201,8 @@ if ($query) {
         $useItems[$i]['card_img']  = $u['img'] ?? ($useItems[$i]['needs'][0]['img'] ?? '');
         $useItems[$i]['card_kind'] = $u['img'] !== null ? $u['img_kind'] : 'product';
     }
+    $usePerPage  = 4;
+    $usePages    = (int) ceil(count($useItems) / $usePerPage);
     $matItems = [
         ['name' => '플륨관',     'desc' => "물을 흘려보내는\n콘크리트 수로", 'img' => '/assets/images/home-플륨관.png'],
         ['name' => '수로관',     'desc' => "배수로를\n만드는 자재",          'img' => '/assets/images/home-수로관.png'],
@@ -233,29 +235,49 @@ if ($query) {
             </div>
         </section>
 
-        <section class="gh-section gh-use" data-work-grid>
+        <section class="gh-section gh-use" data-use-carousel data-per-page="<?= $usePerPage ?>">
             <div class="gh-section-head">
                 <h2 class="gh-section-title">어떤 작업에 사용할 예정인가요?</h2>
                 <div class="gh-section-side">
                     <a class="gh-use-ai" href="/chat.php">해당하는 상황이 없어요 · AI에게 설명하기 →</a>
+                    <span class="gh-use-page" data-use-label aria-live="polite">1 / <?= $usePages ?></span>
                 </div>
             </div>
-            <div class="gh-work-grid" data-work-cards>
-                <?php foreach ($useItems as $i => $u): ?>
-                <button type="button" class="gh-use-card" data-use-idx="<?= $i ?>" aria-expanded="false" aria-controls="gh-need-panel">
-                    <?php if ($u['card_img'] !== ''): ?>
-                    <img class="<?= $u['card_kind'] === 'product' ? 'is-product' : '' ?>" src="<?= e($u['card_img']) ?>" alt="<?= e($u['img_alt']) ?>" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
-                    <span class="gh-use-noimg" aria-hidden="true" hidden><?= e(mb_substr($u['name'], 0, 2)) ?></span>
-                    <?php else: ?>
-                    <span class="gh-use-noimg" aria-hidden="true"><?= e(mb_substr($u['name'], 0, 2)) ?></span>
-                    <?php endif; ?>
-                    <span class="gh-use-label"><?= e($u['name']) ?>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-                    </span>
+            <div class="gh-use-frame">
+                <button class="gh-car-btn gh-car-prev" type="button" aria-label="이전 용도" data-use-prev disabled>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
                 </button>
-                <?php endforeach; ?>
+                <button class="gh-car-btn gh-car-next" type="button" aria-label="다음 용도" data-use-next<?= $usePages <= 1 ? ' disabled' : '' ?>>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+                </button>
+                <div class="gh-use-view">
+                    <div class="gh-use-track" data-use-track>
+                        <?php foreach ($useItems as $i => $u): ?>
+                        <button type="button" class="gh-use-card" data-use-idx="<?= $i ?>" aria-expanded="false" aria-controls="gh-need-panel">
+                            <?php if ($u['card_img'] !== ''): ?>
+                            <img class="<?= $u['card_kind'] === 'product' ? 'is-product' : '' ?>" src="<?= e($u['card_img']) ?>" alt="<?= e($u['img_alt']) ?>" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+                            <span class="gh-use-noimg" aria-hidden="true" hidden><?= e(mb_substr($u['name'], 0, 2)) ?></span>
+                            <?php else: ?>
+                            <span class="gh-use-noimg" aria-hidden="true"><?= e(mb_substr($u['name'], 0, 2)) ?></span>
+                            <?php endif; ?>
+                            <span class="gh-use-label"><?= e($u['name']) ?>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                            </span>
+                        </button>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
 
-                <!-- 작업별 필요 자재: 선택한 카드가 있는 줄 바로 아래에 펼침(JS가 위치 이동) -->
+            <!-- 작업별 자재: 접힘(구분선 + ▼) / 펼침(아래 주요 자재 위를 덮는 패널) -->
+            <div class="gh-need">
+                <div class="gh-need-bar" data-need-bar>
+                    <span class="gh-need-line" aria-hidden="true"></span>
+                    <button type="button" class="gh-need-pill" data-need-open aria-label="작업별 자재 보기" aria-expanded="false" aria-controls="gh-need-panel">
+                        <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16l-8 11z" fill="currentColor"/></svg>
+                    </button>
+                    <span class="gh-need-tip" aria-hidden="true">작업별 자재 보기</span>
+                </div>
                 <div class="gh-need-pop" data-need-pop hidden>
                     <div id="gh-need-panel" class="gh-need-panel" role="region" aria-labelledby="gh-need-title">
                         <span class="gh-need-notch" data-need-notch aria-hidden="true"></span>
@@ -296,51 +318,83 @@ if ($query) {
         </section>
     </div>
     <script>
-    // 작업 유형 그리드: 카드를 누르면 그 카드가 있는 줄 바로 아래에 필요 자재 패널을 펼침(같은 카드 다시 누르면 접힘)
+    // 작업(용도) 슬라이드 + 작업별 필요 자재 패널
+    // 데스크톱(>1200px): 4개씩 페이지 이동, 패널은 아래 '주요 자재' 위를 덮음 / 그 이하: 가로 스크롤, 패널은 문서 흐름 안에 표시(CSS)
     (function () {
-        var root = document.querySelector('[data-work-grid]');
+        var root = document.querySelector('[data-use-carousel]');
         if (!root) return;
-        var grid  = root.querySelector('[data-work-cards]');
-        var cards = Array.prototype.slice.call(grid.querySelectorAll('.gh-use-card'));
+        var wrap  = root.closest('.gh-wrap');
+        var track = root.querySelector('[data-use-track]');
+        var cards = Array.prototype.slice.call(track.children);
+        var prev  = root.querySelector('[data-use-prev]');
+        var next  = root.querySelector('[data-use-next]');
+        var label = root.querySelector('[data-use-label]');
+        var bar   = root.querySelector('[data-need-bar]');
+        var pill  = root.querySelector('[data-need-open]');
         var pop   = root.querySelector('[data-need-pop]');
         var notch = root.querySelector('[data-need-notch]');
         var title = root.querySelector('[data-need-title]');
         var grids = Array.prototype.slice.call(root.querySelectorAll('[data-need-for]'));
-        var GAP   = 12;
+        var per   = parseInt(root.getAttribute('data-per-page'), 10) || 4;
+        var pages = Math.max(1, Math.ceil(cards.length / per));
+        var mq    = window.matchMedia('(min-width: 1201px)');
+        var page  = 0;
         var open  = -1;
 
-        function cols() {
-            return getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length || 1;
+        // 펼친 패널이 페이지 아래(푸터)를 덮지 않도록 필요한 만큼 여백 확보 (데스크톱 오버레이일 때만)
+        function fitWrap() {
+            wrap.style.paddingBottom = '';
+            if (open < 0 || !mq.matches) return;
+            var over = pop.getBoundingClientRect().bottom - wrap.getBoundingClientRect().bottom;
+            if (over > 0) wrap.style.paddingBottom = (parseFloat(getComputedStyle(wrap).paddingBottom) + over + 24) + 'px';
         }
         function render() {
+            var paged = mq.matches;
+            track.style.transform = paged ? 'translateX(calc(' + (-page) + ' * (100% + 12px)))' : '';
             cards.forEach(function (c, i) {
+                var hidden = paged && Math.floor(i / per) !== page;
                 var on = i === open;
+                if (hidden) { c.setAttribute('aria-hidden', 'true'); c.setAttribute('tabindex', '-1'); }
+                else { c.removeAttribute('aria-hidden'); c.removeAttribute('tabindex'); }
                 c.setAttribute('aria-expanded', on ? 'true' : 'false');
                 c.classList.toggle('is-open', on);
                 c.querySelector('.gh-use-label path').setAttribute('d', on ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6');
             });
+            prev.disabled = page <= 0;
+            next.disabled = page >= pages - 1;
+            label.textContent = (page + 1) + ' / ' + pages;
+
+            var isOpen = open >= 0;
+            pop.hidden = !isOpen;
+            bar.classList.toggle('is-hidden', isOpen);
+            pill.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
             grids.forEach(function (g, i) { g.hidden = i !== open; });
-            pop.hidden = open < 0;
-            if (open < 0) return;
-            var n = cols();
-            var col = open % n;
-            var rowEnd = Math.min(cards.length - 1, open - col + n - 1);
-            // 위치가 바뀔 때만 이동(같은 자리에 다시 넣으면 펼침 애니메이션이 재생되어 깜빡임)
-            if (pop.previousElementSibling !== cards[rowEnd]) grid.insertBefore(pop, cards[rowEnd].nextSibling);
-            title.textContent = cards[open].querySelector('.gh-use-label').textContent.trim();
-            notch.style.left = 'calc((100% - ' + ((n - 1) * GAP) + 'px) / ' + n + ' * ' + (col + 0.5) + ' + ' + (GAP * col) + 'px - 8px)';
+            if (isOpen) {
+                title.textContent = cards[open].querySelector('.gh-use-label').textContent.trim();
+                var col = open % per;
+                notch.style.left = 'calc((100% - 36px) / 4 * ' + (col + 0.5) + ' + ' + (12 * col) + 'px - 8px)';
+            }
+            fitWrap();
         }
+        function setOpen(i) { open = i; bar.classList.remove('is-hint'); render(); }
+
         cards.forEach(function (c, i) {
-            c.addEventListener('click', function () { open = open === i ? -1 : i; render(); });
+            c.addEventListener('click', function () { setOpen(open === i ? -1 : i); });
         });
+        pill.addEventListener('click', function () { setOpen(mq.matches ? page * per : 0); });
+        ['mouseenter', 'focus'].forEach(function (ev) { pill.addEventListener(ev, function () { bar.classList.add('is-hint'); }); });
+        ['mouseleave', 'blur'].forEach(function (ev) { pill.addEventListener(ev, function () { bar.classList.remove('is-hint'); }); });
         root.querySelector('[data-need-close]').addEventListener('click', function () {
             var last = open;
-            open = -1;
-            render();
+            setOpen(-1);
             if (cards[last]) cards[last].focus();
         });
-        // 화면 폭이 바뀌면 열 수가 달라지므로 패널 위치·꼬리표 재계산
-        window.addEventListener('resize', function () { if (open >= 0) render(); });
+        prev.addEventListener('click', function () { if (page > 0) { page--; open = -1; render(); } });
+        next.addEventListener('click', function () { if (page < pages - 1) { page++; open = -1; render(); } });
+        var onMq = function () { page = 0; open = -1; render(); };
+        if (mq.addEventListener) mq.addEventListener('change', onMq);
+        else if (mq.addListener) mq.addListener(onMq);
+        window.addEventListener('resize', fitWrap);
         render();
 
         // '전체 자재 보기': 전체 목록 페이지가 없어 상단 카테고리 메뉴(GNB)로 포커스를 옮기고 강조
