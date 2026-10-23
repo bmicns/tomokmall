@@ -542,19 +542,25 @@ if ($query) {
 
         render();
 
-        // '전체 자재 보기': 전체 목록 페이지가 없어 상단 카테고리 메뉴(GNB)로 포커스를 옮기고 강조
+        // '전체 자재 보기': 전체 목록 페이지가 없어 상단 첫 대분류(철근콘크리트) 메뉴를 펼치고 포커스
+        // (홈 헤더는 대분류가 헤더 한 줄(.header-cats), 그 외 화면은 GNB 바(.gnb-bar)) — 헤더는 상단 고정이라 스크롤 이동 없음
         var allLink = document.querySelector('[data-open-gnb]');
-        var gnb = document.querySelector('.gnb-bar');
-        var firstTab = gnb && gnb.querySelector('.mega-tab');
+        var firstItem = document.querySelector('.header-cats .mega-item, .gnb-bar .mega-item');
+        var firstTab = firstItem && firstItem.querySelector('.mega-tab');
         if (allLink && firstTab) {
             allLink.addEventListener('click', function (e) {
                 e.preventDefault();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                e.stopPropagation();   // 아래 '메뉴 밖 클릭 → 닫기'에 바로 걸리지 않게
+                Array.prototype.forEach.call(document.querySelectorAll('.mega-item.is-open'), function (it) { it.classList.remove('is-open'); });
+                firstItem.classList.add('is-open');
                 firstTab.focus({ preventScroll: true });
-                gnb.classList.remove('gh-gnb-hint');
-                void gnb.offsetWidth;
-                gnb.classList.add('gh-gnb-hint');
-                setTimeout(function () { gnb.classList.remove('gh-gnb-hint'); }, 1800);
+            });
+            // 펼친 메뉴 닫기: 메뉴 밖 클릭·Esc (마우스를 올렸다 떼면 기존 hover 동작으로 닫힘)
+            document.addEventListener('click', function (e) {
+                if (firstItem.classList.contains('is-open') && !firstItem.contains(e.target)) firstItem.classList.remove('is-open');
+            });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && firstItem.classList.contains('is-open')) { firstItem.classList.remove('is-open'); firstTab.focus(); }
             });
         } else if (allLink) {
             allLink.hidden = true;

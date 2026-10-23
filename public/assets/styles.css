@@ -1813,10 +1813,9 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .gh-section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
 .gh-section-title{font-size:26px;font-weight:300;letter-spacing:-0.6px;color:var(--color-text-primary)}
 .gh-section-side{display:flex;align-items:center;gap:24px;font-size:15px}
-.gh-use-ai, .gh-mat-all{display:inline-block;padding:8px 0;font-weight:500;color:var(--color-primary)}
-.gh-mat-all{font-size:16px}
+.gh-use-ai, .gh-mat-all{display:inline-block;padding:8px 0;font-size:15px;font-weight:500;color:var(--color-text-primary)}
 .gh-mat-all[hidden]{display:none}
-.gh-use-ai:hover, .gh-mat-all:hover{color:var(--color-primary-hover);text-decoration:underline}
+.gh-use-ai:hover, .gh-mat-all:hover{color:var(--color-text-primary);text-decoration:underline}
 .gh-use-page{color:#666666}
 .gh-use-frame{position:relative}
 .gh-car-btn{position:absolute;top:70px;z-index:1;width:44px;height:44px;padding:0;border-radius:50%;border:1px solid #D3E5F5;background:#fff;color:var(--color-primary);box-shadow:0 2px 8px rgba(16,40,80,0.10)}
@@ -1880,12 +1879,9 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .gh-mat-text{display:block;min-width:0;padding:0 18px 0 10px}
 .gh-mat-name{display:block;font-size:19px;font-weight:600;letter-spacing:-0.3px}
 .gh-mat-desc{display:block;margin-top:6px;font-size:15px;line-height:1.45;color:#666666}
-/* '전체 자재 보기' 클릭 시 상단 카테고리 메뉴 강조 */
-.gnb-bar.gh-gnb-hint{animation:gh-gnb-hint 1.8s ease-out}
-@keyframes gh-gnb-hint{0%,60%{box-shadow:inset 0 0 0 2px var(--color-primary);background:#EEF4FA}100%{box-shadow:none}}
 @media (prefers-reduced-motion: reduce){
   .gh-use-track{transition:none}
-  .gh-need-pill svg, .gh-need-pop, .gnb-bar.gh-gnb-hint{animation:none}
+  .gh-need-pill svg, .gh-need-pop{animation:none}
 }
 @media (max-width: 1200px) {
   .gh-car-btn, .gh-use-page, .gh-need-notch{display:none}
