@@ -118,3 +118,29 @@ php scripts/testdb/verify-work-list.php http://127.0.0.1:8080          # 작업�
 ```
 
 운영 CSV·생성된 DDL·`.env` 값은 저장소에 두지 않는다(세션 scratchpad). 세션이 바뀌면 컨테이너를 다시 만들고 위 순서로 재적재한다.
+
+## 9. 사용자 PC(XAMPP)에서 직접 확인
+
+클라우드 테스트 DB를 덤프해 PC용 가져오기 파일 `tomokmall_test_import.sql`(약 0.8MB)을 만든다. **저장소·운영 서버에 두지 않는다**(세션 첨부로만 전달, PC에서는 저장소 폴더 밖 `C:\dev\`에 저장).
+
+- 호환: MySQL 8 / MariaDB 10.4+(XAMPP). ngram 파서 제거, `utf8mb4_0900_ai_ci` → `utf8mb4_unicode_ci`.
+  사이트 목록·검색은 `LIKE`라 영향 없음(FULLTEXT는 AI 상담 `rag.php`만 사용).
+- 안전장치: 모든 문장이 `` `tomokmall_test`.`테이블` ``로 DB를 직접 지정 → `tomokmall_test`가 없는 서버(운영 등)에서는
+  오류만 나고 어느 DB에도 테이블이 생기지 않음(MariaDB 10.4에서 `source`·stdin 두 방식 모두 확인).
+  가져오기는 오류 시 즉시 멈추는 stdin 방식(`mysql ... < 파일`) 사용.
+- 검증: MariaDB 10.4.34 컨테이너에 같은 방식으로 가져와 사이트 실행 → `verify-work-list.php` **1,574 통과 / 0 실패**, PHP 경고 0.
+
+PC 절차(PowerShell, XAMPP MySQL 실행 상태):
+
+```powershell
+# (선택) 기존 tomokmall_test 백업 — PowerShell '>' 는 UTF-16으로 저장되므로 --result-file 사용
+& "C:\xampp\mysql\bin\mysqldump.exe" -u root -p --result-file=C:\dev\tomokmall_test_backup.sql tomokmall_test
+# 1) 빈 DB로 다시 만들기(tm_test 권한은 DB 이름 기준이라 유지됨)
+& "C:\xampp\mysql\bin\mysql.exe" -u root -p -e "DROP DATABASE IF EXISTS tomokmall_test; CREATE DATABASE tomokmall_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+# 2) 가져오기(오류 시 즉시 중단)
+cmd /c "C:\xampp\mysql\bin\mysql.exe -u tm_test -p --default-character-set=utf8mb4 tomokmall_test < C:\dev\tomokmall_test_import.sql"
+# 3) 확인: 1341
+& "C:\xampp\mysql\bin\mysql.exe" -u tm_test -p tomokmall_test -e "SELECT COUNT(*) FROM products;"
+# 4) 기존 방식으로 서버 실행 후 http://localhost:8080 , 자동 검증(다른 창, 같은 $env 설정):
+& "C:\xampp\php\php.exe" scripts\testdb\verify-work-list.php http://localhost:8080
+```
