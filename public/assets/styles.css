@@ -351,6 +351,50 @@ body.mode-home .header-nav { justify-self: end; margin-left: 0; }
   body.mode-home .header-cats .mega-tab { padding: 8px 16px; font-size: 15px; }
 }
 
+/* ── 모바일·태블릿 헤더 (기업회원 메인 제외 — corp-home.css 자체 규칙 사용) ──
+   768px 이하: 대분류 줄 탭 좌우 여백 축소(5개가 한 줄에 들어가게).
+   640px 이하: 로고 줄 + 메뉴 줄(검색·AI 상담·견적보기·회원가입·로그인) 2단 — 메뉴 잘림·가로 스크롤 방지.
+   AI 상담 화면(chat)은 대분류 탭이 헤더 메뉴 안에 있어 1200px 이하부터 탭을 별도 줄(가로 스크롤)로 내림.
+   --header-h 를 키워 검색 드롭다운·메가패널·대분류 줄 위치가 함께 내려가게 함 */
+@media (max-width: 1200px) {
+  body.mode-chat { --header-h: 108px; }
+  body.mode-chat .header-inner { flex-wrap: wrap; align-content: center; column-gap: 4px; row-gap: 4px; }
+  body.mode-chat .header-nav { display: contents; }
+  body.mode-chat .header-nav > .btn-header-search { margin-left: auto; }
+  body.mode-chat .header-nav > .mega-tabs {
+    order: 1; flex: 0 0 100%; height: 44px; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch;
+  }
+  body.mode-chat .header-nav > .mega-tabs .mega-tab { white-space: nowrap; }
+}
+@media (max-width: 768px) {
+  body.mode-home .header-cats .mega-tab,
+  .gnb-bar .mega-tab { padding-left: 20px; padding-right: 20px; }
+}
+@media (max-width: 640px) {
+  body:not(.mode-corp) { --header-h: 100px; }
+  body:not(.mode-corp) .header-inner { flex-wrap: wrap; align-content: center; row-gap: 8px; padding: 8px 16px; }
+  body:not(.mode-corp) .header-nav { width: 100%; margin-left: 0; gap: 4px; flex-wrap: wrap; }
+  body:not(.mode-corp) .header-nav > .btn-header-search,
+  body:not(.mode-corp) .header-nav > .btn-header-ai,
+  body:not(.mode-corp) .header-nav > .btn-header-est,
+  body:not(.mode-corp) .header-nav > .nav-link {
+    flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center;
+    height: 40px; padding: 0 4px; font-size: 13px;
+  }
+  /* AI 상담 화면: 로고 / 대분류 탭 / 메뉴 3줄 */
+  body.mode-chat { --header-h: 148px; }
+  body.mode-chat .header-nav { display: flex; }
+  body.mode-chat .header-nav > .btn-header-search { margin-left: 0; }
+  body.mode-chat .header-nav > .mega-tabs { order: 0; height: 40px; }
+}
+@media (max-width: 360px) {
+  /* 좁은 폰: 로그인 상태(마이페이지·로그아웃 포함) 5개도 한 줄에 들어가게 */
+  body:not(.mode-corp) .header-nav > .btn-header-search,
+  body:not(.mode-corp) .header-nav > .btn-header-ai,
+  body:not(.mode-corp) .header-nav > .btn-header-est,
+  body:not(.mode-corp) .header-nav > .nav-link { padding: 0 3px; font-size: 12px; }
+}
+
 /* ── 공용 mega-tabs (채팅 모드 인라인) ─────────────────── */
 .mega-tabs { display: flex; align-items: center; gap: 0; }
 .mega-item { position: relative; height: 100%; display: flex; align-items: center; }
