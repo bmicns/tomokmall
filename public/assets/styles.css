@@ -354,7 +354,6 @@ body:is(.mode-home, .mode-normal) .header-nav { justify-self: end; margin-left: 
 /* ── 모바일·태블릿 헤더 (기업회원 메인 제외 — corp-home.css 자체 규칙 사용) ──
    900px 이하: 대분류 줄 탭 좌우 여백 축소(5개가 한 줄에 들어가게).
    768px 이하: 로고 줄 + 메뉴 줄(검색·AI 상담·견적보기·회원가입·로그인) 2단 — 메뉴 잘림·가로 스크롤 방지.
-   1201~1280px: 로고·대분류·메뉴 한 줄이 빠듯해(스크롤바 포함) 대분류 탭 사이 간격만 축소.
    AI 상담 화면(chat)은 대분류 탭이 헤더 메뉴 안에 있어 1200px 이하부터 탭을 별도 줄(가로 스크롤)로 내림.
    --header-h 를 키워 검색 드롭다운·메가패널·대분류 줄 위치가 함께 내려가게 함 */
 @media (max-width: 1200px) {
@@ -366,14 +365,6 @@ body:is(.mode-home, .mode-normal) .header-nav { justify-self: end; margin-left: 
     order: 1; flex: 0 0 100%; height: 44px; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch;
   }
   body.mode-chat .header-nav > .mega-tabs .mega-tab { white-space: nowrap; }
-}
-@media (min-width: 1201px) and (max-width: 1280px) {
-  body:is(.mode-home, .mode-normal) .header-cats .mega-tabs { gap: 8px; }
-}
-@media (min-width: 769px) {
-  /* 검색·AI 상담·견적보기 버튼 사이 14px (메뉴 간격 4px + 10px) */
-  body:not(.mode-corp) .header-nav > .btn-header-ai,
-  body:not(.mode-corp) .header-nav > .btn-header-est { margin-left: 10px; }
 }
 @media (max-width: 900px) {
   body:is(.mode-home, .mode-normal) .header-cats .mega-tab,
