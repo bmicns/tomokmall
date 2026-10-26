@@ -3,7 +3,7 @@
  * - data-suggest 속성이 붙은 <input>에 자동 연결
  * - 입력 시 /api/suggest.php 조회 → 입력창 바로 아래에 목록 표시
  * - 드롭다운은 <body>에 붙여 폼의 overflow/둥근모서리에 갇히지 않게 한다
- * - 키보드(↑/↓/Enter/Esc)·마우스 지원, 바깥 클릭/스크롤 시 닫힘
+ * - 키보드(↑/↓/Enter/Esc)·마우스 지원, 바깥 클릭·상단 대분류 메뉴 hover 시 닫힘
  */
 (function () {
   'use strict';
@@ -243,6 +243,10 @@
 
     document.addEventListener('click', function (e) {
       if (e.target !== input && !box.contains(e.target)) close();
+    });
+    // 상단 대분류 메뉴(.mega-item)에 마우스를 올리면 닫음 — 목록이 펼쳐지는 메가패널 위를 덮지 않게
+    document.addEventListener('mouseover', function (e) {
+      if (isOpen() && e.target.closest && e.target.closest('.mega-item')) close();
     });
     window.addEventListener('resize', function () { if (isOpen()) place(); });
     window.addEventListener('scroll', function () { if (isOpen()) place(); }, true);
