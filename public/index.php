@@ -13,7 +13,8 @@ $query      = trim((string) ($_GET['q'] ?? ''));
 // 기업회원(corporate/staff/admin) 홈: 확정 디자인 '기업회원용 메인화면'. 비로그인·개인회원 홈은 아래 기존 화면 그대로.
 $corpHome   = $isCorporate && !$query && !$categoryId;
 
-render_header('홈', $corpHome ? 'corp' : 'normal');
+// 비로그인·개인회원 홈(검색·카테고리 지정 없음)도 기업회원 홈처럼 대분류 메뉴를 헤더 한 줄에 둔다('home' 모드)
+render_header('홈', $corpHome ? 'corp' : (!$query && !$categoryId ? 'home' : 'normal'));
 
 if ($query) {
     // 검색 결과: 상품 목록 (FULLTEXT 토큰화 + 관련도 정렬)
@@ -256,7 +257,7 @@ if ($query) {
                 </div>
             </div>
             <div class="gh-use-frame">
-                <button class="gh-car-btn gh-car-prev" type="button" aria-label="이전 용도" data-use-prev disabled>
+                <button class="gh-car-btn gh-car-prev" type="button" aria-label="이전 용도" data-use-prev<?= $usePages <= 1 ? ' disabled' : '' ?>>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
                 </button>
                 <button class="gh-car-btn gh-car-next" type="button" aria-label="다음 용도" data-use-next<?= $usePages <= 1 ? ' disabled' : '' ?>>
@@ -281,12 +282,11 @@ if ($query) {
                 </div>
             </div>
 
-            <!-- 작업별 자재: 접힘(구분선 + ▼) / 펼침(아래 주요 자재 위를 덮는 패널) -->
+            <!-- 작업별 자재: 접힘(선 없이 카드 아래 반원 탭 + ▼, 확정 디자인 '일반회원용 메인화면 (탭 디자인)' half) / 펼침(아래 주요 자재 위를 덮는 패널) -->
             <div class="gh-need">
                 <div class="gh-need-bar" data-need-bar>
-                    <span class="gh-need-line" aria-hidden="true"></span>
                     <button type="button" class="gh-need-pill" data-need-open aria-label="작업별 자재 보기" aria-expanded="false" aria-controls="gh-need-panel">
-                        <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16l-8 11z" fill="currentColor"/></svg>
+                        <svg width="14" height="9" viewBox="0 0 14 9" aria-hidden="true"><path d="M2.2 1h9.6a1.2 1.2 0 0 1 .93 1.96L7.93 7.9a1.2 1.2 0 0 1-1.86 0L1.27 2.96A1.2 1.2 0 0 1 2.2 1z" fill="currentColor"/></svg>
                     </button>
                     <span class="gh-need-tip" aria-hidden="true">작업별 자재 보기</span>
                 </div>
@@ -332,6 +332,7 @@ if ($query) {
     <script>
     // 작업(용도) 슬라이드 + 작업별 필요 자재 패널
     // 데스크톱(>1200px): 4개씩 페이지 이동, 패널은 아래 '주요 자재' 위를 덮음 / 그 이하: 가로 스크롤, 패널은 문서 흐름 안에 표시(CSS)
+    // 자동 슬라이드: 4.5초마다 다음 페이지(데스크톱) / 다음 카드(1200px 이하), 끝에서도 계속 오른쪽으로(무한 반복) — 맨 아래 '자동 슬라이드' 참고
     (function () {
         var root = document.querySelector('[data-use-carousel]');
         if (!root) return;
@@ -352,6 +353,7 @@ if ($query) {
         var mq    = window.matchMedia('(min-width: 1201px)');
         var page  = 0;
         var open  = -1;
+        var wrapping = false;   // 자동 슬라이드: 마지막 페이지 → 복제 카드(첫 페이지와 같음)로 오른쪽 이동 중
 
         // 펼친 패널이 페이지 아래(푸터)를 덮지 않도록 필요한 만큼 여백 확보 (데스크톱 오버레이일 때만)
         function fitWrap() {
@@ -362,7 +364,8 @@ if ($query) {
         }
         function render() {
             var paged = mq.matches;
-            track.style.transform = paged ? 'translateX(calc(' + (-page) + ' * (100% + 12px)))' : '';
+            // 카드 1장 간격 = (100% + 12px) / per → 페이지 p 는 p*per 번째 카드부터, 이어 넘기기 중에는 복제 카드(cards.length 번째)부터
+            track.style.transform = paged ? 'translateX(calc(' + (-(wrapping ? cards.length : page * per)) + ' * (100% + 12px) / ' + per + '))' : '';
             cards.forEach(function (c, i) {
                 var hidden = paged && Math.floor(i / per) !== page;
                 var on = i === open;
@@ -372,8 +375,6 @@ if ($query) {
                 c.classList.toggle('is-open', on);
                 c.querySelector('.gh-use-label path').setAttribute('d', on ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6');
             });
-            prev.disabled = page <= 0;
-            next.disabled = page >= pages - 1;
             label.textContent = (page + 1) + ' / ' + pages;
 
             var isOpen = open >= 0;
@@ -401,27 +402,164 @@ if ($query) {
             setOpen(-1);
             if (cards[last]) cards[last].focus();
         });
-        prev.addEventListener('click', function () { if (page > 0) { page--; open = -1; render(); } });
-        next.addEventListener('click', function () { if (page < pages - 1) { page++; open = -1; render(); } });
-        var onMq = function () { page = 0; open = -1; render(); };
+        // 이전·다음 버튼은 항상 활성(끝에서도 같은 방향으로 이어짐): 1페이지에서 '이전' → 마지막 페이지, 마지막 페이지에서 '다음' → 1페이지
+        prev.addEventListener('click', function () {
+            finishWrap();
+            if (pages <= 1) return;
+            if (page === 0) {
+                // 같은 모습의 복제본 위치로 전환 없이 옮긴 뒤 마지막 페이지로 → 왼쪽 방향 그대로 이어짐
+                wrapping = true;
+                track.style.transition = 'none';
+                render();
+                void track.offsetWidth;
+                track.style.transition = '';
+                wrapping = false;
+                page = pages - 1;
+            } else {
+                page--;
+            }
+            open = -1; manual(); render();
+        });
+        next.addEventListener('click', function () {
+            finishWrap();
+            if (pages <= 1) return;
+            open = -1; manual();
+            if (page >= pages - 1) { wrapToStart(); return; }
+            page++; render();
+        });
+        var onMq = function () { finishWrap(); page = 0; open = -1; render(); };
         if (mq.addEventListener) mq.addEventListener('change', onMq);
         else if (mq.addListener) mq.addListener(onMq);
         window.addEventListener('resize', fitWrap);
+
+        // ── 자동 슬라이드 ──────────────────────────────────────
+        // 멈춤: 마우스를 올렸을 때, 키보드 포커스가 안에 있을 때, 자재 패널이 열려 있을 때, 탭이 가려졌을 때.
+        // 이전·다음 버튼·스와이프 등 직접 조작 후에는 잠시(RESUME_MS) 쉬었다가 다시 시작. '동작 줄이기' 설정이면 자동 슬라이드 안 함.
+        // 무한 반복: 끝에서 처음으로 되감지 않고 계속 오른쪽으로 — 첫 페이지 카드 복제본을 맨 뒤에 두고, 복제본까지 이동한 뒤 같은 모습의 처음 위치로 전환 없이 바꾼다.
+        var AUTO_MS = 4500, RESUME_MS = 3000, MOVE_MS = 1400;   // MOVE_MS = styles.css .gh-use-track.is-auto 이동 시간
+        var view = root.querySelector('.gh-use-view');
+        var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+        var hovering = false, kbFocus = false, holdUntil = 0, autoTimer = null, resumeTimer = null, animating = false, wrapTimer = null, scrollIdle = null;
+
+        // 복제 카드: 화면낭독기·키보드 탐색에서 제외, 눌렀을 때는 원래 카드로 전달
+        var clones = cards.slice(0, per).map(function (c, i) {
+            var k = c.cloneNode(true);
+            ['data-use-idx', 'aria-controls', 'aria-expanded'].forEach(function (a) { k.removeAttribute(a); });
+            k.setAttribute('aria-hidden', 'true');
+            k.setAttribute('tabindex', '-1');
+            Array.prototype.forEach.call(k.querySelectorAll('img'), function (im) { im.loading = 'eager'; });   // 넘어오는 순간 빈 사진이 보이지 않게
+            k.addEventListener('click', function () { cards[i].click(); });
+            track.appendChild(k);
+            return k;
+        });
+        // 데스크톱: 마지막 페이지 → 복제본으로 오른쪽 이동(페이지 번호는 1) → 이동이 끝나면 전환 없이 실제 첫 페이지로
+        function wrapToStart() {
+            wrapping = true;
+            page = 0;
+            render();
+            // 이동 시간: 자동(.is-auto 1.4초) / 버튼(0.35초) — 실제 적용된 전환 시간 기준
+            wrapTimer = setTimeout(finishWrap, (parseFloat(getComputedStyle(track).transitionDuration) || 0) * 1000 + 50);
+        }
+        function finishWrap() {
+            if (!wrapping) return;
+            clearTimeout(wrapTimer);
+            wrapping = false;
+            track.style.transition = 'none';
+            render();
+            void track.offsetWidth;
+            track.style.transition = '';
+        }
+        // 1200px 이하: 복제본 구간에 들어오면 같은 모습의 앞쪽 위치로 바꿈(자동 이동 끝·직접 스와이프가 멈춘 뒤)
+        function fixLoop() {
+            var span = clones[0].offsetLeft - cards[0].offsetLeft;
+            if (mq.matches || view.scrollLeft < span - 2) return;
+            view.style.scrollSnapType = 'none';
+            view.scrollLeft -= span;
+            void view.offsetWidth;
+            view.style.scrollSnapType = '';
+        }
+        view.addEventListener('scroll', function () {
+            if (animating) return;
+            clearTimeout(scrollIdle);
+            scrollIdle = setTimeout(fixLoop, 150);
+        }, { passive: true });
+
+        function manual() {
+            track.classList.remove('is-auto');
+            label.setAttribute('aria-live', 'polite');
+            holdUntil = Date.now() + RESUME_MS;
+            // 조작 시점부터 RESUME_MS 뒤에 바로 다음 이동(주기 타이머에 맞춰 더 늦어지지 않게)
+            clearInterval(autoTimer);
+            clearTimeout(resumeTimer);
+            resumeTimer = setTimeout(function () { holdUntil = 0; autoTick(); restartAuto(); }, RESUME_MS);
+        }
+        // 1200px 이하 가로 스크롤: 한 카드만큼 천천히 이동(스냅은 이동 중에만 끔)
+        function scrollViewTo(left) {
+            var from = view.scrollLeft, dist = left - from, t0 = null;
+            animating = true;
+            view.style.scrollSnapType = 'none';
+            function step(ts) {
+                if (t0 === null) t0 = ts;
+                var k = Math.min(1, (ts - t0) / MOVE_MS);
+                view.scrollLeft = from + dist * (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
+                if (k < 1) { requestAnimationFrame(step); return; }
+                view.style.scrollSnapType = '';
+                animating = false;
+                fixLoop();
+            }
+            requestAnimationFrame(step);
+        }
+        function autoTick() {
+            if (reduce.matches || document.hidden || hovering || kbFocus || open >= 0 || animating || wrapping || Date.now() < holdUntil) return;
+            if (mq.matches) {
+                if (pages <= 1) return;
+                track.classList.add('is-auto');
+                label.setAttribute('aria-live', 'off');   // 자동 이동 때마다 '2 / 3' 을 읽지 않도록
+                if (page >= pages - 1) { wrapToStart(); return; }
+                page++;
+                render();
+            } else {
+                if (view.scrollWidth <= view.clientWidth || !cards[1]) return;
+                scrollViewTo(view.scrollLeft + cards[1].offsetLeft - cards[0].offsetLeft);
+            }
+        }
+        function restartAuto() {
+            clearInterval(autoTimer);
+            autoTimer = setInterval(autoTick, AUTO_MS);
+        }
+        root.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') hovering = true; });
+        root.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse') { hovering = false; restartAuto(); } });
+        root.addEventListener('focusin', function () {
+            try { kbFocus = !!root.querySelector(':focus-visible'); } catch (err) { kbFocus = false; }
+        });
+        root.addEventListener('focusout', function () { kbFocus = false; restartAuto(); });
+        ['touchstart', 'wheel', 'keydown'].forEach(function (ev) {
+            view.addEventListener(ev, function () { manual(); }, { passive: true });
+        });
+        document.addEventListener('visibilitychange', restartAuto);
+        restartAuto();
+
         render();
 
-        // '전체 자재 보기': 전체 목록 페이지가 없어 상단 카테고리 메뉴(GNB)로 포커스를 옮기고 강조
+        // '전체 자재 보기': 전체 목록 페이지가 없어 상단 첫 대분류(철근콘크리트) 메뉴를 펼치고 포커스
+        // (홈 헤더는 대분류가 헤더 한 줄(.header-cats), 그 외 화면은 GNB 바(.gnb-bar)) — 헤더는 상단 고정이라 스크롤 이동 없음
         var allLink = document.querySelector('[data-open-gnb]');
-        var gnb = document.querySelector('.gnb-bar');
-        var firstTab = gnb && gnb.querySelector('.mega-tab');
+        var firstItem = document.querySelector('.header-cats .mega-item, .gnb-bar .mega-item');
+        var firstTab = firstItem && firstItem.querySelector('.mega-tab');
         if (allLink && firstTab) {
             allLink.addEventListener('click', function (e) {
                 e.preventDefault();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                e.stopPropagation();   // 아래 '메뉴 밖 클릭 → 닫기'에 바로 걸리지 않게
+                Array.prototype.forEach.call(document.querySelectorAll('.mega-item.is-open'), function (it) { it.classList.remove('is-open'); });
+                firstItem.classList.add('is-open');
                 firstTab.focus({ preventScroll: true });
-                gnb.classList.remove('gh-gnb-hint');
-                void gnb.offsetWidth;
-                gnb.classList.add('gh-gnb-hint');
-                setTimeout(function () { gnb.classList.remove('gh-gnb-hint'); }, 1800);
+            });
+            // 펼친 메뉴 닫기: 메뉴 밖 클릭·Esc (마우스를 올렸다 떼면 기존 hover 동작으로 닫힘)
+            document.addEventListener('click', function (e) {
+                if (firstItem.classList.contains('is-open') && !firstItem.contains(e.target)) firstItem.classList.remove('is-open');
+            });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && firstItem.classList.contains('is-open')) { firstItem.classList.remove('is-open'); firstTab.focus(); }
             });
         } else if (allLink) {
             allLink.hidden = true;
