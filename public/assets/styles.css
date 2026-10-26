@@ -1880,8 +1880,9 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .gh-need-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:14px}
 .gh-need-grid[hidden]{display:none}
 .gh-need-card{display:flex;flex-direction:column;min-width:0;border:1px solid #E6E6E6;border-radius:8px;background:#fff;color:var(--color-text-primary);overflow:hidden;transition:border-color .15s,box-shadow .15s}
-.gh-need-card:hover{border-color:#CCCCCC;box-shadow:0 4px 12px rgba(16,40,80,0.10)}
-.gh-need-card:focus-visible{outline:2px solid #CCCCCC;outline-offset:2px}
+.gh-need-card:hover{box-shadow:0 4px 12px rgba(16,40,80,0.10)}
+/* 포커스 외곽선 색 없음 — 키보드 위치는 마우스오버와 같은 그림자로만 표시 */
+.gh-need-card:focus-visible{outline:none;box-shadow:0 4px 12px rgba(16,40,80,0.10)}
 .gh-need-img{display:flex;align-items:center;justify-content:center;height:96px;background:#fff}
 .gh-need-img img{width:72%;height:80px;object-fit:contain}
 .gh-need-name{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:10px 12px 2px;font-size:16px;font-weight:600;letter-spacing:-0.3px}
