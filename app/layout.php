@@ -140,11 +140,9 @@ function render_header(string $title, string $mode = 'normal'): void
             return $path . '?v=' . ($m ?: '1');
         };
     ?>
+    <link rel="stylesheet" href="<?= e($assetV('/assets/fonts.css')) ?>">
     <link rel="stylesheet" href="<?= e($assetV('/assets/styles.css')) ?>">
-    <?php if ($mode === 'corp'): // 기업회원 메인 전용 스타일(확정 디자인: Noto Sans KR) ?>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600&amp;display=swap">
+    <?php if ($mode === 'corp'): // 기업회원 메인 전용 스타일(서체는 사이트 공통 페이퍼로지) ?>
     <link rel="stylesheet" href="<?= e($assetV('/assets/corp-home.css')) ?>">
     <?php endif; ?>
     <script src="<?= e($assetV('/assets/search-suggest.js')) ?>" defer></script>
