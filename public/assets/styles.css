@@ -45,7 +45,7 @@ a { color: inherit; text-decoration: none; }
   z-index: 100;
   height: calc(var(--header-h) + var(--gnb-bar-h));
   background: var(--color-surface);
-  border-bottom: 1px solid #EEEEEE;  /* --color-border(#DDDDDD)보다 50% 연하게 */
+  border-bottom: 1px solid #F4F4F4;  /* --color-border(#DDDDDD)보다 연하게(#F4 계열) */
 }
 .header-inner {
   max-width: 1600px;
@@ -334,7 +334,7 @@ body:is(.mode-home, .mode-normal) .header-nav { justify-self: end; margin-left: 
   body:is(.mode-home, .mode-normal) .header-cats {
     position: absolute; left: 0; right: 0; top: var(--header-h); height: var(--gnb-bar-h);
     justify-content: center; background: #fff;
-    border-top: 1px solid #EEEEEE; border-bottom: 1px solid #EEEEEE;
+    border-top: 1px solid #F4F4F4; border-bottom: 1px solid #F4F4F4;
     box-shadow: 0 4px 12px rgba(0,0,0,0.06);
   }
   body:is(.mode-home, .mode-normal) .header-cats .mega-tab { padding: 8px 40px; font-size: 18px; font-weight: 200; color: var(--color-text-secondary); }
@@ -1848,7 +1848,7 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .gh-use-track{display:flex;gap:12px;transition:transform .35s ease}
 /* 자동 슬라이드(index.php)일 때만 천천히 이동 — 이전·다음 버튼은 기존 속도 */
 .gh-use-track.is-auto{transition-duration:1.4s;transition-timing-function:ease-in-out}
-.gh-use-card{flex:0 0 calc((100% - 36px) / 4);min-width:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:0;padding:0;border:1px solid #EEEEEE;border-radius:8px;background:#fff;color:var(--color-text-primary);font-family:var(--font);text-align:left;overflow:hidden}
+.gh-use-card{flex:0 0 calc((100% - 36px) / 4);min-width:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:0;padding:0;border:1px solid #F4F4F4;border-radius:8px;background:#fff;color:var(--color-text-primary);font-family:var(--font);text-align:left;overflow:hidden}
 .gh-use-card:hover{border-color:var(--color-primary);background:#fff;color:var(--color-text-primary)}
 .gh-use-card.is-open{border-color:var(--color-primary);box-shadow:0 0 0 1px var(--color-primary)}
 .gh-use-card:focus-visible, .gh-need-card:focus-visible{outline:2px solid var(--color-primary);outline-offset:2px}
@@ -1879,7 +1879,7 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .gh-need-title span{color:var(--color-primary)}
 .gh-need-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:14px}
 .gh-need-grid[hidden]{display:none}
-.gh-need-card{display:flex;flex-direction:column;min-width:0;border:1px solid #EEF2F7;border-radius:8px;background:#fff;color:var(--color-text-primary);overflow:hidden;transition:border-color .15s,box-shadow .15s}
+.gh-need-card{display:flex;flex-direction:column;min-width:0;border:1px solid #F4F4F4;border-radius:8px;background:#fff;color:var(--color-text-primary);overflow:hidden;transition:border-color .15s,box-shadow .15s}
 .gh-need-card:hover{border-color:var(--color-primary);box-shadow:0 4px 12px rgba(16,40,80,0.10)}
 .gh-need-img{display:flex;align-items:center;justify-content:center;height:96px;background:#fff}
 .gh-need-img img{width:72%;height:80px;object-fit:contain}
@@ -1891,7 +1891,7 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .gh-need-close{height:44px;padding:0 20px;gap:8px;border-radius:999px;border:1px solid #D3E5F5;background:#fff;color:var(--color-primary);font-size:15px;font-weight:500;box-shadow:0 2px 6px rgba(16,40,80,0.08)}
 .gh-need-close:hover{border-color:var(--color-primary);background:#fff;color:var(--color-primary)}
 .gh-mat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-.gh-mat-card{display:flex;align-items:center;height:132px;border:1px solid #EEEEEE;border-radius:8px;background:#fff;color:var(--color-text-primary);overflow:hidden}
+.gh-mat-card{display:flex;align-items:center;height:132px;border:1px solid #F4F4F4;border-radius:8px;background:#fff;color:var(--color-text-primary);overflow:hidden}
 .gh-mat-card:hover{border-color:var(--color-primary)}
 .gh-mat-card img{width:160px;height:120px;object-fit:contain;flex-shrink:0}
 /* 왼쪽 끝이 잘린 사진(PE이중벽관): 왼쪽으로 밀어 잘린 단면을 카드 밖(가려짐)으로 — 레이아웃·글자 위치는 그대로 */
