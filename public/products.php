@@ -571,6 +571,34 @@ render_header($pageTitle);
     sync();
 })();
 
+// 좌측 필터(데스크톱): 스크롤을 따라다니되 잘리지 않게.
+// 화면보다 길면 아래로 스크롤할 땐 필터 하단까지, 위로 스크롤할 땐 상단까지 보이도록 sticky top을 조절
+(function () {
+    var box = document.querySelector('.pt-filter');
+    if (!box) { return; }
+    var mq = window.matchMedia('(min-width: 761px)');
+    var gap = 12, top = null, lastY = window.scrollY;
+    function headerH() {
+        var h = document.querySelector('.site-header');
+        return h ? h.getBoundingClientRect().height : 0;
+    }
+    function update() {
+        var y = window.scrollY;
+        if (!mq.matches) { box.style.top = ''; top = null; lastY = y; return; }
+        var maxTop = headerH() + gap;
+        var minTop = Math.min(maxTop, window.innerHeight - box.offsetHeight - gap);
+        top = top === null ? maxTop : top - (y - lastY);
+        top = Math.max(minTop, Math.min(maxTop, top));
+        box.style.top = top + 'px';
+        lastY = y;
+    }
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    // 필터 내부 펼침/접힘 등으로 높이가 바뀌는 경우
+    if (window.ResizeObserver) { new ResizeObserver(update).observe(box); }
+    update();
+})();
+
 function openGallery(url, cap) {
     document.getElementById('gallery-modal-img').src = url;
     document.getElementById('gallery-modal-cap').textContent = cap;

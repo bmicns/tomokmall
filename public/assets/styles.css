@@ -1642,7 +1642,8 @@ mark.hl{background:#fff3b0;color:inherit;padding:0 1px;border-radius:2px;font-we
 @media(min-width:761px){
   .pt-layout{grid-template-columns:224px 1fr;gap:22px;align-items:start}
   .pt-layout.pt-nofilter{grid-template-columns:1fr}
-  .pt-filter{position:sticky;top:12px}
+  /* 헤더(sticky) 아래에 붙음. 필터가 화면보다 길면 products.php 스크립트가 top을 조절해 내릴 땐 하단, 올릴 땐 상단이 보이게 함 */
+  .pt-filter{position:sticky;top:calc(var(--header-h) + var(--gnb-bar-h) + 12px)}
   .fltbox>summary{display:none}
   .flt-body{display:block !important;border-top:0}
 }
@@ -1956,9 +1957,6 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .ut-mat.is-on .ut-mat-box{background:var(--color-primary);border-color:var(--color-primary)}
 .ut-mat.is-on .ut-mat-box::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
 .pt-table-title.is-usage{font-weight:700;color:var(--color-primary);letter-spacing:-0.3px}
-@media (min-width:761px){
-  .pt-filter.pt-filter-usage{position:static}  /* 자재 종류 + 필터로 길어져 sticky 시 하단이 가려짐 → 고정 해제 */
-}
 @media (max-width:760px){
   .ut-mats-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px}
   .ut-mat{min-height:44px;padding:0;font-size:14px}
