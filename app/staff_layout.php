@@ -27,7 +27,7 @@ function render_staff_header(string $title, string $activeMenu = ''): void
     <link rel="stylesheet" href="/assets/fonts.css">
     <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Paperozi',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f6fa;color:#1a2035}
+    body{font-family:'Paperlogy',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f6fa;color:#1a2035}
     /* 레이아웃 */
     .stf-layout{display:flex;min-height:100vh}
     /* 사이드바 */

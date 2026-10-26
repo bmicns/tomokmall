@@ -1,47 +1,55 @@
 /* ── 사이트 공통 서체: 페이퍼로지(Paperlogy) ────────────────────────────
-   family 이름은 기존 코드(--font)와 맞춰 'Paperozi'로 둔다.
+   font-family 이름: 'Paperlogy' (확인: document.fonts.check('400 16px Paperlogy'))
    로드: app/layout.php, app/admin_layout.php, app/staff_layout.php, public/login.php, public/register.php
+   글꼴 파일: 사이트 내부 /assets/fonts/ 를 먼저 쓰고, 파일이 없거나 실패하면 jsdelivr CDN으로 대체
    코드에서 쓰는 굵기(200~800)만 선언 — 없는 굵기는 브라우저가 가짜 굵게(faux bold)로 그린다 */
 @font-face {
-    font-family: 'Paperozi';
-    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-2ExtraLight.woff2') format('woff2');
+    font-family: 'Paperlogy';
+    src: url('/assets/fonts/Paperlogy-2ExtraLight.woff2') format('woff2'),
+         url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-2ExtraLight.woff2') format('woff2');
     font-weight: 200;
     font-display: swap;
 }
 /* 300(Light): 홈 섹션 제목(.gh-section-title)용 */
 @font-face {
-    font-family: 'Paperozi';
-    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-3Light.woff2') format('woff2');
+    font-family: 'Paperlogy';
+    src: url('/assets/fonts/Paperlogy-3Light.woff2') format('woff2'),
+         url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-3Light.woff2') format('woff2');
     font-weight: 300;
     font-display: swap;
 }
 @font-face {
-    font-family: 'Paperozi';
-    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-4Regular.woff2') format('woff2');
+    font-family: 'Paperlogy';
+    src: url('/assets/fonts/Paperlogy-4Regular.woff2') format('woff2'),
+         url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-4Regular.woff2') format('woff2');
     font-weight: 400;
     font-display: swap;
 }
 @font-face {
-    font-family: 'Paperozi';
-    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2');
+    font-family: 'Paperlogy';
+    src: url('/assets/fonts/Paperlogy-5Medium.woff2') format('woff2'),
+         url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2');
     font-weight: 500;
     font-display: swap;
 }
 @font-face {
-    font-family: 'Paperozi';
-    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-6SemiBold.woff2') format('woff2');
+    font-family: 'Paperlogy';
+    src: url('/assets/fonts/Paperlogy-6SemiBold.woff2') format('woff2'),
+         url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-6SemiBold.woff2') format('woff2');
     font-weight: 600;
     font-display: swap;
 }
 @font-face {
-    font-family: 'Paperozi';
-    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-7Bold.woff2') format('woff2');
+    font-family: 'Paperlogy';
+    src: url('/assets/fonts/Paperlogy-7Bold.woff2') format('woff2'),
+         url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-7Bold.woff2') format('woff2');
     font-weight: 700;
     font-display: swap;
 }
 @font-face {
-    font-family: 'Paperozi';
-    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-8ExtraBold.woff2') format('woff2');
+    font-family: 'Paperlogy';
+    src: url('/assets/fonts/Paperlogy-8ExtraBold.woff2') format('woff2'),
+         url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-8ExtraBold.woff2') format('woff2');
     font-weight: 800;
     font-display: swap;
 }
