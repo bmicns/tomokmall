@@ -166,14 +166,12 @@ function render_header(string $title, string $mode = 'normal'): void
             <span class="brand-mark">TM</span>
             <span class="brand-name">비엠아이토목건축자재</span>
         </a>
-        <?php if ($mode === 'corp' || $mode === 'home'): // 메인 전용(기업회원 corp / 비로그인·개인회원 home): 대분류 메뉴를 헤더 한 줄 가운데에 배치(검색은 본문 히어로에 있음) ?>
+        <?php if ($mode === 'corp' || $mode === 'home'): // 메인 전용(기업회원 corp / 비로그인·개인회원 home): 대분류 메뉴를 헤더 한 줄 가운데에 배치 ?>
         <nav class="header-cats" aria-label="자재 카테고리"><?= $megaTabsHtml ?></nav>
         <?php endif; ?>
         <nav class="header-nav">
             <?php if ($mode === 'chat') echo $megaTabsHtml; ?>
-            <?php if ($mode !== 'corp' && $mode !== 'home'): ?>
             <button class="btn-header-search btn-header-search--text" onclick="var w=document.getElementById('header-search-wrap');w.classList.toggle('open');if(w.classList.contains('open'))document.getElementById('header-search-input').focus();">검색</button>
-            <?php endif; ?>
             <?php if (false): // 상단 '부동산안전' 메뉴 숨김(페이지·코드는 유지 — 다시 노출하려면 false → true) ?>
             <a href="/real-estate-safety.php" class="nav-link<?= $path === '/real-estate-safety.php' ? ' active' : '' ?>">부동산안전</a>
             <?php endif; ?>
@@ -183,10 +181,10 @@ function render_header(string $title, string $mode = 'normal'): void
             <a href="/mypage.php" class="nav-link<?= $path === '/mypage.php' ? ' active' : '' ?>">마이페이지</a>
             <a href="#" class="nav-link" onclick="event.preventDefault();fetch('/api/auth/logout.php',{method:'POST'}).then(function(){location.href='/'});">로그아웃</a>
             <?php else: ?>
-            <a href="/register.php" class="nav-link" onclick="openAuthModal('register');return false;">회원가입</a>
-            <a href="/login.php" class="nav-link" onclick="openAuthModal('login');return false;">로그인</a>
             <a href="/chat.php" class="btn-header-ai<?= $path === '/chat.php' ? ' active' : '' ?>">AI 상담</a>
             <a href="#" class="btn-header-est" onclick="event.preventDefault();openAuthModal('login');">견적보기</a>
+            <a href="/register.php" class="nav-link" onclick="openAuthModal('register');return false;">회원가입</a>
+            <a href="/login.php" class="nav-link" onclick="openAuthModal('login');return false;">로그인</a>
             <?php endif; ?>
         </nav>
     </div>
