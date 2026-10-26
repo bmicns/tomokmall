@@ -1839,16 +1839,16 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .gh-use-card.is-open .gh-use-label{color:var(--color-primary)}
 .gh-use-label svg{color:var(--color-primary)}
 /* 작업별 필요 자재: 구분선 + ▼ / 펼침 패널 */
-.gh-need{position:relative;z-index:5;margin-top:14px}
-.gh-need-bar{position:relative;height:48px;display:flex;align-items:center;justify-content:center}
+.gh-need{position:relative;z-index:5;margin-top:0}
+/* 접힘 탭: 카드 바로 아래 매달린 반원(그릇) 모양 — 확정 디자인 '일반회원용 메인화면 (탭 디자인)' half 옵션(96×40, 구분선 없음) */
+.gh-need-bar{position:relative;height:48px;display:flex;align-items:flex-start;justify-content:center}
 .gh-need-bar.is-hidden{visibility:hidden}
-.gh-need-line{position:absolute;left:0;right:0;top:50%;border-top:2px solid #A9C4E4}
-.gh-need-bar.is-hint .gh-need-line{border-top-color:var(--color-primary)}
-.gh-need-pill{position:relative;width:60px;height:44px;padding:0;border-radius:999px;border:1px solid #D3E5F5;background:#fff;color:var(--color-primary);box-shadow:0 2px 6px rgba(16,40,80,0.08)}
+.gh-need-pill{position:relative;display:flex;align-items:flex-end;justify-content:center;box-sizing:border-box;width:96px;height:40px;padding:0 0 7px;border:1px solid #D3E5F5;border-top:0;border-radius:0 0 34px 34px / 0 0 28px 28px;background:#fff;color:var(--color-primary);box-shadow:0 3px 8px rgba(16,40,80,0.10)}
+.gh-need-pill svg{display:block}
 .gh-need-pill:hover, .gh-need-bar.is-hint .gh-need-pill{background:#EEF4FA;color:var(--color-primary)}
 .gh-need-pill svg{animation:gh-nudge 1.6s ease-in-out infinite}
 @keyframes gh-nudge{0%,100%{transform:translateY(0)}50%{transform:translateY(3px)}}
-.gh-need-tip{display:none;position:absolute;bottom:46px;left:50%;transform:translateX(-50%);background:#333333;color:#fff;font-size:13px;padding:6px 10px;border-radius:4px;white-space:nowrap}
+.gh-need-tip{display:none;position:absolute;top:46px;left:50%;transform:translateX(-50%);background:#333333;color:#fff;font-size:13px;padding:6px 10px;border-radius:4px;white-space:nowrap}
 .gh-need-bar.is-hint .gh-need-tip{display:block}
 .gh-need-pop{position:absolute;left:0;right:0;top:10px;animation:gh-need-in .22s ease-out}
 .gh-need-pop[hidden]{display:none}

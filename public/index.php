@@ -282,12 +282,11 @@ if ($query) {
                 </div>
             </div>
 
-            <!-- 작업별 자재: 접힘(구분선 + ▼) / 펼침(아래 주요 자재 위를 덮는 패널) -->
+            <!-- 작업별 자재: 접힘(선 없이 카드 아래 반원 탭 + ▼, 확정 디자인 '일반회원용 메인화면 (탭 디자인)' half) / 펼침(아래 주요 자재 위를 덮는 패널) -->
             <div class="gh-need">
                 <div class="gh-need-bar" data-need-bar>
-                    <span class="gh-need-line" aria-hidden="true"></span>
                     <button type="button" class="gh-need-pill" data-need-open aria-label="작업별 자재 보기" aria-expanded="false" aria-controls="gh-need-panel">
-                        <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16l-8 11z" fill="currentColor"/></svg>
+                        <svg width="14" height="9" viewBox="0 0 14 9" aria-hidden="true"><path d="M2.2 1h9.6a1.2 1.2 0 0 1 .93 1.96L7.93 7.9a1.2 1.2 0 0 1-1.86 0L1.27 2.96A1.2 1.2 0 0 1 2.2 1z" fill="currentColor"/></svg>
                     </button>
                     <span class="gh-need-tip" aria-hidden="true">작업별 자재 보기</span>
                 </div>
