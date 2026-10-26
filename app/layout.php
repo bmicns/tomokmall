@@ -166,7 +166,7 @@ function render_header(string $title, string $mode = 'normal'): void
             <span class="brand-mark">TM</span>
             <span class="brand-name">비엠아이토목건축자재</span>
         </a>
-        <?php if ($mode === 'corp' || $mode === 'home'): // 메인 전용(기업회원 corp / 비로그인·개인회원 home): 대분류 메뉴를 헤더 한 줄 가운데에 배치 ?>
+        <?php if ($mode === 'corp' || $mode === 'home' || $mode === 'normal'): // 메인(기업회원 corp / 비로그인·개인회원 home)·일반 화면(normal): 대분류 메뉴를 헤더 한 줄 가운데에 배치 ?>
         <nav class="header-cats" aria-label="자재 카테고리"><?= $megaTabsHtml ?></nav>
         <?php endif; ?>
         <nav class="header-nav">
@@ -188,7 +188,7 @@ function render_header(string $title, string $mode = 'normal'): void
             <?php endif; ?>
         </nav>
     </div>
-    <?php if (!in_array($mode, ['chat', 'corp', 'home'], true)): ?>
+    <?php if (!in_array($mode, ['chat', 'corp', 'home', 'normal'], true)): // 별도 GNB 줄 — 현재 모든 모드가 헤더 한 줄(.header-cats)이라 미출력(코드는 유지) ?>
     <div class="gnb-bar">
         <?= $megaTabsHtml ?>
     </div>
