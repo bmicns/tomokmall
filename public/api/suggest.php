@@ -3,6 +3,7 @@ declare(strict_types=1);
 /**
  * GET /api/suggest.php?q={검색어}
  * 검색창 자동완성 — 입력한 글자에 맞는 상품명·카테고리 제안
+ * 응답: 상품 {name, cnt, specs(규격 종류 수), img}, 카테고리 {name, path(상위 › 하위)}
  *
  * 인증: 불필요 (상품명·카테고리명만 노출, 가격 등 민감정보 없음)
  * 검증: q 길이 제한(1~40), 동의어 확장 포함
@@ -39,7 +40,7 @@ if ($q === '') {
     $popular = [];
     // 인기검색어(집계 상위) — 최근검색어(클라 localStorage)와 함께 표시됨
     try {
-        foreach (popular_searches(8) as $term) {
+        foreach (popular_searches(10) as $term) {
             $popular[] = [
                 'type' => 'popular',
                 'name' => $term,
@@ -81,12 +82,13 @@ try {
 
     // ── 상품명 제안 (중복 이름 제거, 앞글자 일치 우선 + 취급수 많은 순) ──
     $ph      = implode(' OR ', array_fill(0, count($likeVals), 'name LIKE ?'));
-    $sql     = "SELECT name, COUNT(*) AS cnt
+    $sql     = "SELECT name, COUNT(*) AS cnt, COUNT(DISTINCT spec) AS specs,
+                       MAX(NULLIF(image_url, '')) AS img
                 FROM products
                 WHERE is_active = 1 AND ($ph)
                 GROUP BY name
                 ORDER BY (name LIKE ?) DESC, cnt DESC, name
-                LIMIT 8";
+                LIMIT 20";
     $st      = $pdo->prepare($sql);
     $params  = $likeVals;
     $params[] = $q . '%'; // 앞글자 일치 부스트
@@ -95,23 +97,29 @@ try {
         $items[] = [
             'type' => 'product',
             'name' => $r['name'],
-            'cnt'  => (int) $r['cnt'],
-            'url'  => '/products.php?q=' . rawurlencode($r['name']),
+            'cnt'   => (int) $r['cnt'],
+            'specs' => (int) $r['specs'],
+            'img'   => (string) ($r['img'] ?? ''),
+            'url'   => '/products.php?q=' . rawurlencode($r['name']),
         ];
     }
 
-    // ── 카테고리 제안 (입력어 기준, 최대 4개) ──
+    // ── 카테고리 제안 (입력어 기준, 최대 10개) + 상위 분류 경로 ──
     $cst = $pdo->prepare(
-        "SELECT id, name FROM categories
-         WHERE is_active = 1 AND name LIKE ?
-         ORDER BY (name LIKE ?) DESC, name
-         LIMIT 4"
+        "SELECT c.id, c.name, CONCAT_WS(' › ', gp.name, pc.name, c.name) AS path
+         FROM categories c
+         LEFT JOIN categories pc ON pc.id = c.parent_id
+         LEFT JOIN categories gp ON gp.id = pc.parent_id
+         WHERE c.is_active = 1 AND c.name LIKE ?
+         ORDER BY (c.name LIKE ?) DESC, c.name
+         LIMIT 10"
     );
     $cst->execute(['%' . $q . '%', $q . '%']);
     foreach ($cst->fetchAll() as $r) {
         $items[] = [
             'type' => 'category',
             'name' => $r['name'],
+            'path' => $r['path'],
             'url'  => '/products.php?category=' . (int) $r['id'],
         ];
     }
