@@ -371,9 +371,9 @@ body:is(.mode-home, .mode-normal) .header-nav { justify-self: end; margin-left: 
   body:is(.mode-home, .mode-normal) .header-cats .mega-tabs { gap: 8px; }
 }
 @media (min-width: 769px) {
-  /* 검색·AI 상담·견적보기 버튼 사이 = 회원가입·로그인 글자 사이(.nav-link 좌우 12px×2 + 메뉴 간격 4px = 28px) */
+  /* 검색·AI 상담·견적보기 버튼 사이 14px (메뉴 간격 4px + 10px) */
   body:not(.mode-corp) .header-nav > .btn-header-ai,
-  body:not(.mode-corp) .header-nav > .btn-header-est { margin-left: 24px; }
+  body:not(.mode-corp) .header-nav > .btn-header-est { margin-left: 10px; }
 }
 @media (max-width: 900px) {
   body:is(.mode-home, .mode-normal) .header-cats .mega-tab,
