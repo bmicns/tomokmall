@@ -1,4 +1,4 @@
-/* 서체(@font-face 'Paperozi' = 페이퍼로지)는 assets/fonts.css에서 로드 */
+/* 서체(@font-face 'Paperlogy' = 페이퍼로지)는 assets/fonts.css에서 로드 */
 
 /* ── 변수 ───────────────────────────────────────────────── */
 :root {
@@ -15,7 +15,7 @@
   --color-danger:         #C0392B;
   --color-success:        #27AE60;
   --color-warning:        #E6A817;
-  --font:                 'Paperozi', -apple-system, sans-serif;
+  --font:                 'Paperlogy', -apple-system, sans-serif;
   --header-h:             60px;
   --gnb-bar-h:            52px;
   --catbar-h:             66px;

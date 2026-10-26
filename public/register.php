@@ -19,7 +19,7 @@ if (is_logged_in()) {
 <title>기업회원 가입 | 건축자재몰</title>
 <style>
   @import url('/assets/fonts.css');
-  :root{--bg:#F7F7F7;--surf:#FFFFFF;--bdr:#DDDDDD;--txt:#222222;--muted:#777777;--pri:#004EA1;--danger:#C0392B;--font:'Paperozi',-apple-system,sans-serif;}
+  :root{--bg:#F7F7F7;--surf:#FFFFFF;--bdr:#DDDDDD;--txt:#222222;--muted:#777777;--pri:#004EA1;--danger:#C0392B;--font:'Paperlogy',-apple-system,sans-serif;}
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px;}
   .card{width:100%;max-width:400px;padding:36px 32px;border:1px solid var(--bdr);background:var(--surf);display:flex;flex-direction:column;gap:20px;}

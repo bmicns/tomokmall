@@ -3,7 +3,7 @@
    마크업: app/corp_home_renderer.php / 동작: public/assets/corp-home.js */
 
 body.mode-corp {
-  --font: 'Paperozi', -apple-system, sans-serif;
+  --font: 'Paperlogy', -apple-system, sans-serif;
   --ch-primary: #004A9F;
   --ch-primary-hover: #00367A;
   --ch-title: #0B4A99;
