@@ -18,7 +18,7 @@ if (is_logged_in()) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>기업회원 가입 | 건축자재몰</title>
 <style>
-  @import url('https://cdn.jsdelivr.net/gh/geonkwon/paperozi@main/paperozi.css');
+  @import url('/assets/fonts.css');
   :root{--bg:#F7F7F7;--surf:#FFFFFF;--bdr:#DDDDDD;--txt:#222222;--muted:#777777;--pri:#004EA1;--danger:#C0392B;--font:'Paperozi',-apple-system,sans-serif;}
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:var(--font);background:var(--bg);color:var(--txt);min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px;}

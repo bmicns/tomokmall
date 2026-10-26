@@ -25,9 +25,10 @@ function render_admin_header(string $title, string $activeMenu = ''): void
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title><?= htmlspecialchars($title, ENT_QUOTES) ?> — 관리자</title>
+    <link rel="stylesheet" href="/assets/fonts.css">
     <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;color:#1a2035}
+    body{font-family:'Paperozi',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;color:#1a2035}
     .adm-layout{display:flex;min-height:100vh}
     /* 사이드바 */
     .adm-sidebar{width:220px;background:#1a2035;flex-shrink:0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}

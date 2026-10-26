@@ -140,11 +140,9 @@ function render_header(string $title, string $mode = 'normal'): void
             return $path . '?v=' . ($m ?: '1');
         };
     ?>
+    <link rel="stylesheet" href="<?= e($assetV('/assets/fonts.css')) ?>">
     <link rel="stylesheet" href="<?= e($assetV('/assets/styles.css')) ?>">
-    <?php if ($mode === 'corp'): // 기업회원 메인 전용 스타일(확정 디자인: Noto Sans KR) ?>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600&amp;display=swap">
+    <?php if ($mode === 'corp'): // 기업회원 메인 전용 스타일(서체는 사이트 공통 페이퍼로지) ?>
     <link rel="stylesheet" href="<?= e($assetV('/assets/corp-home.css')) ?>">
     <?php endif; ?>
     <script src="<?= e($assetV('/assets/search-suggest.js')) ?>" defer></script>
@@ -176,7 +174,9 @@ function render_header(string $title, string $mode = 'normal'): void
             <?php if ($mode !== 'corp' && $mode !== 'home'): ?>
             <button class="btn-header-search btn-header-search--text" onclick="var w=document.getElementById('header-search-wrap');w.classList.toggle('open');if(w.classList.contains('open'))document.getElementById('header-search-input').focus();">검색</button>
             <?php endif; ?>
+            <?php if (false): // 상단 '부동산안전' 메뉴 숨김(페이지·코드는 유지 — 다시 노출하려면 false → true) ?>
             <a href="/real-estate-safety.php" class="nav-link<?= $path === '/real-estate-safety.php' ? ' active' : '' ?>">부동산안전</a>
+            <?php endif; ?>
             <?php if (is_logged_in()): ?>
             <a href="/chat.php" class="btn-header-ai<?= $path === '/chat.php' ? ' active' : '' ?>">AI 상담</a>
             <a href="/estimate.php" class="btn-header-est<?= $path === '/estimate.php' ? ' active' : '' ?>">견적보기</a>
