@@ -2,20 +2,26 @@
   {
     "type": "법령",
     "official_name": "주차장법 시행규칙",
-    "ref_no": "제3조(주차장의 주차구획) 제1항 — 평행주차형식 외 일반형 주차단위구획 (입법예고 자료상 '안 제3조제1항제2호')",
+    "ref_no": "제3조(주차장의 주차구획) · 국토교통부령 제1604호",
     "issuing_body": "국토교통부(국토교통부령)",
-    "official_url": "https://www.law.go.kr/lsLinkCommonInfo.do?lspttninfSeq=81561&chrClsCd=010202",
-    "effective_or_revised_date": "구획 확대 개정 시행: 2019년 3월 예정(국토부 보도자료 '시행시기 1년간 조정', molit.go.kr). 검색 요약에 '2026.7.27 시행 일부개정본'이 언급됨(law.go.kr 결과, 원문 미확인)",
+    "official_url": "https://law.go.kr/lsLinkCommonInfo.do?lsJoLnkSeq=1011857635",
+    "effective_or_revised_date": "시행 2026-07-27 (국토교통부령 제1604호) — 사용자 원문 확인",
     "related_materials": "주차장 구획선(도료), 주차블록·카스토퍼, 주차장 포장재(인터로킹·투수블록)",
-    "scope_note": "주차장법상 노상·노외·부설주차장의 주차단위구획 최소 크기. 시행일 이후 신축·설치 시설에만 적용(기존 시설·허가 신청분은 종전 규정). 개인 마당의 비법정 주차공간에는 적용 대상 다름(법정 부설주차장인지 여부에 따라 달라짐). 지자체 조례 별도 확인 필요",
-    "status": "현행(개정 시행 여부는 보도자료·개정이유로 강하게 시사되나 현행 조문 원문 미확인)",
+    "scope_note": "주차장법에 따른 주차장의 주차구획 기준. 개인 주택 마당에 같은 기준이 의무 적용되는지는 별도 검토 필요.",
+    "status": "현행(시행 2026-07-27, 사용자 원문 확인)",
     "evidence": "① molit.go.kr 보도자료 '주차단위구획 최소크기 확대(2.3~2.5m→2.5~2.6m)' https://www.molit.go.kr/USR/NEWS/m_71/dtl.jsp?id=95079352 — 평행주차형식 외 일반형 2.3m×5.0m → 2.5m×5.0m, 확장형 2.5m×5.1m → 2.6m×5.2m. ② molit.go.kr 보도자료 '시행시기 1년간 조정' https://www.molit.go.kr/USR/NEWS/m_71/dtl.jsp?id=95080324 — 2019년 3월 시행 예정. ③ korea.kr 정책브리핑 '문콕 방지법 내년 3월 시행…주차폭 2.3→2.5m 확대' https://www.korea.kr/briefing/policyBriefingView.do?newsId=148847689. ④ law.go.kr 제정·개정이유 목록 https://www.law.go.kr/LSW/lsRvsRsnListP.do?lsId=008238&chrClsCd=010102 — '평행주차형식 외 일반형 너비 최소 기준을 2.3미터에서 2.5미터로' 확대 개정이유 확인(검색 요약). ⑤ molit 입법예고 https://www.molit.go.kr/mta/USR/law/m_37141/dtl.jsp?r_id=5187 — '안 제3조제1항제2호'. 평행주차형식 일반형은 2.0m×6.0m(법제처 해석례, moleg.go.kr)",
     "confidence": "높음",
-    "verify_level": "existence_confirmed",
-    "verified_by": "사용자(공식 출처 확인)",
+    "verify_level": "original_verified",
+    "verified_by": "사용자(국가법령정보센터 원문 확인)",
     "verified_at": "2026-10-27",
-    "verified_url": "https://www.law.go.kr/LSW/lsLinkCommonInfo.do?chrClsCd=010202&lsJoLnkSeq=1025436739",
-    "verify_note": "사용자가 국가법령정보센터 제3조 조문 링크를 확인해 제공. Claude는 원문 미열람(환경 차단) → 조문 본문·현행 시행일·수치(2.5m×5.0m 등)는 아직 원문으로 기록되지 않음."
+    "verified_url": "https://law.go.kr/lsLinkCommonInfo.do?lsJoLnkSeq=1011857635",
+    "verify_note": "공식 조문 내용 확인(사용자). Claude는 작업 환경 차단으로 원문 미열람. 이전 링크(lsJoLnkSeq=1025436739)도 같은 조문으로 기록됨.",
+    "effective_date": "2026-07-27",
+    "revised_date": null,
+    "verified_summary": "제3조 주차장의 주차구획 — 평행주차형식 외 일반형: 너비 2.5m 이상, 길이 5.0m 이상(면적 예시 12.5㎡).",
+    "ai_scope": "검토 필요 — 개인 마당·진입로에는 법적 의무가 아닌 참고값으로만 안내 가능한지 확인 전",
+    "priority": "검증 완료",
+    "priority_reason": "원문 검증 — AI 적용 범위 검토만 남음"
   },
   {
     "type": "법령",
@@ -33,7 +39,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P2",
+    "priority_reason": "점자블록 설치 기준(공공시설 의무)"
   },
   {
     "type": "법령",
@@ -51,7 +63,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P3",
+    "priority_reason": "보도블록·경계석·수로관·배수시설과 간접 관련(관로·뚜껑·기타)"
   },
   {
     "type": "법령",
@@ -69,7 +87,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P2",
+    "priority_reason": "점자블록·턱낮춤(교통약자 시설)"
   },
   {
     "type": "법령",
@@ -87,7 +111,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P3",
+    "priority_reason": "보도블록·경계석·수로관·배수시설과 간접 관련(관로·뚜껑·기타)"
   },
   {
     "type": "법령",
@@ -105,7 +135,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P1",
+    "priority_reason": "보도블록·경계석 설치 지침"
   },
   {
     "type": "법령",
@@ -123,7 +159,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P2",
+    "priority_reason": "도로 보도·측구·배수 구조(조문 미확인)"
   },
   {
     "type": "법령",
@@ -141,7 +183,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P3",
+    "priority_reason": "보도블록·경계석·수로관·배수시설과 간접 관련(관로·뚜껑·기타)"
   },
   {
     "type": "법령",
@@ -159,7 +207,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P2",
+    "priority_reason": "빗물받이 등 공공하수도 구조"
   },
   {
     "type": "법령",
@@ -177,7 +231,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P3",
+    "priority_reason": "보도블록·경계석·수로관·배수시설과 간접 관련(관로·뚜껑·기타)"
   },
   {
     "type": "KDS",
@@ -195,7 +255,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P2",
+    "priority_reason": "빗물받이·집수정 설계"
   },
   {
     "type": "KDS",
@@ -213,83 +279,115 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P2",
+    "priority_reason": "관로시설·빗물받이 설계"
   },
   {
     "type": "KDS",
     "official_name": "도로설계기준",
-    "ref_no": "KDS 44 00 00 (2026 개정 고시 · 하위 KDS 44 50 25 신설 — 별도 항목)",
+    "ref_no": "KDS 44 00 00 · 국토교통부고시 제2026-528호(2026-10-02 고시)",
     "issuing_body": "국토교통부",
     "official_url": "https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=18977",
-    "effective_or_revised_date": "2026. 10. 2. 일부 개정 및 제정 고시(molit.go.kr). 2025.10.24~11.13 행정예고(공고 제2025-1246호)",
+    "effective_or_revised_date": "고시 2026-10-02(국토교통부고시 제2026-528호), 국가건설기준센터 게시 2026-10-07, 경과조치: 발간 시점부터 사용 — 사용자 확인",
     "related_materials": "보도 포장, 배수시설(측구·빗물받이), 경계석",
     "scope_note": "도로 설계기준. 포장·배수 관련 하위 코드 번호·내용은 검색에서 확인 안 됨. 공공 도로 대상 — 개인 마당은 적용 대상 다름",
     "status": "현행",
     "evidence": "molit.go.kr '도로설계기준(KDS 44 00 00) 및 도로공사 표준시방서(KCS 44 00 00) 일부 개정 및 제정' https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=18977 (건설기술 진흥법 제44조 근거) ; 행정예고 https://www.molit.go.kr/USR/law/m_46/dtl.jsp?r_id=9590",
     "confidence": "높음",
-    "verify_level": "existence_confirmed",
-    "verified_by": "사용자(공식 출처 확인)",
+    "verify_level": "title_confirmed",
+    "verified_by": "사용자(국가건설기준센터 공지 확인)",
     "verified_at": "2026-10-27",
     "verified_url": "https://kcsc.re.kr/board/notdetail/9891",
-    "verify_note": "사용자가 국가건설기준센터 공지(2026년 도로설계기준·도로공사 표준시방서 개정 고시)를 확인해 제공. 고시 존재만 확인 — 고시 번호·고시일·시행일·개정 내용은 원문으로 기록되지 않음."
+    "verify_note": "고시 번호·고시일·게시일·경과조치 확인. 개정된 개별 조항 내용은 미검증.",
+    "effective_date": null,
+    "revised_date": "2026-10-02",
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P2",
+    "priority_reason": "블록포장 신설 코드의 상위 기준"
   },
   {
     "type": "KCS",
     "official_name": "도로공사 표준시방서",
-    "ref_no": "KCS 44 00 00 (2026 개정 고시 · 하위 KCS 44 50 25 신설 — 별도 항목)",
+    "ref_no": "KCS 44 00 00 · 국토교통부고시 제2026-528호(2026-10-02 고시)",
     "issuing_body": "국토교통부",
     "official_url": "https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=18977",
-    "effective_or_revised_date": "2026. 10. 2. 일부 개정 및 제정 고시(molit.go.kr)",
+    "effective_or_revised_date": "고시 2026-10-02(국토교통부고시 제2026-528호), 국가건설기준센터 게시 2026-10-07, 경과조치: 발간 시점부터 사용 — 사용자 확인",
     "related_materials": "보도블록 포장, 경계석, 측구, 배수시설",
     "scope_note": "공공 도로공사 시공 기준. 'KCS 44 50 05 보도포장'이라는 번호는 검색에서 확인되지 않음(행정예고 목록에 KCS 44 30 05, 44 50 25, 44 80 05만 노출, 제목 미확인). 공공공사 대상",
     "status": "현행",
     "evidence": "molit.go.kr 고시 페이지 https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=18977",
     "confidence": "높음",
-    "verify_level": "existence_confirmed",
-    "verified_by": "사용자(공식 출처 확인)",
+    "verify_level": "title_confirmed",
+    "verified_by": "사용자(국가건설기준센터 공지 확인)",
     "verified_at": "2026-10-27",
     "verified_url": "https://kcsc.re.kr/board/notdetail/9891",
-    "verify_note": "사용자가 국가건설기준센터 공지(2026년 도로설계기준·도로공사 표준시방서 개정 고시)를 확인해 제공. 고시 존재만 확인 — 고시 번호·고시일·시행일·개정 내용은 원문으로 기록되지 않음."
+    "verify_note": "고시 번호·고시일·게시일·경과조치 확인. 개정된 개별 조항 내용은 미검증.",
+    "effective_date": null,
+    "revised_date": "2026-10-02",
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P2",
+    "priority_reason": "블록포장 신설 코드의 상위 기준"
   },
   {
     "type": "KDS",
-    "official_name": "도로설계기준 하위 코드 KDS 44 50 25 (기준명 원문 확인 필요)",
+    "official_name": "차도용 블록포장 설계 기준 (사용자 확인 기준명 · 정식 표기 대조 필요)",
     "ref_no": "KDS 44 50 25",
     "issuing_body": "국토교통부(국가건설기준센터 게시)",
     "official_url": "https://kcsc.re.kr/board/notdetail/9891",
-    "effective_or_revised_date": "2026년 신설(사용자 확인). 고시일·시행일 원문 미기록. 2025.10.24~11.13 행정예고(국토교통부 공고 제2025-1246호) 대상 목록에 포함(검색 확인)",
+    "effective_or_revised_date": "신설 고시 2026-10-02(국토교통부고시 제2026-528호), 게시 2026-10-07, 경과조치: 발간 시점부터 사용 — 사용자 확인",
     "related_materials": [
-      "(기준명 확인 후 지정)"
+      "차도·차량 진입부 블록포장(인터로킹·인조화강 등 블록)",
+      "포장 하부 구조(기층·모래 등 — 조항 미검증)"
     ],
-    "scope_note": "기준명·적용 범위 미확인 — 어떤 자재·시설에 해당하는지 원문 확인 전까지 상담 근거로 연결하지 않음",
-    "status": "현행(신설, 사용자 확인) · 본문 미확인",
+    "scope_note": "차도용 블록포장 기준 — 공공 도로공사 기준으로 보이며, 개인 진입로·마당 적용 범위와 블록 두께 등 상세 조항은 미검증",
+    "status": "현행(2026 신설, 사용자 확인) · 상세 조항 미검증",
     "evidence": "사용자 제공 공식 URL https://kcsc.re.kr/board/notdetail/9891 ; 행정예고 https://www.molit.go.kr/USR/law/m_46/dtl.jsp?r_id=9590 (검색 요약에 코드 번호 포함)",
     "confidence": "높음",
-    "verify_level": "existence_confirmed",
-    "verified_by": "사용자(공식 출처 확인)",
+    "verify_level": "title_confirmed",
+    "verified_by": "사용자(국가건설기준센터 공지 확인)",
     "verified_at": "2026-10-27",
     "verified_url": "https://kcsc.re.kr/board/notdetail/9891",
-    "verify_note": "기준 번호·2026년 신설 사실만 확인. 기준명·본문·시행일·적용 대상은 원문 확인 필요. 이전 후보 목록에는 KDS는 상위 항목 메모로만, KCS는 누락돼 있었음."
+    "verify_note": "공식 고시·기준명 확인. 상세 기술 조항은 미검증.",
+    "effective_date": null,
+    "revised_date": "2026-10-02",
+    "verified_summary": "차도용 블록포장 설계에 관한 기준(신설)",
+    "ai_scope": "미검토 — 상세 기술 조항(두께·포장 구조) 검증 전 사용 금지",
+    "priority": "P1",
+    "priority_reason": "차량 진입 블록(80T) 상담의 직접 근거 후보"
   },
   {
     "type": "KCS",
-    "official_name": "도로공사 표준시방서 하위 코드 KCS 44 50 25 (기준명 원문 확인 필요)",
+    "official_name": "차도용 블록포장 공사 시공 기준 (사용자 확인 기준명 · 정식 표기 대조 필요)",
     "ref_no": "KCS 44 50 25",
     "issuing_body": "국토교통부(국가건설기준센터 게시)",
     "official_url": "https://kcsc.re.kr/board/notdetail/9891",
-    "effective_or_revised_date": "2026년 신설(사용자 확인). 고시일·시행일 원문 미기록. 2025.10.24~11.13 행정예고(국토교통부 공고 제2025-1246호) 대상 목록에 포함(검색 확인)",
+    "effective_or_revised_date": "신설 고시 2026-10-02(국토교통부고시 제2026-528호), 게시 2026-10-07, 경과조치: 발간 시점부터 사용 — 사용자 확인",
     "related_materials": [
-      "(기준명 확인 후 지정)"
+      "차도·차량 진입부 블록포장(인터로킹·인조화강 등 블록)",
+      "포장 하부 구조(기층·모래 등 — 조항 미검증)"
     ],
-    "scope_note": "기준명·적용 범위 미확인 — 어떤 자재·시설에 해당하는지 원문 확인 전까지 상담 근거로 연결하지 않음",
-    "status": "현행(신설, 사용자 확인) · 본문 미확인",
+    "scope_note": "차도용 블록포장 기준 — 공공 도로공사 기준으로 보이며, 개인 진입로·마당 적용 범위와 블록 두께 등 상세 조항은 미검증",
+    "status": "현행(2026 신설, 사용자 확인) · 상세 조항 미검증",
     "evidence": "사용자 제공 공식 URL https://kcsc.re.kr/board/notdetail/9891 ; 행정예고 https://www.molit.go.kr/USR/law/m_46/dtl.jsp?r_id=9590 (검색 요약에 코드 번호 포함)",
     "confidence": "높음",
-    "verify_level": "existence_confirmed",
-    "verified_by": "사용자(공식 출처 확인)",
+    "verify_level": "title_confirmed",
+    "verified_by": "사용자(국가건설기준센터 공지 확인)",
     "verified_at": "2026-10-27",
     "verified_url": "https://kcsc.re.kr/board/notdetail/9891",
-    "verify_note": "기준 번호·2026년 신설 사실만 확인. 기준명·본문·시행일·적용 대상은 원문 확인 필요. 이전 후보 목록에는 KDS는 상위 항목 메모로만, KCS는 누락돼 있었음."
+    "verify_note": "공식 고시·기준명 확인. 상세 기술 조항은 미검증.",
+    "effective_date": null,
+    "revised_date": "2026-10-02",
+    "verified_summary": "차도용 블록포장 공사에 관한 시공 기준(신설)",
+    "ai_scope": "미검토 — 상세 기술 조항(두께·포장 구조) 검증 전 사용 금지",
+    "priority": "P1",
+    "priority_reason": "차도용 블록 시공 기준"
   },
   {
     "type": "KCS",
@@ -307,7 +405,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P3",
+    "priority_reason": "보도블록·경계석·수로관·배수시설과 간접 관련(관로·뚜껑·기타)"
   },
   {
     "type": "KCS",
@@ -325,7 +429,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P3",
+    "priority_reason": "보도블록·경계석·수로관·배수시설과 간접 관련(관로·뚜껑·기타)"
   },
   {
     "type": "KS",
@@ -343,7 +453,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P1",
+    "priority_reason": "인터로킹 블록 제품 표준"
   },
   {
     "type": "KS",
@@ -361,7 +477,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P2",
+    "priority_reason": "점자블록 제품 표준(공공시설 위주)"
   },
   {
     "type": "KS",
@@ -379,7 +501,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P2",
+    "priority_reason": "보도용 평판 블록"
   },
   {
     "type": "KS",
@@ -397,7 +525,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P1",
+    "priority_reason": "경계석 제품 표준"
   },
   {
     "type": "KS",
@@ -415,7 +549,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P1",
+    "priority_reason": "L형 측구 제품 표준"
   },
   {
     "type": "KS",
@@ -433,7 +573,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P1",
+    "priority_reason": "도로용 측구(수로) 제품 표준"
   },
   {
     "type": "KS",
@@ -451,7 +597,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P1",
+    "priority_reason": "벤치플룸(수로관) 제품 표준"
   },
   {
     "type": "KS",
@@ -469,7 +621,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P1",
+    "priority_reason": "U형 수로관 제품 표준"
   },
   {
     "type": "KS",
@@ -487,7 +645,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P2",
+    "priority_reason": "집수정(맨홀 블록) 제품 표준"
   },
   {
     "type": "KS",
@@ -505,7 +669,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P3",
+    "priority_reason": "보도블록·경계석·수로관·배수시설과 간접 관련(관로·뚜껑·기타)"
   },
   {
     "type": "KS",
@@ -523,7 +693,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "제외",
+    "priority_reason": "폐지 규격 — 근거로 사용 금지"
   },
   {
     "type": "KS",
@@ -541,7 +717,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P3",
+    "priority_reason": "보도블록·경계석·수로관·배수시설과 간접 관련(관로·뚜껑·기타)"
   },
   {
     "type": "KS",
@@ -559,7 +741,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P3",
+    "priority_reason": "보도블록·경계석·수로관·배수시설과 간접 관련(관로·뚜껑·기타)"
   },
   {
     "type": "KS",
@@ -577,7 +765,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P3",
+    "priority_reason": "보도블록·경계석·수로관·배수시설과 간접 관련(관로·뚜껑·기타)"
   },
   {
     "type": "KS",
@@ -595,7 +789,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P3",
+    "priority_reason": "보도블록·경계석·수로관·배수시설과 간접 관련(관로·뚜껑·기타)"
   },
   {
     "type": "KS",
@@ -613,7 +813,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P3",
+    "priority_reason": "보도블록·경계석·수로관·배수시설과 간접 관련(관로·뚜껑·기타)"
   },
   {
     "type": "KS",
@@ -631,7 +837,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P3",
+    "priority_reason": "보도블록·경계석·수로관·배수시설과 간접 관련(관로·뚜껑·기타)"
   },
   {
     "type": "KS",
@@ -649,7 +861,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P3",
+    "priority_reason": "보도블록·경계석·수로관·배수시설과 간접 관련(관로·뚜껑·기타)"
   },
   {
     "type": "KS",
@@ -667,7 +885,13 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P3",
+    "priority_reason": "보도블록·경계석·수로관·배수시설과 간접 관련(관로·뚜껑·기타)"
   },
   {
     "type": "KS",
@@ -685,6 +909,12 @@
     "verified_by": null,
     "verified_at": null,
     "verified_url": null,
-    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
+    "effective_date": null,
+    "revised_date": null,
+    "verified_summary": null,
+    "ai_scope": "미검토",
+    "priority": "P3",
+    "priority_reason": "보도블록·경계석·수로관·배수시설과 간접 관련(관로·뚜껑·기타)"
   }
 ]

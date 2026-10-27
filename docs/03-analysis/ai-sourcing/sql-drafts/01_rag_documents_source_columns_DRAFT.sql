@@ -16,7 +16,7 @@ ALTER TABLE rag_documents
   ADD COLUMN reviewer       VARCHAR(100) NULL AFTER author,
   ADD COLUMN reviewed_at    DATE         NULL AFTER reviewer,
   ADD COLUMN review_status  VARCHAR(20)  NOT NULL DEFAULT 'unreviewed' COMMENT 'unreviewed/reviewed' AFTER reviewed_at,
-  ADD COLUMN verify_level   VARCHAR(30)  NULL COMMENT '법령·기준 원문 확인 수준: original_verified(원문 검증)/existence_confirmed(기준명·고시 존재만 확인)/search_candidate(검색 후보). 사내 문서는 NULL' AFTER review_status,
+  ADD COLUMN verify_level   VARCHAR(30)  NULL COMMENT '법령·기준 원문 확인 수준: original_verified(원문 검증)/title_confirmed(고시·기준명 확인)/search_candidate(검색 후보). 사내 문서는 NULL' AFTER review_status,
   ADD COLUMN verified_by    VARCHAR(100) NULL COMMENT '원문(또는 존재) 확인자' AFTER verify_level,
   ADD COLUMN verified_at    DATE         NULL COMMENT '원문(또는 존재) 확인일' AFTER verified_by,
   ADD COLUMN updated_by     INT          NULL AFTER verified_at,
