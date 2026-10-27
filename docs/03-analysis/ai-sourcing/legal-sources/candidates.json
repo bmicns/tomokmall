@@ -10,7 +10,12 @@
     "scope_note": "주차장법상 노상·노외·부설주차장의 주차단위구획 최소 크기. 시행일 이후 신축·설치 시설에만 적용(기존 시설·허가 신청분은 종전 규정). 개인 마당의 비법정 주차공간에는 적용 대상 다름(법정 부설주차장인지 여부에 따라 달라짐). 지자체 조례 별도 확인 필요",
     "status": "현행(개정 시행 여부는 보도자료·개정이유로 강하게 시사되나 현행 조문 원문 미확인)",
     "evidence": "① molit.go.kr 보도자료 '주차단위구획 최소크기 확대(2.3~2.5m→2.5~2.6m)' https://www.molit.go.kr/USR/NEWS/m_71/dtl.jsp?id=95079352 — 평행주차형식 외 일반형 2.3m×5.0m → 2.5m×5.0m, 확장형 2.5m×5.1m → 2.6m×5.2m. ② molit.go.kr 보도자료 '시행시기 1년간 조정' https://www.molit.go.kr/USR/NEWS/m_71/dtl.jsp?id=95080324 — 2019년 3월 시행 예정. ③ korea.kr 정책브리핑 '문콕 방지법 내년 3월 시행…주차폭 2.3→2.5m 확대' https://www.korea.kr/briefing/policyBriefingView.do?newsId=148847689. ④ law.go.kr 제정·개정이유 목록 https://www.law.go.kr/LSW/lsRvsRsnListP.do?lsId=008238&chrClsCd=010102 — '평행주차형식 외 일반형 너비 최소 기준을 2.3미터에서 2.5미터로' 확대 개정이유 확인(검색 요약). ⑤ molit 입법예고 https://www.molit.go.kr/mta/USR/law/m_37141/dtl.jsp?r_id=5187 — '안 제3조제1항제2호'. 평행주차형식 일반형은 2.0m×6.0m(법제처 해석례, moleg.go.kr)",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "existence_confirmed",
+    "verified_by": "사용자(공식 출처 확인)",
+    "verified_at": "2026-10-27",
+    "verified_url": "https://www.law.go.kr/LSW/lsLinkCommonInfo.do?chrClsCd=010202&lsJoLnkSeq=1025436739",
+    "verify_note": "사용자가 국가법령정보센터 제3조 조문 링크를 확인해 제공. Claude는 원문 미열람(환경 차단) → 조문 본문·현행 시행일·수치(2.5m×5.0m 등)는 아직 원문으로 기록되지 않음."
   },
   {
     "type": "법령",
@@ -23,7 +28,12 @@
     "scope_note": "편의증진법 대상시설(공공건물·공중이용시설·공원 등)에 설치하는 편의시설. 검색 요약상 점자블록 0.3m×0.3m, 점형 36개 돌출점, 선형 4개 돌출선, 황색 원칙, 매립식 원칙 등이 언급됨(원문 미확인). 개인 주택 마당은 적용 대상 다름",
     "status": "현행(최신 판본 여부 미확인)",
     "evidence": "law.go.kr 별표 파일 검색 결과 '■ 장애인ㆍ노인ㆍ임산부 등의 편의증진 보장에 관한 법률 시행규칙 [별표 1] <개정 2023. 12. 11.>' https://www.law.go.kr/flDownload.do?flSeq=135226913 및 <개정 2022. 7. 26.> https://law.go.kr/flDownload.do?gubun=&flSeq=117790707&bylClsCd=110201. 수치는 검색 엔진 요약에서만 확인",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "법령",
@@ -36,7 +46,12 @@
     "scope_note": "어떤 대상시설에 점자블록 등 편의시설을 설치해야 하는지(설치 의무 대상) 규정. 공원 점자블록 설치범위 불명확하다는 법제처 해석례 존재. 포털에서 검색",
     "status": "현행(추정, 원문 미확인)",
     "evidence": "nepla.ai(2차 사이트) 법제처 유권해석 정리 페이지: '시행령 별표 2 제2호라목에 따른 공원에 설치해야 하는 점자블록의 설치범위' 언급. 공식 도메인 원문은 검색에서 확인 안 됨",
-    "confidence": "중간"
+    "confidence": "중간",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "법령",
@@ -49,7 +64,12 @@
     "scope_note": "교통수단·여객시설·도로(보행 관련) 등 교통약자법 대상시설. 검색 요약상 점형블록 돌기 높이 0.6±0.1cm 언급(원문 미확인). 도로관리청·교통사업자 대상이며 개인 마당은 적용 대상 다름",
     "status": "현행(최신 판본 여부 미확인)",
     "evidence": "law.go.kr 별표 파일 '■ 교통약자의 이동편의 증진법 시행규칙 [별표 1] <개정 2024. 12. 26.>' https://www.law.go.kr/LSW/flDownload.do?flSeq=155311565&bylClsCd=110201, <개정 2024. 1. 19.> https://law.go.kr/flDownload.do?gubun=&flSeq=137449791&bylClsCd=110201",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "법령",
@@ -62,7 +82,12 @@
     "scope_note": "보행환경 개선지구 등 보행안전 시설. 세부 내용은 검색에서 확인 안 됨. 공공 보행공간 대상으로 개인 마당은 적용 대상 다름",
     "status": "불명",
     "evidence": "law.go.kr 별표 파일 제목만 검색 결과에 노출: '■ 보행안전 및 편의증진에 관한 법률 시행규칙 [별표 1] 보행안전 및 편의증진 시설의 구조 및 기준(제5조제2항 관련)'",
-    "confidence": "중간"
+    "confidence": "중간",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "법령",
@@ -75,7 +100,12 @@
     "scope_note": "도로관리청이 설치하는 보도(공공 도로)의 유효폭·횡단경사·포장 기준. 전면개정안에 블록포장/아스팔트/콘크리트/기타포장 구분과 공법별 시공기준 제시(행정예고 자료). 개인 마당·사유지 진입로는 적용 대상 다름",
     "status": "현행(2021 시행본 이후 개정 여부 미확인)",
     "evidence": "law.go.kr 행정규칙 페이지 https://www.law.go.kr/admRulLsInfoP.do?chrClsCd=010202&admRulSeq=2100000203352 ; molit 행정규칙 '보도 설치 및 관리 지침 일부 개정' https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=16951 ; 전면개정안 https://molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=15594 (보도 유효폭 2.0m 원칙·불가피 시 1.5m, 횡단경사 1/50 원칙 — 개정안 내용, 최종 반영 여부 미확인)",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "법령",
@@ -88,7 +118,12 @@
     "scope_note": "「도로법」상 도로의 구조·시설 기준. 연석 높이·측구 등 세부 수치는 검색에서 확인 안 됨. 공공 도로 대상이며 개인 마당은 적용 대상 다름",
     "status": "현행",
     "evidence": "law.go.kr 연혁 페이지 https://law.go.kr/LSW/lsRvsDocListP.do?chrClsCd=010102&lsId=007080 ; 조문 링크 https://law.go.kr/LSW/lsLinkProc.do?ancYd=20170105&joNo=001600000&lsClsCd=L&lsId=2001665&mode=4 (제16조 링크로 보이나 내용 미확인)",
-    "confidence": "중간"
+    "confidence": "중간",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "법령",
@@ -101,7 +136,12 @@
     "scope_note": "'연석이란 보도 등과 차도의 경계선에 연접하여 설치하는 경계석' 정의(2차 사이트 요약). 도로에 진입로 등을 연결할 때 적용 — 사유지 진입로 연결 시 관련 가능. 포털에서 검색",
     "status": "불명",
     "evidence": "nepla.ai(2차) https://www.nepla.ai/law/도로와다른도로등과의연결에관한규칙 — 연석 정의 문구. 공식 도메인 확인 안 됨",
-    "confidence": "낮음"
+    "confidence": "낮음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "법령",
@@ -114,7 +154,12 @@
     "scope_note": "공공하수도 구조 기준. 검색 요약상 빗물받이 간격 10m 이상 30m 이하(상습침수지역 10m 미만 가능), 맨홀은 방향·경사·관경 변화점 등에 설치, 뚜껑은 주철제·철근콘크리트제 등 충분한 강도. 공공하수도 대상이며 개인하수도·마당 배수와는 적용 대상 다름",
     "status": "현행",
     "evidence": "law.go.kr 별표 파일 '■ 하수도법 시행규칙 [별표 5] <개정 2025. 10. 1.> 공공하수도의 구조에 관한 기술적 기준(제6조 관련)' https://www.law.go.kr/flDownload.do?gubun=&flSeq=160140833&bylClsCd=110201 ; 구판 https://law.go.kr/flDownload.do?flSeq=95524211",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "법령",
@@ -127,7 +172,12 @@
     "scope_note": "공공하수도 관리자의 유지관리(점검·청소 주기 등) 기준. 제품 규격 기준 아님. 개인 마당은 적용 대상 다름",
     "status": "현행(개정 여부 미확인)",
     "evidence": "law.go.kr 고시문 파일 https://law.go.kr/LSW/flDownload.do?bylClsCd=&flSeq=127080697 ('환경부고시제2023-71호 … 「하수관로유지관리기준」을 … 제정고시합니다. 2023. 4. 10.') ; korea.kr 정책뉴스 https://www.korea.kr/news/policyNewsView.do?newsId=148946744 (기존 맨홀 추락방지시설 의무화 개정안)",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KDS",
@@ -140,7 +190,12 @@
     "scope_note": "공공 하수도시설 설계기준. 관로·맨홀·빗물받이 세부 조항은 검색에서 확인 안 됨. 공공사업 대상 — 개인 마당 배수는 적용 대상 다름",
     "status": "현행(최신 개정판 미확인)",
     "evidence": "law.go.kr 행정규칙 '하수도설계기준' https://www.law.go.kr/LSW/admRulInfoP.do?admRulSeq=2100000100709 , https://law.go.kr/LSW/admRulLsInfoP.do?admRulSeq=2100000177555 ; 2차 PDF https://files-scs.pstatic.net/2024/08/30/FEFOlqHQAr/하수도설계기준(2023).pdf (표지 'KDS 61 00 00 : 2022', 2022.12.28 개정, kcsc.re.kr 표기)",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KDS",
@@ -153,12 +208,17 @@
     "scope_note": "공공 하수관로 설계. 개정안: 맨홀 뚜껑 이탈 위험 지점 추락방지시설 의무화 등. 하위 번호(KDS 61 40 10 등)는 검색에서 확인 안 됨. 공공사업 대상",
     "status": "현행(추정)",
     "evidence": "환경부 공지 '「하수도 설계기준」 개정안 행정예고' http://me.go.kr/home/web/board/read.do?boardMasterId=39&boardId=1566950&menuId=10524 — 'KDS 61 40 00 관로시설 설계기준' 명시",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KDS",
     "official_name": "도로설계기준",
-    "ref_no": "KDS 44 00 00 (하위 코드 중 KDS 44 50 25 신설·개정 예고 확인, 제목 미확인)",
+    "ref_no": "KDS 44 00 00 (2026 개정 고시 · 하위 KDS 44 50 25 신설 — 별도 항목)",
     "issuing_body": "국토교통부",
     "official_url": "https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=18977",
     "effective_or_revised_date": "2026. 10. 2. 일부 개정 및 제정 고시(molit.go.kr). 2025.10.24~11.13 행정예고(공고 제2025-1246호)",
@@ -166,12 +226,17 @@
     "scope_note": "도로 설계기준. 포장·배수 관련 하위 코드 번호·내용은 검색에서 확인 안 됨. 공공 도로 대상 — 개인 마당은 적용 대상 다름",
     "status": "현행",
     "evidence": "molit.go.kr '도로설계기준(KDS 44 00 00) 및 도로공사 표준시방서(KCS 44 00 00) 일부 개정 및 제정' https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=18977 (건설기술 진흥법 제44조 근거) ; 행정예고 https://www.molit.go.kr/USR/law/m_46/dtl.jsp?r_id=9590",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "existence_confirmed",
+    "verified_by": "사용자(공식 출처 확인)",
+    "verified_at": "2026-10-27",
+    "verified_url": "https://kcsc.re.kr/board/notdetail/9891",
+    "verify_note": "사용자가 국가건설기준센터 공지(2026년 도로설계기준·도로공사 표준시방서 개정 고시)를 확인해 제공. 고시 존재만 확인 — 고시 번호·고시일·시행일·개정 내용은 원문으로 기록되지 않음."
   },
   {
     "type": "KCS",
     "official_name": "도로공사 표준시방서",
-    "ref_no": "KCS 44 00 00 (보도포장 하위 코드 번호는 검색에서 확인 안 됨)",
+    "ref_no": "KCS 44 00 00 (2026 개정 고시 · 하위 KCS 44 50 25 신설 — 별도 항목)",
     "issuing_body": "국토교통부",
     "official_url": "https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=18977",
     "effective_or_revised_date": "2026. 10. 2. 일부 개정 및 제정 고시(molit.go.kr)",
@@ -179,7 +244,52 @@
     "scope_note": "공공 도로공사 시공 기준. 'KCS 44 50 05 보도포장'이라는 번호는 검색에서 확인되지 않음(행정예고 목록에 KCS 44 30 05, 44 50 25, 44 80 05만 노출, 제목 미확인). 공공공사 대상",
     "status": "현행",
     "evidence": "molit.go.kr 고시 페이지 https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=18977",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "existence_confirmed",
+    "verified_by": "사용자(공식 출처 확인)",
+    "verified_at": "2026-10-27",
+    "verified_url": "https://kcsc.re.kr/board/notdetail/9891",
+    "verify_note": "사용자가 국가건설기준센터 공지(2026년 도로설계기준·도로공사 표준시방서 개정 고시)를 확인해 제공. 고시 존재만 확인 — 고시 번호·고시일·시행일·개정 내용은 원문으로 기록되지 않음."
+  },
+  {
+    "type": "KDS",
+    "official_name": "도로설계기준 하위 코드 KDS 44 50 25 (기준명 원문 확인 필요)",
+    "ref_no": "KDS 44 50 25",
+    "issuing_body": "국토교통부(국가건설기준센터 게시)",
+    "official_url": "https://kcsc.re.kr/board/notdetail/9891",
+    "effective_or_revised_date": "2026년 신설(사용자 확인). 고시일·시행일 원문 미기록. 2025.10.24~11.13 행정예고(국토교통부 공고 제2025-1246호) 대상 목록에 포함(검색 확인)",
+    "related_materials": [
+      "(기준명 확인 후 지정)"
+    ],
+    "scope_note": "기준명·적용 범위 미확인 — 어떤 자재·시설에 해당하는지 원문 확인 전까지 상담 근거로 연결하지 않음",
+    "status": "현행(신설, 사용자 확인) · 본문 미확인",
+    "evidence": "사용자 제공 공식 URL https://kcsc.re.kr/board/notdetail/9891 ; 행정예고 https://www.molit.go.kr/USR/law/m_46/dtl.jsp?r_id=9590 (검색 요약에 코드 번호 포함)",
+    "confidence": "높음",
+    "verify_level": "existence_confirmed",
+    "verified_by": "사용자(공식 출처 확인)",
+    "verified_at": "2026-10-27",
+    "verified_url": "https://kcsc.re.kr/board/notdetail/9891",
+    "verify_note": "기준 번호·2026년 신설 사실만 확인. 기준명·본문·시행일·적용 대상은 원문 확인 필요. 이전 후보 목록에는 KDS는 상위 항목 메모로만, KCS는 누락돼 있었음."
+  },
+  {
+    "type": "KCS",
+    "official_name": "도로공사 표준시방서 하위 코드 KCS 44 50 25 (기준명 원문 확인 필요)",
+    "ref_no": "KCS 44 50 25",
+    "issuing_body": "국토교통부(국가건설기준센터 게시)",
+    "official_url": "https://kcsc.re.kr/board/notdetail/9891",
+    "effective_or_revised_date": "2026년 신설(사용자 확인). 고시일·시행일 원문 미기록. 2025.10.24~11.13 행정예고(국토교통부 공고 제2025-1246호) 대상 목록에 포함(검색 확인)",
+    "related_materials": [
+      "(기준명 확인 후 지정)"
+    ],
+    "scope_note": "기준명·적용 범위 미확인 — 어떤 자재·시설에 해당하는지 원문 확인 전까지 상담 근거로 연결하지 않음",
+    "status": "현행(신설, 사용자 확인) · 본문 미확인",
+    "evidence": "사용자 제공 공식 URL https://kcsc.re.kr/board/notdetail/9891 ; 행정예고 https://www.molit.go.kr/USR/law/m_46/dtl.jsp?r_id=9590 (검색 요약에 코드 번호 포함)",
+    "confidence": "높음",
+    "verify_level": "existence_confirmed",
+    "verified_by": "사용자(공식 출처 확인)",
+    "verified_at": "2026-10-27",
+    "verified_url": "https://kcsc.re.kr/board/notdetail/9891",
+    "verify_note": "기준 번호·2026년 신설 사실만 확인. 기준명·본문·시행일·적용 대상은 원문 확인 필요. 이전 후보 목록에는 KDS는 상위 항목 메모로만, KCS는 누락돼 있었음."
   },
   {
     "type": "KCS",
@@ -192,7 +302,12 @@
     "scope_note": "공공 하수관로 시공 기준. 포털에서 검색. 공공공사 대상",
     "status": "불명",
     "evidence": "서울시설공단 안전 페이지(공공기관이나 발행처 아님) https://sisul.or.kr/open_content/safety/work/instance.jsp — 코드 목록에 '하수관로공사 KCS 61 10 00'",
-    "confidence": "중간"
+    "confidence": "중간",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KCS",
@@ -205,7 +320,12 @@
     "scope_note": "공공 하수관 부설·연결 시공. 포털에서 검색",
     "status": "불명",
     "evidence": "https://sisul.or.kr/open_content/safety/work/instance.jsp — 'KCS 61 20 00 하수도관부설 및 연결공사'",
-    "confidence": "중간"
+    "confidence": "중간",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KS",
@@ -218,7 +338,12 @@
     "scope_note": "주로 조립하여 보도·차도·광장·주차장 등의 포장에 사용하는 콘크리트 인터로킹 블록(제품 규격). 제품 품질 기준이므로 사유지 시공에도 제품 선택 근거로 활용 가능",
     "status": "현행",
     "evidence": "standard.go.kr 상세 https://www.standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?menuId=919&topMenuId=502&upperMenuId=503&ksNo=KSF4419&tmprKsNo=KSF4419&reformNo=15 ; kssn.net https://kssn.net/search/stddetail.do?itemNo=K001010149821",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KS",
@@ -231,7 +356,12 @@
     "scope_note": "돌기를 표면에 양각시켜 보행 위치·방향 안내 및 위험물 주의 표시를 하는 시각장애인용 점자블록(제품 규격). 설치 위치·의무는 편의증진법·교통약자법 별표에서 규정",
     "status": "현행",
     "evidence": "standard.go.kr 상세(제목 'KS F 4561(시각장애인용 점자블록)') ; kssn.net https://www.kssn.net/search/stddetail.do?itemNo=K001010091230",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KS",
@@ -244,7 +374,12 @@
     "scope_note": "포장용 콘크리트 평판(제품 규격). 세부 범위 검색에서 확인 안 됨",
     "status": "현행(추정)",
     "evidence": "kssn.net https://www.kssn.net/search/stddetail.do?itemNo=K001010134117 ('KS F 4001(2021 확인) 포장용 콘크리트 평판')",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KS",
@@ -257,7 +392,12 @@
     "scope_note": "주로 보도 및 차도 또는 도로의 경계부에 사용하는 콘크리트 경계블록(제품 규격). 화강석 경계석은 이 표준 범위 밖일 수 있음(미확인)",
     "status": "현행",
     "evidence": "standard.go.kr 상세 페이지(적용범위 문구 및 '인조석을 사용한 표면층 제품 비율 증가' 개정사유 일부)",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KS",
@@ -270,7 +410,12 @@
     "scope_note": "주로 노면 배수용 측구로 사용되는 콘크리트 및 철근 콘크리트 L형(검색 요약)",
     "status": "불명",
     "evidence": "kssn.net 제목 '무근 및 철근 콘크리트 L 형 측구 - KS F 4005'",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KS",
@@ -283,7 +428,12 @@
     "scope_note": "보도 및 차도에 평행하게 설치하는 철근 콘크리트제 측구의 몸체 및 뚜껑(검색 요약)",
     "status": "불명",
     "evidence": "kssn.net https://www.kssn.net/search/stddetail.do?itemNo=K001010124900 ; standard.go.kr 상세 URL(검색 결과 노출)",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KS",
@@ -296,7 +446,12 @@
     "scope_note": "주로 수로로 쓰이는 철근 콘크리트 플룸과 벤치 플룸(제품 규격)",
     "status": "현행",
     "evidence": "kssn.net https://www.kssn.net/search/stddetail.do?itemNo=K001010149889 ; standard.go.kr 상세 URL",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KS",
@@ -309,7 +464,12 @@
     "scope_note": "적용범위·치수 검색에서 확인 안 됨. 포털에서 검색",
     "status": "불명",
     "evidence": "kssn.net KS F 4015 상세 페이지의 관련표준 목록에 'KS F 4016 - 철근 콘크리트 U형' 노출 https://www.kssn.net/search/stddetail.do?itemNo=K001010124912",
-    "confidence": "중간"
+    "confidence": "중간",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KS",
@@ -322,7 +482,12 @@
     "scope_note": "하수도에 주로 사용하는 철근 콘크리트 맨홀 블록(제품 규격)",
     "status": "현행",
     "evidence": "kssn.net https://www.kssn.net/search/stddetail.do?itemNo=K001010150139 ; 인증표준콜렉션 https://www.kssn.net/ks/certicoldetail.do?itemNo=K001040002475",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KS",
@@ -335,7 +500,12 @@
     "scope_note": "상수도·하수도·전기·통신용 주철(강)재 맨홀 뚜껑과 틀의 일반 요구사항",
     "status": "현행",
     "evidence": "kssn.net 제목 'KS D 4040 주철(강)재 맨홀 뚜껑 및 틀의 일반 요구사항'",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KS",
@@ -348,7 +518,12 @@
     "scope_note": "폐지됨. 대체: 단체표준 SPS-KFCAM201-1639(주철·주강재 맨홀 뚜껑 및 틀, 최종개정 2022-07-13) — 검색 요약. 상담 시 'KS 인증 맨홀뚜껑' 표현 주의",
     "status": "폐지",
     "evidence": "standard.go.kr 상세 URL(검색 결과 노출), 검색 요약에 폐지 및 대체 단체표준 기재",
-    "confidence": "중간"
+    "confidence": "중간",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KS",
@@ -361,7 +536,12 @@
     "scope_note": "원심력 또는 축 전압을 응용하여 만든 철근 콘크리트관 및 직관 A형 이음 칼라",
     "status": "현행",
     "evidence": "standard.go.kr https://www.standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?ksNo=KSF4403 ; kssn.net https://www.kssn.net/search/stddetail.do?itemNo=K001010048034",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KS",
@@ -374,7 +554,12 @@
     "scope_note": "진동 코어 및 롤을 사용해 내면을 진동 또는 롤 전압해서 만든 철근 콘크리트관(검색 요약). 정확한 표준명 미확인",
     "status": "불명",
     "evidence": "standard.go.kr URL 검색 결과 노출 및 검색 요약",
-    "confidence": "중간"
+    "confidence": "중간",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KS",
@@ -387,7 +572,12 @@
     "scope_note": "비압력 조건 매설용 배수·하수 구조형 PE 이중벽관(내·외면 평활). 같은 계열 제2부 다중벽관(KS M 3500-2) 등",
     "status": "현행",
     "evidence": "kssn.net https://www.kssn.net/search/stddetail.do?itemNo=K001010106176 ; standard.go.kr 상세 URL",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KS",
@@ -400,7 +590,12 @@
     "scope_note": "하수·배수 매설용 구조형 PVC관. 포털에서 검색",
     "status": "현행(추정)",
     "evidence": "kssn.net https://intra.kssn.net/search/stddetail.do?itemNo=K001010134450 ('KS M 3600(2021 확인) …')",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KS",
@@ -413,7 +608,12 @@
     "scope_note": "건물 내부 환기·통기·배기·배수 및 건물 외부 비압력 용도 PVC관. 하수관로 매설용은 KS M 3600 등이 더 적합(검색 요약 의견)",
     "status": "현행",
     "evidence": "standard.go.kr 상세 URL ; kssn.net https://kssn.net/search/stddetail.do?itemNo=K001010108878",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KS",
@@ -426,7 +626,12 @@
     "scope_note": "비압력용 경질 PVC관 접착 접합용 이음관",
     "status": "불명",
     "evidence": "kssn.net 제목 'KS M 3410 비압력용 경질 폴리염화비닐 이음관'",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KS",
@@ -439,7 +644,12 @@
     "scope_note": "수도용 — 하수·배수용과 구분 필요",
     "status": "불명",
     "evidence": "kssn.net 제목 'KS M 3401 수도용 경질 폴리염화비닐관'",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KS",
@@ -452,7 +662,12 @@
     "scope_note": "수로·통로·기타 구조물용 파형강관 및 파형섹션과 접합 부품",
     "status": "현행",
     "evidence": "kssn.net https://kssn.net/search/stddetail.do?itemNo=K001010123798 ; standard.go.kr 상세 URL",
-    "confidence": "높음"
+    "confidence": "높음",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   },
   {
     "type": "KS",
@@ -465,6 +680,11 @@
     "scope_note": "점토·고령토·황토 등을 소성한 벽돌. 포장용 점토블록 전용 KS는 검색에서 확인 안 됨 — 점토 바닥 블록에 그대로 적용된다고 단정하지 말 것",
     "status": "현행",
     "evidence": "standard.go.kr 상세 URL ; kssn.net https://www.kssn.net/search/stddetail.do?itemNo=K001010115150",
-    "confidence": "중간"
+    "confidence": "중간",
+    "verify_level": "search_candidate",
+    "verified_by": null,
+    "verified_at": null,
+    "verified_url": null,
+    "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람."
   }
 ]

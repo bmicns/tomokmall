@@ -9,11 +9,11 @@ AI 상담 신뢰도 개선(공식 근거 · 상품 데이터 · 수량·비용 �
 |---|---|---|
 | `ai-search-verify.md` | AI 상품 검색 결함 3건 수정 전/후 결과(실제 수집 상품 1,452건, 테스트 DB) | 검증 완료 |
 | `data-quality/` | 수집 상품 1,462건 품질 검사 보고서(`report.md`), 문제 목록(`issues.csv`, 개인정보 값 없음), 정제 계획 | 저장소 파일 기준 |
-| `legal-sources/` | 법령·KDS·KCS·KS 후보 36건(`candidates.json`)과 조사 노트 | **원문 미확인 후보** |
+| `legal-sources/` | 법령·KDS·KCS·KS 38건(`candidates.json`, 확인 수준 3단계)과 조사 노트 | **원문 검증 0 · 존재 확인 5 · 검색 후보 33** |
 | `external-sources/` | 국내 자재 사이트·제조사 15곳 조사(`sites.json`), 공공데이터 후보, 외부 데이터 검증 구역 설계(`staging-design.md`) | 모두 수집 보류 |
 | `sourcing-status.dc.html` | 관리자 '근거·데이터 확보 현황' 화면 시안(디자인 캔버스 형식) | 시안 |
-| `sql-drafts/01_…` | `rag_documents` 출처·검토 칸 추가 (추가형, MySQL 8.0.46 테스트 DB 검증) | 초안 |
-| `sql-drafts/02_…` | 후보 36건 등록 — 전부 `is_active=0`, `review_status='unreviewed'` | 초안 |
+| `sql-drafts/01_…` | `rag_documents` 출처·검토·확인수준 칸 추가 (추가형, MySQL 8.0.46 테스트 DB 검증) | 초안 · 운영 미적용 |
+| `sql-drafts/02_…` | 38건 등록 — 전부 `is_active=0`, `review_status='unreviewed'`, `verify_level` 기록 | 초안 |
 | `sql-drafts/03_…` | 저장소 파일 기준 개인정보 102건 정리 (운영 조회 0건 → 실행 보류) | 초안 |
 | `sql-drafts/05_…` | 운영 읽기 전용 점검(개인정보 다른 위치·형식 + 상품 품질 건수) | SELECT 전용 |
 
@@ -23,13 +23,13 @@ AI 상담 신뢰도 개선(공식 근거 · 상품 데이터 · 수량·비용 �
 ## 운영 DB 확인 결과 (사용자 조회, 2026-10-27)
 
 - 버전 **MySQL 8.0.46** → 앞으로 마이그레이션은 이 버전 호환 구문만 사용(`ADD COLUMN IF NOT EXISTS` 금지)
-- `products.spec` 개인정보 패턴 0건 → 운영 데이터는 저장소 `data/ktomok/import.sql` 과 다름. 품질 건수는 `05_prod_readonly_checks.sql` 로 운영 기준 재확인 필요
+- `products.spec` 개인정보 정규식 조회 0건(2회 확인) → 운영 데이터는 저장소 `data/ktomok/import.sql` 과 다름. 품질 건수는 `05_prod_readonly_checks.sql` 로 운영 기준 재확인 필요
 - 참고: 기존 마이그레이션 `database/add_ai_sessions.sql`, `database/add_vendors.sql`, `database/20260604_dacity_columns.sql` 은
   `ADD COLUMN IF NOT EXISTS` 때문에 MySQL 8.0.46 테스트 DB에서 **문법 오류**가 난다(기존 파일은 수정하지 않음 — 재적용 시 주의)
 
 ## 공식 법령·건설기준 원문 접근 조건 (과제 3)
 
-이번 검증 결과: **원문 확인 0건 / 36건.** 추측으로 채운 항목은 없다(시행일·조문 내용 칸은 비워 둠).
+검증 결과(2026-10-27 갱신): **원문 검증 0건 / 38건**, 기준명·고시 존재 확인 5건(사용자 확인 — 주차장법 시행규칙 제3조, 2026 KDS/KCS 44 00 00 개정 고시, 신설 KDS 44 50 25·KCS 44 50 25). 추측으로 채운 항목은 없다(시행일·조문 내용·신설 기준명 칸은 비워 둠). 확인 수준 정의: `legal-sources/README.md` 0장.
 
 | 막힌 지점 | 내용 | 해결 방법 |
 |---|---|---|
@@ -44,4 +44,5 @@ AI 상담 신뢰도 개선(공식 근거 · 상품 데이터 · 수량·비용 �
 3. 현행/폐지 확인(`legal_status`) — 폐지·대체된 규정은 비활성 유지
 4. 적용 대상 기록(`applies_to`) — 예: 도로관리청 보도, 공공하수도. 개인 마당·사유지 공사에 확정 근거로 쓰지 않음
 5. 상담에 필요한 **요지만** 본문에 작성(조문 전문·KS 본문 복사 금지)
-6. 검토자·검토일 기록 후 `review_status='reviewed'` → 그때만 활성화
+6. 확인자·확인일과 함께 `verify_level='original_verified'` 기록
+7. 검토자·검토일 기록 후 `review_status='reviewed'` → 그때만 활성화(법령 근거 표시 기능·마이그레이션 운영 적용은 별도 승인)
