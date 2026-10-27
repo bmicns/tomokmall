@@ -1,0 +1,608 @@
+[
+  {
+    "priority": 1,
+    "name": "케이토목 (사이트 표기: 케이토목-토목자재도매단가쇼핑몰)",
+    "operator": "케이토목 (사이트 제목 기준). 같은 도메인에 '코리아토목-부대토목자재도매단가쇼핑몰' 표기 페이지도 검색됨 — 운영 주체 관계 미확인. 법인명·사업자번호 미확인",
+    "type": "온라인몰(도매단가 쇼핑몰, 유통)",
+    "domain": "ktomok.com",
+    "urls_seen": [
+      "https://ktomok.com/",
+      "https://ktomok.com/bbs/board.php?bo_table=cad",
+      "https://ktomok.com/shop/list.php?ca_id=3110&sort=it_price&sortodr=asc&device=pc",
+      "https://ktomok.com/shop/list.php?ca_id=2860&sort=it_order&sortodr=asc&device=pc",
+      "https://www.ktomok.com/shop/list_search.php?ca_id=1220"
+    ],
+    "categories": [
+      "암거",
+      "개거",
+      "수로관",
+      "맨홀",
+      "흄관",
+      "그레이팅(중하중 등)",
+      "주철우수통",
+      "보강토옹벽블록",
+      "식생축조블록",
+      "화강경계석",
+      "인터로킹 보도블록",
+      "PE/PVC 제품",
+      "강재(앵글·체크무늬철판)"
+    ],
+    "price_public": {
+      "status": "공개(목록에 단가 표시)",
+      "evidence": "검색 요약: 목록에 도매단가 표시(부가세 별도, 국산 제작품 단가 수시 변동 안내). 저장소 data/ktomok/products.json 1,452건 모두 price 값 보유"
+    },
+    "spec_info": {
+      "spec": "있음(규격 문자열) — 저장소 수집 데이터 기준",
+      "material": "미확인",
+      "usage": "미확인",
+      "sales_unit": "있음(단위·중량·상차수량·운반비·설치비 필드) — 저장소 수집 데이터 기준",
+      "tech_docs": "도면자료 게시판(bo_table=cad) 존재 확인(검색 결과). 카탈로그 PDF·KS 인증 표기는 미확인"
+    },
+    "robots_txt": "확인 불가(직접 열람 필요)",
+    "terms": "확인 불가(직접 열람 필요)",
+    "public_api": "없음으로 추정되나 확인 불가(직접 열람 필요)",
+    "contact_channels": "사이트 대표번호·담당자 이메일이 상품 상세에 노출됨(번호는 본 문서에 옮기지 않음). 제휴 요청은 사이트 대표 연락처로",
+    "relevance": "상",
+    "priority_reason": "우리 몰 데이터 1,452건의 출처로 이미 의존도가 가장 높음. 카테고리 구성이 우리 취급 품목과 거의 일치. 기존 수집분에 대한 사후 이용 허락 확보가 최우선 과제",
+    "risk_notes": [
+      "이미 무단 수집된 상품명·규격·단가·이미지 URL이 우리 DB(external_source='ktomok')에 들어가 있음 → 경쟁 쇼핑몰 DB의 상당 부분 복제로 볼 소지(제93조) 및 성과 도용(부정경쟁방지법) 소지가 가장 큰 사례",
+      "products.image_url이 ktomok.com 이미지를 직접 참조(핫링크) — 이미지 저작권·상대 서버 트래픽 문제",
+      "수집 데이터의 spec/description 일부(약 24행)에 판매처 영업담당자 실명·휴대전화·이메일이 섞여 있음 → 개인정보 노출 위험. 정리 제안 대상(데이터 수정은 승인 필요)",
+      "도매단가는 상대방의 영업상 핵심 정보 — 그대로 재게시 시 분쟁 가능성 높음",
+      "저작권법 제93조: 데이터베이스제작자는 DB의 전부 또는 상당한 부분의 복제·배포·전송 권리를 가지며, 상당하지 않은 부분이라도 반복적·체계적으로 복제해 통상적 이용과 충돌하거나 이익을 부당하게 해치면 상당한 부분 복제로 본다(제93조제2항). 상품목록·단가표 전체 수집은 이 범위에 해당할 소지(일반론).",
+      "부정경쟁방지법 제2조제1호의 데이터 부정사용 행위(카목) 및 타인의 상당한 투자·노력으로 만든 성과를 공정한 상거래 관행에 반해 무단 사용하는 행위(파목)에 해당할 소지. 특히 경쟁 쇼핑몰의 가격·상품 DB를 그대로 가져와 같은 시장에서 판매하는 경우 위험이 큼(조문 기호는 개정에 따라 바뀔 수 있어 최신 법령 확인 필요, 일반론)."
+    ],
+    "recommended_path": "제휴/허락 요청(최우선): 기존 1,452건 사용 범위(상품명·규격·단가·이미지) 명시해 서면 허락 또는 공급(대리점/입점) 계약 추진. 허락 전까지 신규 수집 중단, 이미지 핫링크·단가 원문 노출 축소 검토",
+    "verification_notes": "운영자 법인명·사업자번호·약관·robots.txt 모두 미확인. '코리아토목' 표기와의 관계 미확인"
+  },
+  {
+    "priority": 2,
+    "name": "동아산업 (사이트 표기: 토목자재종합정보플랫폼)",
+    "operator": "동아산업 (사이트 페이지 제목 기준). 법인 형태·사업자번호 미확인",
+    "type": "제조사 겸 온라인 카탈로그/쇼핑몰",
+    "domain": "dacity.kr (www.dacity.kr)",
+    "urls_seen": [
+      "http://dacity.kr/?ci=1",
+      "http://www.dacity.kr/shop/list_search.php?ca_id=4567&sort=it_order&sortodr=asc&device=pc",
+      "http://www.dacity.kr/shop/list.php?ca_id=24&page=4&device=pc",
+      "http://dacity.kr/shop/list_search.php?ca_id=3120",
+      "http://www.dacity.kr/shop/list_search.php?ca_id=3425"
+    ],
+    "categories": [
+      "PC암거(1련·2련·상하분리·개거)",
+      "대형·환경 수로관",
+      "U형 플륨관",
+      "맨홀",
+      "안전중하중그레이팅",
+      "인조화강블록(투수)",
+      "고강성PVC 이음관",
+      "체크무늬철판",
+      "규사"
+    ],
+    "price_public": {
+      "status": "미확인(비공개 추정)",
+      "evidence": "저장소 data/dacity/products.json 10건 모두 가격 0, 검색 요약에도 가격 정보 없음"
+    },
+    "spec_info": {
+      "spec": "있음(중량/단위·상차수량 문자열) — 저장소 수집 데이터 기준",
+      "material": "미확인",
+      "usage": "일부 있음(제품 설명문) — 저장소 수집 데이터 기준",
+      "sales_unit": "있음(본 등)",
+      "tech_docs": "미확인"
+    },
+    "robots_txt": "확인 불가(직접 열람 필요)",
+    "terms": "확인 불가(직접 열람 필요)",
+    "public_api": "자체 API 확인 불가(직접 열람 필요). 단, 검색 요약상 나라장터 종합쇼핑몰에서도 판매(암거·벤치플륨관·용배수관) → 조달청 공공데이터로 일부 품목 정보 확보 가능성",
+    "contact_channels": "사이트 내 연락처(미확인), 나라장터 종합쇼핑몰 등록 업체 정보",
+    "relevance": "상",
+    "priority_reason": "제조사이므로 카탈로그 제공·공급 계약 협상 상대가 명확. 조달청 등록품이 있어 공공데이터로 합법적 확보 경로 병행 가능",
+    "risk_notes": [
+      "ktomok.com과 상품 이미지 경로(같은 카테고리 ID·같은 업로드 타임스탬프 디렉터리)가 일치 → 두 사이트가 같은 상품 DB/플랫폼을 공유하거나 한쪽이 다른 쪽 자료를 사용하는 관계로 보임(관계 성격은 미확인). 한쪽 허락만으로 충분한지 확인 필요",
+      "이미지·설명문 저작권은 제조사에 있을 가능성",
+      "저작권법 제93조: 데이터베이스제작자는 DB의 전부 또는 상당한 부분의 복제·배포·전송 권리를 가지며, 상당하지 않은 부분이라도 반복적·체계적으로 복제해 통상적 이용과 충돌하거나 이익을 부당하게 해치면 상당한 부분 복제로 본다(제93조제2항). 상품목록·단가표 전체 수집은 이 범위에 해당할 소지(일반론)."
+    ],
+    "recommended_path": "제조사 카탈로그(규격표·도면·KS 인증서) 공식 제공 요청 + 조달청 나라장터쇼핑몰 품목정보 서비스로 동아산업 등록 품목 조회(공공데이터 이용허락범위 확인 후)",
+    "verification_notes": "운영 법인, 약관, robots.txt, 가격 공개 여부 직접 확인 필요"
+  },
+  {
+    "priority": 3,
+    "name": "경북산업㈜",
+    "operator": "경북산업㈜ (검색 결과 사이트 제목). 요청에 나온 '경북토건'과 같은 회사인지 미확인",
+    "type": "제조사",
+    "domain": "kcon.co.kr",
+    "urls_seen": [
+      "https://kcon.co.kr/"
+    ],
+    "categories": [
+      "PC암거",
+      "사각수로관",
+      "맨홀 블록"
+    ],
+    "price_public": {
+      "status": "미확인",
+      "evidence": "검색 요약에 가격 언급 없음"
+    },
+    "spec_info": {
+      "spec": "미확인",
+      "material": "미확인",
+      "usage": "미확인",
+      "sales_unit": "미확인",
+      "tech_docs": "미확인"
+    },
+    "robots_txt": "확인 불가(직접 열람 필요)",
+    "terms": "확인 불가(직접 열람 필요)",
+    "public_api": "확인 불가(직접 열람 필요)",
+    "contact_channels": "홈페이지 문의(미확인)",
+    "relevance": "상",
+    "priority_reason": "암거·수로관·맨홀 주력 제조사로 우리 핵심 카테고리와 일치. '경북토건'으로 검색했을 때 유일하게 근접한 후보",
+    "risk_notes": [
+      "'경북토건' 실체 미확인 — 사용자가 정확한 상호·도메인을 확인해야 함",
+      "상품 사진·설명문·도면(CAD)은 창작성이 있으면 저작물로 보호될 수 있어 원문·이미지 복제/핫링크는 허락 없이 사용하지 않는 것이 안전(일반론, 법률자문 아님)."
+    ],
+    "recommended_path": "제조사 카탈로그·규격표·출하 단가 제공 요청(공급/대리점 계약과 묶어서)",
+    "verification_notes": "경북토건 = 경북산업㈜ 여부, 제품 범위, 기술자료 공개 여부 모두 미확인"
+  },
+  {
+    "priority": 4,
+    "name": "동양콘크리트산업(주)",
+    "operator": "동양콘크리트산업(주) (페이지 제목 기준)",
+    "type": "제조사(제품 카탈로그형 쇼핑 페이지)",
+    "domain": "dyhumepipe.fzst.kr",
+    "urls_seen": [
+      "http://dyhumepipe.fzst.kr/_rshop/view.html?brandcode=0101000004&xcode=01&mcode=01",
+      "http://dyhumepipe.fzst.kr/_rshop/list.html?xcode=01"
+    ],
+    "categories": [
+      "흄관(B형, KS F 4403)",
+      "레진관",
+      "VR관",
+      "파형강관",
+      "PE관",
+      "PVC관",
+      "맨홀(기업정보 기준)"
+    ],
+    "price_public": {
+      "status": "미확인",
+      "evidence": "쇼핑몰형 URL(_rshop)이나 가격 표시 여부는 검색으로 확인되지 않음"
+    },
+    "spec_info": {
+      "spec": "있음(흄관 B형 규격 페이지)",
+      "material": "미확인",
+      "usage": "있음(토목공사용 원심력 성형관 설명)",
+      "sales_unit": "미확인",
+      "tech_docs": "KS F 4403 표기 확인(인증서 원본은 미확인)"
+    },
+    "robots_txt": "확인 불가(직접 열람 필요)",
+    "terms": "확인 불가(직접 열람 필요)",
+    "public_api": "확인 불가(직접 열람 필요)",
+    "contact_channels": "홈페이지 문의(미확인)",
+    "relevance": "상",
+    "priority_reason": "흄관·VR관·파형강관·PE/PVC관까지 우리 관류 카테고리를 넓게 커버",
+    "risk_notes": [
+      "fzst.kr 하위 도메인(호스팅형 쇼핑몰 빌더로 보임) — 공식 대표 도메인 여부 확인 필요",
+      "상품 사진·설명문·도면(CAD)은 창작성이 있으면 저작물로 보호될 수 있어 원문·이미지 복제/핫링크는 허락 없이 사용하지 않는 것이 안전(일반론, 법률자문 아님)."
+    ],
+    "recommended_path": "제조사 카탈로그·KS 인증서 사본 제공 및 상품정보 사용 허락 요청",
+    "verification_notes": "가격 공개 여부, 대표 도메인, 약관 미확인"
+  },
+  {
+    "priority": 5,
+    "name": "고려콘크리트산업(주)",
+    "operator": "고려콘크리트산업(주)",
+    "type": "제조사",
+    "domain": "kr-con.co.kr",
+    "urls_seen": [
+      "http://kr-con.co.kr/product/?pIdx=product3"
+    ],
+    "categories": [
+      "흄관(B) 소켓식(KS F 4403)",
+      "VR관(KS F 4402)",
+      "원심력사각수로관",
+      "암거",
+      "보도블럭"
+    ],
+    "price_public": {
+      "status": "미확인",
+      "evidence": "없음"
+    },
+    "spec_info": {
+      "spec": "있음(규격표 페이지)",
+      "material": "미확인",
+      "usage": "미확인",
+      "sales_unit": "미확인",
+      "tech_docs": "KS 규격 번호 표기 확인"
+    },
+    "robots_txt": "확인 불가(직접 열람 필요)",
+    "terms": "확인 불가(직접 열람 필요)",
+    "public_api": "확인 불가(직접 열람 필요)",
+    "contact_channels": "홈페이지 문의(미확인)",
+    "relevance": "상",
+    "priority_reason": "흄관·VR관·사각수로관·암거·보도블럭 — 우리 카테고리와 겹침이 넓은 단일 제조사",
+    "risk_notes": [
+      "검색 요약상 일부 업체 규격표에 표 오기가 있다는 지적 → 받은 자료도 검수 필요",
+      "상품 사진·설명문·도면(CAD)은 창작성이 있으면 저작물로 보호될 수 있어 원문·이미지 복제/핫링크는 허락 없이 사용하지 않는 것이 안전(일반론, 법률자문 아님)."
+    ],
+    "recommended_path": "제조사 카탈로그 제공 요청",
+    "verification_notes": "가격·약관·카탈로그 PDF 미확인"
+  },
+  {
+    "priority": 6,
+    "name": "대한산업",
+    "operator": "대한산업 (페이지 제목 기준)",
+    "type": "제조사",
+    "domain": "dhconc.co.kr",
+    "urls_seen": [
+      "http://www.dhconc.co.kr/product/?act=sub7"
+    ],
+    "categories": [
+      "사각주철·원형주철 그레이팅",
+      "스틸그레이팅",
+      "무소음 트렌치",
+      "디자인 그레이팅",
+      "측구수로관용·집수정용 그레이팅"
+    ],
+    "price_public": {
+      "status": "미확인",
+      "evidence": "없음"
+    },
+    "spec_info": {
+      "spec": "있음(집수정용 400×500~2100×2100 높이별 규격표 — 검색 요약)",
+      "material": "주철/스틸 구분 있음",
+      "usage": "있음(측구·집수정 용도 구분)",
+      "sales_unit": "미확인",
+      "tech_docs": "미확인"
+    },
+    "robots_txt": "확인 불가(직접 열람 필요)",
+    "terms": "확인 불가(직접 열람 필요)",
+    "public_api": "확인 불가(직접 열람 필요)",
+    "contact_channels": "홈페이지 문의(미확인)",
+    "relevance": "상",
+    "priority_reason": "그레이팅(스틸·주철)·트렌치 카테고리의 규격표가 상세 — 우리 그레이팅 규격 정합성 검증에 유용",
+    "risk_notes": [
+      "상품 사진·설명문·도면(CAD)은 창작성이 있으면 저작물로 보호될 수 있어 원문·이미지 복제/핫링크는 허락 없이 사용하지 않는 것이 안전(일반론, 법률자문 아님)."
+    ],
+    "recommended_path": "규격표·카탈로그 사용 허락 요청",
+    "verification_notes": "회사 법인명, 가격, 약관 미확인"
+  },
+  {
+    "priority": 7,
+    "name": "토목자재114 (사이트 표기: 토목114닷컴)",
+    "operator": "검색 요약에 '케이앤피물산'으로 언급되나 별도 검색으로 확인되지 않음 — 미확인",
+    "type": "온라인몰(유통)",
+    "domain": "tomok114.com",
+    "urls_seen": [
+      "https://tomok114.com",
+      "https://tomok114.com/category/%EC%A4%91%ED%95%98%EC%A4%91%EC%8A%A4%ED%8B%B8%EA%B7%B8%EB%A0%88%EC%9D%B4%ED%8C%85/213/",
+      "https://tomok114.com/product/%EB%8F%84%EB%A1%9C%EA%B3%B5%EC%82%AC%EC%9A%A9-%EC%8A%A4%ED%8B%B8%EA%B7%B8%EB%A0%88%EC%9D%B4%ED%8C%85%EC%9E%AC%EC%A7%88-ss275/106/",
+      "https://tomok114.com/category/300a/75/"
+    ],
+    "categories": [
+      "중하중 스틸그레이팅(집수정·측구·차량용)",
+      "디자인 그레이팅",
+      "논슬립(매직) 그레이팅",
+      "그레이팅 고정클립",
+      "콘크리트 수로관(카테고리만, 등록 0개로 보임)"
+    ],
+    "price_public": {
+      "status": "공개",
+      "evidence": "검색 요약: 상품별 판매가 표시(예: 도로공사용 스틸그레이팅 부가세 포함가). 시점 이후 변동 가능"
+    },
+    "spec_info": {
+      "spec": "있음(치수 범위)",
+      "material": "있음(SS275 표기)",
+      "usage": "있음(집수정·측구·도로공사용)",
+      "sales_unit": "개 단위 일부 확인",
+      "tech_docs": "미확인"
+    },
+    "robots_txt": "확인 불가(직접 열람 필요)",
+    "terms": "확인 불가(직접 열람 필요)",
+    "public_api": "확인 불가(직접 열람 필요)",
+    "contact_channels": "상품 페이지 문의 번호(본 문서에 옮기지 않음)",
+    "relevance": "중",
+    "priority_reason": "온라인 판매가 공개 경쟁몰이지만 실질 품목은 그레이팅 위주 — 가격 벤치마크 참고용. 수집 대상으로는 위험 대비 이득 낮음",
+    "risk_notes": [
+      "경쟁 쇼핑몰 — 가격·상품 DB 수집 시 부정경쟁 위험이 제조사보다 큼",
+      "원산지(수입/국산) 혼재 — 품질·공급원 승인 정보 별도 확인 필요",
+      "부정경쟁방지법 제2조제1호의 데이터 부정사용 행위(카목) 및 타인의 상당한 투자·노력으로 만든 성과를 공정한 상거래 관행에 반해 무단 사용하는 행위(파목)에 해당할 소지. 특히 경쟁 쇼핑몰의 가격·상품 DB를 그대로 가져와 같은 시장에서 판매하는 경우 위험이 큼(조문 기호는 개정에 따라 바뀔 수 있어 최신 법령 확인 필요, 일반론)."
+    ],
+    "recommended_path": "수집하지 않음. 필요 시 입점·상호 판매(제휴) 제안만",
+    "verification_notes": "운영자, 약관 미확인"
+  },
+  {
+    "priority": 8,
+    "name": "원심력철근콘크리트관 카탈로그 PDF 게시 기관(kcrcic.or.kr)",
+    "operator": "도메인 운영 단체 명칭 미확인(콘크리트 관련 조합/단체로 추정되나 검색으로 확인 못함)",
+    "type": "업계 단체(카탈로그 게시) — 추정",
+    "domain": "kcrcic.or.kr",
+    "urls_seen": [
+      "http://www.kcrcic.or.kr/upload/catalog/6C0A8F9F-ED0C-C802-9836-2FB41F4D653F.pdf"
+    ],
+    "categories": [
+      "원심력철근콘크리트관(흄관) 카탈로그 — 물품분류번호(8자리) 표기"
+    ],
+    "price_public": {
+      "status": "미확인",
+      "evidence": "없음"
+    },
+    "spec_info": {
+      "spec": "있음(카탈로그 PDF, 검색 요약상 직경 250~1800mm 등)",
+      "material": "미확인",
+      "usage": "미확인",
+      "sales_unit": "미확인",
+      "tech_docs": "카탈로그 PDF 존재(검색 결과 제목 기준), 조달 물품분류번호 포함"
+    },
+    "robots_txt": "확인 불가(직접 열람 필요)",
+    "terms": "확인 불가(직접 열람 필요)",
+    "public_api": "확인 불가(직접 열람 필요)",
+    "contact_channels": "미확인",
+    "relevance": "중",
+    "priority_reason": "회원사 다수의 표준 카탈로그를 한 번에 얻을 수 있는 창구일 가능성 — 단체에 일괄 제공 요청 시 효율적",
+    "risk_notes": [
+      "단체 정체 미확인",
+      "카탈로그 저작권은 단체·회원사에 있음 — 열람과 상업적 재게시는 별개"
+    ],
+    "recommended_path": "단체에 회원사 카탈로그 일괄 이용 허락 문의",
+    "verification_notes": "기관명·회원사 목록 미확인(검색에서 사이트 본문 확인 못함)"
+  },
+  {
+    "priority": 9,
+    "name": "선로드",
+    "operator": "선로드 (사이트 기준)",
+    "type": "제조사",
+    "domain": "sunroad.co.kr",
+    "urls_seen": [
+      "http://www.sunroad.co.kr/sub02_1_7.html"
+    ],
+    "categories": [
+      "인조화강블록(보도 200×200×60 / 차도 200×200×80)",
+      "투수·보통 블록"
+    ],
+    "price_public": {
+      "status": "일부(조달청 가격 표기 — 검색 요약)",
+      "evidence": "검색 요약: 페이지에 조달청 가격과 식별번호가 있음"
+    },
+    "spec_info": {
+      "spec": "있음",
+      "material": "있음(쇼트블라스트 표면 등 공정 설명)",
+      "usage": "있음(보도/차도)",
+      "sales_unit": "미확인",
+      "tech_docs": "조달 물품식별번호 표기(검색 요약)"
+    },
+    "robots_txt": "확인 불가(직접 열람 필요)",
+    "terms": "확인 불가(직접 열람 필요)",
+    "public_api": "조달청 등록품이면 공공데이터로 조회 가능성",
+    "contact_channels": "홈페이지 문의(미확인)",
+    "relevance": "중",
+    "priority_reason": "보도블록 카테고리 보강 + 조달 식별번호가 있어 공공데이터와 대조 가능",
+    "risk_notes": [
+      "상품 사진·설명문·도면(CAD)은 창작성이 있으면 저작물로 보호될 수 있어 원문·이미지 복제/핫링크는 허락 없이 사용하지 않는 것이 안전(일반론, 법률자문 아님)."
+    ],
+    "recommended_path": "조달청 품목정보 API로 식별번호 기준 조회 + 제조사 카탈로그 요청",
+    "verification_notes": "약관·카탈로그 PDF 미확인"
+  },
+  {
+    "priority": 10,
+    "name": "엔엠콘",
+    "operator": "엔엠콘 (도메인·페이지 기준)",
+    "type": "제조사",
+    "domain": "enmcon.co.kr",
+    "urls_seen": [
+      "http://enmcon.co.kr/product03/"
+    ],
+    "categories": [
+      "보도블럭(I형·U형)",
+      "인조화강블럭",
+      "점토블럭",
+      "시각장애인(점자)블럭"
+    ],
+    "price_public": {
+      "status": "미확인",
+      "evidence": "없음"
+    },
+    "spec_info": {
+      "spec": "있음(치수·중량)",
+      "material": "미확인",
+      "usage": "미확인",
+      "sales_unit": "미확인",
+      "tech_docs": "미확인"
+    },
+    "robots_txt": "확인 불가(직접 열람 필요)",
+    "terms": "확인 불가(직접 열람 필요)",
+    "public_api": "확인 불가(직접 열람 필요)",
+    "contact_channels": "홈페이지 문의(미확인)",
+    "relevance": "중",
+    "priority_reason": "점자블록·점토블록까지 우리 보도블록 4종을 모두 커버하는 몇 안 되는 후보",
+    "risk_notes": [
+      "검색 요약상 페이지가 오래된 자료(약 2,800일 전)로 표시 — 현행 규격 확인 필요",
+      "상품 사진·설명문·도면(CAD)은 창작성이 있으면 저작물로 보호될 수 있어 원문·이미지 복제/핫링크는 허락 없이 사용하지 않는 것이 안전(일반론, 법률자문 아님)."
+    ],
+    "recommended_path": "최신 카탈로그 제공 요청",
+    "verification_notes": "현재 영업·최신성 미확인"
+  },
+  {
+    "priority": 11,
+    "name": "상용콘크리트(주)",
+    "operator": "상용콘크리트(주) (검색 요약 기준)",
+    "type": "제조사",
+    "domain": "syccrt.com",
+    "urls_seen": [
+      "https://syccrt.com/23"
+    ],
+    "categories": [
+      "흄관 A형·B형",
+      "흄관 접속관",
+      "유공 흄관",
+      "VR관"
+    ],
+    "price_public": {
+      "status": "미확인",
+      "evidence": "없음"
+    },
+    "spec_info": {
+      "spec": "있음(제품 페이지)",
+      "material": "미확인",
+      "usage": "미확인",
+      "sales_unit": "미확인",
+      "tech_docs": "미확인"
+    },
+    "robots_txt": "확인 불가(직접 열람 필요)",
+    "terms": "확인 불가(직접 열람 필요)",
+    "public_api": "확인 불가(직접 열람 필요)",
+    "contact_channels": "홈페이지 문의(미확인)",
+    "relevance": "중",
+    "priority_reason": "흄관 세부 품목(유공·접속관) 보강",
+    "risk_notes": [
+      "상품 사진·설명문·도면(CAD)은 창작성이 있으면 저작물로 보호될 수 있어 원문·이미지 복제/핫링크는 허락 없이 사용하지 않는 것이 안전(일반론, 법률자문 아님)."
+    ],
+    "recommended_path": "제조사 카탈로그 요청",
+    "verification_notes": "회사명 표기 검색 요약 기준 — 직접 확인 필요"
+  },
+  {
+    "priority": 12,
+    "name": "(주)가야스틸",
+    "operator": "(주)가야스틸",
+    "type": "제조사",
+    "domain": "gayasteel.kr / 한글 도메인(xn--2i0bw4q0yi42ecvqlc.kr)",
+    "urls_seen": [
+      "http://gayasteel.kr/?page_id=67",
+      "https://xn--2i0bw4q0yi42ecvqlc.kr/grating/"
+    ],
+    "categories": [
+      "중하중 그레이팅(높이 50/65/75)",
+      "스틸그레이팅",
+      "디자인그레이팅"
+    ],
+    "price_public": {
+      "status": "미확인",
+      "evidence": "없음"
+    },
+    "spec_info": {
+      "spec": "있음(높이 규격)",
+      "material": "있음(ㄷ형강 사용, 스틸)",
+      "usage": "있음(대형차량 통행)",
+      "sales_unit": "미확인",
+      "tech_docs": "대형차량 통행 시 하중구조계산서 제공 안내(검색 요약)"
+    },
+    "robots_txt": "확인 불가(직접 열람 필요)",
+    "terms": "확인 불가(직접 열람 필요)",
+    "public_api": "확인 불가(직접 열람 필요)",
+    "contact_channels": "홈페이지 문의(미확인)",
+    "relevance": "중",
+    "priority_reason": "중하중 그레이팅 하중 근거자료(구조계산서) 확보 가능 — AI 상담 답변 근거로 유용",
+    "risk_notes": [
+      "상품 사진·설명문·도면(CAD)은 창작성이 있으면 저작물로 보호될 수 있어 원문·이미지 복제/핫링크는 허락 없이 사용하지 않는 것이 안전(일반론, 법률자문 아님)."
+    ],
+    "recommended_path": "제조사 기술자료·구조계산서 사용 허락 요청",
+    "verification_notes": "두 도메인의 관계(공식 여부) 미확인"
+  },
+  {
+    "priority": 13,
+    "name": "(주)토암콘크리트",
+    "operator": "(주)토암콘크리트",
+    "type": "제조사",
+    "domain": "toamconcrete.com",
+    "urls_seen": [
+      "http://www.toamconcrete.com/sub/sub02_0106.php"
+    ],
+    "categories": [
+      "스틸 그레이팅(집수정용·측구수로관용)",
+      "기타 콘크리트 제품(미확인)"
+    ],
+    "price_public": {
+      "status": "미확인",
+      "evidence": "없음"
+    },
+    "spec_info": {
+      "spec": "있음(규격표)",
+      "material": "미확인",
+      "usage": "있음(집수정·측구)",
+      "sales_unit": "미확인",
+      "tech_docs": "중량 포함 규격표(검색 요약)"
+    },
+    "robots_txt": "확인 불가(직접 열람 필요)",
+    "terms": "확인 불가(직접 열람 필요)",
+    "public_api": "확인 불가(직접 열람 필요)",
+    "contact_channels": "홈페이지 문의(미확인)",
+    "relevance": "중",
+    "priority_reason": "그레이팅 중량 데이터 — 운반비·상차 계산 보강용",
+    "risk_notes": [
+      "상품 사진·설명문·도면(CAD)은 창작성이 있으면 저작물로 보호될 수 있어 원문·이미지 복제/핫링크는 허락 없이 사용하지 않는 것이 안전(일반론, 법률자문 아님)."
+    ],
+    "recommended_path": "제조사 카탈로그 요청",
+    "verification_notes": "콘크리트 제품 범위 미확인"
+  },
+  {
+    "priority": 14,
+    "name": "그린파이프",
+    "operator": "그린파이프(전북 진안, 검색 요약 기준)",
+    "type": "제조사",
+    "domain": "greenpipe.kr (검색 요약 문장에만 등장 — 결과 링크로는 미확인)",
+    "urls_seen": [
+      "https://files-scs.pstatic.net/2024/01/13/ByMIyJY9HH/이중벽관.pdf (제3자 게시 물가자료 발췌 PDF)"
+    ],
+    "categories": [
+      "PE이중벽관",
+      "PE이중벽 원터치소켓관",
+      "PE다중벽관",
+      "PE소형맨홀"
+    ],
+    "price_public": {
+      "status": "제3자 물가자료에 생산자공표가격 게재(2023-12 조사분, 검색 요약)",
+      "evidence": "물가자료 발췌 PDF — 공장 상차도·부가세 별도 조건, 실거래가와 차이 가능 안내"
+    },
+    "spec_info": {
+      "spec": "있음(D150~D1200, m 단위 — 물가자료 기준)",
+      "material": "PE",
+      "usage": "상하수도",
+      "sales_unit": "m",
+      "tech_docs": "미확인"
+    },
+    "robots_txt": "확인 불가(직접 열람 필요)",
+    "terms": "확인 불가(직접 열람 필요)",
+    "public_api": "확인 불가(직접 열람 필요)",
+    "contact_channels": "홈페이지 자료실/문의(미확인)",
+    "relevance": "중",
+    "priority_reason": "PE 이중벽관 카테고리 보강. 단 공식 사이트 미확인",
+    "risk_notes": [
+      "물가자료(물가지) 발췌본은 발행처 저작물 — 가격표 재게시 금지 전제",
+      "상품 사진·설명문·도면(CAD)은 창작성이 있으면 저작물로 보호될 수 있어 원문·이미지 복제/핫링크는 허락 없이 사용하지 않는 것이 안전(일반론, 법률자문 아님)."
+    ],
+    "recommended_path": "제조사에 카탈로그·공표가격표 사용 허락 요청, 또는 물가정보지 정식 구독·라이선스",
+    "verification_notes": "공식 도메인 실재 여부부터 확인 필요"
+  },
+  {
+    "priority": 15,
+    "name": "88콘크리트",
+    "operator": "88콘크리트 (페이지 제목 기준)",
+    "type": "제조사",
+    "domain": "88con.com",
+    "urls_seen": [
+      "http://www.88con.com/?c=1%2F7&uid=12"
+    ],
+    "categories": [
+      "인조화강블록(보도·차도, 보통/투수, 다수 규격)"
+    ],
+    "price_public": {
+      "status": "미확인",
+      "evidence": "없음"
+    },
+    "spec_info": {
+      "spec": "있음(200×200×60 등 다수 규격)",
+      "material": "미확인",
+      "usage": "있음(보도·차도·광장·주차장)",
+      "sales_unit": "미확인",
+      "tech_docs": "식별번호 구분 표기(검색 요약)"
+    },
+    "robots_txt": "확인 불가(직접 열람 필요)",
+    "terms": "확인 불가(직접 열람 필요)",
+    "public_api": "조달 식별번호가 있으면 공공데이터로 대조 가능",
+    "contact_channels": "홈페이지 문의(미확인)",
+    "relevance": "하",
+    "priority_reason": "단일 품목(인조화강블록) 중심 — 보조 후보",
+    "risk_notes": [
+      "상품 사진·설명문·도면(CAD)은 창작성이 있으면 저작물로 보호될 수 있어 원문·이미지 복제/핫링크는 허락 없이 사용하지 않는 것이 안전(일반론, 법률자문 아님)."
+    ],
+    "recommended_path": "필요 시 카탈로그 요청",
+    "verification_notes": "법인명·약관 미확인"
+  }
+]
