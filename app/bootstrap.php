@@ -436,6 +436,46 @@ function category_root_of(int $id): ?int
 }
 
 /**
+ * 카테고리 표시 경로: 최상위부터 자기까지 이름을 ' › '로 연결 (임의 깊이, 부모 순환·누락 시 거기서 멈춤).
+ * 최상위 이름의 '제품' 접미사는 GNB 표시(layout.php)와 같이 뗀다. 예) '철근콘크리트 › 수로관 › U형수로관'
+ *
+ * @param array<int|string, array{parent_id:int|string|null, name:string}> $rows categories 전체(id => 행)
+ */
+function category_path_label(int $id, array $rows): string
+{
+    if (!isset($rows[$id])) { return ''; }
+    $names = []; $seen = []; $cur = $id; $isRoot = false;
+    while (isset($rows[$cur]) && !isset($seen[$cur])) {
+        $seen[$cur] = 1;
+        $names[] = (string) $rows[$cur]['name'];
+        $pid = $rows[$cur]['parent_id'];
+        if ($pid === null) { $isRoot = true; break; }
+        $cur = (int) $pid;
+    }
+    if ($isRoot) {
+        $last = count($names) - 1;
+        $names[$last] = (string) preg_replace('/제품$/u', '', $names[$last]);
+    }
+    return implode(' › ', array_reverse($names));
+}
+
+/**
+ * 규격 종류 수: spec의 '규격:' 값(parse_spec_field) 중 비어 있지 않은 서로 다른 값의 개수.
+ * 상품 목록의 규격 필터(product_facets)와 같은 기준 — spec 전체 문자열(중량·운반비 포함)로 세지 않는다.
+ *
+ * @param list<string|null> $specs
+ */
+function spec_variant_count(array $specs): int
+{
+    $set = [];
+    foreach ($specs as $spec) {
+        $v = parse_spec_field((string) $spec)['spec'];
+        if ($v !== '') { $set[$v] = 1; }
+    }
+    return count($set);
+}
+
+/**
  * 동적 파세트: 현재 검색/카테고리 결과 집합(필터 미적용)에서 각 필터 옵션의 매칭 개수를 계산.
  *   - 재질(카테고리 루트)·형상/옵션(상품명)·하중(상품명)·규격(spec의 '규격:' 값) — product_filter_sql과 동일 기준.
  *   - 0건 옵션·단일값 수렴 그룹은 렌더러(product_filters_visible)가 숨긴다.

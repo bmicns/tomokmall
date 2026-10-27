@@ -115,6 +115,7 @@ php scripts/testdb/load-export.php <02.csv>                              # 적�
 php scripts/testdb/load-export.php <02.csv> --apply                      # 검사 통과 시 6개 테이블 교체 적재
 php scripts/testdb/compare.php <01_1부.csv> <P1.csv> <P2.csv> ...        # 01을 테스트 DB에 실행해 운영 결과와 블록별 대조
 php scripts/testdb/verify-work-list.php http://127.0.0.1:8080          # 작업별 목록·필터 전 조합 검증(SELECT·GET만)
+php scripts/testdb/verify-suggest.php http://127.0.0.1:8080            # 검색 자동완성 SQL·카테고리 경로·규격 N종·사진·API 구조·기업회원 메인 검증(SELECT·GET + 테스트 계정 로그인)
 ```
 
 운영 CSV·생성된 DDL·`.env` 값은 저장소에 두지 않는다(세션 scratchpad). 세션이 바뀌면 컨테이너를 다시 만들고 위 순서로 재적재한다.

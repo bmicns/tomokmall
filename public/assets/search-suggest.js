@@ -248,7 +248,8 @@
         h = '<div class="ac-cols"><div class="ac-col">'
           + '<div class="ac-col-head">카테고리 <span class="ac-count">' + cats.length + '</span></div><div class="ac-col-list">';
         cats.forEach(function (it) {
-          var path = it.path && it.path !== it.name ? '<span class="ac-path">' + escapeHtml(it.path) + '</span>' : '';
+          // 경로는 상위 분류가 있을 때만(최상위 카테고리는 경로 = 자기 이름이라 생략)
+          var path = it.path && it.path.indexOf(' › ') > -1 ? '<span class="ac-path">' + escapeHtml(it.path) + '</span>' : '';
           h += '<a class="ac-hit ac-hit-cat ac-opt" href="' + escapeHtml(it.url) + '">' + ICON_FOLDER
             + '<span class="ac-hit-text"><span class="ac-hit-name">' + markName(it.name) + '</span>' + path + '</span></a>';
         });
@@ -296,7 +297,8 @@
 
     input.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') {
-        if (isOpen()) { close(); e.stopPropagation(); }
+        // 목록이 열려 있으면 닫기만: type="search" 입력칸의 기본 동작(글자 지우기 → input 이벤트로 목록이 다시 열림) 차단
+        if (isOpen()) { e.preventDefault(); close(); e.stopPropagation(); }
         input.dispatchEvent(new CustomEvent('suggest:escape', { bubbles: true }));
         return;
       }

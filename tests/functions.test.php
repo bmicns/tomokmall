@@ -280,6 +280,34 @@ eq('대분류: GNB 5개만, 순서 고정, 제품 접미사 제거', $tree['lv1'
 eq('하위: 부모 id 기준', $tree['byParent'][256] ?? null, [['id' => 23, 'name' => '벤치플륨관(벤치2종)']]);
 ok('매입 상태 = 완료·납품완료', CORP_HOME_PURCHASED_STATUSES === ['APPROVED', 'DELIVERED']);
 
+echo "[검색 자동완성 카테고리 경로 category_path_label]\n";
+$catTree = [
+    11  => ['parent_id' => null,  'name' => '철근콘크리트제품'],
+    256 => ['parent_id' => '11',  'name' => '플륨관/수로관'],
+    23  => ['parent_id' => 256,   'name' => '벤치플륨관(벤치2종)'],
+    300 => ['parent_id' => 23,    'name' => '4단계'],
+    7   => ['parent_id' => null,  'name' => '전기/조명'],
+    90  => ['parent_id' => 999,   'name' => '부모없음'],
+    91  => ['parent_id' => 92,    'name' => '순환A'],
+    92  => ['parent_id' => 91,    'name' => '순환B'],
+];
+eq('3단계: 최상위 제품 접미사 제거', category_path_label(23, $catTree), '철근콘크리트 › 플륨관/수로관 › 벤치플륨관(벤치2종)');
+eq('4단계 이상도 전체 경로', category_path_label(300, $catTree), '철근콘크리트 › 플륨관/수로관 › 벤치플륨관(벤치2종) › 4단계');
+eq('최상위 자신(제품 접미사 없음)', category_path_label(7, $catTree), '전기/조명');
+eq('최상위 자신(제품 접미사 제거)', category_path_label(11, $catTree), '철근콘크리트');
+eq('부모 누락: 있는 데까지(접미사 처리 안 함)', category_path_label(90, $catTree), '부모없음');
+eq('부모 순환: 무한루프 없이 멈춤', category_path_label(91, $catTree), '순환B › 순환A');
+eq('없는 id → 빈 문자열', category_path_label(12345, $catTree), '');
+
+echo "[검색 자동완성 규격 종류 수 spec_variant_count]\n";
+eq('규격 값 기준(중량·운반비 차이는 같은 규격)', spec_variant_count([
+    '규격: 300*300*80T | 단위: m2 | 중량: 176kg',
+    '규격: 300*300*80T | 단위: m2 | 중량: 180kg | 운반비예상: 1000',
+    '규격: 200*100*60T | 단위: m2',
+]), 2);
+eq('규격 항목 없음·빈 값·NULL 은 세지 않음', spec_variant_count(['단위: 본 | 중량: 10kg', '', null, '규격:  ']), 0);
+eq('빈 목록 → 0', spec_variant_count([]), 0);
+
 echo "[DB 접속 실패 진단 db_connect_error_hint / env_shadowed_keys]\n";
 eq('1045 → 계정·비밀번호', db_connect_error_hint(1045), '계정·비밀번호 불일치(DB_USER/DB_PASS)');
 eq('1049 → DB 없음',       db_connect_error_hint(1049), 'DB 없음(DB_NAME)');
