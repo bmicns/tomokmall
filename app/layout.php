@@ -171,7 +171,7 @@ function render_header(string $title, string $mode = 'normal'): void
         <?php endif; ?>
         <nav class="header-nav">
             <?php if ($mode === 'chat') echo $megaTabsHtml; ?>
-            <button class="btn-header-search btn-header-search--text" onclick="var w=document.getElementById('header-search-wrap');w.classList.toggle('open');if(w.classList.contains('open'))document.getElementById('header-search-input').focus();">검색</button>
+            <button type="button" class="btn-header-search btn-header-search--text" aria-expanded="false" aria-controls="header-search-wrap" onclick="if(window.tomokHeaderSearch)tomokHeaderSearch.toggle();">검색</button>
             <?php if (false): // 상단 '부동산안전' 메뉴 숨김(페이지·코드는 유지 — 다시 노출하려면 false → true) ?>
             <a href="/real-estate-safety.php" class="nav-link<?= $path === '/real-estate-safety.php' ? ' active' : '' ?>">부동산안전</a>
             <?php endif; ?>
@@ -195,13 +195,20 @@ function render_header(string $title, string $mode = 'normal'): void
     <?php endif; ?>
 </header>
 <div id="header-search-wrap" class="header-search-wrap">
-    <form action="/products.php" method="get" class="header-search-form">
-        <input type="text" name="q" id="header-search-input" class="header-search-input" placeholder="제품명, 규격 검색…" autocomplete="off" data-suggest>
+    <form action="/products.php" method="get" class="header-search-form" role="search">
+        <div class="header-search-field" data-suggest-anchor>
+            <label for="header-search-input" class="gh-sr-only">검색어</label>
+            <input type="text" name="q" id="header-search-input" class="header-search-input" placeholder="제품명, 규격, 카테고리 검색" autocomplete="off" data-suggest>
+            <button type="button" class="header-search-x" aria-label="검색 닫기">
+                <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#C8C8C8"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+        </div>
         <button type="submit" class="header-search-submit" aria-label="검색">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>
         </button>
     </form>
 </div>
+<div id="header-search-dim" class="header-search-dim" hidden></div>
 
 <!-- ── 로그인 모달 ───────────────────────────────────── -->
 <div class="auth-overlay" id="modal-login" onclick="if(event.target===this)closeAuthModal()">

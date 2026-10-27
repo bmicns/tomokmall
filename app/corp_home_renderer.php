@@ -30,7 +30,7 @@ $corpJsV   = ($docRootCh ? @filemtime($docRootCh . '/assets/corp-home.js') : fal
     <section class="ch-hero">
         <h1 class="ch-hero-title">현장에서 바로 쓰는 건축자재</h1>
         <p class="ch-hero-sub">품목·규격을 찾고 필요한 수량으로 견적을 구성하세요</p>
-        <form class="ch-search" role="search" method="get" action="/products.php">
+        <form class="ch-search" role="search" method="get" action="/products.php" data-suggest-anchor>
             <label for="ch-q" class="ch-sr">자재 검색</label>
             <input id="ch-q" type="search" name="q" placeholder="전체 자재 검색 — 품명 또는 규격" autocomplete="off" data-suggest>
             <button type="submit">
