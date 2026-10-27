@@ -60,6 +60,39 @@ eq('단위 라벨 m 2 → ㎡', ai_unit_label('규격: 220*110*60T | 단위: m 2
 eq('단위 라벨 본',        ai_unit_label('규격: 400*400*2000 | 단위: 본'), '본');
 eq('단위 라벨 없음',      ai_unit_label('220*110*60T'), '');
 
+echo "[AI 검색 대표 규격·부속 제외 — 실제 수집 상품(data/ktomok/products.json)]\n";
+// 운영 DB 적재 형식과 같게 '규격: … | 단위: …'로 구성. 상품 순서는 수집 순서(관련도 동점 시 기존엔 id가 큰 변형이 대표가 됨)
+$ktomok = json_decode((string) file_get_contents(__DIR__ . '/../data/ktomok/products.json'), true) ?: [];
+$realRows = static function (string $category, ?string $specRe = null) use ($ktomok): array {
+    $rows = [];
+    foreach ($ktomok as $i => $p) {
+        if ($p['categoryName'] !== $category || ($specRe !== null && !preg_match($specRe, $p['spec']))) { continue; }
+        $rows[] = ['id' => $i + 1, 'name' => $p['name'], 'spec' => "규격: {$p['spec']} | 단위: {$p['unit']}", 'price_b2c' => (int) $p['price']];
+    }
+    return array_reverse($rows); // 검색 정렬(p.id DESC) 재현: 마지막 변형(80T 칼라 등)이 먼저
+};
+$specOf = static fn(array $r): string => preg_match('/규격:\s*([^|]+)/u', $r['spec'], $m) ? trim($m[1]) : '';
+
+$il = $realRows('인터로킹U형블럭');
+ok('실데이터 로드: 인터로킹U형블럭 6종', count($il) === 6);
+$rep = ai_pick_representatives($il, 0.0, null, 20.0);
+eq('보행용(두께 조건 없음) 대표 = 가장 저렴한 60T 회색', $specOf($rep[0]), '220*110*60T_회색');
+$rep = ai_pick_representatives($realRows('인터로킹U형블럭', '/\*80T/'), 0.0, 80.0, 20.0);
+eq('차량용 80T만 남은 경우 대표 = 80T 회색', $specOf($rep[0]), '220*110*80T_회색');
+$rep = ai_pick_representatives($realRows('인조화강블록(투수)'), 0.0, null, 20.0);
+ok('인조화강블록(투수) 대표 = 60T 최저가(9,900원/㎡, 200×200·200×100 동가)', (int) $rep[0]['price_b2c'] === 9900 && strpos($specOf($rep[0]), '60T') !== false);
+$rep = ai_pick_representatives($realRows('점토블럭'), 0.0, null, 20.0);
+eq('점토블럭 대표 = 개당 가장 싼 레드 계열(720원)', (int) $rep[0]['price_b2c'], 720);
+ok('점토블럭 80T 규격 없음(차량용 비교에서 제외돼야 함)', $realRows('점토블럭', '/\*80T/') === []);
+$curb = array_merge($realRows('경계석집게'), $realRows('콘크리트경계석'));
+$names = array_unique(array_column(ai_exclude_accessories($curb, '경계석'), 'name'));
+ok('경계석 검색 → 경계석집게 제외', !in_array('경계석집게', $names, true) && in_array('콘크리트경계석', $names, true));
+$names = array_unique(array_column(ai_exclude_accessories($curb, '경계석 집게'), 'name'));
+ok('고객이 집게를 직접 찾으면 유지', in_array('경계석집게', $names, true));
+$rep = ai_pick_representatives($realRows('콘크리트경계석'), 18.0, null, null);
+ok('경계석 대표는 직선형(곡선 아님)', strpos($specOf($rep[0]), '곡선') === false);
+ok('집게만 있으면 원복(빈 결과 방지)', count(ai_exclude_accessories($realRows('경계석집게'), '경계석')) === count($realRows('경계석집게')));
+
 echo "[하이라이트 highlight_terms]\n";
 ok('검색어 <mark> 삽입', strpos(highlight_terms('측구수로관', ['측구']), '<mark') !== false);
 ok('HTML 이스케이프',    strpos(highlight_terms('<b>x</b>', []), '&lt;') !== false);

@@ -38,6 +38,7 @@ function ai_tool_definitions(): array
                         'spec_mm'  => ['type' => 'number',  'description' => '규격 치수(폭 또는 관경, mm). 예: 폭 50cm → 500, 관경 300mm → 300. 해당 치수 제품만 필터링.'],
                         'length_m' => ['type' => 'number',  'description' => '설치 총 길이/연장(미터). 예: 100m 수로 → 100. 선형 제품의 소요 수량 자동 계산에 사용.'],
                         'area_m2'  => ['type' => 'number',  'description' => '설치 면적(㎡). 예: 보도블록 200㎡ → 200. 면적 단위(㎡) 제품의 소요 수량 계산에 사용.'],
+                        'spec_strict' => ['type' => 'boolean', 'description' => 'spec_mm이 반드시 지켜야 하는 조건이면 true(예: 차량이 올라가는 곳의 블록 두께 80). 맞는 규격이 없으면 다른 규격을 보여주지 않습니다. queries 비교에서는 항상 적용됩니다.'],
                     ],
                     'required' => ['query'],
                 ],
@@ -206,7 +207,8 @@ function ai_estimate_quantity(array $p, float $lengthM, ?float $widthMm, ?float 
 
 /**
  * 상품 검색 — 통합 검색엔진(search_products: 동의어+규격인지+관련도) 사용.
- * AI 카드용으로 ①상품명 중복 제거(서로 다른 제품), ②상품명에 검색어가 들어간 것 우선 재정렬.
+ * AI 카드용으로 ⓪부속(집게·몰드) 제외, ①상품명별 대표 규격 1개(예상 자재비 최저),
+ * ②상품명에 검색어가 들어간 것 우선 재정렬.
  */
 function tool_search_products(array $input): string
 {
@@ -260,7 +262,8 @@ function tool_search_products(array $input): string
             }
         }
         // ② 규격 완화: 여전히 0건이고 규격을 좁게 걸었다면 규격 빼고 근접 제품
-        if (!$rows && $specMm > 0) {
+        //    단, spec_strict(차량용 두께 80T 등 반드시 지켜야 하는 규격)면 완화하지 않는다(다른 두께 노출 금지).
+        if (!$rows && $specMm > 0 && empty($input['spec_strict'])) {
             $try = search_products($qText, $fetch);
             if ($try) {
                 $rows = $try;
@@ -269,40 +272,15 @@ function tool_search_products(array $input): string
         }
     }
 
-    // ⓪ 용도 배타 필터: '수로/배수로/측구/트렌치' 본체 검색이면
-    //    ① 맨홀/집수정(점 설치물)  ② 뚜껑·집게·몰드(부속·거푸집)를 결과에서 제외한다.
-    //    단, 고객이 그 부속을 직접 찾으면(query에 언급) 제외하지 않는다.
-    //    가드: 필터 후 결과가 0이면 원복(빈 결과 방지).
-    $isChannel = (bool) preg_match('/수로|배수로|측구|트렌치|농수로/u', $query);
-    $isManhole = (bool) preg_match('/맨홀|집수정/u', $query);
-    $wantsPart = (bool) preg_match('/뚜껑|덮개|집게|몰드/u', $query);
-    if ($isChannel) {
-        $exclude = [];
-        if (!$isManhole) { $exclude[] = '맨홀|집수정'; }
-        if (!$wantsPart) { $exclude[] = '뚜껑|집게|몰드'; } // 덮개는 제외 안 함(그레이팅덮개 등 보존)
-        if ($exclude) {
-            $re = '/' . implode('|', $exclude) . '/u';
-            $filtered = array_values(array_filter(
-                $rows,
-                static fn($r) => !preg_match($re, (string) ($r['name'] ?? ''))
-            ));
-            if ($filtered) {
-                $rows = $filtered;
-            }
-        }
-    }
+    // ⓪ 용도 배타 필터: 부속(집게·몰드 등) 제외
+    $rows = ai_exclude_accessories($rows, $query);
 
-    // ① 상품명 기준 중복 제거 (규격 변형 다수 → 대표 1개, 관련도 상위가 대표)
-    $seen = [];
-    $distinct = [];
-    foreach ($rows as $r) {
-        $name = (string) ($r['name'] ?? '');
-        if ($name === '' || isset($seen[$name])) {
-            continue;
-        }
-        $seen[$name] = true;
-        $distinct[] = $r;
-    }
+    // 소요 수량 자동 계산 입력 (고객이 길이/면적을 말한 경우)
+    $lengthM = (float) ($input['length_m'] ?? 0);
+    $areaM2  = (float) ($input['area_m2'] ?? 0);
+
+    // ① 상품명 기준 중복 제거 (규격 변형 다수 → 대표 1개: 같은 조건에서 예상 자재비가 가장 낮은 변형)
+    $distinct = ai_pick_representatives($rows, $lengthM, $specMm > 0 ? (float) $specMm : null, $areaM2 > 0 ? $areaM2 : null);
 
     // ② 상품명에 검색어(숫자 규격 제외 텍스트)가 들어간 상품을 우선 (설명만 걸린 노이즈 후순위)
     $textTerms = array_values(array_filter(
@@ -325,10 +303,6 @@ function tool_search_products(array $input): string
     }
 
     $products = array_slice($distinct, 0, $limit);
-
-    // 소요 수량 자동 계산 입력 (고객이 길이/면적을 말한 경우)
-    $lengthM = (float) ($input['length_m'] ?? 0);
-    $areaM2  = (float) ($input['area_m2'] ?? 0);
 
     $cards = array_map(function ($p) use ($lengthM, $specMm, $areaM2) {
         [$qty, $basis] = ai_estimate_quantity(
@@ -358,7 +332,9 @@ function tool_search_products(array $input): string
         $out = [
             'products' => [],
             'count'    => 0,
-            'note'     => '해당 조건에 맞는 제품을 찾지 못했습니다. 용도(수로·배수·경계·차단 등)나 재질을 알려주시면 다시 찾아드리겠습니다.',
+            'note'     => ($specMm > 0 && !empty($input['spec_strict']))
+                ? "'{$qText}'은(는) 규격 {$specMm}mm 제품이 없습니다. 조건에 맞지 않는 다른 규격은 보여드리지 않았습니다."
+                : '해당 조건에 맞는 제품을 찾지 못했습니다. 용도(수로·배수·경계·차단 등)나 재질을 알려주시면 다시 찾아드리겠습니다.',
             '_sse'     => [],
         ];
         if ($corrected !== null) { $out['corrected'] = $corrected; }
@@ -375,6 +351,64 @@ function tool_search_products(array $input): string
     if ($note !== null)      { $out['note']      = $note; }      // 교정/규격완화 사유
     if ($corrected !== null) { $out['corrected'] = $corrected; }
     return json_encode($out, JSON_UNESCAPED_UNICODE);
+}
+
+/**
+ * 용도 배타 필터 (DB 불필요한 순수 함수).
+ * - 모든 검색: 집게·몰드(시공 장비·거푸집)는 본체 검색 결과에서 제외 (예: '경계석' → 경계석집게 제외)
+ * - '수로/배수로/측구/트렌치' 본체 검색: 맨홀/집수정(점 설치물)과 뚜껑도 제외
+ * 단, 고객이 그 부속을 직접 찾으면(query에 언급) 제외하지 않는다. 필터 후 0건이면 원복(빈 결과 방지).
+ */
+function ai_exclude_accessories(array $rows, string $query): array
+{
+    $isChannel = (bool) preg_match('/수로|배수로|측구|트렌치|농수로/u', $query);
+    $isManhole = (bool) preg_match('/맨홀|집수정/u', $query);
+    $wantsPart = (bool) preg_match('/뚜껑|덮개|집게|몰드/u', $query);
+    $exclude = [];
+    if (!$wantsPart) {
+        $exclude[] = $isChannel ? '뚜껑|집게|몰드' : '집게|몰드'; // 덮개는 제외 안 함(그레이팅덮개 등 보존)
+    }
+    if ($isChannel && !$isManhole) {
+        $exclude[] = '맨홀|집수정';
+    }
+    if (!$exclude) {
+        return $rows;
+    }
+    $re = '/' . implode('|', $exclude) . '/u';
+    $filtered = array_values(array_filter(
+        $rows,
+        static fn($r) => !preg_match($re, (string) ($r['name'] ?? ''))
+    ));
+    return $filtered ?: $rows;
+}
+
+/**
+ * 상품명별 대표 규격 1개 선택 (DB 불필요한 순수 함수).
+ * 같은 상품명의 변형(두께·색상·곡선 등) 중 같은 조건에서 예상 자재비(수량×단가)가 가장 낮은 것,
+ * 수량을 계산할 수 없으면 단가가 가장 낮은 것을 고른다(가격 0은 후순위). 동점이면 기존 관련도 순서 유지.
+ * 상품명 순서는 처음 나온 순서(관련도) 그대로.
+ * ※ 이전: 관련도 1위가 대표 → 동점 시 id가 큰 변형(예: 80T 칼라, 가장 비쌈)이 뽑혀 비용 비교가 부풀려짐.
+ */
+function ai_pick_representatives(array $rows, float $lengthM, ?float $widthMm, ?float $areaM2): array
+{
+    $best = [];   // name => [row, key]
+    $order = [];
+    foreach ($rows as $r) {
+        $name = (string) ($r['name'] ?? '');
+        if ($name === '') {
+            continue;
+        }
+        $price = (int) ($r['price_b2c'] ?? 0);
+        [$qty] = ai_estimate_quantity($r, $lengthM, $widthMm, $areaM2);
+        $key = $price <= 0 ? PHP_INT_MAX : ($qty !== null ? $qty * $price : $price);
+        if (!isset($best[$name])) {
+            $order[] = $name;
+            $best[$name] = [$r, $key];
+        } elseif ($key < $best[$name][1]) {
+            $best[$name] = [$r, $key];
+        }
+    }
+    return array_map(static fn($n) => $best[$n][0], $order);
 }
 
 /** 규격 문자열의 '단위:' 값을 표시용으로 정리 (m 2 → ㎡). 없으면 ''. */
@@ -398,18 +432,21 @@ function ai_search_compare(array $queries, array $input): string
     $seen  = [];
     $notes = [];
     $missing = [];
+    $specMm = (int) ($input['spec_mm'] ?? 0);
     foreach ($queries as $q) {
         $one = $input;
         unset($one['queries']);
         $one['query'] = $q;
         $one['limit'] = $per;
+        // 비교는 같은 조건이어야 하므로 규격(예: 차량용 80T)을 완화하지 않는다 → 맞는 규격이 없는 종류는 비교에서 제외
+        $one['spec_strict'] = true;
         $res = json_decode(tool_search_products($one), true) ?? [];
         if (empty($res['products'])) {
             $missing[] = $q;
             continue;
         }
         if (!empty($res['note'])) {
-            $notes[] = $res['note'];
+            $notes[] = "'{$q}': " . $res['note'];
         }
         foreach ($res['products'] as $c) {
             if (isset($seen[$c['id']])) {
@@ -420,7 +457,8 @@ function ai_search_compare(array $queries, array $input): string
         }
     }
     if ($missing) {
-        $notes[] = "'" . implode("', '", $missing) . "'은(는) 해당 조건의 제품을 찾지 못해 비교에서 빠졌습니다.";
+        $notes[] = "'" . implode("', '", $missing) . "'은(는) "
+            . ($specMm > 0 ? "규격 {$specMm}mm 제품이 없어" : '해당 조건의 제품을 찾지 못해') . ' 비교에서 빠졌습니다.';
     }
 
     if (!$cards) {
