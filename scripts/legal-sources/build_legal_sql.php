@@ -3,7 +3,7 @@ declare(strict_types=1);
 /**
  * candidates.json(검색 기반 후보) → rag_documents 등록 SQL 초안 생성.
  * 원칙: 원문 검증 전이므로 전부 is_active=0, review_status='unreviewed', legal_status='unknown'(폐지는 'repealed'),
- *       verify_level 은 candidates.json 값 그대로(original_verified 원문 검증 / title_confirmed 고시·기준명 확인 / search_candidate 검색 후보),
+ *       verify_level 은 candidates.json 값 그대로(original_verified 원문 검증 / metadata_confirmed 공식 메타데이터 확인(고시·기준명·개정일·적용 범위) / search_candidate 검색 후보),
  *       원문·고시로 확인된 시행일·고시일만 effective_date·revised_date 에 기록(그 외 NULL),
  *       시행일·개정일 칸은 비움(원문 확인 후 입력). 본문에는 법령 '내용'을 쓰지 않고 식별 정보만 기록.
  * 실행: php scripts/legal-sources/build_legal_sql.php docs/03-analysis/ai-sourcing/legal-sources/candidates.json \
@@ -21,7 +21,7 @@ echo "-- ⚠️ 초안 — 운영 실행 금지(승인 전). 01_rag_documents_so
 echo "DRAFT_STOP_승인_전_실행_금지;  -- 안전장치: 이 줄이 있으면 실행 즉시 문법 오류로 중단됩니다. 승인 후 이 줄만 지우고 실행.\n";
 $cnt = array_count_values(array_map(static fn($r) => $r['verify_level'] ?? 'search_candidate', $rows));
 echo "-- 생성: scripts/legal-sources/build_legal_sql.php · 원본: candidates.json (" . count($rows) . "건 · 원문 검증 " . ($cnt['original_verified'] ?? 0)
-    . " / 고시·기준명 확인 " . ($cnt['title_confirmed'] ?? 0) . " / 검색 후보 " . ($cnt['search_candidate'] ?? 0) . ")\n";
+    . " / 공식 메타데이터 확인 " . ($cnt['metadata_confirmed'] ?? 0) . " / 검색 후보 " . ($cnt['search_candidate'] ?? 0) . ")\n";
 echo "-- 모든 행 is_active=0 → AI 상담에 쓰이지 않음. 원문 확인·검토 후 관리자 화면에서 칸을 채우고 활성화.\n";
 echo "-- 기존 5건(id 1~5)은 건드리지 않음(INSERT 만).\n\nSTART TRANSACTION;\n";
 foreach ($rows as $r) {
@@ -33,7 +33,7 @@ foreach ($rows as $r) {
     $repealed = str_contains((string) $r['status'], '폐지');
     // 현행 표시는 원문으로 시행일이 확인된 항목만(그 외 unknown)
     $legal = $repealed ? 'repealed' : (($r['verify_level'] ?? '') === 'original_verified' && !empty($r['effective_date']) ? 'current' : 'unknown');
-    $LVL = ['original_verified' => '원문 검증', 'title_confirmed' => '고시·기준명 확인', 'search_candidate' => '검색 후보'];
+    $LVL = ['original_verified' => '상세 원문 검증', 'metadata_confirmed' => '공식 메타데이터 확인', 'search_candidate' => '검색 후보'];
     $content = "[{$LVL[$r['verify_level'] ?? 'search_candidate']} — AI 상담 미사용(검토 전)]\n"
         . (!empty($r['verified_summary']) ? "확인된 내용: {$r['verified_summary']}\n" : '')
         . "AI 적용 범위: " . ($r['ai_scope'] ?? '미검토') . "\n"
@@ -45,7 +45,7 @@ foreach ($rows as $r) {
     $code  = preg_match('/^(?:KS [A-Z] \d{4}(?:-\d+)?|KDS(?: \d{2}){3}|KCS(?: \d{2}){3})/', (string) $r['ref_no'], $cm) ? $cm[0] : '';
     $title = "[{$r['type']}] " . mb_substr($r['official_name'], 0, 120) . ($code !== '' && !str_contains($r['official_name'], $code) ? " ({$code})" : '');
     $refShort = mb_substr((string) $r['ref_no'], 0, 100);
-    $lvl = in_array($r['verify_level'] ?? '', ['original_verified', 'title_confirmed', 'search_candidate'], true) ? $r['verify_level'] : 'search_candidate';
+    $lvl = in_array($r['verify_level'] ?? '', ['original_verified', 'metadata_confirmed', 'search_candidate'], true) ? $r['verify_level'] : 'search_candidate';
     printf("INSERT INTO rag_documents (title, content, category_key, tags, is_active, sort_order, source_type, source_name, source_ref, source_url, applies_to, legal_status, author, review_status, verify_level, verified_by, verified_at, effective_date, revised_date)\n"
         . "VALUES (%s, %s, %s, %s, 0, 900, %s, %s, %s, %s, %s, %s, %s, 'unreviewed', %s, %s, %s, %s, %s);\n",
         $q(mb_substr($title, 0, 200)), $q($content), $q($cat), $q(mb_substr($mats, 0, 500)), $q($type),
