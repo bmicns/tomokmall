@@ -180,6 +180,11 @@ render_header('AI 자재 상담', 'chat');
   .compare-spec { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
   .compare-qtybasis { font-size: 11px; color: var(--color-primary); font-weight: 600; margin-top: 3px; }
   .compare-price { font-size: 13px; font-weight: 600; color: var(--color-primary); white-space: nowrap; }
+  .compare-unit { font-size: 11px; font-weight: 400; color: var(--color-text-secondary); }
+  .compare-cost { font-size: 11px; font-weight: 600; color: var(--color-text-primary); margin-top: 3px; }
+  .compare-summary { font-size: 12px; line-height: 1.5; padding: 8px 10px; margin-bottom: 6px; background: var(--color-surface); border: 1px solid var(--color-border); }
+  .compare-summary b { color: var(--color-primary); }
+  .compare-summary span { display: block; font-size: 11px; color: var(--color-text-secondary); }
   .compare-qty {
     width: 60px; padding: 4px; border: 1px solid var(--color-border);
     font-size: 12px; text-align: center; font-family: var(--font); background: #fff;
@@ -409,6 +414,7 @@ render_header('AI 자재 상담', 'chat');
 
   <div class="input-area">
     <div class="hint-chips" id="hints">
+      <button class="hint-chip" onclick="setInput(this.textContent)">집 앞에 보도블록 깔면 뭐가 좋아요?</button>
       <button class="hint-chip" onclick="setInput(this.textContent)">차량 통행 구간 그레이팅</button>
       <button class="hint-chip" onclick="setInput(this.textContent)">주차장 배수 공사</button>
       <button class="hint-chip" onclick="setInput(this.textContent)">농수로 정비 공사</button>

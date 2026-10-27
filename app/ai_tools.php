@@ -33,6 +33,7 @@ function ai_tool_definitions(): array
                     'type'       => 'object',
                     'properties' => [
                         'query'    => ['type' => 'string',  'description' => '검색 텍스트: 카테고리/제품명 + 용도/조건(중하중·수로용·우수 등). 숫자(치수·길이·수량)는 절대 넣지 말 것. 예: "그레이팅 수로용 중하중", "이중벽관 하수", "경계석 화강암".'],
+                        'queries'  => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => '여러 종류를 한 표로 비교할 때만 사용(2~4개). 예: ["인터로킹 블록", "인조화강블록", "점토블럭"]. 각 종류별 대표 제품이 한 표에 모이고 같은 면적/길이 기준 소요 수량·예상 금액이 함께 계산됩니다. 이때 query에는 대표 품목명을 넣으세요.'],
                         'limit'    => ['type' => 'integer', 'description' => '최대 결과 수 (기본 5, 최대 10)'],
                         'spec_mm'  => ['type' => 'number',  'description' => '규격 치수(폭 또는 관경, mm). 예: 폭 50cm → 500, 관경 300mm → 300. 해당 치수 제품만 필터링.'],
                         'length_m' => ['type' => 'number',  'description' => '설치 총 길이/연장(미터). 예: 100m 수로 → 100. 선형 제품의 소요 수량 자동 계산에 사용.'],
@@ -109,8 +110,26 @@ function ai_tool_dispatch(string $toolName, array $input, string $sid): string
 // ─── 개별 Tool 핸들러 ────────────────────────────────────────────────────────
 
 /**
+ * 포장 블록 1장 면적(㎡). 규격이 '가로*세로*두께T' 형태(예: 220*110*60T, 300*300*30T)일 때만 계산.
+ * 두께 표기(T)가 없거나(경계석 120*120*120 등) 한 변이 50~600mm 밖이면 null(틀린 장수 방지).
+ */
+function ai_tile_area_m2(string $reg): ?float
+{
+    if (!preg_match('/(\d+(?:\.\d+)?)\s*[*x×]\s*(\d+(?:\.\d+)?)\s*[*x×]\s*\d+(?:\.\d+)?\s*T/iu', $reg, $m)) {
+        return null;
+    }
+    $w = (float) $m[1];
+    $l = (float) $m[2];
+    if ($w < 50 || $w > 600 || $l < 50 || $l > 600) {
+        return null;
+    }
+    return ($w / 1000.0) * ($l / 1000.0);
+}
+
+/**
  * 소요 수량 자동 계산.
- * - 단위 ㎡/m2 : 면적 기준. area_m2 주면 그대로, 없으면 길이×폭(spec_mm)
+ * - 단위 ㎡/m2 : 면적 기준. area_m2 주면 그대로, 없으면 길이×폭(spec_mm). 블록 규격이면 장수도 안내
+ * - 개 단위 포장 블록(가로*세로*두께T) + area_m2 : 면적 ÷ 블록 1장 면적
  * - 단위 M     : 길이(m) 그대로
  * - 그 외(본/개/조 등 선형): 규격의 최대 치수 = 1개 길이로 보고 길이 ÷ 1개길이
  * 여유율 없이 정확히(올림). 계산 불가하면 [null, ''] 반환.
@@ -127,19 +146,36 @@ function ai_estimate_quantity(array $p, float $lengthM, ?float $widthMm, ?float 
 
     $fmt = static fn(float $n): string => rtrim(rtrim(sprintf('%.2f', $n), '0'), '.');
     $unitNorm = str_replace(' ', '', mb_strtolower($unit));
+    $tileM2   = ai_tile_area_m2($reg);
 
     // 면적 단위 (㎡ / m2)
     if ($unit === '㎡' || strpos($unitNorm, 'm2') !== false || strpos($unit, '㎡') !== false) {
+        $area = null;
+        $basis = '';
         if ($areaM2 && $areaM2 > 0) {
-            $qty = (int) ceil($areaM2);
-            return [$qty, sprintf('%s㎡ → %d㎡', $fmt($areaM2), $qty)];
+            $area  = $areaM2;
+            $basis = sprintf('%s㎡', $fmt($areaM2));
+        } elseif ($lengthM > 0 && $widthMm && $widthMm > 0) {
+            $area  = $lengthM * ($widthMm / 1000.0);
+            $basis = sprintf('%sm × %sm = %s㎡', $fmt($lengthM), $fmt($widthMm / 1000), $fmt($area));
         }
-        if ($lengthM > 0 && $widthMm && $widthMm > 0) {
-            $area = $lengthM * ($widthMm / 1000.0);
-            $qty  = (int) ceil($area);
-            return [$qty, sprintf('%sm × %sm = %s㎡ → %d㎡', $fmt($lengthM), $fmt($widthMm / 1000), $fmt($area), $qty)];
+        if ($area === null) {
+            return [null, ''];
         }
-        return [null, ''];
+        $qty = (int) ceil($area);
+        $basis .= sprintf(' → %d㎡', $qty);
+        // 블록 1장 크기를 알면 장수도 안내(줄눈·절단 손실 제외한 이론값)
+        if ($tileM2 !== null) {
+            $basis .= sprintf(' (블록 약 %s장)', number_format((int) ceil($area / $tileM2)));
+        }
+        return [$qty, $basis];
+    }
+
+    // 개 단위 포장 블록(점토블럭·점자블럭 등): 면적 ÷ 블록 1장 면적
+    if ($areaM2 && $areaM2 > 0 && $tileM2 !== null) {
+        $qty = (int) ceil($areaM2 / $tileM2);
+        $u   = $unit !== '' ? $unit : '개';
+        return [$qty, sprintf('%s㎡ ÷ 1장 %s㎡ = %s%s', $fmt($areaM2), rtrim(rtrim(sprintf('%.4f', $tileM2), '0'), '.'), number_format($qty), $u)];
     }
 
     if ($lengthM <= 0) {
@@ -174,6 +210,15 @@ function ai_estimate_quantity(array $p, float $lengthM, ?float $widthMm, ?float 
  */
 function tool_search_products(array $input): string
 {
+    // 여러 종류 비교(queries 2~4개): 종류별로 같은 조건 검색 → 한 표로 병합
+    $multi = array_values(array_filter(
+        array_map(static fn($q) => trim((string) $q), is_array($input['queries'] ?? null) ? $input['queries'] : []),
+        static fn($q) => $q !== ''
+    ));
+    if (count($multi) >= 2) {
+        return ai_search_compare(array_slice($multi, 0, 4), $input);
+    }
+
     $rawQuery = trim((string) ($input['query'] ?? ''));
     if ($rawQuery === '') {
         return json_encode(['error' => 'query 파라미터가 필요합니다.']);
@@ -292,11 +337,14 @@ function tool_search_products(array $input): string
             $specMm > 0 ? (float) $specMm : null,
             $areaM2 > 0 ? $areaM2 : null
         );
+        $price = (int) $p['price_b2c'];
         return [
             'id'            => (int)  $p['id'],
             'name'          =>        $p['name'],
             'spec'          =>        $p['spec'],
-            'price_b2c'     => (int)  $p['price_b2c'],
+            'price_b2c'     => $price,
+            'unit'          => ai_unit_label((string) $p['spec']),
+            'est_cost'      => ($qty !== null && $price > 0) ? $qty * $price : null, // 판매가 기준 자재비(운반·시공비 별도)
             'category_name' =>        $p['category_name'],
             'image_url'     =>        $p['image_url']  ?? null,
             'stock_qty'     => (int)  $p['stock_qty'],
@@ -326,6 +374,71 @@ function tool_search_products(array $input): string
     ];
     if ($note !== null)      { $out['note']      = $note; }      // 교정/규격완화 사유
     if ($corrected !== null) { $out['corrected'] = $corrected; }
+    return json_encode($out, JSON_UNESCAPED_UNICODE);
+}
+
+/** 규격 문자열의 '단위:' 값을 표시용으로 정리 (m 2 → ㎡). 없으면 ''. */
+function ai_unit_label(string $spec): string
+{
+    if (!preg_match('/단위:\s*([^|]+)/u', $spec, $m)) {
+        return '';
+    }
+    $u = trim($m[1]);
+    return preg_match('/^m\s*2$/iu', $u) ? '㎡' : $u;
+}
+
+/**
+ * 여러 종류 비교 검색: 종류별 대표 제품을 같은 조건(spec_mm·length_m·area_m2)으로 찾아 한 표로 합친다.
+ * 종류별 결과는 기존 tool_search_products 그대로 사용(검색·수량 계산 로직 공유).
+ */
+function ai_search_compare(array $queries, array $input): string
+{
+    $per = max(1, min(3, intdiv(max(1, min(10, (int) ($input['limit'] ?? 6))), count($queries))));
+    $cards = [];
+    $seen  = [];
+    $notes = [];
+    $missing = [];
+    foreach ($queries as $q) {
+        $one = $input;
+        unset($one['queries']);
+        $one['query'] = $q;
+        $one['limit'] = $per;
+        $res = json_decode(tool_search_products($one), true) ?? [];
+        if (empty($res['products'])) {
+            $missing[] = $q;
+            continue;
+        }
+        if (!empty($res['note'])) {
+            $notes[] = $res['note'];
+        }
+        foreach ($res['products'] as $c) {
+            if (isset($seen[$c['id']])) {
+                continue;
+            }
+            $seen[$c['id']] = true;
+            $cards[] = $c;
+        }
+    }
+    if ($missing) {
+        $notes[] = "'" . implode("', '", $missing) . "'은(는) 해당 조건의 제품을 찾지 못해 비교에서 빠졌습니다.";
+    }
+
+    if (!$cards) {
+        return json_encode([
+            'products' => [],
+            'count'    => 0,
+            'note'     => '해당 조건에 맞는 제품을 찾지 못했습니다. 용도(수로·배수·경계·차단 등)나 재질을 알려주시면 다시 찾아드리겠습니다.',
+            '_sse'     => [],
+        ], JSON_UNESCAPED_UNICODE);
+    }
+    $out = [
+        'products' => $cards,
+        'count'    => count($cards),
+        '_sse'     => [
+            ['type' => 'product_cards', 'products' => $cards, 'compare' => true],
+        ],
+    ];
+    if ($notes) { $out['note'] = implode(' ', $notes); }
     return json_encode($out, JSON_UNESCAPED_UNICODE);
 }
 

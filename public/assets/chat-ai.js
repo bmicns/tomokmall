@@ -189,8 +189,13 @@ function renderProductCards(products, container) {
   const wrap = document.createElement('div');
   wrap.className = 'compare-table';
 
+  const fmt = n => new Intl.NumberFormat('ko-KR').format(n);
   const rows = products.map(p => {
-    const price = new Intl.NumberFormat('ko-KR').format(p.price_b2c);
+    const price = fmt(p.price_b2c);
+    const unitHtml = p.unit ? `<span class="compare-unit">/${escHtml(p.unit)}</span>` : '';
+    const costHtml = (p.est_cost && p.est_cost > 0)
+      ? `<div class="compare-cost">예상 ₩${fmt(p.est_cost)}</div>`
+      : '';
     const imgHtml = p.image_url
       ? `<img class="compare-img" src="${escHtml(p.image_url)}" alt="" loading="lazy" onerror="this.className='compare-img-ph';this.removeAttribute('src')">`
       : `<div class="compare-img-ph"></div>`;
@@ -206,13 +211,23 @@ function renderProductCards(products, container) {
           ${p.spec ? `<div class="compare-spec">${escHtml(p.spec)}</div>` : ''}
           ${basisHtml}
         </td>
-        <td class="compare-price">₩${price}</td>
+        <td class="compare-price">₩${price}${unitHtml}${costHtml}</td>
         <td><input type="number" class="compare-qty" value="${qtyVal}" min="1" max="9999"></td>
         <td><button class="btn-compare-add">견적추가</button></td>
       </tr>`;
   }).join('');
 
-  wrap.innerHTML = `
+  // 예상 자재비 요약: 같은 면적·길이 기준으로 계산된 제품끼리 최저~최고 비교
+  const costs = products.map(p => p.est_cost).filter(c => c && c > 0);
+  let summaryHtml = '';
+  if (costs.length >= 2) {
+    const min = Math.min(...costs), max = Math.max(...costs);
+    summaryHtml = `<div class="compare-summary">입력하신 면적·길이 기준 예상 자재비 <b>₩${fmt(min)}</b>${min !== max ? ` ~ <b>₩${fmt(max)}</b>` : ''}<span>판매가 기준 · 운반비·시공비 별도 · 회원가는 견적서에서 확인</span></div>`;
+  } else if (costs.length === 1) {
+    summaryHtml = `<div class="compare-summary"><span>예상 금액은 판매가 기준 자재비입니다 · 운반비·시공비 별도 · 회원가는 견적서에서 확인</span></div>`;
+  }
+
+  wrap.innerHTML = `${summaryHtml}
     <table>
       <thead><tr>
         <th style="width:68px"></th>

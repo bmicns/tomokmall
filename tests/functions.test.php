@@ -42,6 +42,24 @@ ok('경계석(길이<1m) → 수량없음(null)', $q === null);
 [$q] = ai_estimate_quantity(['spec' => '단위: m 2'], 0.0, null, 200.0);
 ok('면적 200㎡ → 200', $q === 200);
 
+echo "[포장 블록 장수 환산 ai_tile_area_m2 / ai_estimate_quantity]\n";
+ok('인터로킹 220*110*60T → 0.0242㎡', abs((float) ai_tile_area_m2('220*110*60T_회색') - 0.0242) < 1e-9);
+ok('경계석 120*120*120(T 없음) → null', ai_tile_area_m2('120*120*120(SA)') === null);
+ok('다칼라 900*1200*60(T 없음) → null', ai_tile_area_m2('900*1200*60_컬러(보도)') === null);
+ok('조경잔디 1000*1000*150T(600mm 초과) → null', ai_tile_area_m2('1000*1000*150T') === null);
+[$q, $b] = ai_estimate_quantity(['spec' => '규격: 220*110*60T_회색 | 단위: m 2'], 0.0, null, 200.0);
+ok('인터로킹(㎡) 200㎡ → 200㎡', $q === 200);
+ok('인터로킹(㎡) 근거에 장수 표시(약 8,265장)', strpos($b, '약 8,265장') !== false);
+[$q] = ai_estimate_quantity(['spec' => '규격: 230*114*60T_아이보리 | 단위: 개'], 0.0, null, 10.0);
+ok('점토블럭(개) 10㎡ → 382개', $q === 382);
+[$q] = ai_estimate_quantity(['spec' => '규격: 120*120*120(SA) | 단위: 개'], 0.0, null, 10.0);
+ok('경계석(개) 면적만 → 수량없음(null)', $q === null);
+[$q] = ai_estimate_quantity(['spec' => '규격: 230*114*60T_아이보리 | 단위: 개'], 100.0, null, null);
+ok('점토블럭(개) 길이만 → 수량없음(null)', $q === null);
+eq('단위 라벨 m 2 → ㎡', ai_unit_label('규격: 220*110*60T | 단위: m 2'), '㎡');
+eq('단위 라벨 본',        ai_unit_label('규격: 400*400*2000 | 단위: 본'), '본');
+eq('단위 라벨 없음',      ai_unit_label('220*110*60T'), '');
+
 echo "[하이라이트 highlight_terms]\n";
 ok('검색어 <mark> 삽입', strpos(highlight_terms('측구수로관', ['측구']), '<mark') !== false);
 ok('HTML 이스케이프',    strpos(highlight_terms('<b>x</b>', []), '&lt;') !== false);
