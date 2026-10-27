@@ -4,7 +4,7 @@
  * - 입력 전(포커스): 최근 검색어(칩, localStorage) + 인기 검색어(순위)
  * - 입력 중: /api/suggest.php 조회 → 카테고리 / 상품 2단 목록 (좁은 폭은 1단)
  * - 드롭다운은 <body>에 붙여 폼의 overflow/둥근모서리에 갇히지 않게 한다
- *   폭·위치 기준: 입력칸을 감싼 [data-suggest-anchor] 요소(없으면 입력칸 자신)
+ *   폭·위치 기준: 입력칸을 감싼 [data-suggest-anchor] 요소(헤더: 입력칸 테두리, 홈·기업회원 메인: 검색 폼 전체 / 없으면 입력칸 자신)
  * - 키보드(↑/↓/Enter/Esc)·마우스 지원, 바깥 클릭·상단 대분류 메뉴 hover 시 닫힘
  * - 헤더 검색 줄 열기/닫기: window.tomokHeaderSearch (layout.php의 '검색' 버튼)
  */
@@ -101,7 +101,7 @@
       box.style.top = (r.bottom + window.scrollY + 12) + 'px';
       box.style.left = (r.left + window.scrollX) + 'px';
       box.style.width = r.width + 'px';
-      box.classList.toggle('ac-narrow', r.width < 520);  // 좁은 입력칸: 카테고리/상품 1단
+      box.classList.toggle('ac-narrow', r.width < 440);  // 휴대폰 폭만 카테고리/상품 1단(그 외 좌우 2단)
     }
 
     function isOpen() { return box.style.display === 'block'; }

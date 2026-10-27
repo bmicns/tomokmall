@@ -155,7 +155,7 @@ if ($query) {
         <div class="home-hero">
             <p class="hero-tagline"><strong>현장에서 바로 쓰는 건축자재</strong><br>품목별 단가 조회부터 견적 요청까지 한 번에</p>
 
-            <form class="hero-search-form" method="get" action="/products.php">
+            <form class="hero-search-form" method="get" action="/products.php" data-suggest-anchor>
                 <input type="text" name="q" placeholder="수로관, 암거, 그레이팅..." autocomplete="off" data-suggest>
                 <button type="submit">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -232,7 +232,7 @@ if ($query) {
             <h1 class="gh-hero-title">현장에서 바로 쓰는 건축자재</h1>
             <p class="gh-hero-sub">품목별 단가 조회부터 견적 요청까지 한 번에</p>
 
-            <form class="gh-search" method="get" action="/products.php" role="search">
+            <form class="gh-search" method="get" action="/products.php" role="search" data-suggest-anchor>
                 <label for="gh-q" class="gh-sr-only">자재 검색</label>
                 <input id="gh-q" type="text" name="q" placeholder="수로관, 암거, 그레이팅..." autocomplete="off" data-suggest>
                 <button type="submit">
