@@ -54,10 +54,20 @@ for f in 01_rag_documents_source_columns_DRAFT.sql 02_rag_documents_legal_candid
   sed '/^DRAFT_STOP_/d' "$D/$f" | run   # 초안 안전장치 줄은 테스트 DB 적용 때만 제거(원본 파일은 그대로)
 done
 
+# 상담 테스트가 쓰는 법령 근거 칸(SQL 초안 01) 확인 — 없으면 원인을 알려 주고 중단
+NEED="source_type source_name source_ref source_url effective_date applies_to legal_status author review_status verify_level"
+HAVE=" $(echo "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='$DB' AND TABLE_NAME='rag_documents';" | sql -N | tr '\r\n' '  ') "
+MISS=""; for c in $NEED; do case "$HAVE" in *" $c "*) ;; *) MISS="$MISS $c" ;; esac; done
+if [ -n "$MISS" ]; then
+  echo "[오류] $DB.rag_documents 에 법령 근거 칸이 없습니다:$MISS — SQL 초안 01 적용 실패. 위 오류 메시지를 확인하세요." >&2
+  exit 1
+fi
+echo "$(echo "SELECT CONCAT('연결: ', VERSION(), ' · 포트 ', @@port, ' · DB ', '$DB');" | sql -N)"
 echo "SELECT 'ktomok 상품', COUNT(*) FROM products WHERE external_source='ktomok'
       UNION ALL SELECT '검증 조문(활성)', COUNT(*) FROM rag_documents WHERE author='검증 조문(2-1단계)' AND is_active=1
       UNION ALL SELECT '검증 조문(전체)', COUNT(*) FROM rag_documents WHERE author='검증 조문(2-1단계)';" | run
 echo
-echo "준비 완료. 실제 상담 테스트(OpenAI 호출, .env.local 의 OPENAI_API_KEY 사용):"
+echo "준비 완료. 1) 사전 점검(OpenAI 호출 없음) → 2) 실제 상담 테스트(.env.local 의 OPENAI_API_KEY 사용):"
+echo "  DB_HOST=127.0.0.1 DB_NAME=$DB php scripts/testdb/consult-scenarios.php --check-only"
 echo "  DB_HOST=127.0.0.1 DB_NAME=$DB php scripts/testdb/consult-scenarios.php --with-public-road --md=consult-result.md"
 echo "  (DB_USER·DB_PASS 가 .env.local 과 다르면 앞에 DB_USER=… 를 붙이고, 비밀번호는 셸에서 read -rs DB_PASS; export DB_PASS)"
