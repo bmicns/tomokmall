@@ -21,7 +21,13 @@ if (isset($_GET['ask']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
 
-    if (!$sessionKey || !$userMsg || !rag_chat_key_allowed($sessionKey)) {
+    // 세션 사용자 ID (rag_process가 session_write_close 전 캡처)
+    $logUserId = null;
+    $su = $_SESSION['user'] ?? null;
+    if (is_array($su) && isset($su['id'])) $logUserId = (int)$su['id'];
+
+    if (!$sessionKey || !$userMsg || !rag_chat_key_allowed($sessionKey)
+        || !rag_session_writable($sessionKey, $logUserId)) {
         echo json_encode(['ok' => false, 'error' => '잘못된 요청입니다.']);
         exit;
     }
@@ -29,15 +35,13 @@ if (isset($_GET['ask']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
     set_time_limit(90);
 
     $messages = rag_load_session($sessionKey);
+    // 텍스트 없는 카드 응답(빈 assistant)은 AI 문맥에서 제외 — 빈 메시지 전송 방지
+    $messages = array_values(array_filter($messages, static fn($m) =>
+        !(is_array($m) && ($m['role'] ?? '') === 'assistant' && trim((string) ($m['content'] ?? '')) === '')));
     if (count($messages) > 20) {
         $messages = array_slice($messages, -20);
     }
     $messages[] = ['role' => 'user', 'content' => $userMsg];
-
-    // 세션 사용자 ID (rag_process가 session_write_close 전 캡처)
-    $logUserId = null;
-    $su = $_SESSION['user'] ?? null;
-    if (is_array($su) && isset($su['id'])) $logUserId = (int)$su['id'];
 
     $result = rag_process($messages, $sessionKey);
     echo json_encode($result, JSON_UNESCAPED_UNICODE);
@@ -62,12 +66,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $sid       = preg_replace('/[^a-zA-Z0-9_-]/', '', $body['sid'] ?? '');
     $user      = trim($body['user'] ?? '');
     $assistant = trim($body['assistant'] ?? '');
+    // 텍스트 없이 상품 추천표·견적 카드만 온 답변도 저장 (카드는 chat_logs.events_json에 이미 기록됨)
+    $hasEvents = !empty($body['has_events']);
+    $su        = $_SESSION['user'] ?? null;
+    $saveUid   = (is_array($su) && isset($su['id'])) ? (int) $su['id'] : null;
 
-    if ($sid && !rag_chat_key_allowed($sid)) {
+    if ($sid && (!rag_chat_key_allowed($sid) || !rag_session_writable($sid, $saveUid))) {
         $sid = '';
     }
 
-    if ($sid && $user && $assistant) {
+    $canSave = $sid && $user && ($assistant !== '' || $hasEvents);
+    if ($canSave) {
         $messages   = rag_load_session($sid);
         $messages[] = ['role' => 'user',      'content' => $user];
         $messages[] = ['role' => 'assistant', 'content' => $assistant];
@@ -80,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     header('Content-Type: application/json');
-    echo json_encode(['ok' => (bool) ($sid && $user && $assistant)]);
+    echo json_encode(['ok' => (bool) $canSave]);
     exit;
 }
 
@@ -88,6 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ?sid= : 이전 상담 복원 (로그인 본인 상담만). 그 외에는 상담마다 새 키 발급
 $_isLoggedIn = is_logged_in();
 $_restored   = [];
+$_restoredEvents = [];
 $sessionKey  = '';
 $_reqSid     = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) ($_GET['sid'] ?? ''));
 if ($_reqSid !== '' && $_isLoggedIn) {
@@ -95,6 +105,7 @@ if ($_reqSid !== '' && $_isLoggedIn) {
     if ($_owned !== null) {
         $sessionKey = $_reqSid;
         $_restored  = $_owned;
+        $_restoredEvents = rag_load_turn_events($_reqSid, (int) current_user()['id'], $_owned);
         rag_chat_key_allow($sessionKey);
     }
 }

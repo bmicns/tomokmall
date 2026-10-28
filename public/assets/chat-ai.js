@@ -280,6 +280,7 @@ async function send() {
   document.getElementById('hints').style.display = 'none';
   isStreaming = true;
   accText     = '';
+  let hasEvents = false;
 
   addMsg('user', msg);
   // 대화가 시작되면 '새 상담' 버튼 활성화
@@ -317,6 +318,7 @@ async function send() {
       for (const event of (data.events || [])) {
         processEvent(event, content);
       }
+      hasEvents = (data.events || []).length > 0;
 
       if (!accText && !(data.events || []).length) {
         bubble.textContent = '응답을 받지 못했습니다. 다시 시도해 주세요.';
@@ -332,16 +334,17 @@ async function send() {
   }
 
   document.getElementById('messages').scrollTop = 9999;
-  await finalize(msg, accText);
+  await finalize(msg, accText, hasEvents);
 }
 
-async function finalize(userMsg, assistantMsg) {
-  if (assistantMsg) {
+async function finalize(userMsg, assistantMsg, hasEvents) {
+  // 텍스트 없이 상품 추천표·견적 카드만 온 답변도 저장 (카드 내용은 서버 chat_logs에 기록됨)
+  if (assistantMsg || hasEvents) {
     try {
       await fetch('/chat.php', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ sid: window.SID, user: userMsg, assistant: assistantMsg }),
+        body:    JSON.stringify({ sid: window.SID, user: userMsg, assistant: assistantMsg, has_events: !!hasEvents }),
       });
     } catch {}
   }

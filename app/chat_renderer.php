@@ -1,18 +1,46 @@
 <?php
 /** 채팅 UI HTML 렌더링 전용 — 비즈니스 로직 없음
  *  호출자: public/chat.php (GET 일반 요청)
- *  의존: $sessionKey (string), $_isLoggedIn (bool), $_restored (array, 복원할 이전 상담 메시지) — 호출자가 주입
+ *  의존: $sessionKey (string), $_isLoggedIn (bool), $_restored (array, 복원할 이전 상담 메시지),
+ *        $_restoredEvents (array, [메시지 인덱스 => chat_logs 이벤트]) — 호출자가 주입
  */
 $_sid     = $sessionKey ?? '';
-// 복원할 이전 상담: 사용자·AI 텍스트만 (history.php 요약 추출과 같은 content 형식 처리)
+// 복원 이벤트: 화면 렌더러(chat-ai.js processEvent)가 쓰는 상품 추천표·견적 카드만, 필드 형식 고정
+$_cleanEvents = static function (array $events): array {
+    $out = [];
+    foreach ($events as $ev) {
+        $type = $ev['type'] ?? '';
+        if ($type === 'product_cards' && is_array($ev['products'] ?? null)) {
+            $products = [];
+            foreach ($ev['products'] as $p) {
+                if (!is_array($p) || (int) ($p['id'] ?? 0) <= 0) continue;
+                $products[] = [
+                    'id'            => (int) $p['id'],
+                    'name'          => (string) ($p['name'] ?? ''),
+                    'spec'          => (string) ($p['spec'] ?? ''),
+                    'price_b2c'     => (int) ($p['price_b2c'] ?? 0),
+                    'image_url'     => isset($p['image_url']) && $p['image_url'] !== '' ? (string) $p['image_url'] : null,
+                    'suggested_qty' => isset($p['suggested_qty']) ? (int) $p['suggested_qty'] : null,
+                    'qty_basis'     => isset($p['qty_basis']) && $p['qty_basis'] !== '' ? (string) $p['qty_basis'] : null,
+                ];
+            }
+            if ($products) $out[] = ['type' => 'product_cards', 'products' => $products];
+        } elseif ($type === 'estimate_created' && (int) ($ev['estimate_id'] ?? 0) > 0) {
+            $out[] = ['type' => 'estimate_created', 'estimate_id' => (int) $ev['estimate_id']];
+        }
+    }
+    return $out;
+};
+// 복원할 이전 상담: 사용자·AI 텍스트 + AI 답변의 상품 추천표·견적 카드 (history.php 요약 추출과 같은 content 형식 처리)
 $_restoredMsgs = [];
-foreach (($_restored ?? []) as $_m) {
+foreach (($_restored ?? []) as $_i => $_m) {
     $_role = is_array($_m) ? ($_m['role'] ?? '') : '';
     if ($_role !== 'user' && $_role !== 'assistant') continue;
     $_c = $_m['content'] ?? null;
     $_text = is_string($_c) ? $_c : (is_array($_c) ? (string) ($_c[0]['text'] ?? '') : '');
-    if (trim($_text) === '') continue;
-    $_restoredMsgs[] = ['role' => $_role, 'text' => $_text];
+    $_ev = $_role === 'assistant' ? $_cleanEvents($_restoredEvents[$_i] ?? []) : [];
+    if (trim($_text) === '' && !$_ev) continue; // 텍스트 없는 카드 응답은 카드가 있을 때만
+    $_restoredMsgs[] = ['role' => $_role, 'text' => $_text, 'events' => $_ev];
 }
 $_hasRestored = $_restoredMsgs !== [];
 require __DIR__ . '/layout.php';
@@ -515,8 +543,8 @@ render_header('AI 자재 상담', 'chat');
 설치 장소, 용도, 하중 조건 등을 파악해 최적 상품을 추천해드립니다.</div>
       </div>
     </div>
-    <?php foreach ($_restoredMsgs as $_rm): // 이전 상담 복원 (chat-ai.js addMsg와 같은 구조) ?>
-    <div class="msg <?= $_rm['role'] ?>">
+    <?php foreach ($_restoredMsgs as $_ri => $_rm): // 이전 상담 복원 (chat-ai.js addMsg와 같은 구조) ?>
+    <div class="msg <?= $_rm['role'] ?>" data-restore="<?= (int) $_ri ?>">
       <div class="msg-avatar"><?= $_rm['role'] === 'user' ? '나' : 'AI' ?></div>
       <div class="msg-content">
         <div class="msg-bubble"><?= e($_rm['text']) ?></div>
@@ -584,8 +612,20 @@ window.SID = '<?= e($_sid) ?>';
 <script src="/assets/chat-ai.js?v=<?= time() ?>"></script>
 <script>
 <?php if ($_hasRestored): ?>
-// 복원한 이전 상담: 마지막 대화가 보이도록
-(function () { const m = document.getElementById('messages'); if (m) m.scrollTop = m.scrollHeight; })();
+// 복원한 이전 상담: 답변 문단 정리(formatChatText)·상품 추천표·견적 카드를 실시간 상담과 같은 렌더러로 표시
+(function () {
+  const events = <?= json_encode(
+      array_map(static fn($rm) => $rm['events'], $_restoredMsgs),
+      JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+  ) ?>;
+  document.querySelectorAll('#messages .msg.assistant[data-restore]').forEach(row => {
+    const bubble  = row.querySelector('.msg-bubble');
+    const content = row.querySelector('.msg-content');
+    if (bubble) bubble.textContent = formatChatText(bubble.textContent);
+    (events[parseInt(row.dataset.restore, 10)] || []).forEach(ev => processEvent(ev, content));
+  });
+  const m = document.getElementById('messages'); if (m) m.scrollTop = m.scrollHeight;
+})();
 <?php endif; ?>
 function toggleEstPanel() {
   const panel   = document.querySelector('.est-panel');

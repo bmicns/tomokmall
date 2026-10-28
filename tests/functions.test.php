@@ -333,5 +333,29 @@ ok('같은 키 재허용 시 중복 없음', count(array_keys($_SESSION['chat_ke
 for ($i = 0; $i < 40; $i++) rag_chat_key_issue();
 ok('허용 목록은 최근 30개까지만', count($_SESSION['chat_keys']) === 30 && !rag_chat_key_allowed($k2));
 
+echo "[이전 상담 카드 복원 rag_pair_turn_events]\n";
+$cards = '[{"type":"product_cards","products":[{"id":1}]}]';
+$msgs  = [
+    ['role' => 'user', 'content' => '안녕'],      ['role' => 'assistant', 'content' => '네'],
+    ['role' => 'user', 'content' => '그레이팅'],  ['role' => 'assistant', 'content' => '선택해 주세요.'],
+    ['role' => 'user', 'content' => '맨홀'],      ['role' => 'assistant', 'content' => ''],
+];
+$logs = [
+    ['user_msg' => '안녕', 'events_json' => null],
+    ['user_msg' => '그레이팅', 'events_json' => $cards],
+    ['user_msg' => '맨홀', 'events_json' => '[{"type":"estimate_created","estimate_id":7}]'],
+];
+$pe = rag_pair_turn_events($msgs, $logs);
+eq('카드는 해당 AI 답변 인덱스에(텍스트 없는 답변 포함)', array_keys($pe), [5, 3]);
+ok('이벤트 내용 그대로', $pe[3][0]['products'][0]['id'] === 1 && $pe[5][0]['estimate_id'] === 7);
+$pe = rag_pair_turn_events($msgs, array_merge([['user_msg' => '앞부분 잘린 질문', 'events_json' => $cards]], [$logs[1]]));
+eq('로그 없는 질문은 텍스트만, 잘린 앞부분 로그 무시', array_keys($pe), [3]);
+$pe = rag_pair_turn_events($msgs, [['user_msg' => '그레이팅', 'events_json' => '{깨진 JSON']]);
+eq('깨진 events_json 은 무시', $pe, []);
+$long = str_repeat('가', 1200);
+$pe = rag_pair_turn_events([['role' => 'user', 'content' => $long], ['role' => 'assistant', 'content' => 'x']],
+    [['user_msg' => str_repeat('가', 1000), 'events_json' => $cards]]);
+eq('1000자 초과 질문도 질문 API와 같은 기준으로 짝지음', array_keys($pe), [1]);
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

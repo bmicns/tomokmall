@@ -212,6 +212,86 @@ function rag_chat_key_allowed(string $key): bool
     return in_array($key, $_SESSION['chat_keys'] ?? [], true) || $key === session_id();
 }
 
+/**
+ * 상담 쓰기 권한 — 새 상담, 비로그인(user_id NULL) 상담, 본인 상담만 허용
+ * (다른 회원 소유 상담에 이어 쓰거나 저장하지 못하게)
+ */
+function rag_session_writable(string $key, ?int $userId): bool
+{
+    $pdo = db();
+    if (!$pdo) {
+        return true; // DB 없으면 저장 자체가 불가 — 기존 동작에 맡김
+    }
+    $stmt = $pdo->prepare('SELECT user_id FROM ai_sessions WHERE session_key = :key');
+    $stmt->execute(['key' => $key]);
+    $row = $stmt->fetch();
+    if (!$row || $row['user_id'] === null) {
+        return true;
+    }
+    return $userId !== null && (int) $row['user_id'] === $userId;
+}
+
+/**
+ * 이전 상담 복원용 — chat_logs.events_json(상품 추천표·견적 카드)을 대화의 AI 답변 위치에 맞춰 반환
+ * ai_sessions.messages 의 사용자 질문과 chat_logs 행(같은 상담 키)을 뒤에서부터 짝지음
+ * (저장 시 앞부분이 잘리는 40개 제한·저장 실패 턴이 있어도 최근 대화 기준으로 정확히 맞추기 위해).
+ * 짝이 없는 질문(로그 도입 전·로그 실패)은 이벤트 없이 텍스트만 복원. 로그 한 행은 한 번만 사용.
+ *
+ * @return array<int, list<array>>  [messages 의 assistant 인덱스 => events]
+ */
+function rag_load_turn_events(string $key, int $userId, array $messages): array
+{
+    $pdo = db();
+    if (!$pdo || $key === '') {
+        return [];
+    }
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT user_msg, events_json FROM chat_logs
+              WHERE session_key = :key AND (user_id = :uid OR user_id IS NULL)
+              ORDER BY id'
+        );
+        $stmt->execute(['key' => $key, 'uid' => $userId]);
+        $logs = $stmt->fetchAll();
+    } catch (\Throwable $e) {
+        return []; // chat_logs 없음 등 — 텍스트만 복원
+    }
+    return rag_pair_turn_events($messages, $logs);
+}
+
+/**
+ * 대화(messages)와 로그 행(user_msg, events_json)을 뒤에서부터 짝지어 AI 답변 인덱스별 이벤트 반환 (DB 불필요)
+ *
+ * @param  list<array{user_msg:string, events_json:?string}> $logs  id 오름차순
+ * @return array<int, list<array>>
+ */
+function rag_pair_turn_events(array $messages, array $logs): array
+{
+    $result = [];
+    $k      = count($logs) - 1;
+    for ($i = count($messages) - 1; $i >= 0 && $k >= 0; $i--) {
+        $m = $messages[$i];
+        if (!is_array($m) || ($m['role'] ?? '') !== 'user' || !is_string($m['content'] ?? null)) {
+            continue;
+        }
+        // chat.php 질문 엔드포인트와 같은 방식으로 자른 질문(최대 1000자)으로 비교
+        $q = trim(mb_substr(trim($m['content']), 0, 1000));
+        for ($x = $k; $x >= 0; $x--) {
+            if ((string) $logs[$x]['user_msg'] !== $q) {
+                continue;
+            }
+            $k      = $x - 1;
+            $events = json_decode((string) ($logs[$x]['events_json'] ?? ''), true);
+            $next   = $messages[$i + 1] ?? null;
+            if (is_array($events) && $events && is_array($next) && ($next['role'] ?? '') === 'assistant') {
+                $result[$i + 1] = array_values(array_filter($events, 'is_array'));
+            }
+            break;
+        }
+    }
+    return $result;
+}
+
 function rag_save_session(string $key, array $messages): void
 {
     // 로그인 상태이면 user_id 자동 연결 (GAP-V2-02 해소)
@@ -225,13 +305,13 @@ function rag_save_session(string $key, array $messages): void
     }
 
     $json = json_encode($messages, JSON_UNESCAPED_UNICODE);
-    // ON DUPLICATE KEY UPDATE: user_id 는 이미 설정된 값이 있으면 유지 (COALESCE)
-    // 익명 → 로그인 후 재상담 시 user_id 연결
+    // ON DUPLICATE KEY UPDATE: user_id 는 이미 설정된 값이 있으면 유지 (COALESCE — 기존 소유자 우선)
+    // 익명(NULL) → 로그인 후 재상담 시에만 user_id 연결
     $stmt = db()->prepare(
         'INSERT INTO ai_sessions (session_key, user_id, messages)
               VALUES (:key, :uid, :msg)
          ON DUPLICATE KEY UPDATE
-              user_id    = COALESCE(:uid_upd, user_id),
+              user_id    = COALESCE(user_id, :uid_upd),
               messages   = :msg_upd,
               updated_at = NOW()'
     );
