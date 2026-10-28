@@ -14,6 +14,7 @@ require __DIR__ . '/../app/product_filter_renderer.php';
 require __DIR__ . '/../app/favorites.php';
 require __DIR__ . '/../app/work_types.php';
 require __DIR__ . '/../app/corp_home.php';
+require_once __DIR__ . '/../app/rag.php';
 
 $pass = 0; $fail = 0;
 function ok(string $name, bool $cond): void {
@@ -92,6 +93,22 @@ ok('고객이 집게를 직접 찾으면 유지', in_array('경계석집게', $n
 $rep = ai_pick_representatives($realRows('콘크리트경계석'), 18.0, null, null);
 ok('경계석 대표는 직선형(곡선 아님)', strpos($specOf($rep[0]), '곡선') === false);
 ok('집게만 있으면 원복(빈 결과 방지)', count(ai_exclude_accessories($realRows('경계석집게'), '경계석')) === count($realRows('경계석집게')));
+
+echo "[공식 법령 근거 — 점수·프롬프트·답변 출처 처리 (순수 함수)]\n";
+$lawDoc = ['id' => 7, 'tags' => '주차,주차장,주차공간', 'category_key' => 'pavement', 'source_type' => 'law',
+    'source_name' => '주차장법 시행규칙', 'source_ref' => '제3조제1항제2호', 'effective_date' => '2026-07-27',
+    'applies_to' => '주차장법상 주차장', 'source_url' => 'https://www.law.go.kr/법령/주차장법시행규칙/제3조',
+    'verify_level' => 'original_verified', 'content' => '요지: 일반형 2.5m×5.0m 이상'];
+eq('태그 2개 일치(주차·주차공간) +6, 카테고리 +1', rag_legal_score($lawDoc, '마당 주차공간 포장', 'pavement'), 3 + 3 + 1);
+eq('태그 불일치면 카테고리만으로는 0', rag_legal_score($lawDoc, '보도블록 두께', 'pavement'), 0);
+$sec = rag_legal_prompt_section([$lawDoc]);
+ok('프롬프트 구역: [L7]·적용 조건·시행일', str_contains($sec, '[L7]') && str_contains($sec, '적용 조건: 주차장법상 주차장') && str_contains($sec, '시행 2026-07-27'));
+eq('근거 없으면 프롬프트 구역 없음', rag_legal_prompt_section([]), '');
+$cit = rag_extract_legal_citations('1칸은 2.5m×5.0m 이상입니다 [L7]. 참고[L7] 추가[L3]', [$lawDoc]);
+eq('표시 제거', $cit['text'], '1칸은 2.5m×5.0m 이상입니다. 참고 추가');
+eq('넣은 근거만·중복 없이', array_column($cit['sources'], 'id'), [7]);
+eq('표시 없으면 출처 없음', rag_extract_legal_citations('80T를 권해 드려요.', [$lawDoc])['sources'], []);
+eq('DB·출처 칸 없으면(운영 미적용) 법령 근거 검색 빈 배열', rag_search_legal_documents('주차 공간', 'pavement'), []);
 
 echo "[하이라이트 highlight_terms]\n";
 ok('검색어 <mark> 삽입', strpos(highlight_terms('측구수로관', ['측구']), '<mark') !== false);

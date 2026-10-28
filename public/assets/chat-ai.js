@@ -281,7 +281,32 @@ function processEvent(event, content) {
       renderEstimateCard(event.estimate_id, content);
       refreshEstPanel();
       break;
+    case 'legal_sources':
+      renderLegalSources(event.sources, content);
+      break;
   }
+}
+
+/** legal_sources 이벤트 → 답변이 실제로 인용한 공식 법령 근거(기준명·조항·시행일·적용 조건·원문 링크) */
+function renderLegalSources(sources, container) {
+  if (!sources || sources.length === 0) return;
+  const levelLabel = { original_verified: '공식 원문 검증', api_text_verified: '법제처 원문 조문 확인' };
+  const wrap = document.createElement('div');
+  wrap.className = 'legal-sources';
+  const items = sources.map(s => {
+    const url = /^https?:\/\//.test(s.url || '') ? s.url : '';
+    return `
+      <li class="legal-source">
+        <div class="legal-source-head">
+          <span class="legal-badge">법령</span>
+          <strong>${escHtml(s.name)} ${escHtml(s.ref)}</strong>
+        </div>
+        <div class="legal-source-meta">${s.effective_date ? '시행 ' + escHtml(s.effective_date) + ' · ' : ''}${escHtml(levelLabel[s.verify_level] || '')}${url ? ` · <a href="${escHtml(url)}" target="_blank" rel="noopener">원문 보기</a>` : ''}</div>
+        <div class="legal-source-cond">적용 조건: ${escHtml(s.applies_to)}</div>
+      </li>`;
+  }).join('');
+  wrap.innerHTML = `<div class="legal-sources-title">공식 법령 근거 ${sources.length}건</div><ul>${items}</ul>`;
+  container.appendChild(wrap);
 }
 
 async function send() {

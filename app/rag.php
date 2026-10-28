@@ -10,6 +10,8 @@ declare(strict_types=1);
  *  rag_stream_with_tools()     — Claude 스트리밍 + Tool Use 루프 (신규)
  *  rag_load_session()          — AI 대화 이력 DB 로드
  *  rag_save_session()          — AI 대화 이력 DB 저장
+ *  rag_search_legal_documents() — 검증된 공식 법령 근거 검색(출처·조항·적용 조건 포함)
+ *  rag_extract_legal_citations() — AI 답변의 [L번호] 표시 → 실제 인용한 근거만 추출
  */
 
 require_once __DIR__ . '/ai_tools.php';
@@ -238,6 +240,10 @@ function rag_search_documents(string $userMsg, string $categoryKey = '', int $li
         $catCond = $categoryKey !== ''
             ? 'AND (category_key = :cat OR category_key IS NULL)'
             : '';
+        // 출처 칸(source_type)이 있는 DB에서는 사내 문서만 — 법령·기준 문서는 rag_search_legal_documents()의 검증 필터로만 사용
+        if (rag_documents_has_source_columns()) {
+            $catCond .= " AND source_type = 'internal'";
+        }
         $params = [':ft1' => $ftQuery, ':ft2' => $ftQuery];
         if ($categoryKey !== '') $params[':cat'] = $categoryKey;
 
@@ -258,7 +264,8 @@ function rag_search_documents(string $userMsg, string $categoryKey = '', int $li
             $stmt = db()->prepare(
                 "SELECT id, title, content, category_key
                  FROM rag_documents
-                 WHERE is_active = 1 AND category_key = :cat
+                 WHERE is_active = 1 AND category_key = :cat"
+                 . (rag_documents_has_source_columns() ? " AND source_type = 'internal'" : '') . "
                  ORDER BY sort_order, id LIMIT {$limit}"
             );
             $stmt->execute([':cat' => $categoryKey]);
@@ -269,6 +276,138 @@ function rag_search_documents(string $userMsg, string $categoryKey = '', int $li
     } catch (\Throwable $e) {
         return [];
     }
+}
+
+/** 상담에 쓸 수 있는 법령·기준 문서의 확인 수준 (상세 원문 검증 / 법제처 원문 조문 확인) */
+const RAG_LEGAL_VERIFY_LEVELS = ['original_verified', 'api_text_verified'];
+
+/** rag_documents 에 출처·검토 칸(마이그레이션 01)이 있는지. 운영처럼 칸이 없으면 법령 근거 기능은 꺼진다. */
+function rag_documents_has_source_columns(): bool
+{
+    static $has = null;
+    if ($has !== null) {
+        return $has;
+    }
+    try {
+        db()->query('SELECT source_type, verify_level, review_status, legal_status FROM rag_documents LIMIT 0');
+        $has = true;
+    } catch (\Throwable $e) {
+        $has = false;
+    }
+    return $has;
+}
+
+/**
+ * 법령 근거 문서 점수 (순수 함수). 태그(쉼표 구분)가 고객 문장에 들어 있으면 +3, 카테고리 일치 +1(태그가 하나 이상 맞을 때만).
+ */
+function rag_legal_score(array $doc, string $text, string $categoryKey = ''): int
+{
+    $t = mb_strtolower(preg_replace('/\s+/u', ' ', $text) ?? '');
+    $score = 0;
+    foreach (explode(',', (string) ($doc['tags'] ?? '')) as $tag) {
+        $tag = mb_strtolower(trim($tag));
+        if (mb_strlen($tag) >= 2 && mb_strpos($t, $tag) !== false) {
+            $score += 3;
+        }
+    }
+    if ($score > 0 && $categoryKey !== '' && ($doc['category_key'] ?? '') === $categoryKey) {
+        $score += 1;
+    }
+    return $score;
+}
+
+/**
+ * 검증된 공식 법령·기준 근거 검색.
+ * 조건: 활성 + source_type<>'internal' + 확인 수준(RAG_LEGAL_VERIFY_LEVELS) + 검토 완료 + 현행.
+ * 출처 칸이 없는 DB(운영 미적용)에서는 빈 배열.
+ */
+function rag_search_legal_documents(string $text, string $categoryKey = '', int $limit = 2): array
+{
+    if (trim($text) === '' || !rag_documents_has_source_columns()) {
+        return [];
+    }
+    try {
+        $in = implode(',', array_fill(0, count(RAG_LEGAL_VERIFY_LEVELS), '?'));
+        $stmt = db()->prepare(
+            "SELECT id, title, content, category_key, tags, source_type, source_name, source_ref, source_url,
+                    effective_date, applies_to, verify_level
+             FROM rag_documents
+             WHERE is_active = 1 AND source_type <> 'internal'
+               AND verify_level IN ({$in}) AND review_status = 'reviewed' AND legal_status = 'current'"
+        );
+        $stmt->execute(RAG_LEGAL_VERIFY_LEVELS);
+        $rows = $stmt->fetchAll();
+    } catch (\Throwable $e) {
+        return [];
+    }
+    $scored = [];
+    foreach ($rows as $r) {
+        $sc = rag_legal_score($r, $text, $categoryKey);
+        if ($sc >= 3) {
+            $scored[] = [$sc, (int) $r['id'], $r];
+        }
+    }
+    usort($scored, static fn($a, $b) => [$b[0], $a[1]] <=> [$a[0], $b[1]]);
+    return array_map(static fn($x) => $x[2], array_slice($scored, 0, $limit));
+}
+
+/** 시스템 프롬프트에 넣을 법령 근거 구역 (순수 함수). 근거가 없으면 빈 문자열. */
+function rag_legal_prompt_section(array $legalDocs): string
+{
+    if (!$legalDocs) {
+        return '';
+    }
+    $out = "\n\n=== 공식 법령 근거 (원문 조문 확인됨 · 적용 조건 필수) ===\n"
+        . "- 아래 근거는 적용 조건이 있다. 고객 상황이 조건에 맞을 때만 인용하고, 확실하지 않으면 '~인 경우' 형태로 조건을 함께 말한다.\n"
+        . "- 근거를 사용한 문장 끝에 해당 표시를 그대로 붙인다(예: [L12]). 표시는 화면에서 출처 카드로 바뀐다.\n"
+        . "- 이 목록에 없는 법령·조항·수치는 인용하지 않는다. [참조 문서](사내 기준) 내용에는 [L번호]를 붙이지 않는다.\n"
+        . "- 조건부 기준을 모든 고객의 의무처럼 말하지 않는다.";
+    foreach ($legalDocs as $d) {
+        $out .= "\n\n[L" . (int) $d['id'] . "] " . $d['source_name'] . ' ' . $d['source_ref']
+            . ($d['effective_date'] ? ' (시행 ' . $d['effective_date'] . ')' : '')
+            . "\n적용 조건: " . $d['applies_to']
+            . "\n" . $d['content'];
+    }
+    return $out;
+}
+
+/**
+ * AI 답변의 [L번호] 표시 처리 (순수 함수).
+ * 이번 질문에 넣은 근거 번호만 인정하고(지어낸 번호는 버림) 표시는 본문에서 지운다.
+ *
+ * @param array<int,array> $legalDocs 이번 질문에 넣은 근거(id 키 무관)
+ * @return array{text:string, sources:list<array>}
+ */
+function rag_extract_legal_citations(string $text, array $legalDocs): array
+{
+    $byId = [];
+    foreach ($legalDocs as $d) {
+        $byId[(int) $d['id']] = $d;
+    }
+    $cited = [];
+    if (preg_match_all('/\[L(\d+)\]/', $text, $m)) {
+        foreach ($m[1] as $id) {
+            $id = (int) $id;
+            if (isset($byId[$id]) && !in_array($id, $cited, true)) {
+                $cited[] = $id;
+            }
+        }
+    }
+    $clean = preg_replace('/ ?\[L\d+\]/', '', $text) ?? $text;
+    $sources = array_map(static function (int $id) use ($byId): array {
+        $d = $byId[$id];
+        return [
+            'id'             => $id,
+            'kind'           => (string) $d['source_type'],
+            'name'           => (string) $d['source_name'],
+            'ref'            => (string) $d['source_ref'],
+            'effective_date' => $d['effective_date'] ? (string) $d['effective_date'] : null,
+            'applies_to'     => (string) $d['applies_to'],
+            'url'            => (string) ($d['source_url'] ?? ''),
+            'verify_level'   => (string) $d['verify_level'],
+        ];
+    }, $cited);
+    return ['text' => $clean, 'sources' => $sources];
 }
 
 /**
@@ -376,6 +515,8 @@ function rag_process(array $messages, string $sid): array
         if (($m['role'] ?? '') === 'user') { $lastUserMsg = $m['content'] ?? ''; break; }
     }
     $ragDocs = rag_search_documents($lastUserMsg, $categoryKey, 2);
+    // 검증된 공식 법령 근거(출처 칸이 없는 운영 DB에서는 빈 배열 → 기존 동작 그대로)
+    $legalDocs = rag_search_legal_documents($lastUserMsg, $categoryKey, 2);
 
     $system = "당신은 비엠아이 건설자재 전문 상담사입니다. 항상 한국어로만 답변하세요.\n"
         . "\n"
@@ -482,6 +623,7 @@ function rag_process(array $messages, string $sid): array
             $system .= "\n\n[" . $doc['title'] . "]\n" . $doc['content'];
         }
     }
+    $system .= rag_legal_prompt_section($legalDocs);
 
     $oaiMessages = array_merge([['role' => 'system', 'content' => $system]], $messages);
     $responseText = '';
@@ -542,6 +684,13 @@ function rag_process(array $messages, string $sid): array
                 'content'      => json_encode($toolData, JSON_UNESCAPED_UNICODE),
             ];
         }
+    }
+
+    // 실제로 인용한 법령 근거만 출처로 표시(지어낸 번호는 버리고 표시는 본문에서 제거)
+    $cit = rag_extract_legal_citations($responseText, $legalDocs);
+    $responseText = $cit['text'];
+    if ($cit['sources']) {
+        $events[] = ['type' => 'legal_sources', 'sources' => $cit['sources']];
     }
 
     return ['ok' => true, 'text' => $responseText, 'events' => $events, 'category' => $categoryKey];

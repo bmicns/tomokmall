@@ -185,6 +185,13 @@ render_header('AI 자재 상담', 'chat');
   .compare-summary { font-size: 12px; line-height: 1.5; padding: 8px 10px; margin-bottom: 6px; background: var(--color-surface); border: 1px solid var(--color-border); }
   .compare-summary b { color: var(--color-primary); }
   .compare-summary span { display: block; font-size: 11px; color: var(--color-text-secondary); }
+  .legal-sources { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--color-border); background: var(--color-surface); font-size: 12px; line-height: 1.55; }
+  .legal-sources-title { font-weight: 700; color: var(--color-text-primary); margin-bottom: 6px; }
+  .legal-sources ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .legal-source-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .legal-badge { padding: 1px 7px; border: 1px solid #F0C48A; background: #FFF4E5; color: #7A3E00; font-size: 11px; font-weight: 700; }
+  .legal-source-meta, .legal-source-cond { color: var(--color-text-secondary); word-break: keep-all; }
+  .legal-source-meta a { color: var(--color-primary); text-decoration: underline; }
   .compare-qty {
     width: 60px; padding: 4px; border: 1px solid var(--color-border);
     font-size: 12px; text-align: center; font-family: var(--font); background: #fff;
