@@ -40,6 +40,16 @@
                     "11": "5a9fe27422e66121"
                 },
                 "annexes": []
+            },
+            "api_check": {
+                "checked_at": "2026-10-28",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "01604",
+                "api_effective": "2026-07-27",
+                "articles": "제3조 일치 제11조 일치",
+                "annex_count": 41,
+                "report": "api-sync-report-2026-10-28.md"
             }
         },
         {
@@ -72,6 +82,16 @@
                     "8": "8ef6d6021a5e54ea"
                 },
                 "annexes": []
+            },
+            "api_check": {
+                "checked_at": "2026-10-28",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "20594",
+                "api_effective": "2025-12-21",
+                "articles": "제7조 일치 제8조 일치",
+                "annex_count": 0,
+                "report": "api-sync-report-2026-10-28.md"
             }
         },
         {
@@ -106,6 +126,16 @@
                 "annexes": {
                     "편의시설의 구조·재질등에 관한 세부기준(제2조제1항관련)": true
                 }
+            },
+            "api_check": {
+                "checked_at": "2026-10-28",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "01166",
+                "api_effective": "2026-07-02",
+                "articles": "제2조 일치",
+                "annex_count": 8,
+                "report": "api-sync-report-2026-10-28.md"
             }
         },
         {
@@ -138,6 +168,16 @@
                 "annexes": {
                     "대상시설별 편의시설의 종류 및 설치기준(제4조관련)": true
                 }
+            },
+            "api_check": {
+                "checked_at": "2026-10-28",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "35947",
+                "api_effective": "2026-01-02",
+                "articles": "제4조 일치",
+                "annex_count": 7,
+                "report": "api-sync-report-2026-10-28.md"
             }
         },
         {
@@ -170,6 +210,16 @@
                 "annexes": {
                     "이동편의시설의 구조ㆍ재질 등에 관한 세부기준(제2조제1항 관련)": true
                 }
+            },
+            "api_check": {
+                "checked_at": "2026-10-28",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "01558",
+                "api_effective": "2026-02-01",
+                "articles": "제2조 일치",
+                "annex_count": 12,
+                "report": "api-sync-report-2026-10-28.md"
             }
         },
         {
@@ -204,6 +254,16 @@
                 "annexes": {
                     "보행안전 및 편의증진 시설의 구조 및 기준(제5조제2항 관련)": true
                 }
+            },
+            "api_check": {
+                "checked_at": "2026-10-28",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "00344",
+                "api_effective": "2022-07-12",
+                "articles": "제5조 일치",
+                "annex_count": 8,
+                "report": "api-sync-report-2026-10-28.md"
             }
         },
         {
@@ -228,6 +288,17 @@
                 "mst": "2100000203352",
                 "articles": [],
                 "annexes": []
+            },
+            "api_check": {
+                "checked_at": "2026-10-28",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "321",
+                "api_effective": "2021-07-23",
+                "articles": "",
+                "annex_count": 0,
+                "report": "api-sync-report-2026-10-28.md",
+                "note": "본문 형식 미확인(조문·첨부 안내 문구 모두 인식 안 됨) — 원본 응답 확인 필요"
             }
         },
         {
@@ -264,6 +335,16 @@
                     "30": "4b2236b7f44b222e"
                 },
                 "annexes": []
+            },
+            "api_check": {
+                "checked_at": "2026-10-28",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "01588",
+                "api_effective": "2026-06-03",
+                "articles": "제16조 일치 제29조 일치 제30조 일치",
+                "annex_count": 1,
+                "report": "api-sync-report-2026-10-28.md"
             }
         },
         {
@@ -298,6 +379,16 @@
                     "9": "1aa11ff4917d07b3"
                 },
                 "annexes": []
+            },
+            "api_check": {
+                "checked_at": "2026-10-28",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "00882",
+                "api_effective": "2021-08-27",
+                "articles": "제2조 일치 제3조 일치 제9조 일치",
+                "annex_count": 11,
+                "report": "api-sync-report-2026-10-28.md"
             }
         },
         {
@@ -333,6 +424,16 @@
                     "27": "492953803a82d5f5"
                 },
                 "annexes": []
+            },
+            "api_check": {
+                "checked_at": "2026-10-28",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "21065",
+                "api_effective": "2025-10-01",
+                "articles": "제2조 일치 제12조 일치 제27조 일치",
+                "annex_count": 0,
+                "report": "api-sync-report-2026-10-28.md"
             }
         },
         {
@@ -363,6 +464,16 @@
                     "10": "f6a947a06fdc4879"
                 },
                 "annexes": []
+            },
+            "api_check": {
+                "checked_at": "2026-10-28",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "36338",
+                "api_effective": "2026-06-03",
+                "articles": "제10조 일치",
+                "annex_count": 13,
+                "report": "api-sync-report-2026-10-28.md"
             }
         },
         {
@@ -399,6 +510,16 @@
                 "annexes": {
                     "공공하수도의 구조에 관한 기술적 기준(제6조 관련)": true
                 }
+            },
+            "api_check": {
+                "checked_at": "2026-10-28",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "00042",
+                "api_effective": "2026-06-22",
+                "articles": "제6조 일치 제23조 일치",
+                "annex_count": 80,
+                "report": "api-sync-report-2026-10-28.md"
             }
         },
         {
@@ -417,7 +538,9 @@
                 "5",
                 "6"
             ],
-            "watch_annexes": [],
+            "watch_annexes": [
+                "하수관로 시설별 점검 주기 및 내용"
+            ],
             "mirror_file": "admrule/sewer_maint.md",
             "api_scope": "고시 조문 원문·발령번호·시행일",
             "baseline": {
@@ -432,7 +555,19 @@
                     "5": "d2b5cd0e689de72d",
                     "6": "0845e654f5843e0f"
                 },
-                "annexes": []
+                "annexes": {
+                    "하수관로 시설별 점검 주기 및 내용": true
+                }
+            },
+            "api_check": {
+                "checked_at": "2026-10-28",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "2025-165",
+                "api_effective": "2025-10-01",
+                "articles": "제3조 일치 제5조 일치 제6조 일치",
+                "annex_count": 4,
+                "report": "api-sync-report-2026-10-28.md"
             }
         },
         {
@@ -449,7 +584,9 @@
                 "1",
                 "2"
             ],
-            "watch_annexes": [],
+            "watch_annexes": [
+                "하수도 설계기준"
+            ],
             "mirror_file": "admrule/kds61.md",
             "api_scope": "고시 조문(목적·'별지와 같다')·발령번호·시행일 — 설계기준 본문(KDS 61 xx xx)은 별지·KCSC",
             "baseline": {
@@ -463,7 +600,19 @@
                     "1": "943162b2ddda9e4f",
                     "2": "f7cdde875231f489"
                 },
-                "annexes": []
+                "annexes": {
+                    "하수도 설계기준": true
+                }
+            },
+            "api_check": {
+                "checked_at": "2026-10-28",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "2025-165",
+                "api_effective": "2025-10-01",
+                "articles": "제1조 일치 제2조 일치",
+                "annex_count": 1,
+                "report": "api-sync-report-2026-10-28.md"
             }
         },
         {
@@ -491,6 +640,17 @@
                 "mst": "2100000254280",
                 "articles": [],
                 "annexes": []
+            },
+            "api_check": {
+                "checked_at": "2026-10-28",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "2023-907",
+                "api_effective": "2023-01-12",
+                "articles": "본문 첨부 파일",
+                "annex_count": 0,
+                "report": "api-sync-report-2026-10-28.md",
+                "note": "국가법령정보센터 현행은 제2023-907호 — 사용자 확인 2026-10-02 고시(제2026-528호)는 같은 이름으로는 미반영. 다른 이름 등록 여부 검색 필요"
             }
         },
         {
@@ -515,6 +675,16 @@
                 "mst": "2100000251100",
                 "articles": [],
                 "annexes": []
+            },
+            "api_check": {
+                "checked_at": "2026-10-28",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "2024-743",
+                "api_effective": "2024-12-16",
+                "articles": "본문 첨부 파일",
+                "annex_count": 0,
+                "report": "api-sync-report-2026-10-28.md"
             }
         }
     ],

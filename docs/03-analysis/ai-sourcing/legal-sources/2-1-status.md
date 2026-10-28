@@ -145,3 +145,4 @@
 - 39건 분류: API 로 확보 가능 **17건**(조문까지 9 · 고시 번호·시행일만 8), 별도 수집 **22건**(KS 20 · KCS 61 계열 2). 상세: [`api-strategy.md`](api-strategy.md), 데이터 `api_targets.json`.
 - 국가법령정보 OPEN API 클라이언트·대조 스크립트 구현, 모의 응답 테스트 통과. 인증키 발급 후 미러 기준값과 공식 API 를 대조해 `api_text_verified`(미러) 근거의 확인 출처를 갱신한다(자동 활성화 없음).
 - 신청 안내: [`../api-application-guide.md`](../api-application-guide.md)
+- **실제 API 대조(2026-10-28, 사용자 PC 실행): 16개 문서 전부 일치**(번호·시행일·감시 조문 25개). 근거 12건의 확인 출처에 공식 API 대조를 추가했다(활성 상태 변경 없음). 보고서: [`api-sync-report-2026-10-28.md`](api-sync-report-2026-10-28.md)

@@ -16,7 +16,7 @@ ALTER TABLE rag_documents
   ADD COLUMN reviewer       VARCHAR(100) NULL AFTER author,
   ADD COLUMN reviewed_at    DATE         NULL AFTER reviewer,
   ADD COLUMN review_status  VARCHAR(20)  NOT NULL DEFAULT 'unreviewed' COMMENT 'unreviewed/reviewed' AFTER reviewed_at,
-  ADD COLUMN verify_level   VARCHAR(30)  NULL COMMENT '법령·기준 원문 확인 수준: original_verified(공식 원문 검증)/api_text_verified(법제처 Open API 원문 미러로 조문 확인)/metadata_confirmed(공식 메타데이터 확인: 고시·기준명·개정일·적용 범위)/search_candidate(검색 후보). 사내 문서는 NULL' AFTER review_status,
+  ADD COLUMN verify_level   VARCHAR(30)  NULL COMMENT '법령·기준 원문 확인 수준: original_verified(공식 원문 검증)/api_text_verified(법제처 OPEN API 원문으로 조문 확인 — 공식 API 대조 또는 원문 미러)/metadata_confirmed(공식 메타데이터 확인: 고시·기준명·개정일·적용 범위)/search_candidate(검색 후보). 사내 문서는 NULL' AFTER review_status,
   ADD COLUMN verified_by    VARCHAR(100) NULL COMMENT '원문(또는 존재) 확인자' AFTER verify_level,
   ADD COLUMN verified_at    DATE         NULL COMMENT '원문(또는 존재) 확인일' AFTER verified_by,
   ADD COLUMN updated_by     INT          NULL AFTER verified_at,

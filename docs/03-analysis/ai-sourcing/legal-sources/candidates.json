@@ -31,7 +31,9 @@
       "V01",
       "V02"
     ],
-    "blocked_need": null
+    "blocked_need": null,
+    "api_checked_at": "2026-10-28",
+    "api_check": "주차장법 시행규칙: 일치(01604·시행 2026-07-27, 제3조 일치 제11조 일치)"
   },
   {
     "type": "법령",
@@ -46,7 +48,7 @@
     "evidence": "law.go.kr 별표 파일 검색 결과 '■ 장애인ㆍ노인ㆍ임산부 등의 편의증진 보장에 관한 법률 시행규칙 [별표 1] <개정 2023. 12. 11.>' https://www.law.go.kr/flDownload.do?flSeq=135226913 및 <개정 2022. 7. 26.> https://law.go.kr/flDownload.do?gubun=&flSeq=117790707&bylClsCd=110201. 수치는 검색 엔진 요약에서만 확인",
     "confidence": "높음",
     "verify_level": "metadata_confirmed",
-    "verified_by": "Claude(법제처 Open API 원문 미러(legalize-kr, 2026-10-27 기준) 열람)",
+    "verified_by": "Claude(법제처 Open API 원문 미러(legalize-kr, 2026-10-27 기준) 열람) + 법제처 OPEN API 대조(사용자 실행 2026-10-28)",
     "verified_at": "2026-10-28",
     "verified_url": null,
     "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
@@ -59,13 +61,15 @@
     "meta_confirmed": true,
     "detail_verified": false,
     "ai_applicable": false,
-    "verdict_21": "공식 메타데이터 확인(법제처 원문 미러)",
+    "verdict_21": "공식 메타데이터 확인(법제처 OPEN API 대조)",
     "verdict_reason": "별표 1 \"편의시설의 구조·재질등에 관한 세부기준\" 존재·현행 확인. 별표 내용은 첨부파일(law.go.kr)에만 있어 미확보. 의무 대상시설 범위는 법 제7조로 확인(V11)",
     "blocked_need": "별표 1 원문(PDF/HWP)",
     "doc_kind": "보건복지부령 제1166호",
     "clause_ids": [
       "V11"
-    ]
+    ],
+    "api_checked_at": "2026-10-28",
+    "api_check": "장애인ㆍ노인ㆍ임산부 등의 편의증진 보장에 관한 법률: 일치(20594·시행 2025-12-21, 제7조 일치 제8조 일치); 장애인ㆍ노인ㆍ임산부 등의 편의증진 보장에 관한 법률 시행규칙: 일치(01166·시행 2026-07-02, 제2조 일치)"
   },
   {
     "type": "법령",
@@ -80,7 +84,7 @@
     "evidence": "nepla.ai(2차 사이트) 법제처 유권해석 정리 페이지: '시행령 별표 2 제2호라목에 따른 공원에 설치해야 하는 점자블록의 설치범위' 언급. 공식 도메인 원문은 검색에서 확인 안 됨",
     "confidence": "중간",
     "verify_level": "metadata_confirmed",
-    "verified_by": "Claude(법제처 Open API 원문 미러(legalize-kr, 2026-10-27 기준) 열람)",
+    "verified_by": "Claude(법제처 Open API 원문 미러(legalize-kr, 2026-10-27 기준) 열람) + 법제처 OPEN API 대조(사용자 실행 2026-10-28)",
     "verified_at": "2026-10-28",
     "verified_url": null,
     "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
@@ -93,11 +97,13 @@
     "meta_confirmed": true,
     "detail_verified": false,
     "ai_applicable": false,
-    "verdict_21": "공식 메타데이터 확인(법제처 원문 미러)",
+    "verdict_21": "공식 메타데이터 확인(법제처 OPEN API 대조)",
     "verdict_reason": "별표 2 \"대상시설별 편의시설의 종류 및 설치기준\" 존재·현행 확인. 별표 내용 미확보",
     "blocked_need": "별표 2 원문",
     "doc_kind": "대통령령 제35947호",
-    "clause_ids": []
+    "clause_ids": [],
+    "api_checked_at": "2026-10-28",
+    "api_check": "장애인ㆍ노인ㆍ임산부 등의 편의증진 보장에 관한 법률 시행령: 일치(35947·시행 2026-01-02, 제4조 일치)"
   },
   {
     "type": "법령",
@@ -112,7 +118,7 @@
     "evidence": "law.go.kr 별표 파일 '■ 교통약자의 이동편의 증진법 시행규칙 [별표 1] <개정 2024. 12. 26.>' https://www.law.go.kr/LSW/flDownload.do?flSeq=155311565&bylClsCd=110201, <개정 2024. 1. 19.> https://law.go.kr/flDownload.do?gubun=&flSeq=137449791&bylClsCd=110201",
     "confidence": "높음",
     "verify_level": "metadata_confirmed",
-    "verified_by": "Claude(법제처 Open API 원문 미러(legalize-kr, 2026-10-27 기준) 열람)",
+    "verified_by": "Claude(법제처 Open API 원문 미러(legalize-kr, 2026-10-27 기준) 열람) + 법제처 OPEN API 대조(사용자 실행 2026-10-28)",
     "verified_at": "2026-10-28",
     "verified_url": null,
     "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
@@ -125,11 +131,13 @@
     "meta_confirmed": true,
     "detail_verified": false,
     "ai_applicable": false,
-    "verdict_21": "공식 메타데이터 확인(법제처 원문 미러)",
+    "verdict_21": "공식 메타데이터 확인(법제처 OPEN API 대조)",
     "verdict_reason": "별표 1 \"이동편의시설의 구조ㆍ재질 등에 관한 세부기준\" 존재·현행 확인(제2조제1항). 별표 내용 미확보",
     "blocked_need": "별표 1 원문",
     "doc_kind": "국토교통부령 제1558호",
-    "clause_ids": []
+    "clause_ids": [],
+    "api_checked_at": "2026-10-28",
+    "api_check": "교통약자의 이동편의 증진법 시행규칙: 일치(01558·시행 2026-02-01, 제2조 일치)"
   },
   {
     "type": "법령",
@@ -144,7 +152,7 @@
     "evidence": "law.go.kr 별표 파일 제목만 검색 결과에 노출: '■ 보행안전 및 편의증진에 관한 법률 시행규칙 [별표 1] 보행안전 및 편의증진 시설의 구조 및 기준(제5조제2항 관련)'",
     "confidence": "중간",
     "verify_level": "metadata_confirmed",
-    "verified_by": "Claude(법제처 Open API 원문 미러(legalize-kr, 2026-10-27 기준) 열람)",
+    "verified_by": "Claude(법제처 Open API 원문 미러(legalize-kr, 2026-10-27 기준) 열람) + 법제처 OPEN API 대조(사용자 실행 2026-10-28)",
     "verified_at": "2026-10-28",
     "verified_url": null,
     "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
@@ -157,13 +165,15 @@
     "meta_confirmed": true,
     "detail_verified": false,
     "ai_applicable": false,
-    "verdict_21": "공식 메타데이터 확인(법제처 원문 미러)",
+    "verdict_21": "공식 메타데이터 확인(법제처 OPEN API 대조)",
     "verdict_reason": "별표 1 존재·현행 확인. 제5조제1항(설치 가능 시설: 볼라드·점자블록 등)은 본문 확인(V12). 별표 내용 미확보",
     "blocked_need": "별표 1 원문",
     "doc_kind": "행정안전부령 제344호",
     "clause_ids": [
       "V12"
-    ]
+    ],
+    "api_checked_at": "2026-10-28",
+    "api_check": "보행안전 및 편의증진에 관한 법률 시행규칙: 일치(00344·시행 2022-07-12, 제5조 일치)"
   },
   {
     "type": "법령",
@@ -178,7 +188,7 @@
     "evidence": "law.go.kr 행정규칙 페이지 https://www.law.go.kr/admRulLsInfoP.do?chrClsCd=010202&admRulSeq=2100000203352 ; molit 행정규칙 '보도 설치 및 관리 지침 일부 개정' https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=16951 ; 전면개정안 https://molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=15594 (보도 유효폭 2.0m 원칙·불가피 시 1.5m, 횡단경사 1/50 원칙 — 개정안 내용, 최종 반영 여부 미확인)",
     "confidence": "높음",
     "verify_level": "metadata_confirmed",
-    "verified_by": "Claude(법제처 Open API 행정규칙 원문 미러(admrule-kr, 2026-10-27 기준) 열람)",
+    "verified_by": "Claude(법제처 Open API 행정규칙 원문 미러(admrule-kr, 2026-10-27 기준) 열람) + 법제처 OPEN API 대조(사용자 실행 2026-10-28)",
     "verified_at": "2026-10-28",
     "verified_url": null,
     "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
@@ -191,11 +201,13 @@
     "meta_confirmed": true,
     "detail_verified": false,
     "ai_applicable": false,
-    "verdict_21": "공식 메타데이터 확인(법제처 원문 미러)",
+    "verdict_21": "공식 메타데이터 확인(법제처 OPEN API 대조)",
     "verdict_reason": "현행 예규(현행여부 Y) 확인. 본문은 첨부파일로만 제공되어 조항 미확보",
     "blocked_need": "지침 본문 첨부파일(PDF/HWP)",
     "doc_kind": "국토교통부예규 제321호",
-    "clause_ids": []
+    "clause_ids": [],
+    "api_checked_at": "2026-10-28",
+    "api_check": "보도 설치 및 관리 지침: 일치(321·시행 2021-07-23) — 본문 형식 미확인(조문·첨부 안내 문구 모두 인식 안 됨) — 원본 응답 확인 필요"
   },
   {
     "type": "법령",
@@ -210,7 +222,7 @@
     "evidence": "law.go.kr 연혁 페이지 https://law.go.kr/LSW/lsRvsDocListP.do?chrClsCd=010102&lsId=007080 ; 조문 링크 https://law.go.kr/LSW/lsLinkProc.do?ancYd=20170105&joNo=001600000&lsClsCd=L&lsId=2001665&mode=4 (제16조 링크로 보이나 내용 미확인)",
     "confidence": "중간",
     "verify_level": "api_text_verified",
-    "verified_by": "Claude(법제처 원문 미러 열람)",
+    "verified_by": "Claude(법제처 원문 미러 열람) + 법제처 OPEN API 대조(사용자 실행 2026-10-28)",
     "verified_at": "2026-10-28",
     "verified_url": null,
     "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
@@ -223,14 +235,16 @@
     "meta_confirmed": true,
     "detail_verified": true,
     "ai_applicable": true,
-    "verdict_21": "원문 조문 확인(법제처 원문 미러)",
+    "verdict_21": "원문 조문 확인(법제처 OPEN API 대조 일치)",
     "verdict_reason": "연석 높이 25cm 이하·보도 유효폭 2m(제16조), 배수시설(제30조) 조문 확인. 제29조 포장은 두께 수치 없음(80T 근거 아님). 적용 범위: 도로법상 도로 신설·개량(제1조)",
     "clause_ids": [
       "V03",
       "V04",
       "V05"
     ],
-    "blocked_need": "공식 사이트 최종 대조"
+    "blocked_need": "공식 사이트 최종 대조",
+    "api_checked_at": "2026-10-28",
+    "api_check": "도로의 구조ㆍ시설 기준에 관한 규칙: 일치(01588·시행 2026-06-03, 제16조 일치 제29조 일치 제30조 일치)"
   },
   {
     "type": "법령",
@@ -245,7 +259,7 @@
     "evidence": "nepla.ai(2차) https://www.nepla.ai/law/도로와다른도로등과의연결에관한규칙 — 연석 정의 문구. 공식 도메인 확인 안 됨",
     "confidence": "낮음",
     "verify_level": "api_text_verified",
-    "verified_by": "Claude(법제처 원문 미러 열람)",
+    "verified_by": "Claude(법제처 원문 미러 열람) + 법제처 OPEN API 대조(사용자 실행 2026-10-28)",
     "verified_at": "2026-10-28",
     "verified_url": null,
     "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
@@ -258,12 +272,14 @@
     "meta_confirmed": true,
     "detail_verified": true,
     "ai_applicable": true,
-    "verdict_21": "원문 조문 확인(법제처 원문 미러)",
+    "verdict_21": "원문 조문 확인(법제처 OPEN API 대조 일치)",
     "verdict_reason": "연석 정의(제2조제11호), 적용 범위(일반국도 우측 연결, 제3조), U형 측구 유효폭 30cm·깊이 60cm 이상+격자형 철제 뚜껑·20m 이내 맨홀(제9조) 확인",
     "clause_ids": [
       "V06"
     ],
-    "blocked_need": "공식 사이트 최종 대조"
+    "blocked_need": "공식 사이트 최종 대조",
+    "api_checked_at": "2026-10-28",
+    "api_check": "도로와 다른 시설의 연결에 관한 규칙: 일치(00882·시행 2021-08-27, 제2조 일치 제3조 일치 제9조 일치)"
   },
   {
     "type": "법령",
@@ -278,7 +294,7 @@
     "evidence": "law.go.kr 별표 파일 '■ 하수도법 시행규칙 [별표 5] <개정 2025. 10. 1.> 공공하수도의 구조에 관한 기술적 기준(제6조 관련)' https://www.law.go.kr/flDownload.do?gubun=&flSeq=160140833&bylClsCd=110201 ; 구판 https://law.go.kr/flDownload.do?flSeq=95524211",
     "confidence": "높음",
     "verify_level": "metadata_confirmed",
-    "verified_by": "Claude(법제처 Open API 원문 미러(legalize-kr, 2026-10-27 기준) 열람)",
+    "verified_by": "Claude(법제처 Open API 원문 미러(legalize-kr, 2026-10-27 기준) 열람) + 법제처 OPEN API 대조(사용자 실행 2026-10-28)",
     "verified_at": "2026-10-28",
     "verified_url": null,
     "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
@@ -291,7 +307,7 @@
     "meta_confirmed": true,
     "detail_verified": false,
     "ai_applicable": false,
-    "verdict_21": "공식 메타데이터 확인(법제처 원문 미러)",
+    "verdict_21": "공식 메타데이터 확인(법제처 OPEN API 대조)",
     "verdict_reason": "별표 5 \"공공하수도의 구조에 관한 기술적 기준\" 존재·현행 확인(제6조). 별표 미확보. 같은 법령군의 배수설비 의무(법 제27조)·배수설비 기준(시행규칙 제23조)·하수도용 자재(시행령 제10조)는 본문 확인(V07~V09)",
     "blocked_need": "별표 5·별표 7 원문",
     "doc_kind": "기후에너지환경부령 제42호",
@@ -299,7 +315,9 @@
       "V07",
       "V08",
       "V09"
-    ]
+    ],
+    "api_checked_at": "2026-10-28",
+    "api_check": "하수도법: 일치(21065·시행 2025-10-01, 제2조 일치 제12조 일치 제27조 일치); 하수도법 시행령: 일치(36338·시행 2026-06-03, 제10조 일치); 하수도법 시행규칙: 일치(00042·시행 2026-06-22, 제6조 일치 제23조 일치)"
   },
   {
     "type": "법령",
@@ -314,7 +332,7 @@
     "evidence": "law.go.kr 고시문 파일 https://law.go.kr/LSW/flDownload.do?bylClsCd=&flSeq=127080697 ('환경부고시제2023-71호 … 「하수관로유지관리기준」을 … 제정고시합니다. 2023. 4. 10.') ; korea.kr 정책뉴스 https://www.korea.kr/news/policyNewsView.do?newsId=148946744 (기존 맨홀 추락방지시설 의무화 개정안)",
     "confidence": "높음",
     "verify_level": "api_text_verified",
-    "verified_by": "Claude(법제처 행정규칙 원문 미러 열람)",
+    "verified_by": "Claude(법제처 행정규칙 원문 미러 열람) + 법제처 OPEN API 대조(사용자 실행 2026-10-28)",
     "verified_at": "2026-10-28",
     "verified_url": null,
     "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
@@ -327,12 +345,14 @@
     "meta_confirmed": true,
     "detail_verified": true,
     "ai_applicable": true,
-    "verdict_21": "원문 조문 확인(법제처 행정규칙 원문 미러)",
+    "verdict_21": "원문 조문 확인(법제처 OPEN API 대조 일치)",
     "verdict_reason": "적용 지역(제3조), 점검 대상(제5조), 빗물받이·측구 불법덮개 관리(제6조제3항) 확인. 의무 주체는 공공하수도관리청",
     "clause_ids": [
       "V10"
     ],
-    "blocked_need": "별표 1(점검 주기) 원문"
+    "blocked_need": "별표 1(점검 주기) 원문",
+    "api_checked_at": "2026-10-28",
+    "api_check": "하수관로 유지관리 기준: 일치(2025-165·시행 2025-10-01, 제3조 일치 제5조 일치 제6조 일치)"
   },
   {
     "type": "KDS",
@@ -347,7 +367,7 @@
     "evidence": "law.go.kr 행정규칙 '하수도설계기준' https://www.law.go.kr/LSW/admRulInfoP.do?admRulSeq=2100000100709 , https://law.go.kr/LSW/admRulLsInfoP.do?admRulSeq=2100000177555 ; 2차 PDF https://files-scs.pstatic.net/2024/08/30/FEFOlqHQAr/하수도설계기준(2023).pdf (표지 'KDS 61 00 00 : 2022', 2022.12.28 개정, kcsc.re.kr 표기)",
     "confidence": "높음",
     "verify_level": "metadata_confirmed",
-    "verified_by": "Claude(법제처 Open API 행정규칙 원문 미러(admrule-kr, 2026-10-27 기준) 열람)",
+    "verified_by": "Claude(법제처 Open API 행정규칙 원문 미러(admrule-kr, 2026-10-27 기준) 열람) + 법제처 OPEN API 대조(사용자 실행 2026-10-28)",
     "verified_at": "2026-10-28",
     "verified_url": null,
     "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
@@ -360,11 +380,13 @@
     "meta_confirmed": true,
     "detail_verified": false,
     "ai_applicable": false,
-    "verdict_21": "공식 메타데이터 확인(법제처 원문 미러)",
+    "verdict_21": "공식 메타데이터 확인(법제처 OPEN API 대조)",
     "verdict_reason": "하수도설계기준 고시 현행 확인. 기준 본문은 별지(PDF)로만 제공 — 조항 미확보",
     "blocked_need": "별지 하수도 설계기준 PDF",
     "doc_kind": "기후에너지환경부고시 제2025-165호",
-    "clause_ids": []
+    "clause_ids": [],
+    "api_checked_at": "2026-10-28",
+    "api_check": "하수도설계기준: 일치(2025-165·시행 2025-10-01, 제1조 일치 제2조 일치)"
   },
   {
     "type": "KDS",
@@ -395,7 +417,9 @@
     "verdict_21": "검색 후보 — 원문 접근 불가",
     "verdict_reason": "상위 하수도설계기준 고시(제2025-165호, 2025-10-01 시행) 현행은 원문 미러로 확인했으나, 이 코드 번호가 별지 안에 실제 있는지 확인 불가",
     "blocked_need": "상위 고시 별지(PDF)",
-    "clause_ids": []
+    "clause_ids": [],
+    "api_checked_at": "2026-10-28",
+    "api_check": "하수도설계기준: 일치(2025-165·시행 2025-10-01, 제1조 일치 제2조 일치)"
   },
   {
     "type": "KDS",
@@ -426,7 +450,9 @@
     "verdict_21": "공식 메타데이터 확인(사용자)",
     "verdict_reason": "사용자 KCSC 공지 확인(고시 제2026-528호). 참고: 법제처 행정규칙 미러(2026-10-27)는 아직 제2023-907호를 현행으로 표시 — 2026 고시의 법제처 등록 지연 추정",
     "blocked_need": "고시 첨부 기준 전문",
-    "clause_ids": []
+    "clause_ids": [],
+    "api_checked_at": "2026-10-28",
+    "api_check": "도로설계기준(KDS 44 00 00) 및 도로공사 표준시방서(KCS 44 00 00): 일치(2023-907·시행 2023-01-12) — 국가법령정보센터 현행은 제2023-907호 — 사용자 확인 2026-10-02 고시(제2026-528호)는 같은 이름으로는 미반영. 다른 이름 등록 여부 검색 필요"
   },
   {
     "type": "KCS",
@@ -457,7 +483,9 @@
     "verdict_21": "공식 메타데이터 확인(사용자)",
     "verdict_reason": "사용자 KCSC 공지 확인(고시 제2026-528호). 참고: 법제처 행정규칙 미러(2026-10-27)는 아직 제2023-907호를 현행으로 표시 — 2026 고시의 법제처 등록 지연 추정",
     "blocked_need": "고시 첨부 기준 전문",
-    "clause_ids": []
+    "clause_ids": [],
+    "api_checked_at": "2026-10-28",
+    "api_check": "도로설계기준(KDS 44 00 00) 및 도로공사 표준시방서(KCS 44 00 00): 일치(2023-907·시행 2023-01-12) — 국가법령정보센터 현행은 제2023-907호 — 사용자 확인 2026-10-02 고시(제2026-528호)는 같은 이름으로는 미반영. 다른 이름 등록 여부 검색 필요"
   },
   {
     "type": "KDS",
@@ -491,7 +519,9 @@
     "verdict_21": "공식 메타데이터 확인(사용자)",
     "verdict_reason": "사용자 확인 기준명·고시. 상세 조항 미확보(법제처 미러에 2026 고시 미반영, KCSC 접속 차단)",
     "blocked_need": "KDS/KCS 44 50 25 본문(KCSC 코드 뷰어 또는 고시 첨부 PDF)",
-    "clause_ids": []
+    "clause_ids": [],
+    "api_checked_at": "2026-10-28",
+    "api_check": "도로설계기준(KDS 44 00 00) 및 도로공사 표준시방서(KCS 44 00 00): 일치(2023-907·시행 2023-01-12) — 국가법령정보센터 현행은 제2023-907호 — 사용자 확인 2026-10-02 고시(제2026-528호)는 같은 이름으로는 미반영. 다른 이름 등록 여부 검색 필요"
   },
   {
     "type": "KCS",
@@ -525,7 +555,9 @@
     "verdict_21": "공식 메타데이터 확인(사용자)",
     "verdict_reason": "사용자 확인 기준명·고시. 상세 조항 미확보(법제처 미러에 2026 고시 미반영, KCSC 접속 차단)",
     "blocked_need": "KDS/KCS 44 50 25 본문(KCSC 코드 뷰어 또는 고시 첨부 PDF)",
-    "clause_ids": []
+    "clause_ids": [],
+    "api_checked_at": "2026-10-28",
+    "api_check": "도로설계기준(KDS 44 00 00) 및 도로공사 표준시방서(KCS 44 00 00): 일치(2023-907·시행 2023-01-12) — 국가법령정보센터 현행은 제2023-907호 — 사용자 확인 2026-10-02 고시(제2026-528호)는 같은 이름으로는 미반영. 다른 이름 등록 여부 검색 필요"
   },
   {
     "type": "KDS",
@@ -559,7 +591,9 @@
     "verdict_21": "검색 후보 — 원문 접근 불가",
     "verdict_reason": "상위 조경설계기준(KDS 34 00 00) 고시 제2024-743호(2024-12-16 시행) 현행은 원문 미러로 확인. KDS 34 60 10 코드의 현행 존재·블록 두께 조항은 미확인 — 80T 출처로 연결하지 않음",
     "blocked_need": "KDS 34 60 10 본문 또는 현행 코드 목록",
-    "clause_ids": []
+    "clause_ids": [],
+    "api_checked_at": "2026-10-28",
+    "api_check": "조경설계기준(KDS 34 00 00) 및 조경공사 표준시방서(KCS 34 00 00): 일치(2024-743·시행 2024-12-16)"
   },
   {
     "type": "KCS",
