@@ -292,6 +292,97 @@ function rag_pair_turn_events(array $messages, array $logs): array
     return $result;
 }
 
+/**
+ * 이전 상담 복원용 현재 판매가 일괄 조회 — 견적서와 같은 규칙(cart_fetch_items: price_b2c, 판매 중 상품만)
+ *
+ * @param  list<int> $ids
+ * @return array<int, array{price:int, spec:string}>|null  [상품ID => 현재가·규격], 조회 실패 시 null
+ */
+function rag_current_product_prices(array $ids): ?array
+{
+    $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn($i) => $i > 0)));
+    if (!$ids) {
+        return [];
+    }
+    try {
+        if (!db()) {
+            return null;
+        }
+        $items = cart_fetch_items(array_fill_keys($ids, 1));
+    } catch (\Throwable $e) {
+        error_log('[chat] 이전 상담 현재가 조회 실패: ' . get_class($e));
+        return null;
+    }
+    $map = [];
+    foreach ($items as $it) {
+        $map[(int) $it['product_id']] = ['price' => (int) $it['unit_price'], 'spec' => (string) ($it['spec'] ?? '')];
+    }
+    return $map;
+}
+
+/** 복원 이벤트(상품 추천표)에 나온 상품 ID 목록 */
+function rag_event_product_ids(array $eventsByMsg): array
+{
+    $ids = [];
+    foreach ($eventsByMsg as $events) {
+        foreach ((array) $events as $ev) {
+            if (is_array($ev) && ($ev['type'] ?? '') === 'product_cards' && is_array($ev['products'] ?? null)) {
+                foreach ($ev['products'] as $p) {
+                    if (is_array($p) && (int) ($p['id'] ?? 0) > 0) {
+                        $ids[] = (int) $p['id'];
+                    }
+                }
+            }
+        }
+    }
+    return array_values(array_unique($ids));
+}
+
+/**
+ * 복원 화면용 사본에 현재 판매가·판매 상태 반영 (DB 불필요 — chat_logs 원본은 변경하지 않음)
+ * 상품명·규격·이미지·추천 근거·권장 수량은 상담 당시 값 유지, 가격(price_b2c)과 price_state만 바꾼다.
+ *   ok       현재 판매가
+ *   inquiry  현재가 0원(가격 문의)
+ *   stopped  판매 중지·삭제(현재 판매 상품에 없음)
+ *   changed  현재 규격이 상담 당시와 달라 다른 상품일 수 있음 → 담기 막음
+ *   unknown  현재가 조회 실패 → 상담 당시 가격을 현재가처럼 보이지 않게 가격 숨김
+ *
+ * @param array<int, list<array>>                          $eventsByMsg
+ * @param array<int, array{price:int, spec:string}>|null   $current  rag_current_product_prices() 결과
+ */
+function rag_apply_current_prices(array $eventsByMsg, ?array $current): array
+{
+    $norm = static fn($s): string => (string) preg_replace('/\s+/u', ' ', trim((string) $s));
+    foreach ($eventsByMsg as $mi => $events) {
+        foreach ((array) $events as $ei => $ev) {
+            if (!is_array($ev) || ($ev['type'] ?? '') !== 'product_cards' || !is_array($ev['products'] ?? null)) {
+                continue;
+            }
+            foreach ($ev['products'] as $pi => $p) {
+                if (!is_array($p)) {
+                    continue;
+                }
+                $id  = (int) ($p['id'] ?? 0);
+                $cur = $current[$id] ?? null;
+                if ($current === null) {
+                    [$state, $price] = ['unknown', null];
+                } elseif ($cur === null) {
+                    [$state, $price] = ['stopped', null];
+                } elseif ($norm($cur['spec']) !== $norm($p['spec'] ?? '')) {
+                    [$state, $price] = ['changed', null];
+                } elseif ($cur['price'] <= 0) {
+                    [$state, $price] = ['inquiry', 0];
+                } else {
+                    [$state, $price] = ['ok', $cur['price']];
+                }
+                $eventsByMsg[$mi][$ei]['products'][$pi]['price_b2c']   = $price;
+                $eventsByMsg[$mi][$ei]['products'][$pi]['price_state'] = $state;
+            }
+        }
+    }
+    return $eventsByMsg;
+}
+
 function rag_save_session(string $key, array $messages): void
 {
     // 로그인 상태이면 user_id 자동 연결 (GAP-V2-02 해소)

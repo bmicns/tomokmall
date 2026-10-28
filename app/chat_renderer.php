@@ -18,7 +18,9 @@ $_cleanEvents = static function (array $events): array {
                     'id'            => (int) $p['id'],
                     'name'          => (string) ($p['name'] ?? ''),
                     'spec'          => (string) ($p['spec'] ?? ''),
-                    'price_b2c'     => (int) ($p['price_b2c'] ?? 0),
+                    'price_b2c'     => isset($p['price_b2c']) ? (int) $p['price_b2c'] : null,
+                    'price_state'   => in_array($p['price_state'] ?? null, ['ok', 'inquiry', 'stopped', 'changed', 'unknown'], true)
+                                       ? $p['price_state'] : 'unknown',
                     'image_url'     => isset($p['image_url']) && $p['image_url'] !== '' ? (string) $p['image_url'] : null,
                     'suggested_qty' => isset($p['suggested_qty']) ? (int) $p['suggested_qty'] : null,
                     'qty_basis'     => isset($p['qty_basis']) && $p['qty_basis'] !== '' ? (string) $p['qty_basis'] : null,
@@ -236,6 +238,8 @@ render_header('AI 자재 상담', 'chat');
   .compare-spec { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
   .compare-qtybasis { font-size: 11px; color: var(--color-primary); font-weight: 600; margin-top: 3px; }
   .compare-price { font-size: 13px; font-weight: 600; color: var(--color-primary); white-space: nowrap; }
+  .compare-price.is-state { color: var(--color-text-secondary); font-weight: 500; }
+  .compare-state-note { font-size: 11px; color: var(--color-danger); margin-top: 3px; }
   /* 전역 input[type=number](width:100%·padding 8px 12px)보다 우선하도록 .compare-table 한정 */
   .compare-table .compare-qty {
     width: 60px; padding: 4px; border: 1px solid var(--color-border);

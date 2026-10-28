@@ -106,6 +106,11 @@ if ($_reqSid !== '' && $_isLoggedIn) {
         $sessionKey = $_reqSid;
         $_restored  = $_owned;
         $_restoredEvents = rag_load_turn_events($_reqSid, (int) current_user()['id'], $_owned);
+        // 상품 추천표: 가격·판매 상태만 현재 기준(견적서와 같은 규칙), 나머지는 상담 당시 그대로
+        $_restoredEvents = rag_apply_current_prices(
+            $_restoredEvents,
+            rag_current_product_prices(rag_event_product_ids($_restoredEvents))
+        );
         rag_chat_key_allow($sessionKey);
     }
 }

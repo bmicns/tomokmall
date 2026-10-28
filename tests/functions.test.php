@@ -357,5 +357,27 @@ $pe = rag_pair_turn_events([['role' => 'user', 'content' => $long], ['role' => '
     [['user_msg' => str_repeat('가', 1000), 'events_json' => $cards]]);
 eq('1000자 초과 질문도 질문 API와 같은 기준으로 짝지음', array_keys($pe), [1]);
 
+echo "[이전 상담 현재가 rag_apply_current_prices]\n";
+$snap = [3 => [['type' => 'product_cards', 'products' => [
+    ['id' => 1, 'name' => 'A', 'spec' => '규격: 300*1000 | 단위: 개', 'price_b2c' => 45000, 'image_url' => '/a.png', 'qty_basis' => '근거', 'suggested_qty' => 10],
+    ['id' => 2, 'name' => 'B', 'spec' => '규격 B', 'price_b2c' => 61000],
+    ['id' => 3, 'name' => 'C', 'spec' => '규격 C', 'price_b2c' => 83500],
+    ['id' => 4, 'name' => 'D', 'spec' => '규격 D', 'price_b2c' => 127000],
+    ['id' => 5, 'name' => 'E', 'spec' => '규격 E', 'price_b2c' => 9000],
+]], ['type' => 'estimate_created', 'estimate_id' => 7]]];
+eq('상품 ID 일괄 수집', rag_event_product_ids($snap), [1, 2, 3, 4, 5]);
+$cur = [1 => ['price' => 47000, 'spec' => ' 규격: 300*1000  | 단위: 개'], 2 => ['price' => 61000, 'spec' => '규격 B'],
+        4 => ['price' => 0, 'spec' => '규격 D'], 5 => ['price' => 9500, 'spec' => '규격 E-2']];
+$ap = rag_apply_current_prices($snap, $cur);
+$st = array_map(static fn($p) => $p['price_state'] . ':' . var_export($p['price_b2c'], true), $ap[3][0]['products']);
+eq('상태별 가격(변경·동일·판매중지·0원·규격변경)', $st, ['ok:47000', 'ok:61000', 'stopped:NULL', 'inquiry:0', 'changed:NULL']);
+$a = $ap[3][0]['products'][0];
+ok('상품명·규격·이미지·근거·권장수량은 상담 당시 값 유지', $a['name'] === 'A' && $a['spec'] === '규격: 300*1000 | 단위: 개'
+    && $a['image_url'] === '/a.png' && $a['qty_basis'] === '근거' && $a['suggested_qty'] === 10);
+ok('견적 카드 등 다른 이벤트는 그대로', $ap[3][1] === $snap[3][1]);
+ok('원본(입력 배열)은 변경되지 않음', $snap[3][0]['products'][0]['price_b2c'] === 45000 && !isset($snap[3][0]['products'][0]['price_state']));
+$un = rag_apply_current_prices($snap, null);
+ok('조회 실패: 모두 가격 확인 불가, 과거 가격 숨김', array_unique(array_map(static fn($p) => $p['price_state'] . ':' . var_export($p['price_b2c'], true), $un[3][0]['products'])) === ['unknown:NULL']);
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);
