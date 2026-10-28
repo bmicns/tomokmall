@@ -282,6 +282,9 @@ async function send() {
   accText     = '';
 
   addMsg('user', msg);
+  // 대화가 시작되면 '새 상담' 버튼 활성화
+  const btnNew = document.getElementById('btn-new-chat');
+  if (btnNew) btnNew.disabled = false;
   const { bubble, content } = addMsg('assistant', '');
 
   const cursor = document.createElement('span');
