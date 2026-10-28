@@ -12,6 +12,8 @@ declare(strict_types=1);
  *  rag_save_session()          — AI 대화 이력 DB 저장
  *  rag_search_legal_documents() — 검증된 공식 법령 근거 검색(출처·조항·적용 조건 포함)
  *  rag_extract_legal_citations() — AI 답변의 [L번호] 표시 → 실제 인용한 근거만 추출
+ *  rag_road_context()          — 차량 블록 시공 장소 판정(공공도로 차도/공공 보도 차량 출입부/사유지/불명확)
+ *  rag_road_context_prompt()   — 판정별 별도 안내 구역(사내 80T 안내 문구는 그대로 두고 공식 기준을 맥락별로 분리)
  */
 
 require_once __DIR__ . '/ai_tools.php';
@@ -306,6 +308,9 @@ function rag_legal_score(array $doc, string $text, string $categoryKey = ''): in
     $score = 0;
     foreach (explode(',', (string) ($doc['tags'] ?? '')) as $tag) {
         $tag = mb_strtolower(trim($tag));
+        if (str_starts_with($tag, '@')) {
+            continue; // '@scope:…' 는 적용 범위 표시(점수에 쓰지 않음)
+        }
         if (mb_strlen($tag) >= 2 && mb_strpos($t, $tag) !== false) {
             $score += 3;
         }
@@ -316,12 +321,21 @@ function rag_legal_score(array $doc, string $text, string $categoryKey = ''): in
     return $score;
 }
 
+/** 근거 문서의 적용 범위 표시(tags 의 '@scope:이름') 목록 (순수 함수) */
+function rag_legal_doc_scopes(array $doc): array
+{
+    preg_match_all('/@scope:([a-z_]+)/', (string) ($doc['tags'] ?? ''), $m);
+    return $m[1];
+}
+
 /**
  * 검증된 공식 법령·기준 근거 검색.
  * 조건: 활성 + source_type<>'internal' + 확인 수준(RAG_LEGAL_VERIFY_LEVELS) + 검토 완료 + 현행.
+ * 적용 범위가 표시된 근거('@scope:public_road' 등)는 $scopes 에 그 범위가 있을 때만 후보가 된다
+ * (예: 공공도로 차도 기준 KDS·KCS 44 50 25 는 공공도로 질문에서만).
  * 출처 칸이 없는 DB(운영 미적용)에서는 빈 배열.
  */
-function rag_search_legal_documents(string $text, string $categoryKey = '', int $limit = 2): array
+function rag_search_legal_documents(string $text, string $categoryKey = '', int $limit = 2, array $scopes = []): array
 {
     if (trim($text) === '' || !rag_documents_has_source_columns()) {
         return [];
@@ -342,6 +356,10 @@ function rag_search_legal_documents(string $text, string $categoryKey = '', int 
     }
     $scored = [];
     foreach ($rows as $r) {
+        $docScopes = rag_legal_doc_scopes($r);
+        if ($docScopes && !array_intersect($docScopes, $scopes)) {
+            continue;
+        }
         $sc = rag_legal_score($r, $text, $categoryKey);
         if ($sc >= 3) {
             $scored[] = [$sc, (int) $r['id'], $r];
@@ -369,6 +387,105 @@ function rag_legal_prompt_section(array $legalDocs): string
             . "\n" . $d['content'];
     }
     return $out;
+}
+
+/**
+ * 차량이 올라가는 블록 시공의 장소 판정 (순수 함수). 고객 발화(user)만 본다.
+ *  public_road    : 공공도로(도로법 도로) 차도 공사 — 발주·관급·국도/지방도/시도·군도·구도·차도 포장 등
+ *  public_sidewalk: 공공 보도(인도)를 차량이 가로질러 출입하는 곳 — 보도 설치 및 관리 지침 구분 Ⅱ
+ *  private        : 사유지(마당·주택·주차장·공장·단지 등) — 사내 80T 안내 그대로
+ *  unclear        : 차량 + 블록/포장인데 장소 단서가 없거나 공공·사유가 섞임 → 장소를 먼저 확인
+ *  none           : 차량 블록 시공 질문이 아님
+ * 판정은 안내 구역·근거 범위를 고르는 데만 쓰고, 법적 해당 여부를 확정하지 않는다.
+ */
+function rag_road_context(array $messages): string
+{
+    $text = '';
+    foreach ($messages as $m) {
+        if (($m['role'] ?? '') === 'user') {
+            $text .= ' ' . ($m['content'] ?? '');
+        }
+    }
+    $t = mb_strtolower(preg_replace('/\s+/u', ' ', $text) ?? '');
+    $t = preg_replace('/보도\s*블[록럭]/u', '블록', $t) ?? $t; // '보도블록'은 제품명 — 장소(보도)로 보지 않음
+    $vehicle = preg_match('/차량|차가|차를|자동차|승용차|트럭|화물차|덤프|지게차|레미콘|버스|차도|차로|진출입|진입로|주차|80t|100t|차량용/u', $t) === 1;
+    $block   = preg_match('/블[록럭]|인터로킹|포장|점토|화강|두께|\d+\s*(?:mm|t)\b/u', $t) === 1;
+    if (!$vehicle || !$block) {
+        return 'none';
+    }
+    // '발주'(자재 주문)·'시도'(시도하다)·'인도'(물건 인도)처럼 흔한 말과 겹치지 않게 좁게 잡는다
+    $public   = preg_match('/도로\s*공사|도로\s*포장|차도\s*포장|관급|발주처|발주청|공공\s*발주|도로법|공공\s*도로|국도|지방도|광역시도|특별시도|(?:시도|군도|구도)\s*\d|도로관리청|시청|구청|군청|도청|지자체|교통량|aadt|차도용\s*블|차도에|차도\s*블/u', $t) === 1;
+    $formal   = preg_match('/설계\s*도서|시방서|kds|kcs|입찰/u', $t) === 1; // 공사 서류 — 공공·민간 모두 있음(장소 확인 필요)
+    $sidewalk = preg_match('/(?:인도|보도)(?:에|를|가|위|쪽|\s*포장|\s*블|\s*진입|\s*턱|\s*횡단|\s*가로)|보행로/u', $t) === 1;
+    $private  = preg_match('/마당|집\s*앞|우리\s*집|주택|전원|사유지|개인|공장|창고|단지|아파트|빌라|상가\s*(?:안|내)|건물\s*안|캠핑|펜션|농가|축사|차고|주차장|진입로/u', $t) === 1;
+    if ($public && !$private) {
+        return 'public_road';
+    }
+    if ($formal && !$private && !$sidewalk) {
+        return 'unclear';
+    }
+    if ($sidewalk && !$private && !$public) {
+        return 'public_sidewalk';
+    }
+    if ($private && !$public && !$sidewalk) {
+        return 'private';
+    }
+    return 'unclear';
+}
+
+/**
+ * 근거 검색 입력 (순수 함수): 장소 판정, 허용 범위, 검색 문장.
+ * 공공 범위 질문은 앞선 고객 발화(장소·두께 질문)까지 합쳐 찾는다(답변 턴에 '두께'가 없을 수 있음). 그 외는 마지막 발화만(기존 동작).
+ * @return array{ctx:string, scopes:array, text:string}
+ */
+function rag_legal_inputs(array $messages, string $lastUserMsg): array
+{
+    $ctx = rag_road_context($messages);
+    $scopes = rag_road_scopes($ctx);
+    $text = $scopes
+        ? implode(' ', array_map(static fn($m) => (string) ($m['content'] ?? ''), array_filter($messages, static fn($m) => ($m['role'] ?? '') === 'user')))
+        : $lastUserMsg;
+    return ['ctx' => $ctx, 'scopes' => $scopes, 'text' => $text];
+}
+
+/** 장소 판정 → 근거 검색에 허용할 적용 범위 (순수 함수) */
+function rag_road_scopes(string $ctx): array
+{
+    return match ($ctx) {
+        'public_road'     => ['public_road'],
+        'public_sidewalk' => ['public_sidewalk'],
+        default           => [],
+    };
+}
+
+/**
+ * 장소 판정별 별도 안내 구역 (순수 함수). 사내 기준 80T 안내 문구는 바꾸지 않고, 공공도로·공공 보도 질문에만
+ * 공식 기준을 따로 안내한다. 사유지·해당 없음은 빈 문자열(기존 흐름 그대로).
+ */
+function rag_road_context_prompt(string $ctx, bool $hasScopedDocs = true): string
+{
+    // 공공 범위 근거가 프롬프트에 없을 때(비활성·운영 미적용): 수치·출처 없이 '사내 80T 로 충분하다'고만 하지 않게 한다
+    if (!$hasScopedDocs && in_array($ctx, ['public_road', 'public_sidewalk'], true)) {
+        return "\n\n=== 공공 도로 공사 — 두께 단정 금지 ===\n"
+            . "- 고객 질문이 도로(차도·보도) 공사로 보인다. 공공 도로는 발주처 설계도서·국가건설기준을 따르므로 사내 80T 기준을 '충분하다'고 안내하지 않는다.\n"
+            . "- 설계도서·시방서에 적힌 블록 두께를 먼저 물어보고, 그 규격으로 검색한다. 확인되지 않은 법정 수치는 말하지 않는다.";
+    }
+    return match ($ctx) {
+        'public_road' => "\n\n=== 공공도로 차도 공사 — 공식 기준 별도 안내 (사내 80T 기준과 구분) ===\n"
+            . "- 고객 질문이 도로법상 도로(국도·지방도·시도·군도·구도 등)의 차도에 블록을 시공하는 공사로 보인다.\n"
+            . "- 이 경우 [참조 문서]의 사내 기준(80T)만으로 두께를 안내하지 않는다. 아래 공식 기준 KDS 44 50 25·KCS 44 50 25 의 '차도용 블록 최소 100mm(교통량·설계 결과에 따라 상향, 표준단면 100mm/120mm)'를 [L번호]와 함께 안내한다.\n"
+            . "- 80mm(80T) 제품을 공공도로 차도용으로 권하지 않는다. 제품 검색은 spec_mm 100, spec_strict true 로 한다(맞는 제품이 없으면 없다고 안내).\n"
+            . "- 최종 두께·단면은 발주처 설계도서·특기시방서가 우선이라고 함께 안내한다. 공식 기준에 없는 내용은 덧붙이지 않는다.",
+        'public_sidewalk' => "\n\n=== 공공 보도의 차량 출입부 — 공식 기준 별도 안내 ===\n"
+            . "- 고객 질문이 도로의 보도(인도)를 차량이 가로질러 출입하는 곳의 포장으로 보인다.\n"
+            . "- 아래 공식 근거(보도 설치 및 관리 지침)가 있으면 그 범위(최대 적재량 4t 이하 차량이 보도를 가로질러 통행하는 보도)와 함께 [L번호]로 안내한다.\n"
+            . "- 4t 를 넘는 차량이 다니거나 차도 부분이면 공공도로 차도 기준(차도용 블록 최소 100mm)이 따로 있으니 공사 성격을 확인한다.",
+        'unclear' => "\n\n=== 차량 블록 시공 장소 확인 ===\n"
+            . "- 차량이 올라가는 블록 시공이지만 장소가 분명하지 않다. 두께가 '충분하다'고 단정하기 전에 먼저 묻는다:\n"
+            . "  '개인 부지(마당·주차장·진입로)인가요, 도로(인도·차도) 공사인가요? 발주처 설계도서나 시방서가 있나요?'\n"
+            . "- 도로 차도 공사로 확인되면 공식 기준(차도용 블록 최소 100mm)이 적용될 수 있음을 알리고, 개인 부지면 기존 안내대로 진행한다.",
+        default => '',
+    };
 }
 
 /**
@@ -515,8 +632,11 @@ function rag_process(array $messages, string $sid): array
         if (($m['role'] ?? '') === 'user') { $lastUserMsg = $m['content'] ?? ''; break; }
     }
     $ragDocs = rag_search_documents($lastUserMsg, $categoryKey, 2);
+    // 차량 블록 시공 장소 판정 — 공공도로·공공 보도 질문에만 해당 범위의 공식 근거를 허용
+    $legalIn = rag_legal_inputs($messages, $lastUserMsg);
+    $roadCtx = $legalIn['ctx'];
     // 검증된 공식 법령 근거(출처 칸이 없는 운영 DB에서는 빈 배열 → 기존 동작 그대로)
-    $legalDocs = rag_search_legal_documents($lastUserMsg, $categoryKey, 2);
+    $legalDocs = rag_search_legal_documents($legalIn['text'], $categoryKey, 2, $legalIn['scopes']);
 
     $system = "당신은 비엠아이 건설자재 전문 상담사입니다. 항상 한국어로만 답변하세요.\n"
         . "\n"
@@ -623,6 +743,8 @@ function rag_process(array $messages, string $sid): array
             $system .= "\n\n[" . $doc['title'] . "]\n" . $doc['content'];
         }
     }
+    $scopedHit = (bool) array_filter($legalDocs, static fn($d) => array_intersect(rag_legal_doc_scopes($d), $legalIn['scopes']));
+    $system .= rag_road_context_prompt($roadCtx, $scopedHit);
     $system .= rag_legal_prompt_section($legalDocs);
 
     $oaiMessages = array_merge([['role' => 'system', 'content' => $system]], $messages);
