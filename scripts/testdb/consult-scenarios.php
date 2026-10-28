@@ -63,7 +63,7 @@ foreach ($scenarios as [$expect, $turns, $check]) {
     }
     $text = (string) ($res['text'] ?? '');
     $cites44 = (bool) array_filter($sources, static fn($x) => str_contains($x, '44 50 25'));
-    $auto = match ($expect) {
+    $auto = empty($res['ok']) ? '실행 실패(답변 없음)' : match ($expect) {
         'public_road'     => $cites44 && preg_match('/100\s*mm|100T|10\s*cm/u', $text) ? '통과' : '확인 필요',
         'public_sidewalk' => !$cites44 && preg_match('/80\s*mm|80T|8\s*cm/u', $text) ? '통과' : '확인 필요',
         'private'         => !$cites44 ? '통과' : '실패(공공도로 출처 인용)',
