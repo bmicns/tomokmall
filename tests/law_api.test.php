@@ -107,9 +107,10 @@ echo "[동기화 스크립트 — 모의 응답]\n";
 $root = dirname(__DIR__);
 $tmp = sys_get_temp_dir() . '/law_api_test_' . getmypid();
 @mkdir($tmp);
+putenv('LAW_API_OC'); // 자식 프로세스에도 키 없음(Windows·Linux 공통). --no-dotenv 로 .env.local 도 읽지 않아 실제 API 호출 없음
 $run = static function (string $targets, string $extra = '') use ($root): array {
-    $cmd = 'env -u LAW_API_OC ' . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg("{$root}/scripts/legal-sources/law_api_sync.php")
-        . ' --fixtures=' . escapeshellarg("{$root}/tests/fixtures/law_api") . ' --targets=' . escapeshellarg($targets) . " --today=2026-10-28 {$extra} 2>&1";
+    $cmd = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg("{$root}/scripts/legal-sources/law_api_sync.php")
+        . ' --fixtures=' . escapeshellarg("{$root}/tests/fixtures/law_api") . ' --targets=' . escapeshellarg($targets) . " --today=2026-10-28 --no-dotenv {$extra} 2>&1";
     exec($cmd, $out, $code);
     return [implode("\n", $out), $code];
 };
@@ -131,7 +132,7 @@ ok('기준보다 새 판이 현행 → 개정됨, 종료 코드 3', $code === 3 
 ok('비활성 권고 SQL 초안: 안전장치 첫 줄 + 활성 근거 V01·V02 만 UPDATE(is_active=0)', str_starts_with($sqlDraft, 'DRAFT_STOP_') && substr_count($sqlDraft, 'UPDATE rag_documents SET is_active = 0') === 2 && !preg_match('/is_active\s*=\s*1/', $sqlDraft));
 [$out, $code] = $run("{$tmp}/api_targets.json", '--only=sidewalk');
 ok('검색 결과 없음 → 검색 안 됨', str_contains($out, '검색 안 됨'));
-exec('env -u LAW_API_OC ' . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg("{$root}/scripts/legal-sources/law_api_sync.php") . ' --targets=' . escapeshellarg("{$tmp}/api_targets.json") . ' 2>&1', $o2, $c2);
+exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg("{$root}/scripts/legal-sources/law_api_sync.php") . ' --no-dotenv --targets=' . escapeshellarg("{$tmp}/api_targets.json") . ' 2>&1', $o2, $c2);
 ok('키 없이 실제 API 모드 → 설정 안내 후 종료 코드 2(네트워크 호출 없음)', $c2 === 2 && str_contains(implode("\n", $o2), 'LAW_API_OC 미설정'));
 array_map('unlink', glob("{$tmp}/*") ?: []);
 @rmdir($tmp);

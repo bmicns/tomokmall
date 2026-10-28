@@ -11,14 +11,14 @@ declare(strict_types=1);
  *   모의 응답(키 없이):  php scripts/legal-sources/law_api_sync.php --fixtures=tests/fixtures/law_api
  *   실제 API:            LAW_API_OC 를 .env.local 에 넣고 → php scripts/legal-sources/law_api_sync.php
  *   옵션: --targets=api_targets.json  --only=parking_rule,road_struct  --today=YYYY-MM-DD
- *         --md=보고서.md  --json=결과.json  --sql=비활성권고.sql
+ *         --md=보고서.md  --json=결과.json  --sql=비활성권고.sql  --no-dotenv(.env.local 을 읽지 않음 — 테스트용)
  * 종료 코드: 0 전부 일치/시행 예정, 3 재검토 필요 항목 있음, 2 설정 오류(키 없음 등)
  */
 if (PHP_SAPI !== 'cli') { exit; }
 $root = dirname(__DIR__, 2);
 require "{$root}/app/law_api.php";
 
-$opt = getopt('', ['fixtures:', 'targets:', 'only:', 'today:', 'md:', 'json:', 'sql:']);
+$opt = getopt('', ['fixtures:', 'targets:', 'only:', 'today:', 'md:', 'json:', 'sql:', 'no-dotenv']);
 $targetsFile = $opt['targets'] ?? "{$root}/docs/03-analysis/ai-sourcing/legal-sources/api_targets.json";
 $clausesFile = dirname($targetsFile) . '/verified_clauses.json';
 $today = $opt['today'] ?? date('Y-m-d');
@@ -26,9 +26,9 @@ $only = isset($opt['only']) ? array_filter(explode(',', (string) $opt['only'])) 
 $fixtures = isset($opt['fixtures']) ? rtrim((string) $opt['fixtures'], '/') : null;
 
 // .env.local(로컬 시크릿) — bootstrap 의 세션 시작 없이 키만 읽는다. 이미 설정된 환경변수는 덮지 않음.
-if ($fixtures === null && law_api_oc() === '' && is_readable("{$root}/.env.local")) {
+if ($fixtures === null && !isset($opt['no-dotenv']) && law_api_oc() === '' && is_readable("{$root}/.env.local")) {
     foreach (file("{$root}/.env.local", FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-        if (preg_match('/^\s*LAW_API_OC\s*=\s*["\']?([^"\'#\s]*)/', $line, $m) && $m[1] !== '') {
+        if (preg_match('/^(?:\xEF\xBB\xBF)?\s*LAW_API_OC\s*=\s*["\']?([^"\'#\s]*)/', $line, $m) && $m[1] !== '') {
             putenv("LAW_API_OC={$m[1]}");
         }
     }
