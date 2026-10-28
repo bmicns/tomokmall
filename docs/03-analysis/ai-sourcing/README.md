@@ -10,6 +10,8 @@ AI 상담 신뢰도 개선(공식 근거 · 상품 데이터 · 수량·비용 �
 | `ai-search-verify.md` | AI 상품 검색 결함 3건 수정 전/후 결과(실제 수집 상품 1,452건, 테스트 DB) | 검증 완료 |
 | `data-quality/` | 수집 상품 1,462건 품질 검사 보고서(`report.md`), 문제 목록(`issues.csv`, 개인정보 값 없음), 정제 계획 | 저장소 파일 기준 |
 | `legal-sources/` | 법령·KDS·KCS·KS 39건 판정(`candidates.json`), 원문 조문 확인 근거 12건(`verified_clauses.json`), 2-1단계 결과(`2-1-status.md`), 검증 계획(`verification-plan.md`) | **상세 원문 검증 1 · 원문 조문 확인 3 · 메타데이터 13 · 검색 후보 20 · 제외 2 · 로컬 상담 연결 11** |
+| `legal-sources/api-strategy.md` · `api_targets.json` | 2-1 병행 전략: 39건 API 지원/별도 수집 분류(API 17 · 별도 22), 국가법령정보 OPEN API 대조 대상 16문서·감시 조문 25개, 기존 방식 수집 일괄 갱신 | 구현·모의 응답 테스트 완료, 인증키 대기 |
+| `api-application-guide.md` | 신청할 API·인증키 목록, 신청 절차, 키 보관 위치 | 사용자 신청 필요 |
 | `external-sources/` | 국내 자재 사이트·제조사 15곳 조사(`sites.json`), 공공데이터 후보, 외부 데이터 검증 구역 설계(`staging-design.md`) | 모두 수집 보류 |
 | `sourcing-status.dc.html` | 관리자 '근거·데이터 확보 현황' 화면 시안(디자인 캔버스 형식) | 시안 |
 | `sql-drafts/01_…` | `rag_documents` 출처·검토·확인수준 칸 추가 (추가형, MySQL 8.0.46 테스트 DB 검증) | 초안 · 운영 미적용 |
@@ -19,8 +21,8 @@ AI 상담 신뢰도 개선(공식 근거 · 상품 데이터 · 수량·비용 �
 | `sql-drafts/03_…` | 저장소 파일 기준 개인정보 102건 정리 (운영 조회 0건 → 실행 보류) | 초안 |
 | `sql-drafts/05_…` | 운영 읽기 전용 점검(개인정보 다른 위치·형식 + 상품 품질 건수) | SELECT 전용 |
 
-도구(배포 대상 아님): `scripts/data-quality/check_products.php`, `scripts/legal-sources/build_legal_sql.php`,
-`scripts/testdb/load-ktomok-docker.sh`, `scripts/testdb/verify-ai-search.php`, 테스트 `tests/ai_search.test.php`.
+도구(배포 대상 아님): `scripts/data-quality/check_products.php`, `scripts/legal-sources/build_legal_sql.php`, `scripts/legal-sources/law_api_sync.php`·`build_api_baseline.php`(법령 API 대조),
+`scripts/testdb/load-ktomok-docker.sh`, `scripts/testdb/verify-ai-search.php`, 테스트 `tests/ai_search.test.php`, `tests/law_api.test.php`(모의 응답). 법령 API 클라이언트 `app/law_api.php` 는 웹 화면에서 호출하지 않는다.
 
 ## 운영 DB 확인 결과 (사용자 조회, 2026-10-27)
 

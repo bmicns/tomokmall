@@ -139,3 +139,9 @@
 - 준비: `bash scripts/testdb/load-ktomok-docker.sh` → `bash scripts/testdb/load-legal-docs.sh` (SQL 초안 01·02·06·07 적용)
 - 테스트: `php tests/rag_legal.test.php` — 시나리오 7종 근거 검색, 80T 질문 법령 미연결, 비검증·비활성·비현행 제외, 프롬프트 구역, 출처 추출·허위 번호 차단
 - 화면: 공식 법령 근거 카드(기준명·조항·시행일·확인 수준·적용 조건·원문 링크) — 데스크톱·모바일(360px) 확인, 가로 스크롤 없음
+
+## 8. 병행 전략 — 공식 법령 API 우선 (2026-10-28 추가)
+
+- 39건 분류: API 로 확보 가능 **17건**(조문까지 9 · 고시 번호·시행일만 8), 별도 수집 **22건**(KS 20 · KCS 61 계열 2). 상세: [`api-strategy.md`](api-strategy.md), 데이터 `api_targets.json`.
+- 국가법령정보 OPEN API 클라이언트·대조 스크립트 구현, 모의 응답 테스트 통과. 인증키 발급 후 미러 기준값과 공식 API 를 대조해 `api_text_verified`(미러) 근거의 확인 출처를 갱신한다(자동 활성화 없음).
+- 신청 안내: [`../api-application-guide.md`](../api-application-guide.md)

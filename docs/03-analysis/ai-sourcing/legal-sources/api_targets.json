@@ -1,0 +1,989 @@
+{
+    "_about": "2-1단계 병행 전략 — 39건을 국가법령정보 OPEN API 로 확보 가능한 것과 별도 수집이 필요한 것으로 분류. documents[].baseline 은 scripts/legal-sources/build_api_baseline.php 가 원문 미러에서 계산(조문 정규화 해시·공포번호·시행일). 동기화: scripts/legal-sources/law_api_sync.php. 어떤 결과도 자동 활성화하지 않는다.",
+    "updated": "2026-10-28",
+    "coverage_legend": {
+        "law_text": "법령 조문 원문·공포번호·시행일·개정 이력을 API 로 수집·대조",
+        "law_text+annex_link": "조문은 API, 별표는 제목·HWP/PDF 링크만 API(별표 내용은 파일 — 사람 확인)",
+        "admrule_text": "행정규칙(고시·예규) 조문 원문·발령번호·시행일을 API 로 수집·대조",
+        "admrule_meta_only": "행정규칙 발령번호·시행일만 API — 본문(기준 전문)은 첨부 파일·KCSC",
+        "none": "API 대상 아님(KS·KDS/KCS 개별 코드) — 공식 사이트 별도 수집"
+    },
+    "documents": [
+        {
+            "key": "parking_rule",
+            "target": "law",
+            "name": "주차장법 시행규칙",
+            "kind": "국토교통부령",
+            "candidates": [
+                1
+            ],
+            "clauses": [
+                "V01",
+                "V02"
+            ],
+            "watch_articles": [
+                "3",
+                "11"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/parking_rule.md",
+            "api_scope": "조문 원문·공포번호·시행일·개정 이력",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-10-27 스냅샷)",
+                "number": "01604",
+                "promulgated": "2026-07-27",
+                "effective": "2026-07-27",
+                "mst": "288421",
+                "articles": {
+                    "3": "66d66a56c6d31208",
+                    "11": "5a9fe27422e66121"
+                },
+                "annexes": []
+            }
+        },
+        {
+            "key": "disab_law",
+            "target": "law",
+            "name": "장애인ㆍ노인ㆍ임산부 등의 편의증진 보장에 관한 법률",
+            "kind": "법률",
+            "candidates": [
+                2
+            ],
+            "clauses": [
+                "V11"
+            ],
+            "watch_articles": [
+                "7",
+                "8"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/disab_law_effective.md",
+            "api_scope": "조문 원문 — 시행 예정 개정 2건(제21116호 2026-11-12, 제21697호 2027-05-27) 시행일 감시",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-10-27 스냅샷)",
+                "number": "20594",
+                "promulgated": "2024-12-20",
+                "effective": "2025-12-21",
+                "mst": "267429",
+                "articles": {
+                    "7": "373d93dd26e80213",
+                    "8": "8ef6d6021a5e54ea"
+                },
+                "annexes": []
+            }
+        },
+        {
+            "key": "disab_rule",
+            "target": "law",
+            "name": "장애인ㆍ노인ㆍ임산부 등의 편의증진 보장에 관한 법률 시행규칙",
+            "kind": "보건복지부령",
+            "candidates": [
+                2
+            ],
+            "clauses": [
+                "V11"
+            ],
+            "watch_articles": [
+                "2"
+            ],
+            "watch_annexes": [
+                "편의시설의 구조·재질등에 관한 세부기준(제2조제1항관련)"
+            ],
+            "mirror_file": "legalize/kr/disab_rule.md",
+            "api_scope": "조문 원문 + 별표 1 제목·파일 링크(점자블록 세부기준 내용은 파일 확인)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-10-27 스냅샷)",
+                "number": "01166",
+                "promulgated": "2026-04-01",
+                "effective": "2026-07-02",
+                "mst": "285263",
+                "articles": {
+                    "2": "9318638ca2ec180e"
+                },
+                "annexes": {
+                    "편의시설의 구조·재질등에 관한 세부기준(제2조제1항관련)": true
+                }
+            }
+        },
+        {
+            "key": "disab_decree",
+            "target": "law",
+            "name": "장애인ㆍ노인ㆍ임산부 등의 편의증진 보장에 관한 법률 시행령",
+            "kind": "대통령령",
+            "candidates": [
+                3
+            ],
+            "clauses": [],
+            "watch_articles": [
+                "4"
+            ],
+            "watch_annexes": [
+                "대상시설별 편의시설의 종류 및 설치기준(제4조관련)"
+            ],
+            "mirror_file": "legalize/kr/disab_decree.md",
+            "api_scope": "조문 원문 + 별표 2 제목·파일 링크(내용은 파일 확인)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-10-27 스냅샷)",
+                "number": "35947",
+                "promulgated": "2025-12-30",
+                "effective": "2026-01-02",
+                "mst": "281167",
+                "articles": {
+                    "4": "a92a4a8993571ba9"
+                },
+                "annexes": {
+                    "대상시설별 편의시설의 종류 및 설치기준(제4조관련)": true
+                }
+            }
+        },
+        {
+            "key": "mobility_rule",
+            "target": "law",
+            "name": "교통약자의 이동편의 증진법 시행규칙",
+            "kind": "국토교통부령",
+            "candidates": [
+                4
+            ],
+            "clauses": [],
+            "watch_articles": [
+                "2"
+            ],
+            "watch_annexes": [
+                "이동편의시설의 구조ㆍ재질 등에 관한 세부기준(제2조제1항 관련)"
+            ],
+            "mirror_file": "legalize/kr/mobility_rule.md",
+            "api_scope": "조문 원문 + 별표 1 제목·파일 링크(내용은 파일 확인)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-10-27 스냅샷)",
+                "number": "01558",
+                "promulgated": "2026-01-30",
+                "effective": "2026-02-01",
+                "mst": "283221",
+                "articles": {
+                    "2": "0b958f20deee94a5"
+                },
+                "annexes": {
+                    "이동편의시설의 구조ㆍ재질 등에 관한 세부기준(제2조제1항 관련)": true
+                }
+            }
+        },
+        {
+            "key": "walk_rule",
+            "target": "law",
+            "name": "보행안전 및 편의증진에 관한 법률 시행규칙",
+            "kind": "행정안전부령",
+            "candidates": [
+                5
+            ],
+            "clauses": [
+                "V12"
+            ],
+            "watch_articles": [
+                "5"
+            ],
+            "watch_annexes": [
+                "보행안전 및 편의증진 시설의 구조 및 기준(제5조제2항 관련)"
+            ],
+            "mirror_file": "legalize/kr/walk_rule.md",
+            "api_scope": "조문 원문 + 별표 1 제목·파일 링크(내용은 파일 확인)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-10-27 스냅샷)",
+                "number": "00344",
+                "promulgated": "2022-07-12",
+                "effective": "2022-07-12",
+                "mst": "243865",
+                "articles": {
+                    "5": "4010b6ed8506ac41"
+                },
+                "annexes": {
+                    "보행안전 및 편의증진 시설의 구조 및 기준(제5조제2항 관련)": true
+                }
+            }
+        },
+        {
+            "key": "sidewalk",
+            "target": "admrul",
+            "name": "보도 설치 및 관리 지침",
+            "kind": "예규",
+            "candidates": [
+                6
+            ],
+            "clauses": [],
+            "watch_articles": [],
+            "watch_annexes": [],
+            "mirror_file": "admrule/sidewalk.md",
+            "api_scope": "발령번호·시행일만 — 본문은 첨부 파일(API 본문 없음)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/admrule-kr (법제처 OPEN API 행정규칙 원문 미러, 2026-10-27 스냅샷)",
+                "number": "321",
+                "promulgated": "2021-07-23",
+                "effective": "2021-07-23",
+                "mst": "2100000203352",
+                "articles": [],
+                "annexes": []
+            }
+        },
+        {
+            "key": "road_struct",
+            "target": "law",
+            "name": "도로의 구조ㆍ시설 기준에 관한 규칙",
+            "kind": "국토교통부령",
+            "candidates": [
+                7
+            ],
+            "clauses": [
+                "V03",
+                "V04",
+                "V05"
+            ],
+            "watch_articles": [
+                "16",
+                "29",
+                "30"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/road_struct.md",
+            "api_scope": "조문 원문·공포번호·시행일",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-10-27 스냅샷)",
+                "number": "01588",
+                "promulgated": "2026-06-02",
+                "effective": "2026-06-03",
+                "mst": "286673",
+                "articles": {
+                    "16": "75f6b11e6540dc1b",
+                    "29": "a7b0a9d1f350442d",
+                    "30": "4b2236b7f44b222e"
+                },
+                "annexes": []
+            }
+        },
+        {
+            "key": "road_conn",
+            "target": "law",
+            "name": "도로와 다른 시설의 연결에 관한 규칙",
+            "kind": "국토교통부령",
+            "candidates": [
+                8
+            ],
+            "clauses": [
+                "V06"
+            ],
+            "watch_articles": [
+                "2",
+                "3",
+                "9"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/road_conn.md",
+            "api_scope": "조문 원문·공포번호·시행일",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-10-27 스냅샷)",
+                "number": "00882",
+                "promulgated": "2021-08-27",
+                "effective": "2021-08-27",
+                "mst": "235051",
+                "articles": {
+                    "2": "28337b1dd678c27b",
+                    "3": "e829f462c65aa99b",
+                    "9": "1aa11ff4917d07b3"
+                },
+                "annexes": []
+            }
+        },
+        {
+            "key": "sewer_law",
+            "target": "law",
+            "name": "하수도법",
+            "kind": "법률",
+            "candidates": [
+                9
+            ],
+            "clauses": [
+                "V07",
+                "V09"
+            ],
+            "watch_articles": [
+                "2",
+                "12",
+                "27"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/sewer_law.md",
+            "api_scope": "조문 원문·공포번호·시행일",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-10-27 스냅샷)",
+                "number": "21065",
+                "promulgated": "2025-10-01",
+                "effective": "2025-10-01",
+                "mst": "276803",
+                "articles": {
+                    "2": "6cdafb819881d80e",
+                    "12": "b02d19826cb2e739",
+                    "27": "492953803a82d5f5"
+                },
+                "annexes": []
+            }
+        },
+        {
+            "key": "sewer_decree",
+            "target": "law",
+            "name": "하수도법 시행령",
+            "kind": "대통령령",
+            "candidates": [
+                9
+            ],
+            "clauses": [
+                "V09"
+            ],
+            "watch_articles": [
+                "10"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/sewer_decree.md",
+            "api_scope": "조문 원문·공포번호·시행일",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-10-27 스냅샷)",
+                "number": "36338",
+                "promulgated": "2026-05-19",
+                "effective": "2026-06-03",
+                "mst": "286151",
+                "articles": {
+                    "10": "f6a947a06fdc4879"
+                },
+                "annexes": []
+            }
+        },
+        {
+            "key": "sewer_rule",
+            "target": "law",
+            "name": "하수도법 시행규칙",
+            "kind": "기후에너지환경부령",
+            "candidates": [
+                9
+            ],
+            "clauses": [
+                "V08"
+            ],
+            "watch_articles": [
+                "6",
+                "23"
+            ],
+            "watch_annexes": [
+                "공공하수도의 구조에 관한 기술적 기준(제6조 관련)"
+            ],
+            "mirror_file": "legalize/kr/sewer_rule.md",
+            "api_scope": "조문 원문 + 별표 5 제목·파일 링크(구조 기준 내용은 파일 확인)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-10-27 스냅샷)",
+                "number": "00042",
+                "promulgated": "2026-06-22",
+                "effective": "2026-06-22",
+                "mst": "287447",
+                "articles": {
+                    "6": "1db54a5b3b0b8c8a",
+                    "23": "8b0bf560fc9a83da"
+                },
+                "annexes": {
+                    "공공하수도의 구조에 관한 기술적 기준(제6조 관련)": true
+                }
+            }
+        },
+        {
+            "key": "sewer_maint",
+            "target": "admrul",
+            "name": "하수관로 유지관리 기준",
+            "kind": "고시",
+            "candidates": [
+                10
+            ],
+            "clauses": [
+                "V10"
+            ],
+            "watch_articles": [
+                "3",
+                "5",
+                "6"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "admrule/sewer_maint.md",
+            "api_scope": "고시 조문 원문·발령번호·시행일",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/admrule-kr (법제처 OPEN API 행정규칙 원문 미러, 2026-10-27 스냅샷)",
+                "number": "2025-165",
+                "promulgated": "2025-10-01",
+                "effective": "2025-10-01",
+                "mst": "2100000267022",
+                "articles": {
+                    "3": "7699bdd70a102e62",
+                    "5": "d2b5cd0e689de72d",
+                    "6": "0845e654f5843e0f"
+                },
+                "annexes": []
+            }
+        },
+        {
+            "key": "kds61",
+            "target": "admrul",
+            "name": "하수도설계기준",
+            "kind": "고시",
+            "candidates": [
+                11,
+                12
+            ],
+            "clauses": [],
+            "watch_articles": [
+                "1",
+                "2"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "admrule/kds61.md",
+            "api_scope": "고시 조문(목적·'별지와 같다')·발령번호·시행일 — 설계기준 본문(KDS 61 xx xx)은 별지·KCSC",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/admrule-kr (법제처 OPEN API 행정규칙 원문 미러, 2026-10-27 스냅샷)",
+                "number": "2025-165",
+                "promulgated": "2025-10-01",
+                "effective": "2025-10-01",
+                "mst": "2100000267036",
+                "articles": {
+                    "1": "943162b2ddda9e4f",
+                    "2": "f7cdde875231f489"
+                },
+                "annexes": []
+            }
+        },
+        {
+            "key": "road_kds",
+            "target": "admrul",
+            "name": "도로설계기준(KDS 44 00 00) 및 도로공사 표준시방서(KCS 44 00 00)",
+            "kind": "고시",
+            "candidates": [
+                13,
+                14,
+                15,
+                16
+            ],
+            "clauses": [],
+            "watch_articles": [],
+            "watch_annexes": [],
+            "mirror_file": "admrule/road_kds.md",
+            "api_scope": "발령번호·시행일만 — 기준 본문은 KCSC(API 본문 없음). 미러 현행 2023-907 ↔ 사용자 확인 2026-528 차이 → API 로 재확인",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/admrule-kr (법제처 OPEN API 행정규칙 원문 미러, 2026-10-27 스냅샷)",
+                "number": "2023-907",
+                "promulgated": "2023-01-06",
+                "effective": "2023-01-12",
+                "mst": "2100000254280",
+                "articles": [],
+                "annexes": []
+            }
+        },
+        {
+            "key": "landscape_kds",
+            "target": "admrul",
+            "name": "조경설계기준(KDS 34 00 00) 및 조경공사 표준시방서(KCS 34 00 00)",
+            "kind": "고시",
+            "candidates": [
+                17
+            ],
+            "clauses": [],
+            "watch_articles": [],
+            "watch_annexes": [],
+            "mirror_file": "admrule/landscape_kds.md",
+            "api_scope": "발령번호·시행일만 — KDS 34 60 10(보도포장) 현행 여부는 KCSC 코드 목록에서 확인",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/admrule-kr (법제처 OPEN API 행정규칙 원문 미러, 2026-10-27 스냅샷)",
+                "number": "2024-743",
+                "promulgated": "2024-12-10",
+                "effective": "2024-12-16",
+                "mst": "2100000251100",
+                "articles": [],
+                "annexes": []
+            }
+        }
+    ],
+    "candidates": [
+        {
+            "no": 1,
+            "type": "법령",
+            "name": "주차장법 시행규칙",
+            "ref_no": "제3조(주차장의 주차구획) · 국토교통부령 제1604호",
+            "verify_level": "original_verified",
+            "api_coverage": "law_text",
+            "api_documents": [
+                "parking_rule"
+            ],
+            "collect_channel": "API 로 충분(조문 원문·시행일·개정 이력)",
+            "api_note": ""
+        },
+        {
+            "no": 2,
+            "type": "법령",
+            "name": "장애인ㆍ노인ㆍ임산부 등의 편의증진 보장에 관한 법률 시행규칙",
+            "ref_no": "[별표 1] 편의시설의 구조·재질등에 관한 세부기준(제2조제1항 관련) — 점자블록 항목",
+            "verify_level": "metadata_confirmed",
+            "api_coverage": "law_text+annex_link",
+            "api_documents": [
+                "disab_law",
+                "disab_rule"
+            ],
+            "collect_channel": "조문은 API. 별표 내용은 API 가 주는 HWP·PDF 파일 링크를 사람이 열어 확인(파일 내용 자동 파싱 안 함)",
+            "api_note": ""
+        },
+        {
+            "no": 3,
+            "type": "법령",
+            "name": "장애인ㆍ노인ㆍ임산부 등의 편의증진 보장에 관한 법률 시행령",
+            "ref_no": "[별표 2] 대상시설별 편의시설의 종류 및 설치기준(제4조 관련)",
+            "verify_level": "metadata_confirmed",
+            "api_coverage": "law_text+annex_link",
+            "api_documents": [
+                "disab_decree"
+            ],
+            "collect_channel": "조문은 API. 별표 내용은 API 가 주는 HWP·PDF 파일 링크를 사람이 열어 확인(파일 내용 자동 파싱 안 함)",
+            "api_note": ""
+        },
+        {
+            "no": 4,
+            "type": "법령",
+            "name": "교통약자의 이동편의 증진법 시행규칙",
+            "ref_no": "제2조제1항, [별표 1] 이동편의시설의 구조·재질 등에 관한 세부기준",
+            "verify_level": "metadata_confirmed",
+            "api_coverage": "law_text+annex_link",
+            "api_documents": [
+                "mobility_rule"
+            ],
+            "collect_channel": "조문은 API. 별표 내용은 API 가 주는 HWP·PDF 파일 링크를 사람이 열어 확인(파일 내용 자동 파싱 안 함)",
+            "api_note": ""
+        },
+        {
+            "no": 5,
+            "type": "법령",
+            "name": "보행안전 및 편의증진에 관한 법률 시행규칙",
+            "ref_no": "[별표 1] 보행안전 및 편의증진 시설의 구조 및 기준(제5조제2항 관련)",
+            "verify_level": "metadata_confirmed",
+            "api_coverage": "law_text+annex_link",
+            "api_documents": [
+                "walk_rule"
+            ],
+            "collect_channel": "조문은 API. 별표 내용은 API 가 주는 HWP·PDF 파일 링크를 사람이 열어 확인(파일 내용 자동 파싱 안 함)",
+            "api_note": ""
+        },
+        {
+            "no": 6,
+            "type": "법령",
+            "name": "보도 설치 및 관리 지침",
+            "ref_no": "국토교통부예규 제321호(행정규칙)",
+            "verify_level": "metadata_confirmed",
+            "api_coverage": "admrule_meta_only",
+            "api_documents": [
+                "sidewalk"
+            ],
+            "collect_channel": "번호·시행일은 API. 본문은 첨부 파일 — 국가법령정보센터 원문 파일 또는 소관 부처 게시판에서 확인",
+            "api_note": ""
+        },
+        {
+            "no": 7,
+            "type": "법령",
+            "name": "도로의 구조ㆍ시설 기준에 관한 규칙",
+            "ref_no": "제1조·제16조·제29조·제30조 · 국토교통부령 제1588호",
+            "verify_level": "api_text_verified",
+            "api_coverage": "law_text",
+            "api_documents": [
+                "road_struct"
+            ],
+            "collect_channel": "API 로 충분(조문 원문·시행일·개정 이력)",
+            "api_note": ""
+        },
+        {
+            "no": 8,
+            "type": "법령",
+            "name": "도로와 다른 시설의 연결에 관한 규칙",
+            "ref_no": "제2조제11호·제3조·제9조 · 국토교통부령 제882호",
+            "verify_level": "api_text_verified",
+            "api_coverage": "law_text",
+            "api_documents": [
+                "road_conn"
+            ],
+            "collect_channel": "API 로 충분(조문 원문·시행일·개정 이력)",
+            "api_note": ""
+        },
+        {
+            "no": 9,
+            "type": "법령",
+            "name": "하수도법 시행규칙",
+            "ref_no": "제6조 관련 [별표 5] 공공하수도의 구조에 관한 기술적 기준",
+            "verify_level": "metadata_confirmed",
+            "api_coverage": "law_text+annex_link",
+            "api_documents": [
+                "sewer_law",
+                "sewer_decree",
+                "sewer_rule"
+            ],
+            "collect_channel": "조문은 API. 별표 내용은 API 가 주는 HWP·PDF 파일 링크를 사람이 열어 확인(파일 내용 자동 파싱 안 함)",
+            "api_note": ""
+        },
+        {
+            "no": 10,
+            "type": "법령",
+            "name": "하수관로 유지관리 기준",
+            "ref_no": "제3조·제5조·제6조 · 기후에너지환경부고시 제2025-165호",
+            "verify_level": "api_text_verified",
+            "api_coverage": "admrule_text",
+            "api_documents": [
+                "sewer_maint"
+            ],
+            "collect_channel": "API 로 충분(조문 원문·시행일·개정 이력)",
+            "api_note": ""
+        },
+        {
+            "no": 11,
+            "type": "KDS",
+            "name": "하수도설계기준",
+            "ref_no": "KDS 61 00 00",
+            "verify_level": "metadata_confirmed",
+            "api_coverage": "admrule_meta_only",
+            "api_documents": [
+                "kds61"
+            ],
+            "collect_channel": "국가건설기준센터(kcsc.re.kr) 코드 뷰어 — 기준명·제개정 이력·조항. 고시 번호·시행일은 API(행정규칙)로 대조. KCSC OPEN API 는 미제공(국토부 2026년 디지털 건설기준 API 배포 계획 — 시점 미확인)",
+            "api_note": ""
+        },
+        {
+            "no": 12,
+            "type": "KDS",
+            "name": "관로시설 설계기준",
+            "ref_no": "KDS 61 40 00",
+            "verify_level": "search_candidate",
+            "api_coverage": "admrule_meta_only",
+            "api_documents": [
+                "kds61"
+            ],
+            "collect_channel": "국가건설기준센터(kcsc.re.kr) 코드 뷰어 — 기준명·제개정 이력·조항. 고시 번호·시행일은 API(행정규칙)로 대조. KCSC OPEN API 는 미제공(국토부 2026년 디지털 건설기준 API 배포 계획 — 시점 미확인)",
+            "api_note": "KDS 61 00 00 고시(하수도설계기준)의 별지에 포함 — API 는 고시 번호·시행일까지"
+        },
+        {
+            "no": 13,
+            "type": "KDS",
+            "name": "도로설계기준",
+            "ref_no": "KDS 44 00 00 · 국토교통부고시 제2026-528호(2026-10-02 고시)",
+            "verify_level": "metadata_confirmed",
+            "api_coverage": "admrule_meta_only",
+            "api_documents": [
+                "road_kds"
+            ],
+            "collect_channel": "국가건설기준센터(kcsc.re.kr) 코드 뷰어 — 기준명·제개정 이력·조항. 고시 번호·시행일은 API(행정규칙)로 대조. KCSC OPEN API 는 미제공(국토부 2026년 디지털 건설기준 API 배포 계획 — 시점 미확인)",
+            "api_note": ""
+        },
+        {
+            "no": 14,
+            "type": "KCS",
+            "name": "도로공사 표준시방서",
+            "ref_no": "KCS 44 00 00 · 국토교통부고시 제2026-528호(2026-10-02 고시)",
+            "verify_level": "metadata_confirmed",
+            "api_coverage": "admrule_meta_only",
+            "api_documents": [
+                "road_kds"
+            ],
+            "collect_channel": "국가건설기준센터(kcsc.re.kr) 코드 뷰어 — 기준명·제개정 이력·조항. 고시 번호·시행일은 API(행정규칙)로 대조. KCSC OPEN API 는 미제공(국토부 2026년 디지털 건설기준 API 배포 계획 — 시점 미확인)",
+            "api_note": ""
+        },
+        {
+            "no": 15,
+            "type": "KDS",
+            "name": "차도용 블록포장설계",
+            "ref_no": "KDS 44 50 25",
+            "verify_level": "metadata_confirmed",
+            "api_coverage": "admrule_meta_only",
+            "api_documents": [
+                "road_kds"
+            ],
+            "collect_channel": "국가건설기준센터(kcsc.re.kr) 코드 뷰어 — 기준명·제개정 이력·조항. 고시 번호·시행일은 API(행정규칙)로 대조. KCSC OPEN API 는 미제공(국토부 2026년 디지털 건설기준 API 배포 계획 — 시점 미확인)",
+            "api_note": "KDS·KCS 44 50 25 는 고시 제2026-528호(도로설계기준·표준시방서 개정) 대상 — API 는 고시 메타데이터까지, 조항은 KCSC"
+        },
+        {
+            "no": 16,
+            "type": "KCS",
+            "name": "차도용 블록포장 공사 시공 기준 (고시 문구 기준 · 기준 목록상 정식 명칭 미확인)",
+            "ref_no": "KCS 44 50 25",
+            "verify_level": "metadata_confirmed",
+            "api_coverage": "admrule_meta_only",
+            "api_documents": [
+                "road_kds"
+            ],
+            "collect_channel": "국가건설기준센터(kcsc.re.kr) 코드 뷰어 — 기준명·제개정 이력·조항. 고시 번호·시행일은 API(행정규칙)로 대조. KCSC OPEN API 는 미제공(국토부 2026년 디지털 건설기준 API 배포 계획 — 시점 미확인)",
+            "api_note": "KDS·KCS 44 50 25 는 고시 제2026-528호(도로설계기준·표준시방서 개정) 대상 — API 는 고시 메타데이터까지, 조항은 KCSC"
+        },
+        {
+            "no": 17,
+            "type": "KDS",
+            "name": "보도포장 (2016 판 — 현행 여부 미확인)",
+            "ref_no": "KDS 34 60 10",
+            "verify_level": "search_candidate",
+            "api_coverage": "admrule_meta_only",
+            "api_documents": [
+                "landscape_kds"
+            ],
+            "collect_channel": "국가건설기준센터(kcsc.re.kr) 코드 뷰어 — 기준명·제개정 이력·조항. 고시 번호·시행일은 API(행정규칙)로 대조. KCSC OPEN API 는 미제공(국토부 2026년 디지털 건설기준 API 배포 계획 — 시점 미확인)",
+            "api_note": ""
+        },
+        {
+            "no": 18,
+            "type": "KCS",
+            "name": "하수관로공사",
+            "ref_no": "KCS 61 10 00",
+            "verify_level": "search_candidate",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "국가건설기준센터(kcsc.re.kr) 코드 뷰어 — 기준명·제개정 이력·조항. 고시 번호·시행일은 API(행정규칙)로 대조. KCSC OPEN API 는 미제공(국토부 2026년 디지털 건설기준 API 배포 계획 — 시점 미확인)",
+            "api_note": "하수도 표준시방서 고시를 원문 미러 현행 목록에서 찾지 못함(고시명 미확인) — 키 발급 후 API 검색(target=admrul, query=하수도)으로 재확인"
+        },
+        {
+            "no": 19,
+            "type": "KCS",
+            "name": "하수도관부설 및 연결공사",
+            "ref_no": "KCS 61 20 00",
+            "verify_level": "search_candidate",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "국가건설기준센터(kcsc.re.kr) 코드 뷰어 — 기준명·제개정 이력·조항. 고시 번호·시행일은 API(행정규칙)로 대조. KCSC OPEN API 는 미제공(국토부 2026년 디지털 건설기준 API 배포 계획 — 시점 미확인)",
+            "api_note": "하수도 표준시방서 고시를 원문 미러 현행 목록에서 찾지 못함(고시명 미확인) — 키 발급 후 API 검색(target=admrul, query=하수도)으로 재확인"
+        },
+        {
+            "no": 20,
+            "type": "KS",
+            "name": "보차도용 콘크리트 인터로킹 블록",
+            "ref_no": "KS F 4419",
+            "verify_level": "metadata_confirmed",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
+            "api_note": ""
+        },
+        {
+            "no": 21,
+            "type": "KS",
+            "name": "시각장애인용 점자블록",
+            "ref_no": "KS F 4561",
+            "verify_level": "search_candidate",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
+            "api_note": ""
+        },
+        {
+            "no": 22,
+            "type": "KS",
+            "name": "포장용 콘크리트 평판",
+            "ref_no": "KS F 4001",
+            "verify_level": "search_candidate",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
+            "api_note": ""
+        },
+        {
+            "no": 23,
+            "type": "KS",
+            "name": "콘크리트 경계 블록",
+            "ref_no": "KS F 4006",
+            "verify_level": "metadata_confirmed",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
+            "api_note": ""
+        },
+        {
+            "no": 24,
+            "type": "KS",
+            "name": "무근 및 철근 콘크리트 L형 측구",
+            "ref_no": "KS F 4005",
+            "verify_level": "search_candidate",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
+            "api_note": ""
+        },
+        {
+            "no": 25,
+            "type": "KS",
+            "name": "도로용 철근 콘크리트 측구",
+            "ref_no": "KS F 4417",
+            "verify_level": "search_candidate",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
+            "api_note": ""
+        },
+        {
+            "no": 26,
+            "type": "KS",
+            "name": "철근 콘크리트 플룸 및 벤치 플룸",
+            "ref_no": "KS F 4010",
+            "verify_level": "search_candidate",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
+            "api_note": ""
+        },
+        {
+            "no": 27,
+            "type": "KS",
+            "name": "철근 콘크리트 U형",
+            "ref_no": "KS F 4016",
+            "verify_level": "search_candidate",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
+            "api_note": ""
+        },
+        {
+            "no": 28,
+            "type": "KS",
+            "name": "하수도용 콘크리트 맨홀 블록",
+            "ref_no": "KS F 4012",
+            "verify_level": "search_candidate",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
+            "api_note": ""
+        },
+        {
+            "no": 29,
+            "type": "KS",
+            "name": "주철(강)재 맨홀 뚜껑 및 틀의 일반 요구사항",
+            "ref_no": "KS D 4040",
+            "verify_level": "search_candidate",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
+            "api_note": ""
+        },
+        {
+            "no": 30,
+            "type": "KS",
+            "name": "맨홀 뚜껑 및 틀(상하수도·전기·통신용)",
+            "ref_no": "KS D 6021",
+            "verify_level": "search_candidate",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
+            "api_note": ""
+        },
+        {
+            "no": 31,
+            "type": "KS",
+            "name": "원심력 철근 콘크리트관",
+            "ref_no": "KS F 4403",
+            "verify_level": "search_candidate",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
+            "api_note": ""
+        },
+        {
+            "no": 32,
+            "type": "KS",
+            "name": "진동 및 전압 철근 콘크리트관(제목 원문 미확인)",
+            "ref_no": "KS F 4402",
+            "verify_level": "search_candidate",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
+            "api_note": ""
+        },
+        {
+            "no": 33,
+            "type": "KS",
+            "name": "배수 및 하수용 비압력 매설용 구조형 폴리에틸렌(PE)관 — 제1부: 이중벽관",
+            "ref_no": "KS M 3500-1",
+            "verify_level": "search_candidate",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
+            "api_note": ""
+        },
+        {
+            "no": 34,
+            "type": "KS",
+            "name": "배수 및 하수용 비압력 매설용 구조형 폴리염화비닐(PVC)관 — 이중벽관 및 리브관",
+            "ref_no": "KS M 3600",
+            "verify_level": "search_candidate",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
+            "api_note": ""
+        },
+        {
+            "no": 35,
+            "type": "KS",
+            "name": "비압력용 경질 폴리염화비닐관(구 일반용 경질 폴리염화비닐관)",
+            "ref_no": "KS M 3404",
+            "verify_level": "search_candidate",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
+            "api_note": ""
+        },
+        {
+            "no": 36,
+            "type": "KS",
+            "name": "비압력용 경질 폴리염화비닐 이음관",
+            "ref_no": "KS M 3410",
+            "verify_level": "search_candidate",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
+            "api_note": ""
+        },
+        {
+            "no": 37,
+            "type": "KS",
+            "name": "수도용 경질 폴리염화비닐관",
+            "ref_no": "KS M 3401",
+            "verify_level": "search_candidate",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
+            "api_note": ""
+        },
+        {
+            "no": 38,
+            "type": "KS",
+            "name": "파형 강관 및 파형 섹션",
+            "ref_no": "KS D 3590",
+            "verify_level": "search_candidate",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
+            "api_note": ""
+        },
+        {
+            "no": 39,
+            "type": "KS",
+            "name": "점토 벽돌",
+            "ref_no": "KS L 4201",
+            "verify_level": "search_candidate",
+            "api_coverage": "none",
+            "api_documents": [],
+            "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
+            "api_note": ""
+        }
+    ]
+}
