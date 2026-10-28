@@ -78,6 +78,10 @@ function law_api_xml(string $xml): ?SimpleXMLElement
  */
 function law_api_error(string $xml): ?string
 {
+    // 인증값(OC) 불일치·미등록 IP/도메인: HTTP 200 으로 안내 문구(HTML 또는 XML)가 온다
+    if (preg_match('/사용자\s*정보\s*검증에\s*실패/u', $xml)) {
+        return '인증 실패(사용자 정보 검증 실패) — 인증값(OC)·등록 IP/도메인·API 신청 승인 상태 확인';
+    }
     $doc = law_api_xml($xml);
     if ($doc === null || strcasecmp($doc->getName(), 'html') === 0) {
         return 'XML 응답 아님(인증값·등록 IP/도메인 확인 필요)';

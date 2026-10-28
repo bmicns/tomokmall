@@ -35,6 +35,7 @@ echo "[오류 응답 판별]\n";
 ok('<result>실패</result> → 요청 실패: msg', law_api_error($fx('error_result.xml')) === '요청 실패: MST not found');
 ok('일치하는 행정규칙 없음 → 결과 없음', law_api_error($fx('admrul_no_result.xml')) === '결과 없음');
 ok('XML 아님(인증 실패 안내 HTML) → 인증 확인 안내', str_contains((string) law_api_error($fx('not_xml.html')), '인증값'));
+ok('인증 실패 안내(사용자 정보 검증 실패) → OC·IP/도메인·승인 확인 안내', str_contains((string) law_api_error('<html><body>사용자 정보 검증에 실패하였습니다.</body></html>'), '등록 IP/도메인') && str_contains((string) law_api_error('<?xml version="1.0"?><Law>사용자 정보 검증에 실패하였습니다.</Law>'), '인증 실패'));
 ok('정상 응답 → null', law_api_error($fx('law_search_parking.xml')) === null && law_api_error($fx('law_detail_parking_rule.xml')) === null);
 ok('빈 응답 → 오류', law_api_error('') !== null);
 
@@ -163,6 +164,16 @@ ok('원본 응답 저장 시 링크 속 OC 값 가림', $raw !== '' && str_conta
 ok('OC 가리기 함수', law_api_redact('a?OC=myid&target=law "OC=x"') === 'a?OC=***&target=law "OC=***"');
 array_map('unlink', glob("{$tmp}/raw/*") ?: []);
 @rmdir("{$tmp}/raw");
+exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg("{$root}/scripts/legal-sources/law_api_sync.php") . ' --fixtures=' . escapeshellarg("{$root}/tests/fixtures/law_api") . ' --no-dotenv --check 2>&1', $o3, $c3);
+ok('연결 점검(--check, 모의 응답): 법령·행정규칙 검색 정상, OC 값 미표시', $c3 === 0 && substr_count(implode("\n", $o3), '| 정상 |') === 2 && str_contains(implode("\n", $o3), '값은 표시하지 않음'));
+file_put_contents("{$tmp}/env.local", "\xEF\xBB\xBFLAW_API_OC=new_company_oc\n");
+$cmd = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg("{$root}/scripts/legal-sources/law_api_sync.php") . ' --env-file=' . escapeshellarg("{$tmp}/env.local") . ' --targets=' . escapeshellarg("{$tmp}/api_targets.json") . ' --only=none_doc 2>&1';
+putenv('LAW_API_OC=old_personal_oc');
+exec($cmd, $o4, $c4);
+ok('셸 환경변수(예전 OC)와 .env.local(새 OC)이 다르면 경고, 값은 출력 안 함', str_contains(implode("\n", $o4), '경고: 셸(또는 Windows) 환경변수 LAW_API_OC 가 .env.local 값과 다릅니다') && !str_contains(implode("\n", $o4), 'old_personal_oc') && !str_contains(implode("\n", $o4), 'new_company_oc'));
+putenv('LAW_API_OC');
+exec($cmd, $o5, $c5);
+ok('환경변수가 없으면 .env.local(BOM 포함) 값 사용 — 경고 없음', !str_contains(implode("\n", $o5), '경고:') && !str_contains(implode("\n", $o5), 'LAW_API_OC 미설정'));
 array_map('unlink', glob("{$tmp}/*") ?: []);
 @rmdir($tmp);
 

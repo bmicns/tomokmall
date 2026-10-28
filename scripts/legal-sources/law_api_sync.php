@@ -15,25 +15,38 @@ declare(strict_types=1);
  *         --raw-dir=폴더 : 원본 XML 저장(링크 속 OC 값은 *** 로 가림 — 공유 전 확인용)
  *   검색 목록: php scripts/legal-sources/law_api_sync.php --search="도로설계기준" [--target=admrul|law]
  *         → 이름이 정확히 같지 않은 항목까지 번호·시행일 목록 출력(기준값 대조 없음)
+ *   연결 점검: php scripts/legal-sources/law_api_sync.php --check
+ *         → 법령·행정규칙 검색 1회씩 호출해 인증값(OC)·등록 IP/도메인·API 권한 상태만 확인(대조 없음, OC 값은 출력 안 함)
  * 종료 코드: 0 전부 일치/시행 예정, 3 재검토 필요 항목 있음, 2 설정 오류(키 없음 등)
  */
 if (PHP_SAPI !== 'cli') { exit; }
 $root = dirname(__DIR__, 2);
 require "{$root}/app/law_api.php";
 
-$opt = getopt('', ['fixtures:', 'targets:', 'only:', 'today:', 'md:', 'json:', 'sql:', 'no-dotenv', 'raw-dir:', 'search:', 'target:']);
+$opt = getopt('', ['fixtures:', 'targets:', 'only:', 'today:', 'md:', 'json:', 'sql:', 'no-dotenv', 'raw-dir:', 'search:', 'target:', 'check', 'env-file:']);
 $targetsFile = $opt['targets'] ?? "{$root}/docs/03-analysis/ai-sourcing/legal-sources/api_targets.json";
 $clausesFile = dirname($targetsFile) . '/verified_clauses.json';
 $today = $opt['today'] ?? date('Y-m-d');
 $only = isset($opt['only']) ? array_filter(explode(',', (string) $opt['only'])) : [];
 $fixtures = isset($opt['fixtures']) ? rtrim((string) $opt['fixtures'], '/') : null;
 
-// .env.local(로컬 시크릿) — bootstrap 의 세션 시작 없이 키만 읽는다. 이미 설정된 환경변수는 덮지 않음.
-if ($fixtures === null && !isset($opt['no-dotenv']) && law_api_oc() === '' && is_readable("{$root}/.env.local")) {
-    foreach (file("{$root}/.env.local", FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+// .env.local(로컬 시크릿) — bootstrap 의 세션 시작 없이 키만 읽는다. 이미 설정된 환경변수는 덮지 않음(bootstrap 과 같은 규칙).
+// 셸·Windows 환경변수에 예전 값이 남아 있으면 .env.local 의 새 값이 무시되므로, 값이 다르면 경고(값 자체는 출력하지 않음).
+$envFile = (string) ($opt['env-file'] ?? "{$root}/.env.local");
+$ocSource = law_api_oc() !== '' ? '셸 환경변수' : '';
+if ($fixtures === null && !isset($opt['no-dotenv']) && is_readable($envFile)) {
+    $fileOc = '';
+    foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
         if (preg_match('/^(?:\xEF\xBB\xBF)?\s*LAW_API_OC\s*=\s*["\']?([^"\'#\s]*)/', $line, $m) && $m[1] !== '') {
-            putenv("LAW_API_OC={$m[1]}");
+            $fileOc = $m[1];
         }
+    }
+    if ($fileOc !== '' && $ocSource === '') {
+        putenv("LAW_API_OC={$fileOc}");
+        $ocSource = '.env.local';
+    } elseif ($fileOc !== '' && $fileOc !== law_api_oc()) {
+        fwrite(STDERR, "경고: 셸(또는 Windows) 환경변수 LAW_API_OC 가 .env.local 값과 다릅니다 — 환경변수 값이 쓰입니다.\n"
+            . "      새 OC 를 쓰려면 환경변수를 지우세요(Git Bash: unset LAW_API_OC / Windows: 시스템 환경변수에서 삭제 후 새 터미널).\n");
     }
 }
 $oc = law_api_oc();
@@ -41,6 +54,31 @@ if ($fixtures === null && $oc === '') {
     fwrite(STDERR, "LAW_API_OC 미설정 — 국가법령정보 공동활용(open.law.go.kr) 인증값을 .env.local 의 LAW_API_OC= 에 넣거나,\n"
         . "키 없이 확인하려면 --fixtures=tests/fixtures/law_api 로 실행하세요. (키를 채팅·커밋에 넣지 마세요)\n");
     exit(2);
+}
+
+// 연결 점검 모드: 법령·행정규칙 검색을 1회씩 호출해 인증·권한 상태만 본다
+if (isset($opt['check'])) {
+    $probe = [['law', '주차장법 시행규칙', '법령(target=law)'], ['admrul', '하수관로 유지관리 기준', '행정규칙(target=admrul)']];
+    $allOk = true;
+    echo "# 국가법령정보 OPEN API 연결 점검 (" . date('Y-m-d H:i') . ")\n\n- 인증값 출처: " . ($fixtures !== null ? '모의 응답' : ($ocSource ?: '셸 환경변수')) . " (값은 표시하지 않음)\n\n| 대상 | 결과 | 확인 내용 |\n|---|---|---|\n";
+    foreach ($probe as [$target, $query, $label]) {
+        $res = $fixtures !== null
+            ? (static function () use ($fixtures, $target, $query): array {
+                $f = ((array) json_decode((string) @file_get_contents("{$fixtures}/index.json"), true))["search:{$target}:{$query}"] ?? null;
+                return $f === null ? ['ok' => false, 'error' => '모의 응답 없음'] : ['ok' => true, 'body' => (string) file_get_contents("{$fixtures}/{$f}")];
+            })()
+            : law_api_get(law_api_url('lawSearch.do', ['target' => $target, 'query' => $query, 'display' => '5'], $oc));
+        $err = $res['ok'] ? law_api_error($res['body']) : $res['error'];
+        $hit = $err === null ? law_api_pick(law_api_parse_search($res['body'])['items'], $query) : null;
+        $ok = $err === null && $hit !== null;
+        $allOk = $allOk && $ok;
+        echo "| {$label} | " . ($ok ? '정상' : '실패') . ' | ' . ($ok ? "'{$query}' 검색 → {$hit['number']}·시행 {$hit['effective']}" : ($err ?? "'{$query}' 결과 없음")) . " |\n";
+    }
+    if (!$allOk) {
+        echo "\n점검할 것: ① open.law.go.kr 마이페이지의 OC 값과 .env.local 이 같은지 ② 이 PC 의 공인 IP(또는 도메인)가 새 계정에 등록됐는지"
+            . " ③ 법령·행정규칙 API 활용 신청이 승인됐는지 ④ 셸 환경변수에 예전 OC 가 남아 있지 않은지\n";
+    }
+    exit($allOk ? 0 : 1);
 }
 
 $data = json_decode((string) file_get_contents($targetsFile), true);
