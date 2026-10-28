@@ -236,7 +236,8 @@ render_header('AI 자재 상담', 'chat');
   .compare-spec { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
   .compare-qtybasis { font-size: 11px; color: var(--color-primary); font-weight: 600; margin-top: 3px; }
   .compare-price { font-size: 13px; font-weight: 600; color: var(--color-primary); white-space: nowrap; }
-  .compare-qty {
+  /* 전역 input[type=number](width:100%·padding 8px 12px)보다 우선하도록 .compare-table 한정 */
+  .compare-table .compare-qty {
     width: 60px; padding: 4px; border: 1px solid var(--color-border);
     font-size: 12px; text-align: center; font-family: var(--font); background: #fff;
   }
