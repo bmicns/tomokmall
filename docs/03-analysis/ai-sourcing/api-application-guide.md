@@ -79,6 +79,11 @@ KS 인증업체·제품 조회 API, 표준품셈 API, KCL·KTR 시험인증 API 
    - '경고: 셸 환경변수…'가 나오면 예전 OC 환경변수를 지우고 새 터미널에서 다시 실행한다.
 2. 정상이면 `php scripts/legal-sources/law_api_sync.php --md=api-sync-report.md` 로 전체 대조를 하고 보고서를 공유한다. 16문서 일치가 그대로인지 확인하는 용도다.
 
+**전환 결과(2026-10-28): 완료.**
+- `--check` 결과: 인증값 출처 `.env.local`, 법령·행정규칙 모두 정상, 인증 실패·연결 오류 없음.
+- 전체 대조: 16개 문서·감시 조문 25개 모두 일치. 보고서는 `legal-sources/api-sync-report-2026-10-28-company.md`.
+- 개인용 계정 결과와 같으므로 검증 데이터는 바꾸지 않았다. 대조 기록(`api_targets.json` 의 `recheck_company_oc`)만 추가했다.
+
 ## 출처(검색 결과)
 
 - 법제처: https://open.law.go.kr/LSO/usrJoin.do · https://open.law.go.kr/LSO/openApi/guideList.do · https://open.law.go.kr/LSO/openApi/openApiManual.do · https://www.data.go.kr/data/15000115/openapi.do

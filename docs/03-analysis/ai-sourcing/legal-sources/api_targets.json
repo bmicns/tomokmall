@@ -49,7 +49,13 @@
                 "api_effective": "2026-07-27",
                 "articles": "제3조 일치 제11조 일치",
                 "annex_count": 41,
-                "report": "api-sync-report-2026-10-28.md"
+                "report": "api-sync-report-2026-10-28.md",
+                "recheck_company_oc": {
+                    "checked_at": "2026-10-28",
+                    "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
+                    "status": "same",
+                    "report": "api-sync-report-2026-10-28-company.md"
+                }
             }
         },
         {
@@ -91,7 +97,13 @@
                 "api_effective": "2025-12-21",
                 "articles": "제7조 일치 제8조 일치",
                 "annex_count": 0,
-                "report": "api-sync-report-2026-10-28.md"
+                "report": "api-sync-report-2026-10-28.md",
+                "recheck_company_oc": {
+                    "checked_at": "2026-10-28",
+                    "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
+                    "status": "same",
+                    "report": "api-sync-report-2026-10-28-company.md"
+                }
             },
             "pending": [
                 {
@@ -147,7 +159,13 @@
                 "api_effective": "2026-07-02",
                 "articles": "제2조 일치",
                 "annex_count": 8,
-                "report": "api-sync-report-2026-10-28.md"
+                "report": "api-sync-report-2026-10-28.md",
+                "recheck_company_oc": {
+                    "checked_at": "2026-10-28",
+                    "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
+                    "status": "same",
+                    "report": "api-sync-report-2026-10-28-company.md"
+                }
             }
         },
         {
@@ -189,7 +207,13 @@
                 "api_effective": "2026-01-02",
                 "articles": "제4조 일치",
                 "annex_count": 7,
-                "report": "api-sync-report-2026-10-28.md"
+                "report": "api-sync-report-2026-10-28.md",
+                "recheck_company_oc": {
+                    "checked_at": "2026-10-28",
+                    "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
+                    "status": "same",
+                    "report": "api-sync-report-2026-10-28-company.md"
+                }
             }
         },
         {
@@ -231,7 +255,13 @@
                 "api_effective": "2026-02-01",
                 "articles": "제2조 일치",
                 "annex_count": 12,
-                "report": "api-sync-report-2026-10-28.md"
+                "report": "api-sync-report-2026-10-28.md",
+                "recheck_company_oc": {
+                    "checked_at": "2026-10-28",
+                    "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
+                    "status": "same",
+                    "report": "api-sync-report-2026-10-28-company.md"
+                }
             }
         },
         {
@@ -275,7 +305,13 @@
                 "api_effective": "2022-07-12",
                 "articles": "제5조 일치",
                 "annex_count": 8,
-                "report": "api-sync-report-2026-10-28.md"
+                "report": "api-sync-report-2026-10-28.md",
+                "recheck_company_oc": {
+                    "checked_at": "2026-10-28",
+                    "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
+                    "status": "same",
+                    "report": "api-sync-report-2026-10-28-company.md"
+                }
             }
         },
         {
@@ -310,7 +346,13 @@
                 "articles": "",
                 "annex_count": 0,
                 "report": "api-sync-report-2026-10-28.md",
-                "note": "실제 응답: 조문내용 빈 CDATA + 첨부파일(개정전문 HWP·PDF) — 파서 수정으로 본문 첨부 인식"
+                "note": "실제 응답: 조문내용 빈 CDATA + 첨부파일(개정전문 HWP·PDF) — 파서 수정으로 본문 첨부 인식",
+                "recheck_company_oc": {
+                    "checked_at": "2026-10-28",
+                    "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
+                    "status": "same",
+                    "report": "api-sync-report-2026-10-28-company.md"
+                }
             }
         },
         {
@@ -356,7 +398,13 @@
                 "api_effective": "2026-06-03",
                 "articles": "제16조 일치 제29조 일치 제30조 일치",
                 "annex_count": 1,
-                "report": "api-sync-report-2026-10-28.md"
+                "report": "api-sync-report-2026-10-28.md",
+                "recheck_company_oc": {
+                    "checked_at": "2026-10-28",
+                    "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
+                    "status": "same",
+                    "report": "api-sync-report-2026-10-28-company.md"
+                }
             }
         },
         {
@@ -400,7 +448,13 @@
                 "api_effective": "2021-08-27",
                 "articles": "제2조 일치 제3조 일치 제9조 일치",
                 "annex_count": 11,
-                "report": "api-sync-report-2026-10-28.md"
+                "report": "api-sync-report-2026-10-28.md",
+                "recheck_company_oc": {
+                    "checked_at": "2026-10-28",
+                    "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
+                    "status": "same",
+                    "report": "api-sync-report-2026-10-28-company.md"
+                }
             }
         },
         {
@@ -445,7 +499,13 @@
                 "api_effective": "2025-10-01",
                 "articles": "제2조 일치 제12조 일치 제27조 일치",
                 "annex_count": 0,
-                "report": "api-sync-report-2026-10-28.md"
+                "report": "api-sync-report-2026-10-28.md",
+                "recheck_company_oc": {
+                    "checked_at": "2026-10-28",
+                    "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
+                    "status": "same",
+                    "report": "api-sync-report-2026-10-28-company.md"
+                }
             }
         },
         {
@@ -485,7 +545,13 @@
                 "api_effective": "2026-06-03",
                 "articles": "제10조 일치",
                 "annex_count": 13,
-                "report": "api-sync-report-2026-10-28.md"
+                "report": "api-sync-report-2026-10-28.md",
+                "recheck_company_oc": {
+                    "checked_at": "2026-10-28",
+                    "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
+                    "status": "same",
+                    "report": "api-sync-report-2026-10-28-company.md"
+                }
             }
         },
         {
@@ -531,7 +597,13 @@
                 "api_effective": "2026-06-22",
                 "articles": "제6조 일치 제23조 일치",
                 "annex_count": 80,
-                "report": "api-sync-report-2026-10-28.md"
+                "report": "api-sync-report-2026-10-28.md",
+                "recheck_company_oc": {
+                    "checked_at": "2026-10-28",
+                    "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
+                    "status": "same",
+                    "report": "api-sync-report-2026-10-28-company.md"
+                }
             }
         },
         {
@@ -579,7 +651,13 @@
                 "api_effective": "2025-10-01",
                 "articles": "제3조 일치 제5조 일치 제6조 일치",
                 "annex_count": 4,
-                "report": "api-sync-report-2026-10-28.md"
+                "report": "api-sync-report-2026-10-28.md",
+                "recheck_company_oc": {
+                    "checked_at": "2026-10-28",
+                    "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
+                    "status": "same",
+                    "report": "api-sync-report-2026-10-28-company.md"
+                }
             }
         },
         {
@@ -624,7 +702,13 @@
                 "api_effective": "2025-10-01",
                 "articles": "제1조 일치 제2조 일치",
                 "annex_count": 1,
-                "report": "api-sync-report-2026-10-28.md"
+                "report": "api-sync-report-2026-10-28.md",
+                "recheck_company_oc": {
+                    "checked_at": "2026-10-28",
+                    "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
+                    "status": "same",
+                    "report": "api-sync-report-2026-10-28-company.md"
+                }
             }
         },
         {
@@ -662,7 +746,13 @@
                 "articles": "본문 첨부 파일",
                 "annex_count": 0,
                 "report": "api-sync-report-2026-10-28.md",
-                "note": "국가법령정보센터 현행은 제2023-907호(같은 이름 검색 2건 중 하나, \"블록포장\" 0건). 2026-10-02 고시(제2026-528호, 9개 코드 부분 개정·제정)는 미등록 — 개정전문 zip 으로 KDS·KCS 44 50 25 원문 검증(V21·V22). 등록되면 번호 변경으로 감지"
+                "note": "국가법령정보센터 현행은 제2023-907호(같은 이름 검색 2건 중 하나, \"블록포장\" 0건). 2026-10-02 고시(제2026-528호, 9개 코드 부분 개정·제정)는 미등록 — 개정전문 zip 으로 KDS·KCS 44 50 25 원문 검증(V21·V22). 등록되면 번호 변경으로 감지",
+                "recheck_company_oc": {
+                    "checked_at": "2026-10-28",
+                    "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
+                    "status": "same",
+                    "report": "api-sync-report-2026-10-28-company.md"
+                }
             },
             "notice_versions": [
                 {
@@ -726,7 +816,13 @@
                 "api_effective": "2024-12-16",
                 "articles": "본문 첨부 파일",
                 "annex_count": 0,
-                "report": "api-sync-report-2026-10-28.md"
+                "report": "api-sync-report-2026-10-28.md",
+                "recheck_company_oc": {
+                    "checked_at": "2026-10-28",
+                    "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
+                    "status": "same",
+                    "report": "api-sync-report-2026-10-28-company.md"
+                }
             }
         }
     ],

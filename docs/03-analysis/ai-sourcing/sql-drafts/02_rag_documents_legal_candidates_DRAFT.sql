@@ -283,12 +283,12 @@ AI 적용 범위: 불가 — 제품 표준의 존재·적용 범위만 확인. �
 발행: 국가기술표준원
 관련 자재: 인터로킹 블록, 투수블록(2016 개정에 투수성 시험장치 수정 포함), 주차장 포장 블록
 적용 범위(검색 기준): 보도, 차도, 광장, 주차장 등의 포장에 사용하는 콘크리트 인터로킹 블록 (e나라표준인증 적용 범위, 사용자 확인)
-시행·개정일(검색 기준, 미확인): 최종 개정·확인일 2025-12-16 (e나라표준인증, 사용자 확인)
-2-1 판정: 공식 메타데이터 확인(사용자) — e나라표준인증 사용자 확인. KS 원문(유료)은 기술 조항 미확인 / KCS 44 50 25(2026) 2.1(2)가 차도용 콘크리트 블록의 휨강도·흡수율·치수허용차를 KS F 4419 에 따르도록 규정(공식 기준에서 인용 확인). KS 본문 수치는 여전히 미확인 / 목록 CSV: 개정
+시행·개정일(검색 기준, 미확인): 최종 개정 2025-12-16
+2-1 판정: 공식 메타데이터 확인(e나라표준인증 상세 — 개정일·적용 범위) — 표준명·최종 개정 2025-12-16 · 적용 범위: 보도·차도·광장·주차장 포장용 콘크리트 인터로킹 블록(사용자 확인 메타데이터) (본문 수치 미확인 — KS 원문은 유료)
 검색 근거 신뢰도: 높음
 확인 수준: metadata_confirmed — 공식 표준 메타데이터 확인. 상세 기술 조항 원문 검증 아님.
 확인 URL: https://www.standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?ksNo=KSF4419&menuId=919&reformNo=15&tmprKsNo=KSF4419&topMenuId=502&upperMenuId=503
-※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'pavement', '인터로킹 블록, 투수블록(2016 개정에 투수성 시험장치 수정 포함), 주차장 포장 블록', 0, 900, 'ks', '보차도용 콘크리트 인터로킹 블록', 'KS F 4419', 'https://www.standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?menuId=919&topMenuId=502&upperMenuId=503&ksNo=KSF4419&tmprKsNo=KSF4419&reformNo=15', '보도, 차도, 광장, 주차장 등의 포장에 사용하는 콘크리트 인터로킹 블록 (e나라표준인증 적용 범위, 사용자 확인)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', '사용자(e나라표준인증 확인)', '2026-10-27', NULL, '2025-12-16');
+※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'pavement', '인터로킹 블록, 투수블록(2016 개정에 투수성 시험장치 수정 포함), 주차장 포장 블록', 0, 900, 'ks', '보차도용 콘크리트 인터로킹 블록', 'KS F 4419', 'https://www.standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?menuId=919&topMenuId=502&upperMenuId=503&ksNo=KSF4419&tmprKsNo=KSF4419&reformNo=15', '보도, 차도, 광장, 주차장 등의 포장에 사용하는 콘크리트 인터로킹 블록 (e나라표준인증 적용 범위, 사용자 확인)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', '사용자(e나라표준인증 상세 페이지)', '2026-10-27', NULL, '2025-12-16');
 INSERT INTO rag_documents (title, content, category_key, tags, is_active, sort_order, source_type, source_name, source_ref, source_url, applies_to, legal_status, author, review_status, verify_level, verified_by, verified_at, effective_date, revised_date)
 VALUES ('[KS] 시각장애인용 점자블록 (KS F 4561)', '[공식 메타데이터 확인 — AI 상담 미사용(검토 전)]
 AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
@@ -326,12 +326,12 @@ AI 적용 범위: 불가 — 경계석 1개 길이·치수 등은 원문 미검�
 발행: 국가기술표준원
 관련 자재: 경계석(콘크리트 경계블록), 인조석 표면층 경계석
 적용 범위(검색 기준): 보도·차도 또는 도로 경계부에 사용하는 콘크리트 경계 블록 (e나라표준인증 적용 범위, 사용자 확인)
-시행·개정일(검색 기준, 미확인): 최종 개정·확인일 2024-12-31 (e나라표준인증, 사용자 확인)
-2-1 판정: 공식 메타데이터 확인(사용자) — e나라표준인증 사용자 확인. KS 원문(유료)은 기술 조항 미확인
+시행·개정일(검색 기준, 미확인): 최종 개정 2024-12-31
+2-1 판정: 공식 메타데이터 확인(e나라표준인증 상세 — 개정일·적용 범위) — 표준명·최종 개정 2024-12-31 · 적용 범위: 보도·차도·도로 경계부 콘크리트 경계 블록(사용자 확인 메타데이터) (본문 수치 미확인 — KS 원문은 유료)
 검색 근거 신뢰도: 높음
 확인 수준: metadata_confirmed — 공식 표준 메타데이터 확인. 상세 기술 조항 원문 검증 아님.
 확인 URL: https://standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?ksNo=KSF4006&menuId=919&pageIndex=1&pageUnit=10&reformNo=19&tmprKsNo=KSF4006&topMenuId=502&upperMenuId=503
-※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'pavement', '경계석(콘크리트 경계블록), 인조석 표면층 경계석', 0, 900, 'ks', '콘크리트 경계 블록', 'KS F 4006', 'https://standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?pageIndex=1&pageUnit=10&ksNo=KSF4006&tmprKsNo=KSF4006&reformNo=19&menuId=919&topMenuId=502&upperMenuId=503', '보도·차도 또는 도로 경계부에 사용하는 콘크리트 경계 블록 (e나라표준인증 적용 범위, 사용자 확인)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', '사용자(e나라표준인증 확인)', '2026-10-27', NULL, '2024-12-31');
+※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'pavement', '경계석(콘크리트 경계블록), 인조석 표면층 경계석', 0, 900, 'ks', '콘크리트 경계 블록', 'KS F 4006', 'https://standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?pageIndex=1&pageUnit=10&ksNo=KSF4006&tmprKsNo=KSF4006&reformNo=19&menuId=919&topMenuId=502&upperMenuId=503', '보도·차도 또는 도로 경계부에 사용하는 콘크리트 경계 블록 (e나라표준인증 적용 범위, 사용자 확인)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', '사용자(e나라표준인증 상세 페이지)', '2026-10-27', NULL, '2024-12-31');
 INSERT INTO rag_documents (title, content, category_key, tags, is_active, sort_order, source_type, source_name, source_ref, source_url, applies_to, legal_status, author, review_status, verify_level, verified_by, verified_at, effective_date, revised_date)
 VALUES ('[KS] 무근 및 철근 콘크리트 L형 측구 (KS F 4005)', '[공식 메타데이터 확인 — AI 상담 미사용(검토 전)]
 AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
