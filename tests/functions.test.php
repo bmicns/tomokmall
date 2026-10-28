@@ -319,5 +319,19 @@ load_env_file($envTmp); unlink($envTmp);
 ok('셸 값 우선 유지(기존 동작)', getenv('TM_TEST_SHADOW') === 'from_shell' && getenv('TM_TEST_NEW') === 'new');
 eq('값이 다른 키만 기록(같은 값·새 키 제외)', env_shadowed_keys('TM_TEST_'), ['TM_TEST_SHADOW']);
 
+echo "[AI 상담 키 rag_chat_key_*]\n";
+require_once __DIR__ . '/../app/rag.php';
+$_SESSION['chat_keys'] = [];
+$k1 = rag_chat_key_issue();
+$k2 = rag_chat_key_issue();
+ok('상담마다 새 키(32자 hex, 세션 ID와 다름)', $k1 !== $k2 && preg_match('/^[0-9a-f]{32}$/', $k1) === 1 && $k1 !== session_id());
+ok('발급한 키는 허용', rag_chat_key_allowed($k1) && rag_chat_key_allowed($k2));
+ok('발급하지 않은 키·빈 키는 거부', !rag_chat_key_allowed('abcdef0123456789abcdef0123456789') && !rag_chat_key_allowed(''));
+ok('기존 방식(세션 ID 키) 허용 유지', session_id() === '' || rag_chat_key_allowed(session_id()));
+rag_chat_key_allow($k1);
+ok('같은 키 재허용 시 중복 없음', count(array_keys($_SESSION['chat_keys'], $k1, true)) === 1);
+for ($i = 0; $i < 40; $i++) rag_chat_key_issue();
+ok('허용 목록은 최근 30개까지만', count($_SESSION['chat_keys']) === 30 && !rag_chat_key_allowed($k2));
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

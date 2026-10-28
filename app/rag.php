@@ -165,6 +165,53 @@ function rag_load_session(string $key): array
     return $row ? (json_decode($row['messages'], true) ?? []) : [];
 }
 
+/**
+ * 로그인 사용자 본인의 상담만 불러오기 (이전 상담 복원용)
+ * 반환: messages 배열, 없거나 본인 것이 아니면 null
+ */
+function rag_load_owned_session(string $key, int $userId): ?array
+{
+    $pdo = db();
+    if (!$pdo || $key === '') {
+        return null;
+    }
+    $stmt = $pdo->prepare('SELECT messages FROM ai_sessions WHERE session_key = :key AND user_id = :uid');
+    $stmt->execute(['key' => $key, 'uid' => $userId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        return null;
+    }
+    $messages = json_decode((string) $row['messages'], true);
+    return is_array($messages) ? $messages : [];
+}
+
+/**
+ * 상담 키 — 상담 1건마다 새로 발급 (PHP 세션 ID와 분리해 '새 상담'이 별도 이력으로 남도록)
+ * 이 브라우저 세션에서 발급·복원한 키만 대화 요청·저장에 사용할 수 있다.
+ */
+function rag_chat_key_issue(): string
+{
+    $key = bin2hex(random_bytes(16));
+    rag_chat_key_allow($key);
+    return $key;
+}
+
+function rag_chat_key_allow(string $key): void
+{
+    $keys   = array_values(array_diff($_SESSION['chat_keys'] ?? [], [$key]));
+    $keys[] = $key;
+    $_SESSION['chat_keys'] = array_slice($keys, -30);
+}
+
+function rag_chat_key_allowed(string $key): bool
+{
+    if ($key === '') {
+        return false;
+    }
+    // 배포 전 열어 둔 화면(세션 ID를 키로 쓰던 방식)도 계속 동작
+    return in_array($key, $_SESSION['chat_keys'] ?? [], true) || $key === session_id();
+}
+
 function rag_save_session(string $key, array $messages): void
 {
     // 로그인 상태이면 user_id 자동 연결 (GAP-V2-02 해소)

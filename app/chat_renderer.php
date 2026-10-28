@@ -1,9 +1,20 @@
 <?php
 /** 채팅 UI HTML 렌더링 전용 — 비즈니스 로직 없음
  *  호출자: public/chat.php (GET 일반 요청)
- *  의존: $sessionKey (string), $_isLoggedIn (bool) — 호출자가 주입
+ *  의존: $sessionKey (string), $_isLoggedIn (bool), $_restored (array, 복원할 이전 상담 메시지) — 호출자가 주입
  */
 $_sid     = $sessionKey ?? '';
+// 복원할 이전 상담: 사용자·AI 텍스트만 (history.php 요약 추출과 같은 content 형식 처리)
+$_restoredMsgs = [];
+foreach (($_restored ?? []) as $_m) {
+    $_role = is_array($_m) ? ($_m['role'] ?? '') : '';
+    if ($_role !== 'user' && $_role !== 'assistant') continue;
+    $_c = $_m['content'] ?? null;
+    $_text = is_string($_c) ? $_c : (is_array($_c) ? (string) ($_c[0]['text'] ?? '') : '');
+    if (trim($_text) === '') continue;
+    $_restoredMsgs[] = ['role' => $_role, 'text' => $_text];
+}
+$_hasRestored = $_restoredMsgs !== [];
 require __DIR__ . '/layout.php';
 render_header('AI 자재 상담', 'chat');
 ?>
@@ -491,7 +502,7 @@ render_header('AI 자재 상담', 'chat');
     <?php endif; ?>
     <div class="chat-toolbar-actions">
       <button type="button" class="btn-est-mob" id="btn-est-mob" onclick="toggleEstPanel()">📋 견적서</button>
-      <button type="button" class="btn-reset-top" id="btn-new-chat" onclick="resetChat()" disabled>새 상담</button>
+      <button type="button" class="btn-reset-top" id="btn-new-chat" onclick="resetChat()"<?= $_hasRestored ? '' : ' disabled' ?>>새 상담</button>
     </div>
   </div>
 
@@ -504,11 +515,19 @@ render_header('AI 자재 상담', 'chat');
 설치 장소, 용도, 하중 조건 등을 파악해 최적 상품을 추천해드립니다.</div>
       </div>
     </div>
+    <?php foreach ($_restoredMsgs as $_rm): // 이전 상담 복원 (chat-ai.js addMsg와 같은 구조) ?>
+    <div class="msg <?= $_rm['role'] ?>">
+      <div class="msg-avatar"><?= $_rm['role'] === 'user' ? '나' : 'AI' ?></div>
+      <div class="msg-content">
+        <div class="msg-bubble"><?= e($_rm['text']) ?></div>
+      </div>
+    </div>
+    <?php endforeach; ?>
   </div>
 
   <div class="input-area">
     <!-- 자주 찾는 상황: 누르면 입력창에 채워짐 (기존 동작 유지) -->
-    <div class="starters" id="hints">
+    <div class="starters" id="hints"<?= $_hasRestored ? ' style="display:none"' : '' ?>>
       <div class="starters-head">
         <span class="starters-label">자주 찾는 상황</span>
         <span class="starters-arrows">
@@ -564,6 +583,10 @@ window.SID = '<?= e($_sid) ?>';
 </script>
 <script src="/assets/chat-ai.js?v=<?= time() ?>"></script>
 <script>
+<?php if ($_hasRestored): ?>
+// 복원한 이전 상담: 마지막 대화가 보이도록
+(function () { const m = document.getElementById('messages'); if (m) m.scrollTop = m.scrollHeight; })();
+<?php endif; ?>
 function toggleEstPanel() {
   const panel   = document.querySelector('.est-panel');
   const backdrop = document.getElementById('est-backdrop');

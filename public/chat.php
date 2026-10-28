@@ -5,7 +5,7 @@ declare(strict_types=1);
  *
  * GET  /chat.php?stream=1&sid=...&msg=... → SSE 스트리밍 (Tool Use 응답 포함)
  * POST /chat.php                           → 대화 턴 저장 (JSON)
- * GET  /chat.php                           → 채팅 UI 렌더링
+ * GET  /chat.php                           → 채팅 UI 렌더링 (?sid= 이전 상담 복원)
  */
 
 require __DIR__ . '/../app/bootstrap.php';
@@ -21,7 +21,7 @@ if (isset($_GET['ask']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
 
-    if (!$sessionKey || !$userMsg) {
+    if (!$sessionKey || !$userMsg || !rag_chat_key_allowed($sessionKey)) {
         echo json_encode(['ok' => false, 'error' => '잘못된 요청입니다.']);
         exit;
     }
@@ -63,6 +63,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user      = trim($body['user'] ?? '');
     $assistant = trim($body['assistant'] ?? '');
 
+    if ($sid && !rag_chat_key_allowed($sid)) {
+        $sid = '';
+    }
+
     if ($sid && $user && $assistant) {
         $messages   = rag_load_session($sid);
         $messages[] = ['role' => 'user',      'content' => $user];
@@ -81,6 +85,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // ── 채팅 UI ───────────────────────────────────────────────────────────────
-$sessionKey  = session_id() ?: bin2hex(random_bytes(16));
+// ?sid= : 이전 상담 복원 (로그인 본인 상담만). 그 외에는 상담마다 새 키 발급
 $_isLoggedIn = is_logged_in();
+$_restored   = [];
+$sessionKey  = '';
+$_reqSid     = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) ($_GET['sid'] ?? ''));
+if ($_reqSid !== '' && $_isLoggedIn) {
+    $_owned = rag_load_owned_session($_reqSid, (int) current_user()['id']);
+    if ($_owned !== null) {
+        $sessionKey = $_reqSid;
+        $_restored  = $_owned;
+        rag_chat_key_allow($sessionKey);
+    }
+}
+if ($sessionKey === '') {
+    $sessionKey = rag_chat_key_issue();
+}
 require __DIR__ . '/../app/chat_renderer.php';

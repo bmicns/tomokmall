@@ -352,7 +352,8 @@ async function finalize(userMsg, assistantMsg) {
 
 function resetChat() {
   if (!confirm('대화를 초기화할까요?')) return;
-  location.reload();
+  // 새 상담 키를 받도록 ?sid= 없이 다시 열기 (복원한 이전 상담에서도 새 상담 시작)
+  location.href = '/chat.php';
 }
 
 // 페이지 로드 시 기존 견적 품목 반영
