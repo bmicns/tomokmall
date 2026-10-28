@@ -16,15 +16,15 @@ ALTER TABLE rag_documents
   ADD COLUMN reviewer       VARCHAR(100) NULL AFTER author,
   ADD COLUMN reviewed_at    DATE         NULL AFTER reviewer,
   ADD COLUMN review_status  VARCHAR(20)  NOT NULL DEFAULT 'unreviewed' COMMENT 'unreviewed/reviewed' AFTER reviewed_at,
-  ADD COLUMN verify_level   VARCHAR(30)  NULL COMMENT '법령·기준 원문 확인 수준: original_verified(원문 검증)/metadata_confirmed(공식 메타데이터 확인: 고시·기준명·개정일·적용 범위)/search_candidate(검색 후보). 사내 문서는 NULL' AFTER review_status,
+  ADD COLUMN verify_level   VARCHAR(30)  NULL COMMENT '법령·기준 원문 확인 수준: original_verified(공식 원문 검증)/api_text_verified(법제처 Open API 원문 미러로 조문 확인)/metadata_confirmed(공식 메타데이터 확인: 고시·기준명·개정일·적용 범위)/search_candidate(검색 후보). 사내 문서는 NULL' AFTER review_status,
   ADD COLUMN verified_by    VARCHAR(100) NULL COMMENT '원문(또는 존재) 확인자' AFTER verify_level,
   ADD COLUMN verified_at    DATE         NULL COMMENT '원문(또는 존재) 확인일' AFTER verified_by,
   ADD COLUMN updated_by     INT          NULL AFTER verified_at,
   ADD INDEX idx_source_type (source_type),
   ADD INDEX idx_review (review_status);
 
--- 활성화 규칙(코드에서 강제 예정 · 승인 전 미구현):
---   source_type <> 'internal' 인 문서는 verify_level='original_verified' AND review_status='reviewed'
+-- 활성화 규칙(app/rag.php rag_search_legal_documents() 가 강제):
+--   source_type <> 'internal' 인 문서는 verify_level IN ('original_verified','api_text_verified') AND review_status='reviewed'
 --   AND legal_status='current' 일 때만 is_active=1 로 AI 상담에 사용. 그 외는 확정적 법적 근거로 쓰지 않음.
 
 -- 확인: 기존 5건이 그대로이고 source_type='internal', review_status='unreviewed' 인지
