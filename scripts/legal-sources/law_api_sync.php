@@ -152,6 +152,12 @@ foreach ($data['documents'] as $doc) {
     if ($annexMissing) {
         $row['note'] = '감시 별표 제목이 응답에 없음: ' . implode(', ', $annexMissing);
     }
+    // API 에 아직 없는 새 고시(사용자·부처 게시로 확인)는 이전 등록본과 따로 표시
+    foreach ($doc['notice_versions'] ?? [] as $nv) {
+        if (empty($nv['registered_in_api']) && ltrim((string) $nv['number'], '0') !== ltrim((string) ($api['meta']['number'] ?? ''), '0')) {
+            $row['note'] = trim($row['note'] . " API 미반영 새 고시: 제{$nv['number']}호({$nv['promulgated']} 고시) — API 는 제" . ($api['meta']['number'] ?? '') . '호 표시');
+        }
+    }
     $rows[] = $row;
 }
 

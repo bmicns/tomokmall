@@ -128,6 +128,7 @@ file_put_contents("{$tmp}/api_targets.json", json_encode($targets, JSON_UNESCAPE
 [$out, $code] = $run("{$tmp}/api_targets.json", '--only=parking_rule,road_struct,sewer_maint,road_kds');
 ok('저장소 기준값(미러) ↔ API 형식 응답: 감시 조문 8개 일치, 종료 코드 0', $code === 0 && substr_count($out, '| 일치 |') === 4 && !str_contains($out, '| 내용 차이 |'));
 ok('KDS·KCS 고시는 번호·시행일만 대조(본문 첨부 파일 안내)', str_contains($out, '본문 첨부 파일') && str_contains($out, 'KCSC'));
+ok('API 미반영 새 고시(제2026-528호)를 이전 등록본(제2023-907호)과 따로 표시', str_contains($out, 'API 미반영 새 고시: 제2026-528호(2026-10-02 고시) — API 는 제2023-907호 표시'));
 [$out, $code] = $run("{$tmp}/api_targets.json", '--only=disab_law');
 ok('시행 예정 개정 재대조 일정 표(제21116호 2026-11-12, 현재 시행판 유지)', str_contains($out, '시행 예정 개정 — 재대조 일정') && str_contains($out, '| 제21116호 | 2026-11-12 | 대기(현재 시행판 유지)'));
 $t2 = $targets;
