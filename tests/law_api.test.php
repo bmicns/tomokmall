@@ -134,6 +134,22 @@ ok('비활성 권고 SQL 초안: 안전장치 첫 줄 + 활성 근거 V01·V02 �
 ok('검색 결과 없음 → 검색 안 됨', str_contains($out, '검색 안 됨'));
 exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg("{$root}/scripts/legal-sources/law_api_sync.php") . ' --no-dotenv --targets=' . escapeshellarg("{$tmp}/api_targets.json") . ' 2>&1', $o2, $c2);
 ok('키 없이 실제 API 모드 → 설정 안내 후 종료 코드 2(네트워크 호출 없음)', $c2 === 2 && str_contains(implode("\n", $o2), 'LAW_API_OC 미설정'));
+[$out, $code] = $run("{$tmp}/api_targets.json", '--search=' . escapeshellarg('주차장법 시행규칙') . ' --target=law');
+ok('검색 목록 모드: 이름이 다른 항목까지 번호·시행일 표(대조 없음)', $code === 0 && str_contains($out, '| 주차장법 시행령 | 대통령령 | 35800 |') && !str_contains($out, '기준값'));
+$t3 = $targets;
+foreach ($t3['documents'] as &$doc) {
+    if ($doc['key'] === 'parking_rule') { $doc['watch_annexes'] = ['완화구간의 설치 기준[제6조제1항제5호사목2) 관련]']; }
+}
+unset($doc);
+file_put_contents("{$tmp}/api_targets.json", json_encode($t3, JSON_UNESCAPED_UNICODE));
+@mkdir("{$tmp}/raw");
+[$out, $code] = $run("{$tmp}/api_targets.json", '--only=parking_rule --raw-dir=' . escapeshellarg("{$tmp}/raw"));
+ok('감시 별표 원문 파일 링크(PDF) 목록 출력', str_contains($out, '감시 별표 원문 파일') && str_contains($out, 'https://www.law.go.kr/LSW/flDownload.do?flSeq=167566761'));
+$raw = implode('', array_map('file_get_contents', glob("{$tmp}/raw/*.xml") ?: []));
+ok('원본 응답 저장 시 링크 속 OC 값 가림', $raw !== '' && str_contains($raw, 'OC=***') && !preg_match('/OC=(?!\*\*\*)/', $raw));
+ok('OC 가리기 함수', law_api_redact('a?OC=myid&target=law "OC=x"') === 'a?OC=***&target=law "OC=***"');
+array_map('unlink', glob("{$tmp}/raw/*") ?: []);
+@rmdir("{$tmp}/raw");
 array_map('unlink', glob("{$tmp}/*") ?: []);
 @rmdir($tmp);
 

@@ -93,6 +93,12 @@ function law_api_error(string $xml): ?string
     return null;
 }
 
+/** 응답·링크 속 인증값(OC=…) 가리기 — 원본 응답을 파일로 남기거나 공유할 때 사용 */
+function law_api_redact(string $text): string
+{
+    return preg_replace('/(\bOC=)[^&"\'<>\s]+/i', '$1***', $text) ?? $text;
+}
+
 /** 'YYYYMMDD' → 'YYYY-MM-DD' (형식이 아니면 null) */
 function law_api_date(string $ymd): ?string
 {
