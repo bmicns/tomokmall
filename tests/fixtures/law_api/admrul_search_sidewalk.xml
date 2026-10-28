@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 모의 응답(테스트 전용): lawSearch.do target=admrul query=보도 설치 및 관리 지침 — 번호·시행일은 실제 API 값(2026-10-28) -->
+<AdmRulSearch>
+  <target>admrul</target>
+  <totalCnt>1</totalCnt>
+  <page>1</page>
+  <admrul id="1">
+    <행정규칙일련번호>2100000203352</행정규칙일련번호>
+    <행정규칙명>보도 설치 및 관리 지침</행정규칙명>
+    <행정규칙종류>예규</행정규칙종류>
+    <발령일자>20210723</발령일자>
+    <발령번호>321</발령번호>
+    <소관부처명>국토교통부</소관부처명>
+    <현행연혁구분>현행</현행연혁구분>
+    <제개정구분명>일부개정</제개정구분명>
+    <행정규칙ID>2044631</행정규칙ID>
+    <행정규칙상세링크>/DRF/lawService.do?OC=test&amp;target=admrul&amp;ID=2100000203352&amp;type=HTML</행정규칙상세링크>
+    <시행일자>20210723</시행일자>
+  </admrul>
+</AdmRulSearch>

@@ -8,6 +8,8 @@
   "detail:admrul:2100000267022": "admrul_detail_sewer_maint.xml",
   "search:admrul:도로설계기준(KDS 44 00 00) 및 도로공사 표준시방서(KCS 44 00 00)": "admrul_search_road_kds.xml",
   "detail:admrul:2100000254280": "admrul_detail_road_kds.xml",
-  "search:admrul:보도 설치 및 관리 지침": "admrul_no_result.xml",
-  "search:law:하수도법": "error_result.xml"
+  "search:law:하수도법": "error_result.xml",
+  "search:admrul:보도 설치 및 관리 지침": "admrul_search_sidewalk.xml",
+  "detail:admrul:2100000203352": "admrul_detail_sidewalk.xml",
+  "search:admrul:조경설계기준(KDS 34 00 00) 및 조경공사 표준시방서(KCS 34 00 00)": "admrul_no_result.xml"
 }

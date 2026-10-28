@@ -279,13 +279,15 @@ function law_api_parse_law_detail(string $xml): array
 
 /**
  * 행정규칙 본문(lawService.do target=admrul, 루트 AdmRulService) 파싱.
- * 조문내용 요소가 '제N조(제목) …' 형식이면 조문 번호로 묶는다. 본문이 "상단 메뉴 … 버튼" 안내뿐이면 body_in_file=true
- * (KDS·KCS 고시처럼 기준 전문이 첨부 파일로만 제공되는 경우).
+ * 조문내용 요소가 '제N조(제목) …' 형식이면 조문 번호로 묶는다.
+ * body_in_file=true: 본문이 파일로만 제공되는 경우 — ① 조문내용이 "상단 메뉴 … 버튼" 안내뿐(KDS·KCS 고시),
+ *   ② 조문내용이 비어 있고 <첨부파일>(첨부파일명·첨부파일링크 쌍)이 있음(예: 보도 설치 및 관리 지침 — 개정전문 HWP·PDF).
+ * attachments: <첨부파일> 의 [name, url] 목록(별표·서식과 별개).
  */
 function law_api_parse_admrule_detail(string $xml): array
 {
     $doc = law_api_xml($xml);
-    $empty = ['meta' => [], 'articles' => [], 'annexes' => [], 'body_in_file' => false];
+    $empty = ['meta' => [], 'articles' => [], 'annexes' => [], 'attachments' => [], 'body_in_file' => false];
     if ($doc === null) {
         return $empty;
     }
@@ -310,8 +312,22 @@ function law_api_parse_admrule_detail(string $xml): array
             $articles[$key] = ['title' => trim($m[3] ?? ''), 'text' => $s];
         }
     }
-    $bodyInFile = $articles === [] && preg_match('/상단\s*메뉴.*버튼/us', $all) === 1;
-    return ['meta' => $meta, 'articles' => $articles, 'annexes' => law_api_parse_annexes($doc), 'body_in_file' => $bodyInFile];
+    // <첨부파일> 아래 첨부파일명·첨부파일링크가 번갈아 나온다 — 순서대로 짝 짓기
+    $attachments = [];
+    foreach ($doc->xpath('.//첨부파일') ?: [] as $box) {
+        $name = null;
+        foreach ($box->children() as $child) {
+            $tag = $child->getName();
+            if ($tag === '첨부파일명') {
+                $name = trim((string) $child);
+            } elseif ($tag === '첨부파일링크' && $name !== null) {
+                $attachments[] = ['name' => $name, 'url' => preg_replace('#^http://#', 'https://', law_api_abs_url(trim((string) $child)))];
+                $name = null;
+            }
+        }
+    }
+    $bodyInFile = $articles === [] && (preg_match('/상단\s*메뉴.*버튼/us', $all) === 1 || ($all === '' && $attachments !== []));
+    return ['meta' => $meta, 'articles' => $articles, 'annexes' => law_api_parse_annexes($doc), 'attachments' => $attachments, 'body_in_file' => $bodyInFile];
 }
 
 /**
@@ -362,7 +378,8 @@ function law_api_mirror_article(string $markdown, string $key): ?string
 /**
  * 기준값(원문 미러에서 만든 해시·버전)과 API 결과 비교 → 상태.
  *  same      : 조문 내용·공포번호 일치 → API 원문 대조 완료로 기록 가능(활성 상태는 바꾸지 않음)
- *  amended   : 공포(발령)번호·시행일이 바뀜 → 재검토 필요(활성 근거면 비활성 권고)
+ *  new_version_same : 새 판이 시행 중이나 감시 조문 해시는 그대로 → 근거 유지, 기준값만 갱신
+ *  amended   : 공포(발령)번호·시행일이 바뀌고 감시 조문도 다름(또는 감시 조문 없음) → 재검토(활성 근거면 비활성 권고)
  *  changed   : 번호는 같은데 조문 내용이 다름 → 형식 차이일 수 있으니 사람 확인
  *  missing   : API 응답에 해당 조문 없음 → 조문 이동·삭제 확인
  *  pending   : 시행일이 오늘 이후(시행 예정 개정) → 시행일 전까지 기존 근거 유지, 시행일에 재검토
@@ -390,6 +407,8 @@ function law_api_compare(array $baseline, array $api, string $today): array
     $statuses = array_column($articles, 'status');
     if ($future && $versionChanged) {
         $status = 'pending';
+    } elseif ($versionChanged && $statuses !== [] && !array_diff($statuses, ['same'])) {
+        $status = 'new_version_same';   // 새 판이 시행됐지만 감시 조문은 그대로 → 기준값(번호·시행일)만 갱신
     } elseif ($versionChanged) {
         $status = 'amended';
     } elseif (in_array('missing', $statuses, true)) {
@@ -414,6 +433,7 @@ function law_api_action(string $status, bool $activeClause): string
     return match ($status) {
         'same'    => 'API 원문 대조 일치 — verify_source 에 API 대조일 기록 가능(활성 상태 변경 없음)',
         'pending' => '시행 예정 개정 — 시행일 전까지 기존 근거 유지, 시행일에 개정 조문 재검토',
+        'new_version_same' => '새 판 시행 — 감시 조문 내용 동일, 근거 유지·기준값(번호·시행일)만 갱신(build_api_baseline 또는 수동)',
         'amended' => $activeClause ? '개정됨 — 재검토 필요, 검토 전까지 비활성 권고(SQL 초안)' : '개정됨 — 후보 정보(시행일·번호) 갱신 필요',
         'changed' => '조문 내용 차이 — 형식 차이인지 실제 개정인지 사람 확인',
         'missing' => '조문 없음 — 조문 이동·삭제 확인',

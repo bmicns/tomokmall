@@ -70,6 +70,11 @@ ok('본문이 조문이면 body_in_file=false', $r['body_in_file'] === false);
 $k = law_api_parse_admrule_detail($fx('admrul_detail_road_kds.xml'));
 ok('KDS·KCS 고시: 본문이 첨부 파일 안내뿐 → body_in_file=true', $k['body_in_file'] === true && $k['articles'] === []);
 ok('KDS·KCS 고시: 발령번호·시행일은 수집', $k['meta']['number'] === '2023-907' && $k['meta']['effective'] === '2023-01-12');
+$sw = law_api_parse_admrule_detail($fx('admrul_detail_sidewalk.xml'));
+ok('보도 지침(실제 응답): 빈 조문내용 + 첨부파일 → body_in_file=true', $sw['body_in_file'] === true && $sw['articles'] === []);
+ok('보도 지침: 첨부파일명·링크 2쌍(HWP·PDF), https 로 정규화', count($sw['attachments']) === 2 && $sw['attachments'][1]['name'] === '보도설치 및 관리지침 개정전문.pdf' && str_starts_with($sw['attachments'][1]['url'], 'https://law.go.kr/flDownload.do?flSeq=169457241'));
+ok('보도 지침: 발령번호 321·시행 2021-07-23', $sw['meta']['number'] === '321' && $sw['meta']['effective'] === '2021-07-23');
+ok('조문이 있는 고시는 첨부가 없어도 body_in_file=false', law_api_parse_admrule_detail($fx('admrul_detail_sewer_maint.xml'))['attachments'] === []);
 
 echo "[원문 미러 대조 — 정규화]\n";
 $mirror = "# 주차장법 시행규칙\n## 제1장 총칙\n##### 제3조 (주차장의 주차구획)\n\n**①** 법 제6조제1항에 따른 주차장의 주차단위구획은 다음 각 호와 같다. <개정 2012.7.2>\n\n  1\\. 평행주차형식의 경우\n##### 제3조의2 (다른 조)\n내용\n";
@@ -95,6 +100,9 @@ $c = law_api_compare($base, $am, '2026-10-28');
 ok('번호·시행일 변경 + 시행일 미래 → pending(시행 예정)', $c['status'] === 'pending' && $c['articles']['3']['status'] === 'changed' && $c['articles']['11']['status'] === 'same');
 $c = law_api_compare($base, $am, '2026-12-01');
 ok('시행일 도래 → amended(재검토)', $c['status'] === 'amended');
+$nv = law_api_parse_law_detail(str_replace(['<공포번호>01604</공포번호>', '<시행일자>20260727</시행일자>'], ['<공포번호>01700</공포번호>', '<시행일자>20261201</시행일자>'], $fx('law_detail_parking_rule.xml')));
+ok('새 판 시행 + 감시 조문 동일 → new_version_same(근거 유지·기준값 갱신)', law_api_compare($base, $nv, '2026-12-01')['status'] === 'new_version_same' && str_contains(law_api_action('new_version_same', true), '근거 유지'));
+ok('새 판이 아직 시행 전이면 조문이 같아도 pending', law_api_compare($base, $nv, '2026-10-28')['status'] === 'pending');
 $ch = law_api_parse_law_detail(str_replace('일반형 │2.5미터 이상', '일반형 │2.6미터 이상', $fx('law_detail_parking_rule.xml')));
 ok('번호 같고 조문만 다름 → changed', law_api_compare($base, $ch, '2026-10-28')['status'] === 'changed');
 $base2 = $base; $base2['articles']['12'] = 'deadbeefdeadbeef';
@@ -120,18 +128,22 @@ file_put_contents("{$tmp}/api_targets.json", json_encode($targets, JSON_UNESCAPE
 [$out, $code] = $run("{$tmp}/api_targets.json", '--only=parking_rule,road_struct,sewer_maint,road_kds');
 ok('저장소 기준값(미러) ↔ API 형식 응답: 감시 조문 8개 일치, 종료 코드 0', $code === 0 && substr_count($out, '| 일치 |') === 4 && !str_contains($out, '| 내용 차이 |'));
 ok('KDS·KCS 고시는 번호·시행일만 대조(본문 첨부 파일 안내)', str_contains($out, '본문 첨부 파일') && str_contains($out, 'KCSC'));
+[$out, $code] = $run("{$tmp}/api_targets.json", '--only=disab_law');
+ok('시행 예정 개정 재대조 일정 표(제21116호 2026-11-12, 현재 시행판 유지)', str_contains($out, '시행 예정 개정 — 재대조 일정') && str_contains($out, '| 제21116호 | 2026-11-12 | 대기(현재 시행판 유지)'));
 $t2 = $targets;
 foreach ($t2['documents'] as &$doc) {
-    if ($doc['key'] === 'parking_rule') { $doc['baseline']['number'] = '01500'; $doc['baseline']['effective'] = '2025-01-01'; }
+    if ($doc['key'] === 'parking_rule') { $doc['baseline']['number'] = '01500'; $doc['baseline']['effective'] = '2025-01-01'; $doc['baseline']['articles']['3'] = 'deadbeefdeadbeef'; }
 }
 unset($doc);
 file_put_contents("{$tmp}/api_targets.json", json_encode($t2, JSON_UNESCAPED_UNICODE));
 [$out, $code] = $run("{$tmp}/api_targets.json", "--only=parking_rule --sql={$tmp}/review.sql");
 $sqlDraft = (string) @file_get_contents("{$tmp}/review.sql");
-ok('기준보다 새 판이 현행 → 개정됨, 종료 코드 3', $code === 3 && str_contains($out, '개정됨') && str_contains($out, '비활성 권고'));
+ok('기준보다 새 판이 현행 + 감시 조문 다름 → 개정됨, 종료 코드 3', $code === 3 && str_contains($out, '개정됨') && str_contains($out, '비활성 권고'));
 ok('비활성 권고 SQL 초안: 안전장치 첫 줄 + 활성 근거 V01·V02 만 UPDATE(is_active=0)', str_starts_with($sqlDraft, 'DRAFT_STOP_') && substr_count($sqlDraft, 'UPDATE rag_documents SET is_active = 0') === 2 && !preg_match('/is_active\s*=\s*1/', $sqlDraft));
-[$out, $code] = $run("{$tmp}/api_targets.json", '--only=sidewalk');
+[$out, $code] = $run("{$tmp}/api_targets.json", '--only=landscape_kds');
 ok('검색 결과 없음 → 검색 안 됨', str_contains($out, '검색 안 됨'));
+[$out, $code] = $run("{$tmp}/api_targets.json", '--only=sidewalk');
+ok('보도 지침(실제 응답 구조): 본문 첨부 파일 인식 + 개정전문 PDF 링크 출력', $code === 0 && str_contains($out, '본문은 첨부 파일(2개') && str_contains($out, 'https://law.go.kr/flDownload.do?flSeq=169457241'));
 exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg("{$root}/scripts/legal-sources/law_api_sync.php") . ' --no-dotenv --targets=' . escapeshellarg("{$tmp}/api_targets.json") . ' 2>&1', $o2, $c2);
 ok('키 없이 실제 API 모드 → 설정 안내 후 종료 코드 2(네트워크 호출 없음)', $c2 === 2 && str_contains(implode("\n", $o2), 'LAW_API_OC 미설정'));
 [$out, $code] = $run("{$tmp}/api_targets.json", '--search=' . escapeshellarg('주차장법 시행규칙') . ' --target=law');

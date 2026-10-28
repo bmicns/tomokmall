@@ -138,7 +138,10 @@ foreach ($data['documents'] as $doc) {
         'annex_missing' => $annexMissing,
         'annex_links'   => array_values(array_filter($api['annexes'], static fn($a) => in_array(law_api_normalize($a['title']), array_map('law_api_normalize', $doc['watch_annexes']), true))),
         'body_in_file'  => $api['body_in_file'] ?? false,
+        'attachments'   => $api['attachments'] ?? [],
         'action'        => match (true) {
+            ($api['body_in_file'] ?? false) && $cmp['status'] === 'same' && !empty($api['attachments'])
+                => '번호·시행일 일치 — 본문은 첨부 파일(' . count($api['attachments']) . '개, 아래 링크)에서 확인',
             ($api['body_in_file'] ?? false) && $cmp['status'] === 'same'
                 => '고시 번호·시행일 일치 — 기준 본문은 첨부 파일·KCSC 에서 별도 확인',
             $doc['target'] === 'admrul' && !$doc['watch_articles'] && !$api['articles'] && empty($api['body_in_file']) && $cmp['status'] === 'same'
@@ -153,7 +156,7 @@ foreach ($data['documents'] as $doc) {
 }
 
 // 보고서
-$label = ['same' => '일치', 'pending' => '시행 예정 개정', 'amended' => '개정됨', 'changed' => '내용 차이', 'missing' => '조문 없음',
+$label = ['same' => '일치', 'pending' => '시행 예정 개정', 'new_version_same' => '새 판(감시 조문 동일)', 'amended' => '개정됨', 'changed' => '내용 차이', 'missing' => '조문 없음',
           'not_found' => '검색 안 됨', 'error' => '오류', 'skipped' => '건너뜀(모의 응답 없음)'];
 $md = "# 법령 API 대조 결과 (" . ($fixtures !== null ? '모의 응답' : '국가법령정보 OPEN API') . ", 기준일 {$today})\n\n"
     . "| 문서 | 상태 | 기준값(미러) 번호·시행일 | API 번호·시행일 | 조문 | 별표 | 연결 근거 | 할 일 |\n|---|---|---|---|---|---|---|---|\n";
@@ -173,13 +176,31 @@ foreach ($rows as $r) {
     foreach ($r['annex_links'] ?? [] as $a) {
         $links[] = [$r['name'], $a];
     }
+    foreach ($r['attachments'] ?? [] as $f) {   // 본문 첨부 파일(예: 지침 개정전문)
+        $isPdf = (bool) preg_match('/\.pdf$/i', $f['name']);
+        $links[] = [$r['name'], ['kind' => '본문 첨부', 'no' => '0', 'branch' => '', 'title' => $f['name'], 'pdf_url' => $isPdf ? $f['url'] : '', 'file_url' => $isPdf ? '' : $f['url']]];
+    }
 }
 if ($links) {
     $md .= "\n## 감시 별표 원문 파일 (내용 확인용 — 내려받아 공유)\n\n| 법령 | 별표 | 제목 | PDF | 원본 파일 |\n|---|---|---|---|---|\n";
     foreach ($links as [$name, $a]) {
-        $no = (int) $a['no'] . ((int) $a['branch'] > 0 ? '의' . (int) $a['branch'] : '');
+        $no = $a['kind'] === '본문 첨부' ? '' : (int) $a['no'] . ((int) $a['branch'] > 0 ? '의' . (int) $a['branch'] : '');
         $md .= "| {$name} | {$a['kind']} {$no} | {$a['title']} | {$a['pdf_url']} | {$a['file_url']} |\n";
     }
+}
+// 시행 예정 개정 재대조 일정(api_targets.json documents[].pending) — 현재 시행판과 구분해 관리
+$sched = [];
+foreach ($data['documents'] as $doc) {
+    if ($only && !in_array($doc['key'], $only, true)) {
+        continue;
+    }
+    foreach ($doc['pending'] ?? [] as $p) {
+        $due = $p['effective'] <= $today;
+        $sched[] = "| {$doc['name']} | 제{$p['number']}호 | {$p['effective']} | " . ($due ? '**시행일 도래 — 이번 결과로 재대조 확인**' : '대기(현재 시행판 유지)') . " | {$p['note']} |";
+    }
+}
+if ($sched) {
+    $md .= "\n## 시행 예정 개정 — 재대조 일정\n\n| 법령 | 개정 | 시행일 | 상태 | 메모 |\n|---|---|---|---|---|\n" . implode("\n", $sched) . "\n";
 }
 $counts = array_count_values(array_column($rows, 'status'));
 $md .= "\n합계: " . implode(' · ', array_map(static fn($k, $v) => ($label[$k] ?? $k) . " {$v}", array_keys($counts), $counts)) . "\n"
