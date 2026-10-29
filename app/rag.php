@@ -223,6 +223,7 @@ function rag_detect_category(array $messages): string
     if (preg_match('/보도블[록럭]|경계석|인터로킹|포장블[록럭]|보차도|인조화강블|점토블[록럭]|투수블[록럭]|잔디블[록럭]/u', $text)) return 'pavement';
     // '블록' 만 쓴 경우: 바닥 포장 문맥(깔기·마당·인도·차도·두께 등)이 있고 쌓는 블록(호안·옹벽·속빈·조적 등)이 아닐 때만 보도블록 상담
     if (rag_is_paving_block_text($text)) return 'pavement';
+    if (rag_is_paving_place_text($text)) return 'pavement';
 
     return '';
 }
@@ -239,7 +240,15 @@ function rag_is_paving_block_text(string $text): bool
     if (preg_match('/블[록럭]/u', $text) !== 1 || rag_is_structural_block_text($text)) {
         return false;
     }
-    return preg_match('/깔[고기아려면을]|깔다|포장|바닥|마당|주차|진입로|인도|보도|차도|도로|광장|공원|정원|산책로|길에|길을|두께|\d+\s*t\b|\d+\s*mm|㎡|m2|제곱미터|평\s|차가|차량|차를/u', $text) === 1;
+    return preg_match('/깔[고기아려면을]|깔다|포장|바닥|마당|주차|진입로|인도|보도|차도|도로|광장|공원|정원|산책로|길에|길을|두께|\d+\s*t\b|\d+\s*mm|㎡|m2|제곱미터|평\s|차가|차량|차를|물이\s*(잘\s*)?빠|물\s*빠짐|빗물|투수/u', $text) === 1;
+}
+
+/** '블록' 단어 없이 바닥 포장 자재를 묻는 초보 표현(예: '차가 가끔 지나가는 마당에는 어떤 자재가 적합해?') (순수 함수) */
+function rag_is_paving_place_text(string $text): bool
+{
+    return preg_match('/마당|진입로|주차\s*공간|앞마당|뒷마당|정원\s*길|산책로/u', $text) === 1
+        && preg_match('/깔[고기아려면을]|깔다|포장|바닥|자재|재료|차가|차량/u', $text) === 1
+        && !rag_is_structural_block_text($text);
 }
 
 /**
@@ -679,6 +688,7 @@ function rag_build_prompt(array $messages): array
         . "  쓸 만한 선택지 2~4가지를 '- 이름: 장점 / 주의점' 형식으로 한 줄씩 비교하고, 그다음 추천에 꼭 필요한 질문 1~2개만 한다.\n"
         . "- 일반 설명에서 가격·강도·법정 기준 같은 구체 숫자를 지어내지 않는다. 숫자는 아래 [참조 문서]에 있는 것만 인용하고, 가격·수량은 검색 결과 표로 보여준다.\n"
         . "- 면적을 모르면 '가로 몇 m × 세로 몇 m인지' 물어보고, 답을 받으면 직접 곱해 area_m2로 넘긴다(예: 5m×4m → 20). 대략값도 괜찮다고 안내한다.\n"
+        . "- 자재 종류의 차이·특징·물빠짐·주의사항 질문에는 material_info 를 먼저 호출하고, 돌려준 원문 문장을 '제조사 자료에 따르면'처럼 출처와 함께 쉬운 말로 전한다(없으면 수치 없이 일반 설명만, 출처끼리 다르면 단정하지 않음, 공식 기준 수치는 [L번호] 근거만).\n"
         . "- 선택지를 비교한 뒤 면적·길이가 확인되면 search_products의 queries로 종류별 제품을 한 표에 모아 보여준다.\n"
         . "  표에는 제품별 필요 수량과 예상 자재비(판매가 기준, 운반·시공비 별도)가 자동 계산되어 차이를 바로 비교할 수 있다.\n"
         . "\n"

@@ -122,6 +122,12 @@ ok('카드별 최저와의 차이(cost_diff) = 예상 금액 − 최저', !array
 ok('최저 카드 1개에만 cost_lowest 표시', count($lowCards) === 1 && $lowCards[0]['name'] === $cs['lowest']['name']);
 ok('면적·길이 없이 검색하면 요약 없음(금액을 말하지 않음)', !isset(search(['queries' => ['인조화강블록', '점토블럭']])['cost_summary']));
 
+echo "['투수' 검색에 '불투수' 섞지 않음]\n";
+$r = search(['query' => '투수블록', 'area_m2' => 20]);
+ok('투수블록 검색 → 불투수 제품 없음, 투수 제품 있음', !empty($r['products']) && !array_filter($r['products'], static fn($c) => str_contains($c['name'] . $c['spec'], '불투수')));
+$r = search(['queries' => ['인조화강블록(투수)', '인조화강블록(불투수)'], 'area_m2' => 20]);
+ok("'불투수' 를 직접 찾으면 비교 가능", (bool) array_filter($r['products'] ?? [], static fn($c) => str_contains($c['name'], '불투수')));
+
 echo "[견적 담기 수량 1~999 — AI add_to_cart]\n";
 $pid = (int) ($r['products'][0]['id'] ?? 0);
 $add = static fn(int $q): array => json_decode(tool_add_to_cart(['product_id' => $pid, 'quantity' => $q], 'test'), true) ?: [];

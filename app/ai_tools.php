@@ -86,6 +86,20 @@ function ai_tool_definitions(): array
                 ],
             ],
         ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'material_info',
+                'description' => '자재 종류의 차이·특징·용도·물빠짐(투수)·주의사항을 설명할 때 쓰는 참고 자료 조회. 제조사 공개 자료 중 사람이 승인한 원문 문장만 출처와 함께 돌려준다. 판매 상품·가격이 아니므로 상품 추천·가격은 search_products 로.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'topic' => ['type' => 'string', 'description' => "자재 종류나 특성 키워드. 예: '인터로킹 블록', '투수블록', '인조화강블록', '스틸 그레이팅'"],
+                    ],
+                    'required' => ['topic'],
+                ],
+            ],
+        ],
     ];
 }
 
@@ -104,11 +118,23 @@ function ai_tool_dispatch(string $toolName, array $input, string $sid): string
         'add_to_cart'     => tool_add_to_cart($input, $sid),
         'get_cart'        => tool_get_cart($sid),
         'create_estimate' => tool_create_estimate($input, $sid),
+        'material_info'   => tool_material_info($input),
         default           => json_encode(['error' => '알 수 없는 도구입니다: ' . htmlspecialchars($toolName, ENT_QUOTES, 'UTF-8')]),
     };
 }
 
 // ─── 개별 Tool 핸들러 ────────────────────────────────────────────────────────
+
+/** 자재 참고 자료(승인된 제조사 공개 자료 원문 + 출처). 상담 화면에는 출처 목록 카드(material_sources) */
+function tool_material_info(array $input): string
+{
+    $info = ext_material_info(trim((string) ($input['topic'] ?? '')));
+    if ($info['sources']) {
+        $info['_sse'] = [['type' => 'material_sources', 'sources' => $info['sources']]];
+    }
+    unset($info['sources']);
+    return json_encode($info, JSON_UNESCAPED_UNICODE);
+}
 
 /**
  * 포장 블록 1장 면적(㎡). 규격이 '가로*세로*두께T' 형태(예: 220*110*60T, 300*300*30T)일 때만 계산.
@@ -274,6 +300,11 @@ function tool_search_products(array $input): string
 
     // ⓪ 용도 배타 필터: 부속(집게·몰드 등) 제외
     $rows = ai_exclude_accessories($rows, $query);
+    // ⓪-1 '투수' 를 찾으면 '불투수' 제품은 빼기(글자 포함 관계로 반대 성질이 섞이던 문제). 둘 다 비교하려면 '불투수' 를 함께 적는다
+    if (preg_match('/투수/u', $query) && !preg_match('/불\s*투수/u', $query)) {
+        $filtered = array_values(array_filter($rows, static fn($r) => !preg_match('/불\s*투수/u', (string) ($r['name'] ?? '') . ' ' . (string) ($r['spec'] ?? ''))));
+        if ($filtered) { $rows = $filtered; }
+    }
 
     // ⓪-2 포장 블록의 엄격 규격(spec_strict)은 '두께'로 본다 — 두께(80T 또는 가로*세로*두께의 셋째 값)가 같은 포장 블록만.
     //      가로·세로 치수가 우연히 같은 제품(200*100*60T 의 100, 호안블록·속빈블록 등)이 두께 기준 검색에 섞이는 것 방지.
