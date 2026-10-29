@@ -9,6 +9,7 @@ declare(strict_types=1);
  * 필요: .env.local 의 OPENAI_API_KEY, scripts/testdb/setup-local-test-db.sh 로 만든 로컬 테스트 DB(SQL 초안 01·02·06·07 적용).
  * 실행: DB_HOST=127.0.0.1 DB_NAME=tomokmall_test php scripts/testdb/consult-scenarios.php [--with-public-road] [--md=결과.md]
  *       --check-only : DB 사전 점검만 하고 OpenAI 는 호출하지 않음
+ *       --core       : 핵심 3개(공공도로 차도 100mm·차량 진입 보도 80mm·사유지 80T)만, 면적 답변 턴을 붙여 추천 상품 두께까지 점검(비용 절감)
  * 종료 코드: 0 실패 없음(확인 필요는 사람 검토), 1 실행 실패·판정 실패 있음, 2 설정·DB 구성 오류
  * 비용: 시나리오 7개 × OpenAI 호출(도구 호출 포함) — 소량.
  */
@@ -17,7 +18,7 @@ $_SERVER['HTTPS'] = $_SERVER['HTTPS'] ?? '';
 require dirname(__DIR__, 2) . '/app/bootstrap.php';
 require dirname(__DIR__, 2) . '/app/rag.php';
 
-$opt = getopt('', ['with-public-road', 'md:', 'check-only']);
+$opt = getopt('', ['with-public-road', 'md:', 'check-only', 'core']);
 $dbName = (string) ($config['db']['name'] ?? '');
 if (!preg_match('/_test$/', $dbName)) {
     fwrite(STDERR, "로컬 테스트 DB(DB_NAME=*_test)에서만 실행합니다. 현재 DB_NAME='{$dbName}'\n");
@@ -82,6 +83,12 @@ if (isset($opt['with-public-road'])) {
 }
 
 // [기대 장소 판정, 대화(고객 발화), 답변에서 확인할 점]
+// --core: 핵심 3개 + 면적 답변 턴(상품 검색 유도) — [기대, 대화, 확인할 점, 추천 상품 기대 두께(mm)]
+$core = [
+    ['public_road', ['시청에서 발주한 도로 공사인데 차도에 블록 깔려면 두께 몇 mm 써야 해요?', '차도 면적은 50㎡ 정도예요. 인터로킹 블록으로 찾아 주세요'], '100mm 이상 안내 + KDS/KCS 44 50 25 출처, 80T 비권장, 100mm 제품만(없으면 없다고 안내)', 100],
+    ['public_sidewalk', ['가게 앞 인도를 차가 가로질러 들어오는데 인도 블록 두께는요?', '승용차만 들어오고 면적은 30㎡예요'], '보도 지침 구분 Ⅱ(4t 이하) 80mm 이상 + 출처, 80T 제품', 80],
+    ['private', ['집 앞 마당에 차 두 대 주차할 건데 블록 두께 몇 T?', '마당은 6m × 5m 예요'], '기존 80T 안내, 공공도로 출처 없음, 80T 제품', 80],
+];
 $scenarios = [
     ['public_road', ['시청에서 발주한 도로 공사인데 차도에 블록 깔려면 두께 몇 mm 써야 해요?'], '100mm 이상 안내 + KDS/KCS 44 50 25 출처, 80T 를 차도용으로 권하지 않음'],
     ['public_road', ['차가 다니는 곳에 블록 깔려는데 두께 몇 T 써야 돼요?', '구청이 발주처인 도로 포장 공사예요'], '두 번째 턴에서 100mm 기준으로 전환'],
@@ -92,12 +99,17 @@ $scenarios = [
     ['none', ['사람만 다니는 정원 길에 블록 깔고 싶어요'], '두께 기준 질문 없이 일반 안내'],
 ];
 
-$md = "# 실제 LLM 상담 시나리오 결과 (" . date('Y-m-d H:i') . ", 모델 " . ($config['openai']['model'] ?? '') . ", V21·V22 " . ($restore ? '실행 중 활성' : '현재 상태') . ")\n\n"
+if (isset($opt['core'])) {
+    $scenarios = $core;
+}
+$md = "# 실제 LLM 상담 시나리오 결과 (" . (isset($opt['core']) ? '핵심 3개, ' : '') . date('Y-m-d H:i') . ", 모델 " . ($config['openai']['model'] ?? '') . ", V21·V22 " . ($restore ? '실행 중 활성' : '현재 상태') . ")\n\n"
     . "- 연결: {$info['v']} · DB {$info['d']} · 검증 조문 {$clauses}건(활성 {$active})\n\n";
 $tally = ['통과' => 0, '확인 필요' => 0, '실패' => 0];
 try {
     $i = 0;
-    foreach ($scenarios as [$expect, $turns, $check]) {
+    foreach ($scenarios as $sc) {
+        [$expect, $turns, $check] = $sc;
+        $wantMm = $sc[3] ?? null;   // --core: 추천 상품이 맞아야 하는 두께
         $i++;
         $msgs = [];
         $res = ['ok' => false, 'text' => '', 'events' => []];
@@ -122,12 +134,19 @@ try {
             }
         }
         $text = (string) ($res['text'] ?? '');
+        $cards = [];
+        foreach ($res['events'] ?? [] as $e) {
+            if (($e['type'] ?? '') === 'product_cards') { $cards = array_merge($cards, $e['products'] ?? []); }
+        }
+        $wrongCards = $wantMm === null ? [] : array_values(array_filter($cards, static fn($c) => ai_block_thickness((string) ($c['spec'] ?? '')) !== $wantMm));
         $cites44 = (bool) array_filter($sources, static fn($x) => str_contains($x, '44 50 25'));
         // 실패는 통과로 표시하지 않는다: 실행 오류 > 장소 판정 불일치 > 내용 점검
         if ($errors || trim($text) === '') {
             $auto = '실패(실행 오류·답변 없음)';
         } elseif ($ctx !== $expect) {
             $auto = "실패(장소 판정 {$ctx} ≠ 기대 {$expect})";
+        } elseif ($wrongCards) {
+            $auto = "실패(추천 상품 두께가 {$wantMm}mm 가 아님: " . implode(', ', array_map(static fn($c) => $c['name'], array_slice($wrongCards, 0, 3))) . ')';
         } else {
             $auto = match ($expect) {
                 'public_road'     => $cites44 && preg_match('/100\s*mm|100T|10\s*cm/u', $text) ? '통과' : '확인 필요',
@@ -138,7 +157,8 @@ try {
             };
         }
         $tally[str_starts_with($auto, '실패') ? '실패' : ($auto === '통과' ? '통과' : '확인 필요')]++;
-        $md .= "## {$i}. 기대 {$expect} · 판정 {$ctx} · 자동 점검 {$auto}\n\n- 고객: " . implode(' → ', $turns) . "\n- 확인할 점: {$check}\n- 인용 근거: " . ($sources ? implode(' / ', $sources) : '없음') . "\n\n```\n" . trim($text) . "\n```\n\n";
+        $md .= "## {$i}. 기대 {$expect} · 판정 {$ctx} · 자동 점검 {$auto}\n\n- 고객: " . implode(' → ', $turns) . "\n- 확인할 점: {$check}\n- 인용 근거: " . ($sources ? implode(' / ', $sources) : '없음')
+            . ($wantMm !== null ? "\n- 추천 상품(마지막 턴): " . ($cards ? implode(', ', array_map(static fn($c) => $c['name'] . '(' . (ai_block_thickness((string) ($c['spec'] ?? '')) ?? '?') . 'mm)', $cards)) : '없음') : '') . "\n\n```\n" . trim($text) . "\n```\n\n";
         if ($errors) {
             $md .= "> 오류: " . implode(' / ', array_unique($errors)) . "\n\n";
         }
