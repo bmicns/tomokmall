@@ -507,7 +507,7 @@ function ext_read_json(string $file, bool $scrape): array
  */
 function ext_material_info(string $topic): array
 {
-    $none = ['topic' => $topic, 'facts' => [], 'sources' => [], 'note' => '승인된 참고 자료가 없습니다. 수치 없이 일반 설명만 하고, 상품·가격은 search_products 결과(토목몰)로만 안내하세요.'];
+    $none = ['topic' => $topic, 'facts' => [], 'sources' => [], 'note' => '승인된 참고 자료가 없습니다. 답 첫머리에 제조사 참고 자료가 없어 일반적인 설명이라고 밝히고, 수치 없이 확실한 일반 설명만 하세요(모르는 구조·용도를 지어내지 않음). 상품·가격은 search_products 결과(토목몰)로만 안내하세요.'];
     if (trim($topic) === '' || !ext_tables_ready()) { return $none; }
     $type = ext_product_type($topic);
     $words = array_values(array_filter(preg_split('/[\s,·]+/u', (string) preg_replace('/블럭/u', '블록', $topic)) ?: [], static fn($w) => mb_strlen($w) >= 2 && !preg_match('/^(차이|종류|어떤|무엇|추천|좋은|제품|자재)$/u', $w)));
@@ -549,5 +549,7 @@ function ext_material_info(string $topic): array
         if (count($facts) >= 12) { break; }
     }
     return ['topic' => $topic, 'facts' => $facts, 'sources' => array_values($sources),
-            'note' => '제조사 공개 자료 원문(사람이 승인한 것만) — 판매 상품·가격이 아님. 출처끼리 다르면 단정하지 말고 둘 다 출처와 함께 전하세요.'];
+            'note' => '제조사 공개 자료 원문(사람이 승인한 것만) — 판매 상품·가격이 아님. 출처끼리 다르면 단정하지 말고 둘 다 출처와 함께 전하세요. '
+                . '각 문장은 문장 속 제품명(없으면 product)의 설명으로만 쓰고 다른 제품에 옮기지 마세요. KS·인증은 그 제품의 표기로만 전하고 \'이 규격을 쓰면 된다\'고 권하지 마세요. '
+                . '토목몰 판매 상품이 궁금하면 search_products 로 보여 줄 수 있다고 안내하세요(고객에게 직접 검색하라고 하지 않음).'];
 }

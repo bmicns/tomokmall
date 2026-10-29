@@ -7,7 +7,8 @@ declare(strict_types=1);
  * 승인 자료는 '[테스트]' 가상 제조사 행(import-crawled → approve-crawled)으로 만들고 끝나면 지운다.
  * 확인: 원문에 없는 하중 수치(톤) → 실패, 제조사 이름으로 출처를 밝히면 출처 표시로 인정, 승인 자료의 핵심(작은 바퀴) 미사용 → 확인 필요,
  *       자료 없이 '제조사 자료에 따르면' → 실패(확대 해석 표현은 참고 자료를 쓴 답에서만 판정), 자료에 없는 KS 번호 → 실패, 도구만 부르다 한도 → 최종 답(빈 답변 아님),
- *       두께 질문(7번)은 제조사 자료가 있어도 안 써도 됨, 부른 도구 기록, V21·V22·승인 상태 불변.
+ *       두께 질문(7번)은 제조사 자료가 있어도 안 써도 됨, 부른 도구 기록, V21·V22·승인 상태 불변,
+ *       재시험 5 유형(ㄷ형강을 스틸 그레이팅 설명으로 뒤바꿈·KS 표기를 '쓰면 적합'으로 권함·고객에게 직접 검색하라고 함).
  * 실행: DB_HOST=127.0.0.1 DB_NAME=tomokmall_test DB_USER=… DB_PASS=… php tests/consult_material_checks.test.php
  */
 error_reporting(E_ALL & ~E_WARNING & ~E_DEPRECATED & ~E_NOTICE);
@@ -44,6 +45,7 @@ $rec = static fn(string $name, string $spec, int $page, array $facts) => ['name'
 file_put_contents("{$tmp}/test_cmat-20261029-000000.json", json_encode([
     $rec('[테스트]안전 그레이팅', '폭 300 / 높이 30', 1, ['features' => ['[테스트] 안전 그레이팅은 유모차, 휠체어 등 작은 바퀴가 빠지지 않게 촘촘히 만듭니다.', '[테스트] 그레이팅 상부 면은 톱니 형상이라 미끄럼을 줄입니다.']]),
     $rec('[테스트]컬러 보도블록', '200*200*60', 2, ['features' => ['[테스트] 블록 표면은 오염방지 처리를 했습니다.']]),
+    $rec('[테스트]흄관', 'D300 / 길이 2500', 3, ['certs' => ['[테스트]흄관 (B형 / 원심력 철근 콘크리트관) KS F 4403']]),
 ], JSON_UNESCAPED_UNICODE));
 $env = 'EXT_SOURCES_FILE=' . escapeshellarg("{$tmp}/sources.json") . ' EXT_CRAWL_DIR=' . escapeshellarg($tmp);
 $ext = static fn(string $s, string $a = '') => exec("{$env} " . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . "/../scripts/external/{$s}") . " {$a} 2>&1");
@@ -73,7 +75,7 @@ try {
         . escapeshellarg(__DIR__ . '/../scripts/testdb/consult-scenarios.php') . ' --material --md=' . escapeshellarg("{$tmp}/m.md") . ' 2>&1', $o, $code);
     $md = (string) @file_get_contents("{$tmp}/m.md");
     $sec = static function (int $i) use (&$md): string { return preg_match('/## ' . $i . '\. (.*?)(?=\n## \d\. |\n합계)/su', $md, $m) ? $m[1] : ''; };
-    ok('승인 자료 준비(가상 제조사 2행)', $approvedBefore === 2 && $md !== '');
+    ok('승인 자료 준비(가상 제조사 3행)', $approvedBefore === 3 && $md !== '');
     ok('1: 원문에 없는 하중 수치(5톤) → 실패', str_contains($sec(1), '자동 점검: 실패(자료에 없는 하중 수치: 5톤)'));
     ok('2: 제조사 이름으로 밝힌 출처는 인정, 핵심(작은 바퀴) 미사용 → 확인 필요', str_contains($sec(2), '자동 점검: 확인 필요(승인 자료의 핵심 문장 미사용)'));
     ok('3: 원문대로·출처 → 통과, 부른 도구 기록', str_contains($sec(3), '자동 점검: 통과') && str_contains($sec(3), '부른 도구: material_info({"topic":"그레이팅 미끄럼"})'));
@@ -96,9 +98,9 @@ try {
     ok("4(2회차): 참고 자료 없이 '제조사 자료에 따르면' → 실패", str_contains($sec(4), "자동 점검: 실패(참고 자료가 없는데 '제조사 자료에 따르면' 표현)"));
     ok("3(2회차): 프롬프트 예시 자리표시 '○○'를 제조사 이름 대신 그대로 씀 → 실패", str_contains($sec(3), '자동 점검: 실패(자리표시 ○○ 를 제조사 이름 대신 그대로 씀)'));
     // 3·4회차: 'ㄷ형강 하부 보강 — 일반 중하중 그레이팅보다 더 무거운 차량'(특정 제품)을 중하중 그레이팅 전체 특징으로 말하면 실패, 원문 비교 대상을 밝히면 통과
-    $rerun = static function (string $answer) use ($tmp, $port, $tool, $say): string {
-        file_put_contents("{$tmp}/responses.json", json_encode([$tool('그레이팅', 21), $say($answer), $say('일반 설명입니다.'), $say('일반 설명입니다.'), $say('일반 설명입니다.'),
-            $say('일반 설명입니다.'), $say('일반 설명입니다.'), $say('차가 다니면 두께 80mm 이상 블록을 쓰세요.')], JSON_UNESCAPED_UNICODE));
+    $rerun = static function (string $answer, array $five = [], array $six = []) use ($tmp, $port, $tool, $say): string {
+        file_put_contents("{$tmp}/responses.json", json_encode(array_merge([$tool('그레이팅', 21), $say($answer), $say('일반 설명입니다.'), $say('일반 설명입니다.'), $say('일반 설명입니다.')],
+            $five ?: [$say('일반 설명입니다.')], $six ?: [$say('일반 설명입니다.')], [$say('차가 다니면 두께 80mm 이상 블록을 쓰세요.')]), JSON_UNESCAPED_UNICODE));
         @unlink("{$tmp}/n");
         exec("OPENAI_API_KEY=test-not-a-key OPENAI_CHAT_URL=http://127.0.0.1:{$port}/v1/chat/completions " . escapeshellarg(PHP_BINARY) . ' '
             . escapeshellarg(__DIR__ . '/../scripts/testdb/consult-scenarios.php') . ' --material --md=' . escapeshellarg("{$tmp}/m.md") . ' 2>&1');
@@ -108,6 +110,15 @@ try {
     ok("1(3회차): 특정 제품의 '더 무거운 차량'을 중하중 그레이팅 전체로 → 실패", str_contains($sec(1), '자동 점검: 실패(원문 밖 확대 해석: 더 무거운 차량'));
     $md = $rerun('[테스트]제조 자료에 따르면 ㄷ형강 하부를 보강한 제품은 일반 중하중 그레이팅보다 더 무거운 차량용입니다.');
     ok("1(4회차): '일반 중하중 그레이팅보다 더 무거운 차량'처럼 원문 비교 대상을 밝히면 통과", str_contains($sec(1), '자동 점검: 통과'));
+    // 5회차: 실제 GPT-4o 재시험 5(after5)에서 나온 유형 — ㄷ형강을 스틸 그레이팅 설명으로 뒤바꿈(1), 한 제조사 KS 표기를 '쓰면 적합'으로 권함(5), 고객에게 직접 검색하라고 함(6)
+    $md = $rerun("- 스틸 그레이팅: 이 제품은 주로 보강을 위한 ㄷ형강을 사용합니다.\n- 안전 그레이팅은 작은 바퀴가 빠지지 않게 촘촘합니다.",
+        [$tool('흄관', 23), $say('[테스트]제조 자료에 따르면, 흄관은 KS F 4403 규격의 제품을 사용하는 것이 적합합니다.')],
+        [$tool('보도블록 오염', 24), $say('[테스트]제조 자료에 따르면 오염방지 처리 제품이 있습니다. 구매를 원하시면 특정 제품을 검색해 보셔야 합니다.')]);
+    ok('1(5회차): ㄷ형강을 스틸 그레이팅 설명으로 뒤바꿈 → 실패', str_contains($sec(1), '자동 점검: 실패(원문 밖 확대 해석: 스틸 그레이팅: 이 제품은 주로 보강을 위한 ㄷ형강'));
+    ok("5(5회차): 한 제조사 KS 표기를 '쓰면 적합'으로 권함 → 실패", str_contains($sec(5), '자동 점검: 실패(원문 밖 확대 해석: KS F 4403'));
+    ok('6(5회차): 고객에게 직접 검색하라고 함 → 확인 필요', str_contains($sec(6), '자동 점검: 확인 필요(고객에게 추가 검색을 하라고 함)'));
+    $md = $rerun('[테스트]제조 자료에 따르면 안전 그레이팅은 유모차 바퀴가 빠지지 않습니다.', [$tool('흄관', 25), $say('[테스트]제조 자료에 따르면 흄관(B형)은 KS F 4403 표기 제품입니다.')]);
+    ok("1·5(6회차): '안전' 제품명 그대로·KS 를 그 제품 표기로 전하면 통과", str_contains($sec(1), '자동 점검: 통과') && str_contains($sec(5), '자동 점검: 통과'));
     ok('V21·V22·승인 상태 그대로', $v2122 === $pdo->query("SELECT GROUP_CONCAT(CONCAT(id, ':', is_active, ':', review_status) ORDER BY id) FROM rag_documents WHERE tags LIKE '@scope:public_road%'")->fetchColumn()
         && $approvedBefore === (int) $pdo->query("SELECT COUNT(*) FROM external_products WHERE review_status = 'approved'")->fetchColumn());
 } finally {

@@ -48,7 +48,7 @@ function ext_page_facts(array $blocks): array
     $seen = [];
     foreach ($blocks as [$type, $val]) {
         if ($type !== 'text') { continue; }
-        foreach (preg_split('/(?<=[.!?。]|다\.)\s+|\s*[·•▶■□◆○●-]\s+/u', $val) ?: [] as $s) {
+        foreach (preg_split('/(?<=[.!?。]|다\.)\s+|\s*[·•▶■□◆○●-]\s+|(?<=[.!?。])\s*★\s*/u', $val) ?: [] as $s) {
             $s = trim($s);
             if (mb_strlen($s) < 8 || mb_strlen($s) > 200 || isset($seen[$s])) { continue; }
             $k = ext_fact_kind($s);
@@ -161,6 +161,14 @@ function ext_record_issue(array $n): string
 /** 원문 문장 정리 (순수 함수) — 회사 정보·저작권·연락처 같은 공통 문구, 출처 페이지 절반 이상에 반복되는 문장(사이트 공통 문구) 제거 */
 function ext_clean_page_facts(array $records): array
 {
+    // 문장 끝에 붙은 다음 표제('…제작합니다.★ 미끄럼 방지')는 떼어 낸다 — 앞 문장이 그 표제의 설명으로 읽힘. 뗀 조각은 8자 미만이면 버림(수집 때와 같은 기준)
+    foreach ($records as &$r) {
+        foreach ((array) ($r['facts'] ?? []) as $k => $list) {
+            $r['facts'][$k] = array_values(array_unique(array_filter(array_merge([], ...array_map(
+                static fn($t) => array_map('trim', preg_split('/(?<=[.!?。])\s*★\s*/u', (string) $t) ?: []), (array) $list)), static fn($t) => mb_strlen($t) >= 8)));
+        }
+    }
+    unset($r);
     $pages = [];
     foreach ($records as $r) {
         foreach ((array) ($r['facts'] ?? []) as $list) {
@@ -212,7 +220,8 @@ function ext_fact_review(string $t, array $others = []): string
         (bool) preg_match('/저렴|가격|단가|원\)|중국산|타사/u', $t) => '가격·타사 언급',
         (bool) preg_match('/에서는[^.]{0,30}(제작|판매|생산)|전문적으로|[가-힣]+구\s+[가-힣]+(아파트|단지|공원)/u', $t) => '회사 소개·현장명',
         // 'ㄷ형강 하부를 보강하여 일반 중하중 그레이팅 보다 더 무거운 차량…'·'기존 벤치플룸관에 비해 대형' — 무엇이(주어) 없이 다른 제품과 비교 → 상담에서 다른 제품 설명으로 옮겨짐
-        (bool) preg_match('/보다\s*(더|훨씬)|에\s*비해/u', $t) && !preg_match('/^[^.]*?[가-힣A-Za-z0-9)](은|는)\s[^.]*?(보다\s*(더|훨씬)|에\s*비해)/u', $t) => '비교 대상 제품 불명확(주어 없는 비교 문장)',
+        // '벽돌조 같은 단순한 구조의 스틸그레이팅과 달리 … ㄷ형강을 보강한 그레이팅' — 상담에서 ㄷ형강이 스틸 그레이팅 설명으로 뒤바뀜. 주어 = 제품 이름 + 은/는('같은'·'하는' 은 주어 아님)
+        (bool) preg_match('/보다\s*(더|훨씬)|에\s*비해|[와과]\s*달리/u', $t) && !preg_match('/^[^.]*?(그레이팅|블[록럭]|관|맨홀|석|제품|덮개|뚜껑|집수정|암거|트렌치|[A-Za-z0-9)])\s*(은|는)[^.]*?(보다\s*(더|훨씬)|에\s*비해|[와과]\s*달리)/u', $t) => '비교 대상 제품 불명확(주어 없는 비교 문장)',
         !$spec && !preg_match('/(니다|이다|한다|된다|있다|없다|있음|없음|함|됨|임|음|요망)[.!]?(\s*★[^.]*)?$/u', $t)
             && (mb_strlen($t) < 20 || count(preg_split('/[\/,]/u', $t)) >= 4 || !preg_match('/[가-힣](은|는|이|가|을|를|에|에서|으로|로|와|과|도)\s|[가-힣]며[, ]/u', $t)) => '메뉴·제품명 목록(서술 없음)',
         default => '',
