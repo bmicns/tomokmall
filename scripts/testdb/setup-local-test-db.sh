@@ -71,3 +71,8 @@ echo "준비 완료. 1) 사전 점검(OpenAI 호출 없음) → 2) 실제 상담
 echo "  DB_HOST=127.0.0.1 DB_NAME=$DB php scripts/testdb/consult-scenarios.php --check-only"
 echo "  DB_HOST=127.0.0.1 DB_NAME=$DB php scripts/testdb/consult-scenarios.php --with-public-road --md=consult-result.md"
 echo "  (DB_USER·DB_PASS 가 .env.local 과 다르면 앞에 DB_USER=… 를 붙이고, 비밀번호는 셸에서 read -rs DB_PASS; export DB_PASS)"
+if [ "$MARIA" = 1 ]; then
+  echo
+  echo "주의: MariaDB 는 한글 상품 검색(ngram)이 운영 MySQL 8.0 과 달라 --core 의 상품 추천 점검을 할 수 없습니다(사전 점검에서 중단)."
+  echo "      MySQL 8.0 테스트 DB 사용법: docs/03-analysis/ai-sourcing/legal-sources/prompt-simulation-2026-10-29.md 7장"
+fi

@@ -10,6 +10,9 @@ declare(strict_types=1);
  * 실행: DB_HOST=127.0.0.1 DB_NAME=tomokmall_test php scripts/testdb/consult-scenarios.php [--with-public-road] [--md=결과.md]
  *       --check-only : DB 사전 점검만 하고 OpenAI 는 호출하지 않음
  *       --core       : 핵심 3개(공공도로 차도 100mm·차량 진입 보도 80mm·사유지 80T)만, 면적 답변 턴을 붙여 추천 상품 두께까지 점검(비용 절감)
+ *       --only=public_road,public_sidewalk : 기대 장소 판정이 이 값인 시나리오만 실행(재테스트 비용 절감)
+ *       --skip-product-check : 상품 검색 환경 점검(MySQL 8.0 ngram)이 맞지 않아도 실행 — 상품 추천 점검은 '판정 불가'
+ *       결과 문서에는 턴마다 답변·인용 근거·상품 카드·'적합 상품 없음' 카드를 모두 남긴다.
  * 종료 코드: 0 실패 없음(확인 필요는 사람 검토), 1 실행 실패·판정 실패 있음, 2 설정·DB 구성 오류
  * 비용: 시나리오 7개 × OpenAI 호출(도구 호출 포함) — 소량.
  */
@@ -18,7 +21,7 @@ $_SERVER['HTTPS'] = $_SERVER['HTTPS'] ?? '';
 require dirname(__DIR__, 2) . '/app/bootstrap.php';
 require dirname(__DIR__, 2) . '/app/rag.php';
 
-$opt = getopt('', ['with-public-road', 'md:', 'check-only', 'core']);
+$opt = getopt('', ['with-public-road', 'md:', 'check-only', 'core', 'only:', 'skip-product-check']);
 $dbName = (string) ($config['db']['name'] ?? '');
 if (!preg_match('/_test$/', $dbName)) {
     fwrite(STDERR, "로컬 테스트 DB(DB_NAME=*_test)에서만 실행합니다. 현재 DB_NAME='{$dbName}'\n");
@@ -67,6 +70,19 @@ if (isset($opt['with-public-road']) && $scoped === 0) {
 if ($prod === 0) {
     echo "주의: 수집 상품이 0건 — 상품 검색 결과 없이 상담만 확인됩니다.\n";
 }
+// 상품 검색 환경 — MariaDB(XAMPP 기본)는 한글 ngram FULLTEXT 가 없어 운영(MySQL 8.0)과 검색 결과가 크게 다르다(예: '인터로킹 블록' 0건)
+$probe = $prod > 0 ? (json_decode(tool_search_products(['query' => '인터로킹 블록', 'spec_mm' => 80, 'spec_strict' => true]), true) ?? []) : [];
+$searchOk = !empty($probe['products']);
+echo "사전 점검 — 상품 검색('인터로킹 블록' 80T): " . ($searchOk ? count($probe['products']) . '건 — 운영과 같은 검색 환경' : '0건') . "\n";
+if (!$searchOk) {
+    $msg = "이 DB 에서는 '인터로킹 블록' 80T 검색이 0건입니다(등록된 80T 포장 블록 " . count(ai_paving_names_with_thickness(80)) . "종).\n"
+        . "  MariaDB 는 한글 검색(ngram)이 운영 MySQL 8.0 과 달라 상품 추천 점검 결과를 믿을 수 없습니다. MySQL 8.0 테스트 DB 로 실행하세요\n"
+        . "  (docs/03-analysis/ai-sourcing/legal-sources/prompt-simulation-2026-10-29.md 7장). 상품 점검 없이 답변·근거만 보려면 --skip-product-check";
+    if (isset($opt['core']) && !isset($opt['skip-product-check'])) {
+        $fail($msg);
+    }
+    echo "주의: {$msg}\n";
+}
 echo "사전 점검 통과\n\n";
 if (isset($opt['check-only'])) {
     exit(0);
@@ -102,9 +118,15 @@ $scenarios = [
 if (isset($opt['core'])) {
     $scenarios = $core;
 }
+if (isset($opt['only'])) {
+    $only = array_map('trim', explode(',', (string) $opt['only']));
+    $scenarios = array_values(array_filter($scenarios, static fn($sc) => in_array($sc[0], $only, true)));
+}
+$productCheck = $searchOk;   // false 면 상품 추천 점검은 '판정 불가'
 $md = "# 실제 LLM 상담 시나리오 결과 (" . (isset($opt['core']) ? '핵심 3개, ' : '') . date('Y-m-d H:i') . ", 모델 " . ($config['openai']['model'] ?? '') . ", V21·V22 " . ($restore ? '실행 중 활성' : '현재 상태') . ")\n\n"
-    . "- 연결: {$info['v']} · DB {$info['d']} · 검증 조문 {$clauses}건(활성 {$active})\n\n";
-$tally = ['통과' => 0, '확인 필요' => 0, '실패' => 0];
+    . "- 연결: {$info['v']} · DB {$info['d']} · 검증 조문 {$clauses}건(활성 {$active})\n"
+    . "- 상품 검색 환경: " . ($searchOk ? "운영과 같음('인터로킹 블록' 80T " . count($probe['products']) . '건)' : "운영과 다름('인터로킹 블록' 80T 0건 — 상품 추천 점검 판정 불가)") . "\n\n";
+$tally = ['통과' => 0, '확인 필요' => 0, '실패' => 0];   // '판정 불가'는 확인 필요로 센다
 try {
     $i = 0;
     foreach ($scenarios as $sc) {
@@ -114,6 +136,7 @@ try {
         $msgs = [];
         $res = ['ok' => false, 'text' => '', 'events' => []];
         $errors = [];
+        $log = [];   // 턴별 [고객, 답변, 인용 근거, 상품 카드, 적합 상품 없음 카드]
         foreach ($turns as $turn) {   // 턴마다 실제로 답을 받아 대화에 이어 붙임 — 한 턴이라도 실패하면 시나리오 실패
             $msgs[] = ['role' => 'user', 'content' => $turn];
             try {
@@ -125,44 +148,61 @@ try {
                 $errors[] = (string) ($res['error'] ?? '알 수 없음');
             }
             $msgs[] = ['role' => 'assistant', 'content' => (string) ($res['text'] ?? '')];
+            $t = ['user' => $turn, 'text' => (string) ($res['text'] ?? ''), 'sources' => [], 'cards' => [], 'unavailable' => false];
+            foreach ($res['events'] ?? [] as $e) {
+                $type = $e['type'] ?? '';
+                if ($type === 'legal_sources') {
+                    foreach ($e['sources'] as $s) { $t['sources'][] = $s['name'] . ' ' . $s['ref']; }
+                } elseif ($type === 'product_cards') {
+                    $t['cards'] = array_merge($t['cards'], $e['products'] ?? []);
+                } elseif ($type === 'spec_unavailable') {
+                    $t['unavailable'] = true;
+                }
+            }
+            $log[] = $t;
         }
         $ctx = rag_road_context($msgs);
-        $sources = [];
-        foreach ($res['events'] ?? [] as $e) {
-            if (($e['type'] ?? '') === 'legal_sources') {
-                foreach ($e['sources'] as $s) { $sources[] = $s['name'] . ' ' . $s['ref']; }
-            }
-        }
-        $text = (string) ($res['text'] ?? '');
-        $cards = [];
-        foreach ($res['events'] ?? [] as $e) {
-            if (($e['type'] ?? '') === 'product_cards') { $cards = array_merge($cards, $e['products'] ?? []); }
-        }
-        $unavailable = (bool) array_filter($res['events'] ?? [], static fn($e) => ($e['type'] ?? '') === 'spec_unavailable');   // 적합 상품 없음 카드
+        $last = end($log) ?: ['text' => '', 'cards' => [], 'unavailable' => false];
+        // 근거·수치는 모든 턴에서, 추천 상품은 마지막 턴(면적 답변 뒤 검색)에서 본다
+        $sources = array_values(array_unique(array_merge(...array_map(static fn($t) => $t['sources'], $log ?: [['sources' => []]]))));
+        $allText = implode("\n", array_column($log, 'text'));
+        $text = (string) $last['text'];
+        $cards = $last['cards'];
+        $unavailable = $last['unavailable'];
         $wrongCards = $wantMm === null ? [] : array_values(array_filter($cards, static fn($c) => ai_block_thickness((string) ($c['spec'] ?? '')) !== $wantMm));
+        $wantExists = $wantMm !== null && ai_paving_names_with_thickness($wantMm) !== [];   // 그 두께로 등록된 포장 블록이 있는지(DB 종류 무관)
         $cites44 = (bool) array_filter($sources, static fn($x) => str_contains($x, '44 50 25'));
-        // 실패는 통과로 표시하지 않는다: 실행 오류 > 장소 판정 불일치 > 내용 점검
+        $citesSidewalk = (bool) array_filter($sources, static fn($x) => str_contains($x, '보도 설치 및 관리 지침'));
+        // 실패는 통과로 표시하지 않는다: 실행 오류 > 장소 판정 불일치 > 상품 > 내용 점검
         if ($errors || trim($text) === '') {
             $auto = '실패(실행 오류·답변 없음)';
         } elseif ($ctx !== $expect) {
             $auto = "실패(장소 판정 {$ctx} ≠ 기대 {$expect})";
+        } elseif ($wantMm !== null && !$productCheck) {
+            $auto = '판정 불가(상품 검색 환경이 운영과 다름 — MySQL 8.0 필요)';
         } elseif ($wrongCards) {
             $auto = "실패(추천 상품 두께가 {$wantMm}mm 가 아님: " . implode(', ', array_map(static fn($c) => $c['name'], array_slice($wrongCards, 0, 3))) . ')';
+        } elseif ($unavailable && $wantExists) {
+            $auto = "실패({$wantMm}mm 포장 블록이 등록돼 있는데 '적합 상품 없음' 안내)";
         } elseif ($wantMm !== null && !$cards && !$unavailable) {
-            $auto = "확인 필요(추천 상품도 '적합 상품 없음' 안내도 없음 — {$wantMm}mm 검색을 했는지 원문 확인)";
+            $auto = "확인 필요(추천 상품도 '적합 상품 없음' 안내도 없음 — 마지막 턴에서 {$wantMm}mm 검색을 하지 않음)";
+        } elseif (in_array($expect, ['private', 'unclear', 'none'], true) && $cites44) {
+            $auto = '실패(공공도로 출처 인용)';
         } else {
             $auto = match ($expect) {
-                'public_road'     => $cites44 && preg_match('/100\s*mm|100T|10\s*cm/u', $text) ? '통과' : '확인 필요',
-                'public_sidewalk' => !$cites44 && preg_match('/80\s*mm|80T|8\s*cm/u', $text) ? '통과' : '확인 필요',
-                'private'         => !$cites44 ? '통과' : '실패(공공도로 출처 인용)',
-                'unclear'         => $cites44 ? '실패(공공도로 출처 인용)' : '확인 필요',   // 장소 확인 질문은 사람이 확인
-                default           => !$cites44 ? '통과' : '실패(공공도로 출처 인용)',
+                'public_road'     => $cites44 && preg_match('/100\s*mm|100T|10\s*cm/u', $allText) ? '통과' : '확인 필요(KDS/KCS 44 50 25 인용·100mm 안내 원문 확인)',
+                'public_sidewalk' => !$cites44 && $citesSidewalk && preg_match('/80\s*mm|80T|8\s*cm/u', $allText) ? '통과' : '확인 필요(보도 지침 인용·80mm 안내 원문 확인)',
+                'unclear'         => '확인 필요',   // 장소 확인 질문은 사람이 확인
+                default           => '통과',
             };
         }
         $tally[str_starts_with($auto, '실패') ? '실패' : ($auto === '통과' ? '통과' : '확인 필요')]++;
-        $md .= "## {$i}. 기대 {$expect} · 판정 {$ctx} · 자동 점검 {$auto}\n\n- 고객: " . implode(' → ', $turns) . "\n- 확인할 점: {$check}\n- 인용 근거: " . ($sources ? implode(' / ', $sources) : '없음')
-            . ($wantMm !== null ? "\n- 추천 상품(마지막 턴): " . ($cards ? implode(', ', array_map(static fn($c) => $c['name'] . '(' . (ai_block_thickness((string) ($c['spec'] ?? '')) ?? '?') . 'mm)', $cards)) : '없음')
-                . ($unavailable ? " · '현재 등록된 적합 상품 없음' 카드 표시" : '') : '') . "\n\n```\n" . trim($text) . "\n```\n\n";
+        $md .= "## {$i}. 기대 {$expect} · 판정 {$ctx} · 자동 점검 {$auto}\n\n- 확인할 점: {$check}\n- 인용 근거(전체 턴): " . ($sources ? implode(' / ', $sources) : '없음') . "\n\n";
+        foreach ($log as $k => $t) {
+            $md .= '### 턴 ' . ($k + 1) . "\n\n- 고객: {$t['user']}\n- 인용 근거: " . ($t['sources'] ? implode(' / ', $t['sources']) : '없음')
+                . "\n- 추천 상품: " . ($t['cards'] ? implode(', ', array_map(static fn($c) => $c['name'] . '(' . (ai_block_thickness((string) ($c['spec'] ?? '')) ?? '?') . 'mm)', $t['cards'])) : '없음')
+                . ($t['unavailable'] ? " · '현재 등록된 적합 상품 없음' 카드 표시" : '') . "\n\n```\n" . trim($t['text']) . "\n```\n\n";
+        }
         if ($errors) {
             $md .= "> 오류: " . implode(' / ', array_unique($errors)) . "\n\n";
         }

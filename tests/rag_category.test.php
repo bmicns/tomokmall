@@ -78,5 +78,20 @@ $u2 = ai_paving_unavailable(['인터로킹 블록', '점토블럭'], 100);
 ok('여러 종류: 안내는 따옴표 목록, 카드는 쉼표 목록', str_contains($u2['note'], "'인터로킹 블록', '점토블럭'은(는)") && $u2['_sse'][0]['item'] === '인터로킹 블록, 점토블럭');
 ok('담당자 연락 약속 문구 없음(연락 창구 미구현)', !str_contains($u['note'], '연락드') && !str_contains($u['note'], '담당자가'));
 
+echo "[같은 두께 다른 포장 블록이 있을 때 ai_paving_no_match]\n";
+$n = ai_paving_no_match(['보차도블록', '중하중 인터로킹'], 80, ['인터로킹U형블럭', '인조화강블록(투수)']);
+ok('같은 두께 상품이 있으면 적합 상품 없음 카드 없음', empty($n['_sse']));
+ok('같은 두께 등록 상품명을 alternatives 로 전달(재검색용)', $n['alternatives'] === ['인터로킹U형블럭', '인조화강블록(투수)'] && str_contains($n['note'], '같은 80mm 두께로 등록된 포장 블록: 인터로킹U형블럭'));
+ok('개인 마당 등에 맞지 않는 발주처 설계도서·별도 견적 문구 없음', !str_contains($n['note'], '설계도서') && !str_contains($n['note'], '별도 견적'));
+$n = ai_paving_no_match(['인터로킹 블록'], 100, []);
+ok('같은 두께 포장 블록이 하나도 없으면(100mm) 기존 부재 안내 + 카드', ($n['_sse'][0]['type'] ?? '') === 'spec_unavailable' && str_contains($n['note'], '별도 견적') && !isset($n['alternatives']));
+
+echo "[검색하겠다고만 하고 끝난 답변 감지 rag_is_search_promise]\n";
+ok('실제 GPT-4o 답변(공공도로 2턴)', rag_is_search_promise('차도용 블록포장 설계 기준에 맞는 100mm 두께의 블록을 찾아 드릴게요. 잠시만 기다려 주세요.'));
+ok('검색해 드리겠습니다', rag_is_search_promise('지금 바로 관련 제품을 검색해 드리겠습니다.'));
+ok('질문으로 끝나는 답변은 아님', !rag_is_search_promise('설치 면적이 몇 ㎡인가요? 가로·세로를 알려 주세요.'));
+ok('검색 후 안내 문장은 아님', !rag_is_search_promise('원하시는 제품을 선택해 주세요.'));
+ok('앞부분에만 약속이 있고 뒤에 다른 안내가 길게 이어지면 아님', !rag_is_search_promise('찾아 드릴게요. ' . str_repeat('차량이 올라가는 곳은 두께를 꼭 확인해 주세요. ', 4)));
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

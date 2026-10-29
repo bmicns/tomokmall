@@ -9,6 +9,8 @@ declare(strict_types=1);
  *        (분리 자체의 전후 동일성은 수정 전 기준값으로 14건 모두 일치 확인 — 요청 본문 전체 바이트 비교).
  *        2026-10-29 의도적 변경 반영(2): '블록'만 쓴 바닥 포장 문맥도 보도블록으로 감지 → s2~s7 에 보도블록 상담 가이드·사내 문서 추가,
  *        공공도로 활성(s1·s2) 구역에 '적합 상품 없으면 얇은 제품 대체 금지·설계도서 확인·별도 견적' 1줄 추가. 그 밖의 문장은 그대로.
+ *        2026-10-29 의도적 변경 반영(3, 실제 GPT-4o 결과 반영): 공통 규칙 4줄 — 처리할 수 없는 문의·연락 약속 금지,
+ *        필수 항목 확인 후 되묻지 말고 검색, '찾아 드릴게요'만 하고 끝내지 않기, alternatives(같은 두께 등록 블록)로 재검색.
  * 데이터: SQL 초안 01·02·06·07 을 적용한 테스트 DB(검증 조문 27건·활성 22건). 다르면 SKIP(기준값은 그 데이터 기준).
  * 프롬프트를 의도적으로 바꿨다면: php scripts/testdb/dump-prompts.php --out=… 로 확인 후 기준값을 갱신한다.
  * 실행: DB_HOST=127.0.0.1 DB_NAME=tomokmall_test DB_USER=… DB_PASS=… php tests/rag_prompt.test.php
@@ -97,6 +99,11 @@ foreach (['s3_public_sidewalk', 's4_private_yard', 's5_apartment_parking', 's6_u
 }
 foreach (['s1_public_road_80t', 's2_public_road_multi'] as $k) {
     ok("{$k}: 적합 상품 없으면 얇은 두께 대체 추천 금지·설계도서 확인·별도 견적", str_contains($A[$k]['system'], '80T·60T 등 기준보다 얇은 제품을 대체품으로 권하지 않는다') && str_contains($A[$k]['system'], '별도 견적'));
+}
+
+foreach ($scenarios as $key => $s) {
+    ok("{$key}: 검색 약속만 하고 끝내기 금지 + alternatives 재검색 + 문의·연락 약속 금지 규칙", str_contains($P[$key]['system'], "'찾아 드릴게요'·'잠시만 기다려 주세요'라고 말만 하고 답변을 끝내지 않는다")
+        && str_contains($P[$key]['system'], '결과에 alternatives') && str_contains($P[$key]['system'], "'문의 주시면 찾아드리겠습니다'·'연락드리겠습니다' 같은 약속 금지"));
 }
 
 echo "[카테고리 감지 — '블록' 바닥 포장 문맥]\n";

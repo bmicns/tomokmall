@@ -335,7 +335,7 @@ function tool_search_products(array $input): string
 
     // 그래도 0건이면 손님을 위한 대안 안내(모델이 되묻지 말고 이 안내를 전달)
     if (empty($cards) && $specMm > 0 && !empty($input['spec_strict']) && ai_is_paving_query($qText)) {
-        $out = ['products' => [], 'count' => 0] + ai_paving_unavailable([$qText], $specMm);   // 포장 블록 두께 기준 미충족 — 대체품 없음
+        $out = ['products' => [], 'count' => 0] + ai_paving_no_match([$qText], $specMm, ai_paving_names_with_thickness($specMm));   // 포장 블록 두께 기준 미충족
         if ($corrected !== null) { $out['corrected'] = $corrected; }
         return json_encode($out, JSON_UNESCAPED_UNICODE);
     }
@@ -384,6 +384,39 @@ function ai_paving_unavailable(array $items, int $mm): array
             . ' 발주처 설계도서·시방서의 블록 규격을 확인해 주세요 — 해당 규격은 별도 견적이 필요합니다.',
         '_sse' => [['type' => 'spec_unavailable', 'spec_mm' => $mm, 'item' => implode(', ', $items)]],
     ];
+}
+
+/**
+ * 찾는 종류에 기준 두께 제품이 없을 때의 안내 (순수 함수).
+ * - 같은 두께의 다른 포장 블록이 등록돼 있으면($sameThickness): 그 이름을 alternatives 로 알려 모델이 다시 검색하게 한다(카드 없음).
+ *   예: 개인 마당 80mm 에서 [참조 문서]의 분류명('보차도블록' 등)으로 찾아 0건 → 등록된 80T 인터로킹 등으로 재검색.
+ * - 같은 두께 포장 블록이 하나도 없으면(예: 100mm): ai_paving_unavailable — '현재 등록된 적합 상품 없음' 카드.
+ * 어느 경우에도 더 얇은 두께는 권하지 않는다.
+ */
+function ai_paving_no_match(array $items, int $mm, array $sameThickness): array
+{
+    if (!$sameThickness) {
+        return ai_paving_unavailable($items, $mm);
+    }
+    $label = "'" . implode("', '", $items) . "'";
+    return [
+        'note' => "{$label}은(는) 규격 {$mm}mm 제품이 없습니다. 같은 {$mm}mm 두께로 등록된 포장 블록: " . implode(', ', $sameThickness)
+            . '. 다른 두께는 대신 보여드리지 않았습니다.',
+        'alternatives' => array_values($sameThickness),
+        '_sse' => [],
+    ];
+}
+
+/** 해당 두께(mm)로 등록된 포장 블록 상품명 (최대 6개, 구조용·경계 블록 제외). FULLTEXT 를 쓰지 않아 DB 종류와 무관 */
+function ai_paving_names_with_thickness(int $mm): array
+{
+    $pdo = db();
+    if (!$pdo || $mm <= 0) {
+        return [];
+    }
+    $rows = $pdo->query("SELECT name, spec FROM products WHERE is_active = 1 AND (name LIKE '%블록%' OR name LIKE '%블럭%') ORDER BY id")
+        ->fetchAll(PDO::FETCH_ASSOC);
+    return array_slice(array_values(array_unique(array_column(ai_filter_paving_thickness($rows, $mm), 'name'))), 0, 6);
 }
 
 /**
@@ -519,7 +552,7 @@ function ai_search_compare(array $queries, array $input): string
 
     $allPaving = $specMm > 0 && !array_filter($queries, static fn($q) => !ai_is_paving_query((string) $q));
     if (!$cards && $allPaving) {
-        return json_encode(['products' => [], 'count' => 0] + ai_paving_unavailable($missing, $specMm), JSON_UNESCAPED_UNICODE);
+        return json_encode(['products' => [], 'count' => 0] + ai_paving_no_match($missing, $specMm, ai_paving_names_with_thickness($specMm)), JSON_UNESCAPED_UNICODE);
     }
     if (!$cards) {
         return json_encode([

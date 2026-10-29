@@ -694,6 +694,7 @@ function rag_build_prompt(array $messages): array
         . "  허용: 고르는 기준을 쉬운 말 1~2문장(숫자 없이, 예: '물이 잘 고이는 곳이면 투수 제품이 좋습니다.') + 마지막 줄 '원하시는 제품을 선택해 주세요.'\n"
         . "  단, 도구 결과에 note 필드가 있으면 그 note 문장을 먼저 그대로 한 줄 전하고, 이어서 '원하시는 제품을 선택해 주세요.'를 붙인다(교정·대안 안내).\n"
         . "- DB에 없는 상품 추천·언급 금지.\n"
+        . "- 상품 없이 문의를 받거나 담당자가 따로 연락하는 창구는 없다. '문의 주시면 찾아드리겠습니다'·'연락드리겠습니다' 같은 약속 금지(견적요청하기 버튼 안내는 허용).\n"
         . "- '[도구 호출]', '[search_products(...)]' 같은 tool 호출 사실을 텍스트로 언급 금지.\n"
         . "\n"
         . "=== 카테고리별 필수 확인 항목 (모두 확인 후 search_products 호출) ===\n"
@@ -751,7 +752,8 @@ function rag_build_prompt(array $messages): array
         . "  예) 폭500·50m 차량통행 수로 → ①본체: query '측구 수로관', spec_mm 500, length_m 50 (약 25본)  ②덮개: query '그레이팅 수로용 중하중', spec_mm 500, length_m 50 (약 50개).\n"
         . "- 본체(2m/본)와 덮개(1m/개)는 단위가 달라 수량이 다르게 나오는 게 정상이다. 둘 다 카드로 보여준 뒤 '원하시는 제품을 선택해 주세요.' 만 출력.\n"
         . "【2단계: 검색】\n"
-        . "- 모든 필수 항목 확인 완료 → search_products 호출.\n"
+        . "- 모든 필수 항목 확인 완료 → search_products 호출. 되묻지 말고 그 턴에서 바로 호출한다.\n"
+        . "- '찾아 드릴게요'·'잠시만 기다려 주세요'라고 말만 하고 답변을 끝내지 않는다. 검색할 때는 같은 응답에서 search_products 를 호출한다.\n"
         . "- query에는 제품명/용도 '텍스트'만 넣는다. 숫자(치수·길이·수량)는 query에 절대 넣지 말 것.\n"
         . "- 규격 치수(폭/관경 mm)는 spec_mm, 설치 길이/연장(m)은 length_m, 면적(㎡)은 area_m2 파라미터로 분리 전달.\n"
         . "  → 예: '폭50cm 100m 수로 그레이팅' = query:'그레이팅 수로용 중하중', spec_mm:500, length_m:100.\n"
@@ -759,6 +761,7 @@ function rag_build_prompt(array $messages): array
         . "  → length_m/area_m2를 주면 제품별 소요 수량이 카드에 자동 계산·표시된다. 수량(개수)은 query에 넣지 말 것.\n"
         . "- 결과가 없으면(products 빈 배열): 도구가 돌려준 note 문장을 그대로 손님에게 전한다. 절대 그냥 되묻고 끝내지 말 것.\n"
         . "  → note가 없을 때만: '해당 조건의 제품을 찾지 못했습니다. 용도나 재질을 알려주시면 다시 찾아드리겠습니다.' 후 검색어를 바꿔 1회 재시도.\n"
+        . "  → 결과에 alternatives(같은 두께로 등록된 다른 포장 블록 이름)가 있으면, 같은 턴에서 그 이름들을 queries 로 같은 spec_mm·spec_strict·area_m2 와 함께 search_products 를 다시 호출해 표를 보여준다(더 얇은 두께로 바꾸지 않는다).\n"
         . "【3단계: 견적 안내】\n"
         . "- 고객이 담기 원하면 add_to_cart 호출.\n"
         . "- 완료 후: '견적요청하기 버튼을 눌러 신청해 주세요.' 한 줄만 출력.\n"
@@ -791,6 +794,13 @@ function rag_build_prompt(array $messages): array
     ];
 }
 
+/** 답변이 '제품을 찾아/검색해 드리겠다'는 약속으로 끝나는지 (순수 함수) — 도구 호출 없이 끝나면 손님이 결과 없이 기다리게 됨 */
+function rag_is_search_promise(string $text): bool
+{
+    $tail = mb_substr(trim($text), -80);
+    return preg_match('/(찾아|검색해|보여|알아봐)\s*(드릴게요|드리겠습니다|드릴께요|볼게요|보겠습니다)|잠시만\s*기다려/u', $tail) === 1;
+}
+
 /**
  * OpenAI Tool Use 루프 — AJAX 응답용 (SSE 없음)
  *
@@ -817,15 +827,19 @@ function rag_process(array $messages, string $sid): array
     $oaiMessages = array_merge([['role' => 'system', 'content' => $system]], $messages);
     $responseText = '';
     $events       = [];
+    $maxIter      = 3;
+    $toolUsed     = false;
+    $forceSearch  = false;   // '찾아 드릴게요'만 하고 끝난 응답 → 1회 검색 재요청
 
-    for ($iter = 0; $iter < 3; $iter++) {
+    for ($iter = 0; $iter < $maxIter; $iter++) {
         $body = json_encode([
             'model'       => $model,
             'stream'      => false,
             'tools'       => ai_tool_definitions(),
-            'tool_choice' => 'auto',
+            'tool_choice' => $forceSearch ? ['type' => 'function', 'function' => ['name' => 'search_products']] : 'auto',
             'messages'    => $oaiMessages,
         ]);
+        $forceSearch = false;
 
         $raw = rag_curl_post(
             'https://api.openai.com/v1/chat/completions',
@@ -849,12 +863,23 @@ function rag_process(array $messages, string $sid): array
         $content      = $message['content']      ?? '';
         $toolCalls    = $message['tool_calls']   ?? [];
 
-        if ($content !== '' && $content !== null) {
-            $responseText .= $content;
+        $noTool = ($finishReason !== 'tool_calls' || empty($toolCalls));
+        // 검색하겠다고만 하고 도구 없이 끝난 응답: 손님은 결과 없이 기다리게 된다 → 그 문장은 버리고 search_products 를 1회 강제 호출
+        if ($noTool && !$toolUsed && $maxIter === 3 && rag_is_search_promise((string) $content)) {
+            $oaiMessages[] = ['role' => 'assistant', 'content' => (string) $content];
+            $oaiMessages[] = ['role' => 'system', 'content' => '방금 제품을 찾아 드리겠다고 했다. 지금 search_products 를 호출하고, 결과 안내만 한다(같은 안내 문장 반복 금지).'];
+            $forceSearch = true;
+            $maxIter++;
+            continue;
         }
 
-        if ($finishReason !== 'tool_calls' || empty($toolCalls)) break;
+        if ($content !== '' && $content !== null) {
+            $responseText .= ($responseText !== '' ? "\n" : '') . $content;
+        }
 
+        if ($noTool) break;
+
+        $toolUsed = true;
         $oaiMessages[] = $message;
 
         foreach ($toolCalls as $tc) {
