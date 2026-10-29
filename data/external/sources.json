@@ -85,22 +85,17 @@
    "domain": "kcon.co.kr",
    "kind": "제조사",
    "priority": 3,
-   "permission": "facts_if_clear",
-   "basis": "제조사 공개 제품 페이지 — robots.txt 준수·이용약관에 자동수집/무단 복제 금지 문장이 없을 때만 사실 정보(규격·재질·용도·KS·주의 원문 문장) 수집(crawl-sources.php 가 실행 때마다 확인). 이미지·가격 미수집, 상담 반영은 사람 승인 후",
+   "permission": "pending",
+   "basis": "보류(2026-10-29) — 사용자 PC 수집에서 접속 거부(HTTP 403). 사이트가 자동 접속을 막는 것으로 보고 우회(브라우저 위장·다른 경로)하지 않음. 제조사에 카탈로그·규격표를 직접 요청",
    "methods": [],
-   "conditions": [
-    "robots.txt·이용약관 자동 확인 통과",
-    "사실 정보·원문 문장만(이미지·가격·설명 전문 복제 없음)",
-    "요청 간 2초·출처당 최대 40쪽",
-    "상담 반영은 import.php --approve 로 사람이 승인한 것만"
-   ],
+   "conditions": [],
    "recommended": "제조사 카탈로그·규격표·출하 단가 제공 요청(공급/대리점 계약과 묶어서)",
    "seeds": [
     "https://kcon.co.kr/"
    ],
    "crawl_priority": 10,
    "ai_value": "중(PC암거·수로관·맨홀)",
-   "difficulty": "상(robots 403 — 접속 제한 가능)"
+   "difficulty": "상(HTTP 403 접속 거부 — 우회 안 함)"
   },
   {
    "key": "dyhumepipe",
@@ -339,16 +334,11 @@
    "domain": "88con.com",
    "kind": "제조사",
    "priority": 15,
-   "permission": "facts_if_clear",
-   "basis": "제조사 공개 제품 페이지 — robots.txt 준수·이용약관에 자동수집/무단 복제 금지 문장이 없을 때만 사실 정보(규격·재질·용도·KS·주의 원문 문장) 수집(crawl-sources.php 가 실행 때마다 확인). 이미지·가격 미수집, 상담 반영은 사람 승인 후",
+   "permission": "pending",
+   "basis": "보류(2026-10-29) — 이용약관 자동 확인에서 금지 문장으로 걸린 것은 게시판 회원 행위 규정(\"저작권이 있는 글을 무단 복제하거나 mp3를 올린 경우\" 등 이용 제한 사유)으로, 자동 수집 금지 조항은 아님(오탐). 그러나 제품 정보 이용 허락이 확인되지 않아 수집·가져오기 보류 — 제조사에 카탈로그·제품 정보 사용 허락을 받은 뒤 facts_if_clear 로 되돌림",
    "methods": [],
-   "conditions": [
-    "robots.txt·이용약관 자동 확인 통과",
-    "사실 정보·원문 문장만(이미지·가격·설명 전문 복제 없음)",
-    "요청 간 2초·출처당 최대 40쪽",
-    "상담 반영은 import.php --approve 로 사람이 승인한 것만"
-   ],
-   "recommended": "필요 시 카탈로그 요청",
+   "conditions": [],
+   "recommended": "제조사에 카탈로그·제품 규격 정보 사용 허락 요청(허락 범위: 규격·용도 사실 정보, 출처 표기) — 허락 전 수집 안 함",
    "seeds": [
     "http://www.88con.com/?c=1%2F7&uid=12"
    ],
