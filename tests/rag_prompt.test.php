@@ -18,6 +18,7 @@ declare(strict_types=1);
  *        2026-10-29 의도적 변경 반영(8, 실제 GPT-4o 자재 설명 결과 반영): material_info 규칙 1줄 → 2줄 — 사용 조건에 맞는 자재 고르기 질문 포함,
  *        제조사 제품 설명으로만 전달·원문 밖 성능 덧붙이기·일반 선택 기준 단정 금지, 결과가 비면 '제조사 자료에 따르면' 금지.
  *        2026-10-29 의도적 변경 반영(9, 실제 GPT-4o 재시험): 같은 줄에 원문 밖 수치('n톤 이상') 금지, KS·표준 번호는 [참조 문서]·material_info 원문만.
+ *        2026-10-29 의도적 변경 반영(10, 실제 GPT-4o 재시험 2): material_info 호출 대상에 KS(인증) 질문 추가, 원문 제품명을 넓은 종류로 바꿔 말하기 금지.
  * 데이터: SQL 초안 01·02·06·07 을 적용한 테스트 DB(검증 조문 27건·활성 22건). 다르면 SKIP(기준값은 그 데이터 기준).
  * 프롬프트를 의도적으로 바꿨다면: php scripts/testdb/dump-prompts.php --out=… 로 확인 후 기준값을 갱신한다.
  * 실행: DB_HOST=127.0.0.1 DB_NAME=tomokmall_test DB_USER=… DB_PASS=… php tests/rag_prompt.test.php

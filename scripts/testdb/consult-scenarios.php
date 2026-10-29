@@ -99,7 +99,7 @@ if (isset($opt['material'])) {
     // [주제, 질문, 확인할 점, 필수 표현, 참고 자료를 쓴 답에서 나오면 안 되는 표현(원문 밖 확대 해석), 승인 자료를 써야 하는 질문인지, 승인 자료가 있으면 답에 있어야 할 핵심]
     // 나오면 안 되는 표현·핵심은 2026-10-29 실제 GPT-4o 결과(승인 전·후)에서 발견한 문제로 정했다.
     $mat = [
-        ['그레이팅', '스틸 그레이팅이랑 중하중 그레이팅은 뭐가 달라요?', '구조 차이를 제조사 자료로 설명 + 출처, 원문에 없는 하중 수치·성능 추측 없음', null, '/중장비/u', true, null],
+        ['그레이팅', '스틸 그레이팅이랑 중하중 그레이팅은 뭐가 달라요?', '구조 차이를 제조사 자료로 설명 + 출처, 원문에 없는 하중 수치·성능 추측 없음', null, '/중장비|(?<!안전 )중하중\s*그레이팅은[^.\n]{0,40}(유모차|휠체어|작은\s*바퀴)|스틸\s*그레이팅은[^.\n]{0,30}오물/u', true, null],
         ['그레이팅 유모차 휠체어', '유모차나 휠체어가 지나가는 인도 배수로 덮개는 뭘 골라야 해요?', '작은 바퀴 빠짐 방지 제품(안전 중하중 그레이팅) 설명 + 출처, 토목몰 판매 상품과 구분', null, null, true, '/작은\s*바퀴|바퀴가?\s*빠지|안전\s*중하중/u'],
         ['그레이팅 미끄럼', '그레이팅 미끄럼 방지는 어떻게 되어 있어요?', '크로스 바·트위스트 바 등 원문 근거 + 출처', null, null, true, null],
         ['수로관', '벤치플룸관이랑 일반 U형 수로관은 뭐가 달라요?', '원문이 말하는 제품을 바꿔 말하지 않음(대형인 것은 벤치플룸관이 아님), 없는 비교 추측 없음', null, '/벤치플룸관은\s*(대형|크)|U형[^.\n]{0,30}(동일|같습니다)/u', true, null],
@@ -132,7 +132,9 @@ if (isset($opt['material'])) {
             if ($t['name'] === 'material_info') { $used .= ' ' . implode(' ', array_column(ext_material_info((string) ($t['input']['topic'] ?? ''))['facts'], 'text')); }
         }
         $used .= ' ' . implode(' ', $legal);
+        $flat = str_replace(['*', '#'], '', $text);   // 굵게·제목 표시 제거 후 표현 점검
         $plain = (string) preg_replace('/\(주\)|㈜|주식회사|\s/u', '', $text);
+        $askedMat = in_array('material_info', array_column($res['tools'] ?? [], 'name'), true);
         $cited = (bool) preg_match('/제조사|자료|출처/u', $text) || array_filter(array_unique($makers), static fn($m) => $m !== '' && str_contains($plain, $m));
         // 자료에 없는 하중 수치(톤·kN)·KS 번호 — 원문·법령 근거에 없으면 지어낸 것
         preg_match_all('/(\d+(?:\.\d+)?)\s*(톤|ton|kN)/u', $text, $tons);
@@ -141,14 +143,15 @@ if (isset($opt['material'])) {
         $badKs = array_values(array_filter($ks[1], static fn($x) => !preg_match('/KS\s*[A-Z]\s*-?\s*' . $x . '/u', $used)));
         $auto = match (true) {
             empty($res['ok']) || trim($text) === '' => '실패(실행 오류·답변 없음)',
-            (bool) preg_match($banned, $text) => '실패(보류한 홍보·기준 충돌 표현 사용)',
-            $must !== null && !preg_match($must, $text) => '실패(필수 안내 없음: 차량 80mm 이상)',
-            $srcs && $wrong !== null && (bool) preg_match($wrong, $text) => '실패(원문 밖 확대 해석: ' . (preg_match($wrong, $text, $mm) ? $mm[0] : '') . ')',
+            (bool) preg_match($banned, $flat) => '실패(보류한 홍보·기준 충돌 표현 사용)',
+            $must !== null && !preg_match($must, $flat) => '실패(필수 안내 없음: 차량 80mm 이상)',
+            $srcs && $wrong !== null && (bool) preg_match($wrong, $flat) => '실패(원문 밖 확대 해석: ' . (preg_match($wrong, $flat, $mm) ? $mm[0] : '') . ')',
             !$srcs && (bool) preg_match('/제조사\s*자료에\s*따르면/u', $text) => "실패(참고 자료가 없는데 '제조사 자료에 따르면' 표현)",
             (bool) $badTon => '실패(자료에 없는 하중 수치: ' . implode(', ', $badTon) . ')',
             (bool) $badKs => '실패(자료에 없는 KS 번호: KS F ' . implode(', ', $badKs) . ')',
             $needMat && $avail && !$srcs => '확인 필요(승인 자료가 있는데 material_info 미사용)',
             $srcs && !$cited => '확인 필요(제조사 자료 출처 표시 없음)',
+            $askedMat && !$srcs && !preg_match('/일반적(인|으로)?\s*(설명|특징|내용|정보|으로)|일반\s*설명|자료(가|는)?\s*없|확보되지|확인되지/u', $text) => '확인 필요(참고 자료가 없는데 일반 설명이라고 밝히지 않음)',
             $core !== null && $srcs && !preg_match($core, $text) => '확인 필요(승인 자료의 핵심 문장 미사용)',
             default => '통과',
         };

@@ -7,6 +7,8 @@ declare(strict_types=1);
  * 확인: ① 도구만 부르다 한도에 닿으면 도구 없이(tool_choice=none) 최종 답을 1회 더 받아 돌려줌
  *       ② 그 요청도 빈 답이면 빈 답변 대신 오류(ok=false)로 알림 ③ 보통 답변은 추가 요청 없음
  *       ④ OPENAI_CHAT_URL 은 127.0.0.1 목업만 허용(그 밖의 주소는 무시)
+ *       ⑤ 검색 약속 → 강제 검색: OpenAI 는 도구를 지정하면 finish_reason='stop'+도구 호출로 답한다 — 도구를 실행해야 함(재시험 2에서 빈 답변 원인),
+ *          도구도 답도 없으면 버린 안내 문장을 돌려줌, '알려 주시면 찾아 드리겠습니다' 같은 조건부 안내는 강제 검색하지 않음
  * 실행: DB_HOST=127.0.0.1 DB_NAME=tomokmall_test DB_USER=… DB_PASS=… php tests/rag_process_loop.test.php
  */
 error_reporting(E_ALL & ~E_WARNING & ~E_DEPRECATED & ~E_NOTICE);
@@ -65,6 +67,17 @@ try {
     ok('도구 1회 → 답: 추가 요청 없음', $r3['ok'] === true && $r3['text'] === '[테스트] 도구 결과를 보고 답합니다.' && count($q3) === 2);
     [$r4, $q4] = $run([$answer('[테스트] 바로 답합니다.')]);
     ok('도구 없이 바로 답: 요청 1회', $r4['ok'] === true && $r4['text'] === '[테스트] 바로 답합니다.' && count($q4) === 1);
+
+    echo "[검색 약속 → 강제 검색(OpenAI 는 도구를 지정하면 finish_reason='stop' 으로 돌려줌)]\n";
+    $forced = ['choices' => [['finish_reason' => 'stop', 'message' => ['role' => 'assistant', 'content' => null,
+        'tool_calls' => [['id' => 'call_s', 'type' => 'function', 'function' => ['name' => 'search_products', 'arguments' => '{"query":"인터로킹 블록","spec_mm":80}']]]]]]];
+    [$r5, $q5] = $run([$answer('80mm 블록을 찾아 드릴게요. 잠시만 기다려 주세요.'), $forced, $answer('[테스트] 검색 결과를 안내합니다.')]);
+    ok("강제 검색 응답(finish_reason='stop' + 도구 호출)도 도구를 실행하고 답함", $r5['ok'] === true && $r5['text'] === '[테스트] 검색 결과를 안내합니다.'
+        && array_column($r5['tools'] ?? [], 'name') === ['search_products'] && ($q5[1]['tool_choice']['function']['name'] ?? '') === 'search_products' && count($q5) === 3);
+    [$r6, $q6] = $run([$answer('80mm 블록을 찾아 드릴게요. 잠시만 기다려 주세요.'), $answer('')]);
+    ok('강제 검색에도 도구·답이 없으면 버렸던 안내 문장을 돌려줌(빈 답변 아님)', $r6['ok'] === true && $r6['text'] === '80mm 블록을 찾아 드릴게요. 잠시만 기다려 주세요.' && count($q6) === 2);
+    [$r7, $q7] = $run([$answer('차량이 올라가면 80mm 이상이 필요합니다. 면적을 알려 주시면 찾아 드리겠습니다.')]);
+    ok('조건부 안내는 강제 검색하지 않고 그대로 답함', $r7['ok'] === true && str_contains($r7['text'], '면적을 알려 주시면') && count($q7) === 1);
 } finally {
     proc_terminate($srv);
     exec('rm -rf ' . escapeshellarg($tmp));

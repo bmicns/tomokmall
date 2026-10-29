@@ -648,7 +648,8 @@ function rag_curl_post(string $url, string $body, array $headers): string|false
         CURLOPT_POSTFIELDS     => $body,
         CURLOPT_HTTPHEADER     => $headers,
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT        => 20,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT        => 45,   // 도구 결과가 붙은 GPT-4o 응답은 20초를 넘길 때가 있다(2026-10-29 실제 시험 1건 시간 초과)
     ]);
     $raw   = curl_exec($ch);
     $errno = curl_errno($ch);
@@ -688,8 +689,8 @@ function rag_build_prompt(array $messages): array
         . "  쓸 만한 선택지 2~4가지를 '- 이름: 장점 / 주의점' 형식으로 한 줄씩 비교하고, 그다음 추천에 꼭 필요한 질문 1~2개만 한다.\n"
         . "- 일반 설명에서 가격·강도·법정 기준 같은 구체 숫자를 지어내지 않는다. 숫자는 아래 [참조 문서]에 있는 것만 인용하고, 가격·수량은 검색 결과 표로 보여준다.\n"
         . "- 면적을 모르면 '가로 몇 m × 세로 몇 m인지' 물어보고, 답을 받으면 직접 곱해 area_m2로 넘긴다(예: 5m×4m → 20). 대략값도 괜찮다고 안내한다.\n"
-        . "- 자재 종류의 차이·특징·물빠짐·주의사항 질문과, 사용 조건(유모차·휠체어·미끄럼·오염·차량 통행 등)에 맞는 자재를 고르는 질문에는 material_info 를 먼저 호출하고, 돌려준 원문 문장을 '○○(제조사) 자료에 따르면'처럼 그 제조사 제품 설명으로 쉬운 말로 전한다(출처끼리 다르면 단정하지 않음, 공식 기준 수치는 [L번호] 근거만).\n"
-        . "  원문에 없는 성능·용도·비교·수치(중장비 통과, 'n톤 이상', 다른 제품도 같다 등)를 덧붙이거나, 한 제조사의 제품 표기를 '이걸 쓰면 된다'는 일반 선택 기준으로 단정하지 않는다. KS·표준 번호는 [참조 문서]·material_info 원문에 있는 것만 쓴다. material_info 결과가 비어 있으면 '제조사 자료에 따르면'이라고 말하지 말고, 수치 없는 일반 설명임을 밝힌다.\n"
+        . "- 자재 종류의 차이·특징·물빠짐·주의사항·KS(인증) 질문과, 사용 조건(유모차·휠체어·미끄럼·오염·차량 통행 등)에 맞는 자재를 고르는 질문에는 material_info 를 먼저 호출하고, 돌려준 원문 문장을 '○○(제조사) 자료에 따르면'처럼 그 제조사 제품 설명으로 쉬운 말로 전한다(출처끼리 다르면 단정하지 않음, 공식 기준 수치는 [L번호] 근거만).\n"
+        . "  원문 문장의 제품명(예: '안전 중하중 그레이팅')을 더 넓은 종류('중하중 그레이팅' 전체)로 바꿔 말하지 않는다. 원문에 없는 성능·용도·비교·수치(중장비 통과, 'n톤 이상', 다른 제품도 같다 등)를 덧붙이거나, 한 제조사의 제품 표기를 '이걸 쓰면 된다'는 일반 선택 기준으로 단정하지 않는다. KS·표준 번호는 [참조 문서]·material_info 원문에 있는 것만 쓴다. material_info 결과가 비어 있으면 '제조사 자료에 따르면'이라고 말하지 말고, 수치 없는 일반 설명임을 밝힌다.\n"
         . "- 선택지를 비교한 뒤 면적·길이가 확인되면 search_products의 queries로 종류별 제품을 한 표에 모아 보여준다.\n"
         . "  표에는 제품별 필요 수량과 예상 자재비(판매가 기준, 운반·시공비 별도)가 자동 계산되어 차이를 바로 비교할 수 있다.\n"
         . "\n"
@@ -814,6 +815,9 @@ function rag_build_prompt(array $messages): array
 function rag_is_search_promise(string $text): bool
 {
     $tail = mb_substr(trim($text), -80);
+    if (preg_match('/(주시면|주신다면|알려\s*주세요|말씀해\s*주세요)[^.!?]{0,40}(드릴게요|드리겠습니다|드릴께요|볼게요|보겠습니다)\s*[.!]?\s*$/u', $tail)) {
+        return false;   // '면적을 알려 주시면 찾아 드리겠습니다' — 고객 답을 기다리는 조건부 안내(지금 검색할 수 없음)
+    }
     return preg_match('/(찾아|검색해|보여|알아봐)\s*(드릴게요|드리겠습니다|드릴께요|볼게요|보겠습니다)|잠시만\s*기다려/u', $tail) === 1;
 }
 
@@ -848,6 +852,7 @@ function rag_process(array $messages, string $sid): array
     $forceSearch  = false;   // '찾아 드릴게요'만 하고 끝난 응답 → 1회 검색 재요청
     $chatUrl      = $config['openai']['chat_url'] ?? 'https://api.openai.com/v1/chat/completions';
     $answered     = false;   // 도구 없이 끝난(최종 답을 받은) 응답이 있었는지
+    $promised     = '';      // 검색 약속 문장(강제 검색 재요청 때 버림 — 도구가 안 불리면 되살림)
     $toolLog      = [];      // 부른 도구 이름·인자(시험 결과 기록용 — chat.php 는 화면에 보내지 않음)
 
     for ($iter = 0; $iter < $maxIter; $iter++) {
@@ -866,14 +871,14 @@ function rag_process(array $messages, string $sid): array
             ['Content-Type: application/json', 'Authorization: Bearer ' . $apiKey]
         );
         if ($raw === false) {
-            return ['ok' => false, 'text' => $responseText, 'events' => $events,
+            return ['ok' => false, 'text' => $responseText, 'events' => $events, 'tools' => $toolLog,
                     'error' => 'API 응답 시간이 초과되었습니다. 다시 시도해 주세요.'];
         }
 
         $resp = json_decode($raw, true);
         if (!$resp || isset($resp['error'])) {
             $errMsg = $resp['error']['message'] ?? '알 수 없는 오류가 발생했습니다.';
-            return ['ok' => false, 'text' => $responseText, 'events' => $events, 'error' => $errMsg];
+            return ['ok' => false, 'text' => $responseText, 'events' => $events, 'tools' => $toolLog, 'error' => $errMsg];
         }
 
         $choice       = $resp['choices'][0]     ?? [];
@@ -882,9 +887,14 @@ function rag_process(array $messages, string $sid): array
         $content      = $message['content']      ?? '';
         $toolCalls    = $message['tool_calls']   ?? [];
 
-        $noTool = ($finishReason !== 'tool_calls' || empty($toolCalls));
+        $noTool = empty($toolCalls);   // 도구를 지정해 강제로 부르면 finish_reason 이 'stop' 으로 온다 — 도구 호출이 있으면 실행
+        if ($noTool && $promised !== '' && ($content === '' || $content === null)) {
+            $content = $promised;   // 강제 검색에도 도구를 안 부르면 버렸던 안내 문장이라도 돌려준다(빈 답변 방지)
+        }
+        $promised = '';
         // 검색하겠다고만 하고 도구 없이 끝난 응답: 손님은 결과 없이 기다리게 된다 → 그 문장은 버리고 search_products 를 1회 강제 호출
         if ($noTool && !$toolUsed && $maxIter === 3 && rag_is_search_promise((string) $content)) {
+            $promised = (string) $content;
             $oaiMessages[] = ['role' => 'assistant', 'content' => (string) $content];
             $oaiMessages[] = ['role' => 'system', 'content' => '방금 제품을 찾아 드리겠다고 했다. 지금 search_products 를 호출하고, 결과 안내만 한다(같은 안내 문장 반복 금지).'];
             $forceSearch = true;

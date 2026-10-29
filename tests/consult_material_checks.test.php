@@ -57,7 +57,7 @@ file_put_contents("{$tmp}/responses.json", json_encode([
     $tool('그레이팅', 1), $say('[테스트]제조 자료에 따르면 중하중 그레이팅은 5톤 이상 차량도 됩니다.'),                     // 1: 원문에 없는 톤수
     $tool('그레이팅 유모차 휠체어', 2), $say('[테스트]제조에 따르면 미끄럼을 줄이는 그레이팅을 고르시면 됩니다.'),          // 2: 출처는 제조사 이름, 핵심(작은 바퀴) 빠짐
     $tool('그레이팅 미끄럼', 3), $say('[테스트]제조 자료에 따르면 상부 면이 톱니 형상이라 미끄럼을 줄입니다.'),           // 3: 정상
-    $say('제조사 자료에 따르면 벤치플룸관은 대형입니다.'),                                                               // 4: 자료 없이 인용 + 확대 해석
+    $tool('수로관', 7), $say('벤치플룸관은 하수도에 씁니다.'),                                                          // 4: 자료 없음인데 일반 설명이라고 밝히지 않음
     $say('흄관은 KS F 4009 제품을 쓰시면 됩니다.'),                                                                    // 5: 자료에 없는 KS 번호
     $tool('보도블록', 4), $tool('보도블록 오염', 5), $tool('블록 오염', 6), $say('[테스트]제조 자료에 따르면 표면 오염방지 처리 제품이 있습니다.'),   // 6: 도구만 3번 → 최종 답
     $say('차가 다니면 두께 80mm 이상 블록을 쓰세요.'),                                                                 // 7: 두께 질문, 제조사 자료 불필요
@@ -72,16 +72,28 @@ try {
     exec("OPENAI_API_KEY=test-not-a-key OPENAI_CHAT_URL=http://127.0.0.1:{$port}/v1/chat/completions " . escapeshellarg(PHP_BINARY) . ' '
         . escapeshellarg(__DIR__ . '/../scripts/testdb/consult-scenarios.php') . ' --material --md=' . escapeshellarg("{$tmp}/m.md") . ' 2>&1', $o, $code);
     $md = (string) @file_get_contents("{$tmp}/m.md");
-    $sec = static function (int $i) use ($md): string { return preg_match('/## ' . $i . '\. (.*?)(?=\n## \d\. |\n합계)/su', $md, $m) ? $m[1] : ''; };
+    $sec = static function (int $i) use (&$md): string { return preg_match('/## ' . $i . '\. (.*?)(?=\n## \d\. |\n합계)/su', $md, $m) ? $m[1] : ''; };
     ok('승인 자료 준비(가상 제조사 2행)', $approvedBefore === 2 && $md !== '');
     ok('1: 원문에 없는 하중 수치(5톤) → 실패', str_contains($sec(1), '자동 점검: 실패(자료에 없는 하중 수치: 5톤)'));
     ok('2: 제조사 이름으로 밝힌 출처는 인정, 핵심(작은 바퀴) 미사용 → 확인 필요', str_contains($sec(2), '자동 점검: 확인 필요(승인 자료의 핵심 문장 미사용)'));
     ok('3: 원문대로·출처 → 통과, 부른 도구 기록', str_contains($sec(3), '자동 점검: 통과') && str_contains($sec(3), '부른 도구: material_info({"topic":"그레이팅 미끄럼"})'));
-    ok("4: 참고 자료 없이 '제조사 자료에 따르면' → 실패", str_contains($sec(4), "자동 점검: 실패(참고 자료가 없는데 '제조사 자료에 따르면' 표현)"));
+    ok('4: 자료를 찾았지만 없음 → 일반 설명이라고 밝히지 않으면 확인 필요', str_contains($sec(4), '자동 점검: 확인 필요(참고 자료가 없는데 일반 설명이라고 밝히지 않음)'));
     ok('5: 자료에 없는 KS 번호 → 실패', str_contains($sec(5), '자동 점검: 실패(자료에 없는 KS 번호: KS F 4009)'));
     ok('6: 도구만 3번 불러도 빈 답변이 아니라 최종 답', !str_contains($sec(6), '실행 오류') && str_contains($sec(6), '표면 오염방지 처리 제품이 있습니다') && substr_count($sec(6), 'material_info(') === 3);
     ok('7: 두께 질문은 제조사 자료를 안 써도 통과(80mm 안내 확인)', str_contains($sec(7), '자동 점검: 통과') && (bool) preg_match("/승인 자료\\(주제 '인조화강블록'\\): [1-9]/u", $sec(7)));
-    ok('합계·종료 코드(실패 있음 → 1)', str_contains($md, '합계: 통과 3 · 확인 필요 1 · 실패 3') && $code === 1);
+    ok('합계·종료 코드(실패 있음 → 1)', str_contains($md, '합계: 통과 3 · 확인 필요 2 · 실패 2') && $code === 1);
+    // 2회차: 원문 제품명을 넓은 종류로 바꿔 말함(1), 자료 없이 '제조사 자료에 따르면'(4)
+    file_put_contents("{$tmp}/responses.json", json_encode([
+        $tool('그레이팅', 11), $say('[테스트]제조 자료에 따르면 **중하중 그레이팅**은 유모차, 휠체어 바퀴가 빠지지 않습니다.'),
+        $say('일반 설명입니다.'), $say('일반 설명입니다.'), $say('제조사 자료에 따르면 벤치플룸관은 대형입니다.'), $say('일반 설명입니다.'), $say('일반 설명입니다.'),
+        $say('차가 다니면 두께 80mm 이상 블록을 쓰세요.'),
+    ], JSON_UNESCAPED_UNICODE));
+    @unlink("{$tmp}/n");
+    exec("OPENAI_API_KEY=test-not-a-key OPENAI_CHAT_URL=http://127.0.0.1:{$port}/v1/chat/completions " . escapeshellarg(PHP_BINARY) . ' '
+        . escapeshellarg(__DIR__ . '/../scripts/testdb/consult-scenarios.php') . ' --material --md=' . escapeshellarg("{$tmp}/m.md") . ' 2>&1', $o, $code);
+    $md = (string) @file_get_contents("{$tmp}/m.md");
+    ok("1(2회차): '안전 그레이팅' 설명을 '중하중 그레이팅' 전체로 바꿔 말함(굵게 표시 포함) → 실패", str_contains($sec(1), '자동 점검: 실패(원문 밖 확대 해석: 중하중 그레이팅은 유모차'));
+    ok("4(2회차): 참고 자료 없이 '제조사 자료에 따르면' → 실패", str_contains($sec(4), "자동 점검: 실패(참고 자료가 없는데 '제조사 자료에 따르면' 표현)"));
     ok('V21·V22·승인 상태 그대로', $v2122 === $pdo->query("SELECT GROUP_CONCAT(CONCAT(id, ':', is_active, ':', review_status) ORDER BY id) FROM rag_documents WHERE tags LIKE '@scope:public_road%'")->fetchColumn()
         && $approvedBefore === (int) $pdo->query("SELECT COUNT(*) FROM external_products WHERE review_status = 'approved'")->fetchColumn());
 } finally {
