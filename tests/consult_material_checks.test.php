@@ -85,7 +85,7 @@ try {
     // 2회차: 원문 제품명을 넓은 종류로 바꿔 말함(1), 자료 없이 '제조사 자료에 따르면'(4)
     file_put_contents("{$tmp}/responses.json", json_encode([
         $tool('그레이팅', 11), $say('[테스트]제조 자료에 따르면 **중하중 그레이팅**은 유모차, 휠체어 바퀴가 빠지지 않습니다.'),
-        $say('일반 설명입니다.'), $say('일반 설명입니다.'), $say('제조사 자료에 따르면 벤치플룸관은 대형입니다.'), $say('일반 설명입니다.'), $say('일반 설명입니다.'),
+        $say('일반 설명입니다.'), $say('○○[테스트]제조 자료에 따르면 상부 면이 톱니 형상입니다.'), $say('제조사 자료에 따르면 벤치플룸관은 대형입니다.'), $say('일반 설명입니다.'), $say('일반 설명입니다.'),
         $say('차가 다니면 두께 80mm 이상 블록을 쓰세요.'),
     ], JSON_UNESCAPED_UNICODE));
     @unlink("{$tmp}/n");
@@ -94,6 +94,20 @@ try {
     $md = (string) @file_get_contents("{$tmp}/m.md");
     ok("1(2회차): '안전 그레이팅' 설명을 '중하중 그레이팅' 전체로 바꿔 말함(굵게 표시 포함) → 실패", str_contains($sec(1), '자동 점검: 실패(원문 밖 확대 해석: 중하중 그레이팅은 유모차'));
     ok("4(2회차): 참고 자료 없이 '제조사 자료에 따르면' → 실패", str_contains($sec(4), "자동 점검: 실패(참고 자료가 없는데 '제조사 자료에 따르면' 표현)"));
+    ok("3(2회차): 프롬프트 예시 자리표시 '○○'를 제조사 이름 대신 그대로 씀 → 실패", str_contains($sec(3), '자동 점검: 실패(자리표시 ○○ 를 제조사 이름 대신 그대로 씀)'));
+    // 3·4회차: 'ㄷ형강 하부 보강 — 일반 중하중 그레이팅보다 더 무거운 차량'(특정 제품)을 중하중 그레이팅 전체 특징으로 말하면 실패, 원문 비교 대상을 밝히면 통과
+    $rerun = static function (string $answer) use ($tmp, $port, $tool, $say): string {
+        file_put_contents("{$tmp}/responses.json", json_encode([$tool('그레이팅', 21), $say($answer), $say('일반 설명입니다.'), $say('일반 설명입니다.'), $say('일반 설명입니다.'),
+            $say('일반 설명입니다.'), $say('일반 설명입니다.'), $say('차가 다니면 두께 80mm 이상 블록을 쓰세요.')], JSON_UNESCAPED_UNICODE));
+        @unlink("{$tmp}/n");
+        exec("OPENAI_API_KEY=test-not-a-key OPENAI_CHAT_URL=http://127.0.0.1:{$port}/v1/chat/completions " . escapeshellarg(PHP_BINARY) . ' '
+            . escapeshellarg(__DIR__ . '/../scripts/testdb/consult-scenarios.php') . ' --material --md=' . escapeshellarg("{$tmp}/m.md") . ' 2>&1');
+        return (string) @file_get_contents("{$tmp}/m.md");
+    };
+    $md = $rerun('[테스트]제조 자료에 따르면 중하중 그레이팅은 ㄷ형강을 보강해 더 무거운 차량이 다닐 수 있습니다.');
+    ok("1(3회차): 특정 제품의 '더 무거운 차량'을 중하중 그레이팅 전체로 → 실패", str_contains($sec(1), '자동 점검: 실패(원문 밖 확대 해석: 더 무거운 차량'));
+    $md = $rerun('[테스트]제조 자료에 따르면 ㄷ형강 하부를 보강한 제품은 일반 중하중 그레이팅보다 더 무거운 차량용입니다.');
+    ok("1(4회차): '일반 중하중 그레이팅보다 더 무거운 차량'처럼 원문 비교 대상을 밝히면 통과", str_contains($sec(1), '자동 점검: 통과'));
     ok('V21·V22·승인 상태 그대로', $v2122 === $pdo->query("SELECT GROUP_CONCAT(CONCAT(id, ':', is_active, ':', review_status) ORDER BY id) FROM rag_documents WHERE tags LIKE '@scope:public_road%'")->fetchColumn()
         && $approvedBefore === (int) $pdo->query("SELECT COUNT(*) FROM external_products WHERE review_status = 'approved'")->fetchColumn());
 } finally {

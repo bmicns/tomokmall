@@ -95,6 +95,11 @@ try {
     $fs = json_decode(tool_material_info(['topic' => '보도블록 유모차']), true)['facts'] ?? [];
     ok('질문 낱말(유모차)이 든 문장을 먼저 — 종류별 3개 한도에 밀려 빠지지 않음', ($fs[0]['text'] ?? '') === $stroller);
     ok("'보도블록'으로만 표기한 제조사 행도 인조화강블록 질문에서 찾음(바닥 포장 블록끼리)", str_contains($facts('인조화강블록'), $pave) && str_contains($facts('보도블록'), $pave));
+    $pv = json_decode(tool_material_info(['topic' => '보도블록 오염 방지']), true);
+    ok("자재 종류가 다른 행은 '방지' 같은 낱말만 겹쳐도 섞이지 않음(보도블록 질문에 그레이팅 문장·출처 없음)", str_contains(json_encode($pv['facts'], JSON_UNESCAPED_UNICODE), $pave)
+        && array_unique(array_column($pv['facts'], 'product')) === ['[테스트]컬러 보도블록'] && count($pv['_sse'][0]['sources'] ?? []) === 1);
+    ok('그레이팅 질문에도 보도블록 문장(미끄럼 방지 패턴)이 섞이지 않음', !str_contains($facts('그레이팅 미끄럼'), '미끄럼 방지 패턴') && str_contains($facts('그레이팅 미끄럼'), $good));
+    ok('자재 종류가 없는 주제는 낱말로 찾음(기존 동작)', str_contains($facts('미끄럼 방지'), $good) && str_contains($facts('미끄럼 방지'), '미끄럼 방지 패턴'));
 
     echo "[다시 가져오기]\n";
     [$c5] = $run('import-crawled.php');
