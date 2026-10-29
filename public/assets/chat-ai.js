@@ -107,7 +107,7 @@ function renderEstPanel(items, total) {
           </div>
           <div class="est-item-info-right">
             <div class="est-item-qty-wrap">
-              <input type="number" class="est-item-qty" value="${item.quantity}" min="1" max="999" data-pid="${item.product_id}">
+              <input type="number" class="est-item-qty" value="${item.quantity}" min="1" max="9999" data-pid="${item.product_id}">
               <button class="btn-est-remove" data-pid="${item.product_id}" title="삭제">×</button>
             </div>
             <span class="est-item-subtotal">₩${subtotal}</span>
@@ -117,7 +117,7 @@ function renderEstPanel(items, total) {
     `;
 
     row.querySelector('.est-item-qty').addEventListener('change', async (e) => {
-      const qty = Math.max(1, Math.min(999, parseInt(e.target.value, 10) || 1));
+      const qty = Math.max(1, Math.min(9999, parseInt(e.target.value, 10) || 1));
       await cartAction('update', item.product_id, qty);
     });
 
@@ -207,8 +207,9 @@ function renderProductCards(products, container) {
       <tr data-pid="${p.id}">
         <td>${imgHtml}</td>
         <td>
-          <div class="compare-name">${escHtml(p.name)}</div>
-          ${p.spec ? `<div class="compare-spec">${escHtml(p.spec)}</div>` : ''}
+          <div class="compare-name">${escHtml(p.name)} <a class="compare-detail" href="/product.php?id=${parseInt(p.id, 10)}" target="_blank" rel="noopener">상세</a></div>
+          ${(p.spec_label || p.spec) ? `<div class="compare-spec">${escHtml(p.spec_label || p.spec)}</div>` : ''}
+          ${(p.guide && p.guide.length) ? `<ul class="compare-guide">${p.guide.map(g => `<li>${escHtml(g)}</li>`).join('')}</ul>` : ''}
           ${basisHtml}
         </td>
         <td class="compare-price">₩${price}${unitHtml}${costHtml}</td>
@@ -222,9 +223,9 @@ function renderProductCards(products, container) {
   let summaryHtml = '';
   if (costs.length >= 2) {
     const min = Math.min(...costs), max = Math.max(...costs);
-    summaryHtml = `<div class="compare-summary">입력하신 면적·길이 기준 예상 자재비 <b>₩${fmt(min)}</b>${min !== max ? ` ~ <b>₩${fmt(max)}</b>` : ''}<span>판매가 기준 · 운반비·시공비 별도 · 회원가는 견적서에서 확인</span></div>`;
+    summaryHtml = `<div class="compare-summary">입력하신 면적·길이 기준 예상 자재비 <b>₩${fmt(min)}</b>${min !== max ? ` ~ <b>₩${fmt(max)}</b>` : ''}<span>판매가 기준 · 운반비·시공비 별도 · 최종 금액은 견적 요청 후 회신으로 안내</span></div>`;
   } else if (costs.length === 1) {
-    summaryHtml = `<div class="compare-summary"><span>예상 금액은 판매가 기준 자재비입니다 · 운반비·시공비 별도 · 회원가는 견적서에서 확인</span></div>`;
+    summaryHtml = `<div class="compare-summary"><span>예상 금액은 판매가 기준 자재비입니다 · 운반비·시공비 별도 · 최종 금액은 견적 요청 후 회신으로 안내</span></div>`;
   }
 
   wrap.innerHTML = `${summaryHtml}
@@ -233,7 +234,7 @@ function renderProductCards(products, container) {
         <th style="width:68px"></th>
         <th>제품명 / 규격</th>
         <th>가격</th>
-        <th style="width:54px">수량</th>
+        <th style="width:84px">수량</th>
         <th></th>
       </tr></thead>
       <tbody>${rows}</tbody>

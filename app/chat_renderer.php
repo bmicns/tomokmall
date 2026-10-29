@@ -178,6 +178,9 @@ render_header('AI 자재 상담', 'chat');
   .compare-img-ph { width: 60px; height: 60px; background: #E8E8E8; display: block; }
   .compare-name { font-size: 13px; font-weight: 500; line-height: 1.4; }
   .compare-spec { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+  .compare-detail { font-size: 11px; font-weight: 400; margin-left: 4px; color: var(--color-primary); }
+  .compare-guide { list-style: none; margin: 4px 0 0; padding: 0; font-size: 11px; line-height: 1.5; color: var(--color-text-primary); }
+  .compare-guide li::before { content: '✓ '; color: var(--color-primary); }
   .compare-qtybasis { font-size: 11px; color: var(--color-primary); font-weight: 600; margin-top: 3px; }
   .compare-price { font-size: 13px; font-weight: 600; color: var(--color-primary); white-space: nowrap; }
   .compare-unit { font-size: 11px; font-weight: 400; color: var(--color-text-secondary); }
@@ -195,9 +198,9 @@ render_header('AI 자재 상담', 'chat');
   .legal-badge { padding: 1px 7px; border: 1px solid #F0C48A; background: #FFF4E5; color: #7A3E00; font-size: 11px; font-weight: 700; }
   .legal-source-meta, .legal-source-cond { color: var(--color-text-secondary); word-break: keep-all; }
   .legal-source-meta a { color: var(--color-primary); text-decoration: underline; }
-  .compare-qty {
-    width: 60px; padding: 4px; border: 1px solid var(--color-border);
-    font-size: 12px; text-align: center; font-family: var(--font); background: #fff;
+  .compare-qty, .compare-table input.compare-qty {   /* 공통 input 스타일(넓은 패딩·width 100%)이 덮어써 숫자가 안 보이던 문제 방지 */
+    width: 72px; padding: 4px; border: 1px solid var(--color-border);
+    font-size: 13px; text-align: center; font-family: var(--font); background: #fff;
   }
   .btn-compare-add {
     background: var(--color-primary); color: #fff; border: none;
@@ -367,6 +370,18 @@ render_header('AI 자재 상담', 'chat');
     .input-row textarea { height: 48px; font-size: 16px; }
     .hint-chips { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; }
     .hint-chip { white-space: nowrap; flex-shrink: 0; }
+    /* 비교표: 가로 스크롤 없이 한 상품을 세로로 — 수량·견적추가 버튼이 화면 안에 보이게 */
+    .compare-table thead { display: none; }
+    .compare-table table, .compare-table tbody { display: block; }
+    .compare-table tr[data-pid] { display: grid; grid-template-columns: 60px 1fr auto; grid-template-areas: "img name name" "img price price" "img qty add"; gap: 6px 10px; padding: 10px 0; border-bottom: 1px solid var(--color-border); }
+    .compare-table td { padding: 0; border: none; }
+    .compare-table td:nth-child(1) { grid-area: img; }
+    .compare-table td:nth-child(2) { grid-area: name; }
+    .compare-table td:nth-child(3) { grid-area: price; }
+    .compare-table td:nth-child(4) { grid-area: qty; }
+    .compare-table td:nth-child(5) { grid-area: add; }
+    .compare-table input.compare-qty { width: 100%; min-height: 44px; font-size: 16px; }
+    .btn-compare-add { min-height: 44px; padding: 0 16px; }
   }
 
   /* ── 채팅 페이지 푸터 여백 제거 ──────────────────────────── */

@@ -11,6 +11,7 @@ declare(strict_types=1);
  *        공공도로 활성(s1·s2) 구역에 '적합 상품 없으면 얇은 제품 대체 금지·설계도서 확인·별도 견적' 1줄 추가. 그 밖의 문장은 그대로.
  *        2026-10-29 의도적 변경 반영(3, 실제 GPT-4o 결과 반영): 공통 규칙 4줄 — 처리할 수 없는 문의·연락 약속 금지,
  *        필수 항목 확인 후 되묻지 말고 검색, '찾아 드릴게요'만 하고 끝내지 않기, alternatives(같은 두께 등록 블록)로 재검색.
+ *        2026-10-29 의도적 변경 반영(4, 구매 전환): 카드 guide(고르는 기준) 활용 1줄, add_to_cart 수량 = 권장 수량(suggested_qty) 1줄 수정.
  * 데이터: SQL 초안 01·02·06·07 을 적용한 테스트 DB(검증 조문 27건·활성 22건). 다르면 SKIP(기준값은 그 데이터 기준).
  * 프롬프트를 의도적으로 바꿨다면: php scripts/testdb/dump-prompts.php --out=… 로 확인 후 기준값을 갱신한다.
  * 실행: DB_HOST=127.0.0.1 DB_NAME=tomokmall_test DB_USER=… DB_PASS=… php tests/rag_prompt.test.php
