@@ -74,6 +74,16 @@ ok('안내에 규격 없음을 명시', str_contains((string) ($r['note'] ?? '')
 $r = search(['query' => '점토블럭', 'area_m2' => 20, 'spec_mm' => 80]);
 ok('spec_strict 없으면 기존처럼 다른 규격 안내(호환)', !empty($r['products']) && str_contains((string) ($r['note'] ?? ''), '80mm'));
 
+echo "[②'' 포장 블록 엄격 규격 = 두께 (공공도로 100mm 검색)]\n";
+$r = search(['query' => '인터로킹 블록', 'area_m2' => 50, 'spec_mm' => 100, 'spec_strict' => true]);
+ok('100mm 포장 블록 없음 → 빈 결과(가로 100 블록·호안블록·60T 노출 안 함)', empty($r['products']));
+ok('안내에 100mm 제품 없음 명시', str_contains((string) ($r['note'] ?? ''), '100mm 제품이 없습니다'));
+$r = search(['queries' => ['인터로킹 블록', '보차도블록', '점토블럭'], 'area_m2' => 50, 'spec_mm' => 100, 'spec_strict' => true]);
+ok('비교 검색도 빈 결과 + 규격 없음 안내', empty($r['products']) && str_contains((string) ($r['note'] ?? ''), '규격 100mm 제품이 없습니다'));
+$r = search(['queries' => ['인터로킹 블록', '인조화강블록', '점토블럭'], 'area_m2' => 30, 'spec_mm' => 80, 'spec_strict' => true]);
+ok('80T 비교: 결과 전부 두께 80', !empty($r['products']) && !array_filter($r['products'], static fn($c) => ai_block_thickness((string) $c['spec']) !== 80));
+ok('80T 비교: 구조용(호안·축조)·경계 블록 없음', !array_filter(array_column($r['products'], 'name'), static fn($n) => preg_match('/호안|축조|옹벽|속빈|경계/u', $n)));
+
 echo "[③ 경계석 — 부속(집게) 제외, 직선형 대표]\n";
 $r = search(['query' => '경계석', 'length_m' => 18]);
 $names = array_column($r['products'] ?? [], 'name');

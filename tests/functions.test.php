@@ -387,5 +387,21 @@ load_env_file($envTmp); unlink($envTmp);
 ok('셸 값 우선 유지(기존 동작)', getenv('TM_TEST_SHADOW') === 'from_shell' && getenv('TM_TEST_NEW') === 'new');
 eq('값이 다른 키만 기록(같은 값·새 키 제외)', env_shadowed_keys('TM_TEST_'), ['TM_TEST_SHADOW']);
 
+echo "[포장 블록 두께 판독 ai_block_thickness / 두께 필터]\n";
+eq('80T 표기', ai_block_thickness('규격: 199*99*80T_회색 | 중량: 165kg'), 80);
+eq('셋째 치수(T 없음)', ai_block_thickness('규격: 1200*900*80_컬러(차도) | 단위: m 2'), 80);
+eq('가로 100 은 두께 아님(200*100*60T → 60)', ai_block_thickness('규격: 200*100*60T(불투수)'), 60);
+eq('범위 표기 → 판독 안 함', ai_block_thickness('규격: 230*114*65~125_조경경계블록'), null);
+eq('치수 4개 이상 → 판독 안 함', ai_block_thickness('규격: 400*400*2000*120'), null);
+ok('포장 검색어 판별', ai_is_paving_query('인터로킹 블록') && ai_is_paving_query('보차도블록') && !ai_is_paving_query('호안블록') && !ai_is_paving_query('측구 수로관'));
+$rowsT = [
+    ['name' => '인터로킹i2형블럭', 'spec' => '규격: 199*99*100T_회색'],
+    ['name' => '인조화강블록(불투수)', 'spec' => '규격: 200*100*60T(불투수)'],
+    ['name' => '호안블록(저류용)', 'spec' => '규격: 400*200*100_아이블록'],
+    ['name' => '녹지경계블록', 'spec' => '규격: 190*160*100_적색'],
+    ['name' => '다칼라블랜딩블록', 'spec' => '규격: 1200*900*100_컬러(차도)'],
+];
+eq('두께 100 포장 블록만(60T·호안·경계 제외)', array_column(ai_filter_paving_thickness($rowsT, 100), 'name'), ['인터로킹i2형블럭', '다칼라블랜딩블록']);
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

@@ -275,6 +275,12 @@ function tool_search_products(array $input): string
     // ⓪ 용도 배타 필터: 부속(집게·몰드 등) 제외
     $rows = ai_exclude_accessories($rows, $query);
 
+    // ⓪-2 포장 블록의 엄격 규격(spec_strict)은 '두께'로 본다 — 두께(80T 또는 가로*세로*두께의 셋째 값)가 같은 포장 블록만.
+    //      가로·세로 치수가 우연히 같은 제품(200*100*60T 의 100, 호안블록·속빈블록 등)이 두께 기준 검색에 섞이는 것 방지.
+    if ($specMm > 0 && !empty($input['spec_strict']) && ai_is_paving_query($query)) {
+        $rows = ai_filter_paving_thickness($rows, $specMm);
+    }
+
     // 소요 수량 자동 계산 입력 (고객이 길이/면적을 말한 경우)
     $lengthM = (float) ($input['length_m'] ?? 0);
     $areaM2  = (float) ($input['area_m2'] ?? 0);
@@ -351,6 +357,36 @@ function tool_search_products(array $input): string
     if ($note !== null)      { $out['note']      = $note; }      // 교정/규격완화 사유
     if ($corrected !== null) { $out['corrected'] = $corrected; }
     return json_encode($out, JSON_UNESCAPED_UNICODE);
+}
+
+/** 포장 블록 검색어인지 (순수 함수) — 블록·인터로킹·보도·점토·투수·잔디·평판 등. 호안·축조·옹벽 등 구조용은 제외 */
+function ai_is_paving_query(string $query): bool
+{
+    return preg_match('/블[록럭]|인터로킹|보도|보차도|점토|벽돌|투수|잔디|평판|판석|포장/u', $query) === 1
+        && preg_match('/호안|축조|옹벽|속빈|조적/u', $query) !== 1;
+}
+
+/**
+ * 블록 두께(mm) 읽기 (순수 함수). 규격 값에서 'NNT' 표기, 없으면 '가로*세로*두께' 의 셋째 값. 범위(65~125)·넷 이상 치수는 null.
+ * 예: '199*99*80T_회색' → 80, '1200*900*80_컬러(차도)' → 80, '230*114*65~125' → null
+ */
+function ai_block_thickness(string $spec): ?int
+{
+    $v = parse_spec_field($spec)['spec'] ?: $spec;
+    if (preg_match('/(?<![\d.])(\d{2,3})\s*T(?![a-z])/iu', $v, $m)) {
+        return (int) $m[1];
+    }
+    if (preg_match('/^\s*\d+\s*[*x×]\s*\d+\s*[*x×]\s*(\d+)(?!\s*[*x×~\d])/u', $v, $m)) {
+        return (int) $m[1];
+    }
+    return null;
+}
+
+/** 두께가 $mm 인 포장 블록만 남김 (순수 함수). 이름이 구조용(호안·축조·옹벽·속빈·조적)·경계용(경계블록·경계석)이면 제외 */
+function ai_filter_paving_thickness(array $rows, int $mm): array
+{
+    return array_values(array_filter($rows, static fn($r) => ai_block_thickness((string) ($r['spec'] ?? '')) === $mm
+        && preg_match('/호안|축조|옹벽|속빈|조적|경계/u', (string) ($r['name'] ?? '')) !== 1));
 }
 
 /**
@@ -465,7 +501,10 @@ function ai_search_compare(array $queries, array $input): string
         return json_encode([
             'products' => [],
             'count'    => 0,
-            'note'     => '해당 조건에 맞는 제품을 찾지 못했습니다. 용도(수로·배수·경계·차단 등)나 재질을 알려주시면 다시 찾아드리겠습니다.',
+            // 규격(예: 두께)을 걸었는데 모든 종류가 없으면 '규격 없음'을 그대로 알린다(다른 두께를 대신 권하지 않음)
+            'note'     => $specMm > 0
+                ? "'" . implode("', '", $missing) . "'은(는) 규격 {$specMm}mm 제품이 없습니다. 조건에 맞지 않는 다른 규격은 보여드리지 않았습니다."
+                : '해당 조건에 맞는 제품을 찾지 못했습니다. 용도(수로·배수·경계·차단 등)나 재질을 알려주시면 다시 찾아드리겠습니다.',
             '_sse'     => [],
         ], JSON_UNESCAPED_UNICODE);
     }
