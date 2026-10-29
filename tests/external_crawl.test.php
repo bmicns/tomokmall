@@ -75,5 +75,19 @@ ok('정리: 페이지가 4쪽 미만이면 반복 기준을 쓰지 않음', ext_
 ok('충돌 표시: 차량·주차용인데 80mm 미만만', ext_fact_conflict('주차장 차량 통행 구간에 두께 60mm 제품을 사용합니다.') !== '' && ext_fact_conflict('차도용은 두께 80mm 입니다.') === ''
     && ext_fact_conflict('보도용 두께 60mm 제품입니다.') === '');
 
+echo "[원문 문장 단위 검토]\n";
+$same = ['[테스트] 그레이팅은 미끄럼 방지를 위해 크로스 바를 사용합니다.', '미끄럼 방지를 위해 크로스 바를 사용합니다.'];
+ok('검토: 서술이 있는 사실 문장·표준 번호·강도 수치는 승인 후보', ext_fact_review($same[0], $same) === '' && ext_fact_review('[테스트]흄관 (B형) KS F 4403') === ''
+    && ext_fact_review('사용강재 : SS275 (항복강도 275 N/㎟)') === '' && ext_fact_review('[테스트] 배수로 덮개로 사용되며, 통과 하중에 따라 규격이 결정됩니다.') === '');
+ok('검토: 다른 문장의 조각·제목·시공사례는 보류', str_starts_with(ext_fact_review($same[1], $same), '다른 문장의 일부') && str_starts_with(ext_fact_review('스틸 그레이팅 시공사례'), '제목')
+    && str_starts_with(ext_fact_review('▣ 배수로 덮개'), '제목'));
+ok('검토: 메뉴·제품명 목록(서술 없음)은 보류', str_starts_with(ext_fact_review('주철뚜껑/스틸그레이팅 투수그레이팅 디자인그레이팅 무소음트렌치'), '메뉴')
+    && str_starts_with(ext_fact_review('원형 하수도 맨홀'), '메뉴') && str_starts_with(ext_fact_review('인조화강블럭 (투수/불투수)'), '메뉴'));
+ok('검토: 홍보·최상급·가격·타사·현장명은 보류', str_starts_with(ext_fact_review('[테스트] 가장 우수한 제품입니다.'), '홍보') && str_starts_with(ext_fact_review('[테스트] 가볍고 저렴하며 저가 중국산과 다릅니다.'), '가격')
+    && str_starts_with(ext_fact_review('[테스트]시 양천구 목동아파트 주변보도'), '회사 소개·현장명'));
+ok('충돌 표시: 두께 조건 없이 차도 설치 가능 문장(지하차도 용도는 제외)', str_starts_with(ext_fact_review('[테스트] 보·차도 어디에나 설치가 가능합니다.'), '기준 확인 필요')
+    && ext_fact_conflict('[테스트] 지하차도, 공장 주변 배수로의 덮개용으로 사용되며 설치가 가능합니다.') === '' && ext_fact_conflict('차도에 두께 80mm 로 시공이 가능합니다.') === '');
+ok("분류: '빠지지 않도록 제작'은 주의가 아니라 특징", ext_fact_kind('[테스트] 작은 바퀴가 빠지지 않도록 제작한 안전 그레이팅') === 'features' && ext_fact_kind('[테스트] 다짐이 부족하지 않도록 하십시오') === 'cautions');
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

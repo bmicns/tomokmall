@@ -78,12 +78,12 @@ try {
     ok('DB 저장 2건(검토 대기), 원본 JSON 불변, 정리본은 clean/ 에 따로', $count() === 2 && sha1_file($src) === $hash && is_file("{$tmp}/clean/test_crawled.json")
         && (int) $pdo->query("SELECT COUNT(*) FROM external_products WHERE source_key = 'test_crawled' AND review_status = 'pending'")->fetchColumn() === 2);
     $attrs = implode(' ', $pdo->query("SELECT attrs_json FROM external_products WHERE source_key = 'test_crawled'")->fetchAll(PDO::FETCH_COLUMN));
+    ok('제외 예시: 사유별로 이름·규격을 보여 줌(과잉 제외 확인용)', str_contains($q, '## 제외 예시') && str_contains($q, 'test_crawled · 머리글 행: 품명') && str_contains($q, '[테스트]회사 연혁'));
     ok('허락 필요(pending) 출처는 수집본이 있어도 저장 안 함', str_contains($q, '보류(허락 전 저장 안 함)')
         && (int) $pdo->query("SELECT COUNT(*) FROM external_products WHERE source_key = 'test_crawled_hold'")->fetchColumn() === 0);
     ok('원문 문장: 고유 문장은 원문 그대로, 저작권 문구는 제거', str_contains($attrs, '빗물이 블록 사이로 스며듭니다') && !str_contains($attrs, 'Copyright'));
     $rv = (string) @file_get_contents("{$tmp}/review.md");
-    $badId = (int) $pdo->query("SELECT id FROM external_products WHERE source_key = 'test_crawled' AND thickness_mm = 60")->fetchColumn();
-    ok('검토 목록: 충돌 문장 ⚠ 표시, 승인 명령 + ⚠ 행 제외 명령', str_contains($rv, '두께 60mm 를 사용합니다. ⚠') && str_contains($rv, '--approve-source=test_crawled') && str_contains($rv, "--reject={$badId}`"));
+    ok('검토 목록: 충돌 문장 ⚠ 표시, 다음 단계는 문장 단위 승인(approve-crawled.php)', str_contains($rv, '두께 60mm 를 사용합니다. ⚠') && str_contains($rv, 'approve-crawled.php --approve=출처'));
 
     echo "[재실행·상담 반영]\n";
     [$c3] = $run();

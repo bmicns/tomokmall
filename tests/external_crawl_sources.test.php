@@ -92,7 +92,7 @@ try {
     echo "[상담 참고 자료 — 승인한 것만]\n";
     $before = json_decode(tool_material_info(['topic' => '인조화강블록']), true);
     ok('승인 전: material_info 에 이 자료 없음', !str_contains(json_encode($before, JSON_UNESCAPED_UNICODE), '[테스트]'));
-    exec("{$env} " . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/../scripts/external/import.php') . ' --approve-source=test_site_a 2>&1', $o2, $c2);
+    exec("{$env} " . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/../scripts/external/approve-crawled.php') . ' --approve=test_site_a 2>&1', $o2, $c2);   // 제조사 수집분은 문장 단위 검토 후 승인
     $info = json_decode(tool_material_info(['topic' => '물이 잘 빠지는 투수 블록']), true);
     $kinds = array_unique(array_column($info['facts'] ?? [], 'kind'));
     ok('승인 후: 원문 문장(특징·용도·주의·인증)과 출처 URL', $c2 === 0 && in_array('특징', $kinds, true) && in_array('주의', $kinds, true) && in_array('인증', $kinds, true)

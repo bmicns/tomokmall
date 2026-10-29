@@ -60,6 +60,7 @@ $prodNorm = array_map('ext_normalize_product', $products);
 @mkdir("{$dir}/clean", 0777, true);
 $rows = [];
 $review = [];
+$samples = [];
 foreach ($reg['sources'] ?? [] as $s) {
     $key = $s['key'];
     if ($only && !in_array($key, $only, true)) { continue; }
@@ -75,7 +76,12 @@ foreach ($reg['sources'] ?? [] as $s) {
     foreach ($clean as $r) {
         $n = ext_normalize($r, $key);
         $why = ext_record_issue($n);
-        if ($why !== '') { $issues[$why] = ($issues[$why] ?? 0) + 1; continue; }
+        if ($why !== '') {
+            $issues[$why] = ($issues[$why] ?? 0) + 1;
+            $nm = mb_substr(trim($n['name'] . ' ' . $n['spec_raw']), 0, 50);
+            if (count($samples[$key][$why] ?? []) < 5 && !in_array($nm, $samples[$key][$why] ?? [], true)) { $samples[$key][$why][] = $nm; }   // 과잉 제외 확인용
+            continue;
+        }
         $valid[] = [$r, $n];
     }
     [$uniq, $dupes] = ext_dedup(array_column($valid, 1));
@@ -113,6 +119,12 @@ foreach ($rows as $r) {
 $md .= "| **합계** | | **{$sum(3)}** | | **{$sum(5)}** | **{$sum(6)}** | **{$sum(7)}** | {$sum(8)}→{$sum(9)} | | |\n\n"
     . "- 매칭: 유력(80점 이상) = 같은 종류·이름·치수가 거의 같은 우리 상품 후보, 검토(50~79) = 사람 확인 필요, 없음 = 우리 상품에 없는 규격(참고 지식으로만). 확정은 import.php --confirm.\n"
     . "- 상담 반영: 아직 0건. review.md 를 검토한 뒤 승인한 자료만 material_info·상품 카드 '참고 자료' 에 나온다.\n";
+if ($samples) {   // 제외가 맞는지 사람이 확인할 수 있게 사유별 예시(이름·규격 그대로)
+    $md .= "\n## 제외 예시(출처·사유별 최대 5개 — 우리 취급 자재가 잘못 빠졌는지 확인)\n\n";
+    foreach ($samples as $k => $bySrc) {
+        foreach ($bySrc as $why => $names) { $md .= "- {$k} · {$why}: " . implode(' / ', array_map(static fn($x) => str_replace('|', '/', $x), $names)) . "\n"; }
+    }
+}
 file_put_contents("{$dir}/quality.md", $md);
 $rv = "# 승인 검토 목록 (" . date('Y-m-d H:i') . ")\n\n원문 그대로의 문장이다(요약·보충 없음). 사실·출처를 확인한 출처만 승인한다. ⚠ 는 공식·사내 기준(차량 80T 등)과 충돌할 수 있는 문장을 자동으로 표시한 것 — 원문을 읽고 충돌이면 그 행을 제외(--reject)한다.\n";
 $kindKo = ['uses' => '용도', 'features' => '특징', 'cautions' => '주의', 'certs' => '인증', 'strength' => '강도'];
@@ -121,21 +133,8 @@ foreach ($review as $k => $v) {
     foreach ($v['facts'] as $f) { $rv .= '- [' . ($kindKo[$f['kind']] ?? $f['kind']) . '] ' . $f['text'] . ($f['conflict'] !== '' ? " ⚠ {$f['conflict']}" : '') . "\n"; }
 }
 if (!$dry) {
-    // ⚠ 문장이 든 행은 출처 승인 뒤 바로 제외(--reject)하도록 명령에 함께 적는다
-    $st = $pdo->prepare("SELECT id, attrs_json FROM external_products WHERE source_key = ? AND review_status = 'pending' ORDER BY id");
-    $rv .= "\n## 승인 명령(검토 후 출처 단위로 — 아직 실행하지 않음)\n\n";
-    foreach (array_keys($review) as $k) {
-        $st->execute([$k]);
-        $all = $st->fetchAll(PDO::FETCH_ASSOC);
-        if (!$all) { continue; }
-        $bad = [];
-        foreach ($all as $e) {
-            $txt = array_merge([], ...array_values((array) (json_decode((string) $e['attrs_json'], true)['facts'] ?? [])));
-            if (array_filter($txt, static fn($t) => ext_fact_conflict((string) $t) !== '')) { $bad[] = $e['id']; }
-        }
-        $rv .= "- {$k} (" . count($all) . "건): `php scripts/external/import.php --approve-source={$k}`"
-            . ($bad ? " 다음 ⚠ 행 제외: `php scripts/external/import.php --reject=" . implode(',', $bad) . '`' : '') . "\n";
-    }
+    $rv .= "\n## 다음 단계(승인은 사람이)\n\n- 출처별 승인 후보 정리: `php scripts/external/approve-crawled.php` → data/external/crawl/approval-candidates.md\n"
+        . "- 검토 후 출처별 승인: `php scripts/external/approve-crawled.php --approve=출처` (승인 후보 문장만 상담에 쓰임, ⚠ 행은 검토 대기 유지)\n";
 }
 file_put_contents("{$dir}/review.md", $rv);
 echo $md . "\n보고서: {$dir}/quality.md · 검토 목록: {$dir}/review.md\n";

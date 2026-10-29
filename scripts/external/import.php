@@ -80,6 +80,9 @@ if (isset($opt['approve']) || isset($opt['approve-source']) || isset($opt['rejec
         }
     }
     if (isset($opt['approve-source'])) {
+        if ((array_column($reg['sources'] ?? [], 'permission', 'key')[(string) $opt['approve-source']] ?? '') === 'facts_if_clear') {   // 제조사 페이지 수집분은 문장 단위 검토 후 승인
+            $die("'{$opt['approve-source']}' 는 제조사 페이지 수집 출처입니다 — 문장 단위 검토를 거쳐 승인하세요: php scripts/external/approve-crawled.php (보고서) → --approve={$opt['approve-source']}");
+        }
         $st = $pdo->prepare("UPDATE external_products SET review_status = 'approved' WHERE source_key = ? AND review_status = 'pending'");
         $st->execute([(string) $opt['approve-source']]);
         $n += $st->rowCount();
@@ -165,12 +168,13 @@ $pii = array_sum(array_column($norm, 'pii_removed'));
 // ── 저장(로컬 테스트 DB 검증 구역) ─────────────────────────────────
 $saved = 0;
 if (!isset($opt['dry-run'])) {
+    // 승인·제외한 행은 원문 문장을 다시 덮어쓰지 않음(승인 때 걸러 낸 문장이 재가져오기로 되살아나지 않게)
     $attrsOf = static fn(array $u): string => json_encode($u['attrs'] + ['source_name' => $src['name']] + ($u['facts'] ? ['facts' => $u['facts']] : []), JSON_UNESCAPED_UNICODE);
     $ins = $pdo->prepare('INSERT INTO external_products (source_key, external_id, dedup_key, name, maker, product_type, spec_raw, width_mm, length_mm, thickness_mm, diameter_mm,
             material, attrs_json, unit, ref_price, price_basis, source_url, license_note, fetched_at)
         VALUES (:sk, :eid, :dk, :name, :maker, :type, :spec, :w, :l, :t, :d, :mat, :attrs, :unit, :price, :basis, :url, :lic, NOW())
         ON DUPLICATE KEY UPDATE external_id = VALUES(external_id), name = VALUES(name), maker = VALUES(maker), spec_raw = VALUES(spec_raw),
-            attrs_json = VALUES(attrs_json), unit = VALUES(unit), ref_price = VALUES(ref_price), source_url = VALUES(source_url), fetched_at = NOW(), id = LAST_INSERT_ID(id)');
+            attrs_json = IF(review_status = \'pending\', VALUES(attrs_json), attrs_json), unit = VALUES(unit), ref_price = VALUES(ref_price), source_url = VALUES(source_url), fetched_at = NOW(), id = LAST_INSERT_ID(id)');
     $mIns = $pdo->prepare("INSERT INTO external_product_matches (external_product_id, product_id, score, reasons) VALUES (?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE score = VALUES(score), reasons = VALUES(reasons)");
     $pdo->beginTransaction();

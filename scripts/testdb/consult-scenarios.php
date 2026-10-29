@@ -12,6 +12,8 @@ declare(strict_types=1);
  *       --core       : 핵심 3개(공공도로 차도 100mm·차량 진입 보도 80mm·사유지 80T)만, 면적 답변 턴을 붙여 추천 상품 두께까지 점검(비용 절감)
  *       --only=public_road,public_sidewalk : 기대 장소 판정이 이 값인 시나리오만 실행(재테스트 비용 절감)
  *       --skip-product-check : 상품 검색 환경 점검(MySQL 8.0 ngram)이 맞지 않아도 실행 — 상품 추천 점검은 '판정 불가'
+ *       --material   : 자재 설명 질문 7개(그레이팅 차이·미끄럼·유모차, 수로관, 흄관 KS, 오염 방지 블록, 차량 마당 80T) — 제조사 자료 승인 전·후에
+ *                      각각 실행해(--md=material-before.md / material-after.md) 설명이 어떻게 달라지는지 비교. 근거 활성 상태·승인 상태는 바꾸지 않음
  *       결과 문서에는 턴마다 답변·인용 근거·상품 카드·'적합 상품 없음' 카드를 모두 남긴다.
  * 종료 코드: 0 실패 없음(확인 필요는 사람 검토), 1 실행 실패·판정 실패 있음, 2 설정·DB 구성 오류
  * 비용: 시나리오 7개 × OpenAI 호출(도구 호출 포함) — 소량.
@@ -21,7 +23,7 @@ $_SERVER['HTTPS'] = $_SERVER['HTTPS'] ?? '';
 require dirname(__DIR__, 2) . '/app/bootstrap.php';
 require dirname(__DIR__, 2) . '/app/rag.php';
 
-$opt = getopt('', ['with-public-road', 'md:', 'check-only', 'core', 'only:', 'skip-product-check']);
+$opt = getopt('', ['with-public-road', 'md:', 'check-only', 'core', 'only:', 'skip-product-check', 'material']);
 $dbName = (string) ($config['db']['name'] ?? '');
 if (!preg_match('/_test$/', $dbName)) {
     fwrite(STDERR, "로컬 테스트 DB(DB_NAME=*_test)에서만 실행합니다. 현재 DB_NAME='{$dbName}'\n");
@@ -90,6 +92,75 @@ if (isset($opt['check-only'])) {
 if (($config['openai']['api_key'] ?? '') === '') {
     fwrite(STDERR, "OPENAI_API_KEY 미설정 — .env.local 에 넣은 뒤 실행하세요(키를 채팅·커밋에 넣지 마세요).\n");
     exit(2);
+}
+
+// ── --material: 자재 설명 질문(제조사 승인 자료 전·후 비교용) — [주제(승인 자료 조회), 고객 질문, 확인할 점, 필수 표현(정규식)] ──
+if (isset($opt['material'])) {
+    $mat = [
+        ['그레이팅', '스틸 그레이팅이랑 중하중 그레이팅은 뭐가 달라요?', '구조 차이를 제조사 자료로 설명 + 출처, 원문에 없는 하중 수치 추측 없음', null],
+        ['그레이팅', '유모차나 휠체어가 지나가는 인도 배수로 덮개는 뭘 골라야 해요?', '작은 바퀴 빠짐 방지 제품 설명 + 출처, 토목몰 판매 상품과 구분', null],
+        ['그레이팅 미끄럼', '그레이팅 미끄럼 방지는 어떻게 되어 있어요?', '크로스 바·트위스트 바 등 원문 근거 + 출처', null],
+        ['수로관', '벤치플룸관이랑 일반 U형 수로관은 뭐가 달라요?', '원문 근거(대형·농배수로 등) + 출처, 없는 수치 추측 없음', null],
+        ['흄관', '흄관은 무슨 KS 규격 제품을 쓰면 돼요?', 'KS F 4403 등 원문 표기 + 출처, 공식 기준 단정은 [L] 근거로만', null],
+        ['인조화강블록', '보도블록 중에 오염이 덜 타는 제품도 있어요?', '제조사 설명(오염 방지 등)을 제조사 주장으로 전달 + 출처', null],
+        ['인조화강블록', '차가 들어오는 집 마당에 인조화강블록 깔아도 되나요?', "차량이면 80mm(80T) 이상 유지, '어디에나 설치 가능' 같은 보류 문장 미사용", '/80\s*(mm|T|㎜)|8\s*cm/u'],
+    ];
+    $banned = '/어디에나|가장 우수|중국산|보석같이/u';   // 승인에서 보류한 홍보·기준 충돌 문장
+    $approved = $n("SELECT COUNT(*) FROM external_products WHERE review_status = 'approved'");
+    $md = "# 자재 설명 상담 결과 — 제조사 승인 자료 " . ($approved ? "{$approved}행 승인 후" : '승인 전(0행)') . ' (' . date('Y-m-d H:i') . ', 모델 ' . ($config['openai']['model'] ?? '') . ")
+
+"
+        . "- 연결: {$info['v']} · DB {$info['d']} · V21·V22 는 바꾸지 않음(현재 상태)
+- 자동 점검은 보조 — 답변 원문을 사람이 확인. 승인 전·후 결과를 나란히 비교
+
+";
+    $tally = ['통과' => 0, '확인 필요' => 0, '실패' => 0];
+    foreach ($mat as $i => [$topic, $q, $check, $must]) {
+        $avail = ext_material_info($topic)['facts'];
+        try {
+            $res = rag_process([['role' => 'user', 'content' => $q]], 'material-test-' . ($i + 1));
+        } catch (\Throwable $e) {
+            $res = ['ok' => false, 'text' => '', 'events' => [], 'error' => get_class($e) . ': ' . $e->getMessage()];
+        }
+        $text = (string) ($res['text'] ?? '');
+        $srcs = $cards = [];
+        foreach ($res['events'] ?? [] as $e) {
+            if (($e['type'] ?? '') === 'material_sources') { foreach ($e['sources'] as $x) { $srcs[] = $x['maker'] . ' ' . $x['url']; } }
+            if (($e['type'] ?? '') === 'product_cards') { foreach ($e['products'] ?? [] as $c) { $cards[] = $c['name']; } }
+        }
+        $auto = match (true) {
+            empty($res['ok']) || trim($text) === '' => '실패(실행 오류·답변 없음)',
+            (bool) preg_match($banned, $text) => '실패(보류한 홍보·기준 충돌 표현 사용)',
+            $must !== null && !preg_match($must, $text) => '실패(필수 안내 없음: 차량 80mm 이상)',
+            $avail && !$srcs => '확인 필요(승인 자료가 있는데 material_info 미사용)',
+            $srcs && !preg_match('/제조사|자료|출처/u', $text) => '확인 필요(제조사 자료 출처 표시 없음)',
+            default => '통과',
+        };
+        $tally[str_starts_with($auto, '실패') ? '실패' : ($auto === '통과' ? '통과' : '확인 필요')]++;
+        $md .= '## ' . ($i + 1) . ". {$q}
+
+- 자동 점검: {$auto}
+- 확인할 점: {$check}
+- 승인 자료(주제 '{$topic}'): " . count($avail) . '문장'
+            . ($avail ? ' — ' . implode(' / ', array_map(static fn($f) => "[{$f['kind']}] " . mb_substr($f['text'], 0, 40) . " ({$f['maker']})", array_slice($avail, 0, 4))) : '') . "
+"
+            . '- 답변에 쓰인 참고 자료 출처: ' . ($srcs ? implode(', ', array_unique($srcs)) : '없음') . "
+- 상품 카드(토목몰): " . ($cards ? implode(', ', array_slice($cards, 0, 5)) : '없음') . "
+
+```
+" . trim($text) . "
+```
+
+"
+            . (empty($res['ok']) ? '> 오류: ' . ($res['error'] ?? '') . "
+
+" : '');
+    }
+    $md .= "합계: 통과 {$tally['통과']} · 확인 필요 {$tally['확인 필요']} · 실패 {$tally['실패']}
+";
+    echo $md;
+    if (isset($opt['md'])) { file_put_contents((string) $opt['md'], $md); }
+    exit($tally['실패'] > 0 ? 1 : 0);
 }
 
 $restore = [];

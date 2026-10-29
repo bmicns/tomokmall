@@ -25,11 +25,11 @@ function ext_page_title(string $html): string
 function ext_fact_kind(string $s): string
 {
     return match (true) {
-        (bool) preg_match('/주의|유의|금지|하지\s*마|않도록|삼가/u', $s)                         => 'cautions',
+        (bool) preg_match('/주의|유의|금지|하지\s*마|않도록(?!\s*(제작|설계|만든|만들))|삼가/u', $s) => 'cautions',   // '빠지지 않도록 제작' 은 특징
         (bool) preg_match('/KS\s*[A-Z]\s*-?\s*\d{4}|KS\s*인증|단체표준|우수조달|성능인증|녹색인증|환경표지/u', $s) => 'certs',
         (bool) preg_match('/강도|MPa|N\/mm|kgf|하중\s*등급|휨|압축/u', $s)                         => 'strength',
         (bool) preg_match('/용도|사용처|적용|적합|설치\s*장소|시공|보도|차도|주차장|광장|공원|조경|하수|배수/u', $s) => 'uses',
-        (bool) preg_match('/특징|장점|우수|효과|뛰어|내구|미려|투수|미끄럼|친환경|경제적/u', $s)   => 'features',
+        (bool) preg_match('/특징|장점|우수|효과|뛰어|내구|미려|투수|미끄럼|친환경|경제적|안전/u', $s) => 'features',
         default => '',
     };
 }
@@ -172,11 +172,40 @@ function ext_clean_page_facts(array $records): array
     return $records;
 }
 
-/** 공식 기준·사내 기준과 충돌할 수 있는 문장 표시 (순수 함수) — 차도·차량용인데 두께가 80mm 미만 등. 표시된 문장은 승인 검토 때 확인 */
+/** 공식 기준·사내 기준과 충돌할 수 있는 문장 표시 (순수 함수) — 차도·차량용인데 두께가 80mm 미만, 두께 조건 없이 차도 설치 가능. 표시된 문장은 승인 검토 때 확인 */
 function ext_fact_conflict(string $t): string
 {
-    if (preg_match('/(차도|차량|주차)/u', $t) && preg_match('/(\d{2,3})\s*(mm|T)\b/u', $t, $m) && (int) $m[1] < 80 && (int) $m[1] >= 30) {
+    if (preg_match('/((?<!지하)차도|차량|주차)/u', $t) && preg_match('/(\d{2,3})\s*(mm|T)\b/u', $t, $m) && (int) $m[1] < 80 && (int) $m[1] >= 30) {
         return "차량용인데 두께 {$m[1]}mm 표기 — 사내 80T·공식 기준과 충돌 가능";
     }
+    if (preg_match('/(?<!지하)차도/u', $t) && preg_match('/(설치|시공|사용|포장)[^.]{0,12}(가능|할\s*수)/u', $t) && !preg_match('/\d{2,3}\s*(mm|T)\b/u', $t)) {
+        return '두께 조건 없이 차도 설치 가능 표기 — 차량 80T 이상(공공 차도 100mm) 기준과 함께 확인';
+    }
     return '';
+}
+
+/**
+ * 원문 문장 단위 검토 (순수 함수) — 상담에 쓸 승인 후보면 '', 보류면 사유. 문장은 고치지 않는다(원문 그대로 쓰거나 빼거나).
+ * $others: 같은 출처의 다른 문장(긴 문장의 조각 판정용).
+ * 보류: 기준 충돌 가능(ext_fact_conflict) / 제목·시공사례 / 메뉴·제품 목록(서술 없음) / 다른 문장의 조각 / 홍보·최상급·비교 표현 / 가격·타사 언급 / 회사 소개·현장명.
+ */
+function ext_fact_review(string $t, array $others = []): string
+{
+    $t = trim($t);
+    $c = ext_fact_conflict($t);
+    $spec = (bool) preg_match('/KS\s*[A-Z]\s*-?\s*\d{4}|\d\s*(MPa|N\/㎟|N\/mm|kgf)/u', $t);   // 표준 번호·강도 수치는 서술이 없어도 사실 정보
+    foreach ($others as $o) {
+        if ($o !== $t && mb_strlen($o) > mb_strlen($t) && mb_strpos($o, $t) !== false) { $sub = true; break; }
+    }
+    return match (true) {
+        $c !== '' => "기준 확인 필요: {$c}",
+        (bool) preg_match('/^[◇▣■□◆○●▶★※]|(시공\s*사례|개요|과정|규격)$|^\(.*\)$/u', $t) => '제목·시공사례(내용 없음)',
+        isset($sub) => '다른 문장의 일부(중복)',
+        (bool) preg_match('/가장|최고|최상|획기적|훌륭|뛰어난|보석|유럽풍|어디에나|어떠한[^.]{0,10}에도|연출|분위기|경관|경쾌|개성/u', $t) => '홍보·최상급 표현(근거 확인 불가)',
+        (bool) preg_match('/저렴|가격|단가|원\)|중국산|타사/u', $t) => '가격·타사 언급',
+        (bool) preg_match('/에서는[^.]{0,30}(제작|판매|생산)|전문적으로|[가-힣]+구\s+[가-힣]+(아파트|단지|공원)/u', $t) => '회사 소개·현장명',
+        !$spec && !preg_match('/(니다|이다|한다|된다|있다|없다|있음|없음|함|됨|임|음|요망)[.!]?(\s*★[^.]*)?$/u', $t)
+            && (mb_strlen($t) < 20 || count(preg_split('/[\/,]/u', $t)) >= 4 || !preg_match('/[가-힣](은|는|이|가|을|를|에|에서|으로|로|와|과|도)\s|[가-힣]며[, ]/u', $t)) => '메뉴·제품명 목록(서술 없음)',
+        default => '',
+    };
 }
