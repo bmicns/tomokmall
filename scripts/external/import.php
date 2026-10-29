@@ -15,6 +15,7 @@ declare(strict_types=1);
  *     기본: 우리 취급 종류(블록·그레이팅·관·맨홀·수로관 등)로 판별된 행만 처리(--all 이면 전부). 큰 파일도 한 행씩 읽음
  *   php scripts/external/import.php --source=dacity --format=scrape-json --file=data/dacity/products.json --dry-run   (허락 전 출처: 분석만)
  *   php scripts/external/import.php --confirm=외부ID:상품ID [--confirm=…]   (사람이 확인한 매칭만 상담 카드에 사용)
+ *   php scripts/external/import.php --approve=외부ID,… | --approve-source=출처 | --reject=외부ID   (상담 참고 자료로 쓸지 사람이 승인 — approved 만 사용)
  *   php scripts/external/import.php --source=… --confirm-min=95   (보고서를 확인한 뒤, 그 출처의 1순위 후보 중 95점 이상만 한꺼번에 확정)
  * 형식: csv(UTF-8·CP949, 쉼표·탭) — 머리글 자동 인식(품명·규격·제조사·단가·단위·물품식별번호 등) / json / scrape-json(기존 수집 스크립트 결과)
  */
@@ -26,7 +27,7 @@ require "{$root}/app/bootstrap.php";
 require_once "{$root}/app/ai_tools.php";
 require_once "{$root}/app/external_products.php";
 
-$opt = getopt('', ['list-sources', 'source:', 'file:', 'format:', 'limit:', 'dry-run', 'license-checked', 'md:', 'confirm:', 'confirm-min:', 'all', 'show-columns']);
+$opt = getopt('', ['list-sources', 'source:', 'file:', 'format:', 'limit:', 'dry-run', 'license-checked', 'md:', 'confirm:', 'confirm-min:', 'all', 'show-columns', 'approve:', 'approve-source:', 'reject:']);
 $reg = json_decode((string) file_get_contents(getenv('EXT_SOURCES_FILE') ?: "{$root}/data/external/sources.json"), true);   // EXT_SOURCES_FILE: 테스트 전용 등록부
 $sources = array_column($reg['sources'] ?? [], null, 'key');
 $die = static function (string $m, int $code = 2): never { fwrite(STDERR, "[중단] {$m}\n"); exit($code); };
@@ -57,7 +58,7 @@ if (isset($opt['list-sources'])) {
 }
 
 $dbName = (string) ($config['db']['name'] ?? '');
-$needDb = !isset($opt['dry-run']) || isset($opt['confirm']) || isset($opt['confirm-min']);
+$needDb = !isset($opt['dry-run']) || isset($opt['confirm']) || isset($opt['confirm-min']) || isset($opt['approve']) || isset($opt['approve-source']) || isset($opt['reject']);
 if ($needDb && !preg_match('/_test$/', $dbName)) {
     $die("검증 구역 저장은 로컬 테스트 DB(DB_NAME=*_test)에서만 합니다. 현재 '{$dbName}' — 운영 반영은 승인 후 별도 절차.");
 }
@@ -65,6 +66,26 @@ $pdo = db();
 if (!$pdo) { $die('DB 에 연결하지 못했습니다(DB_HOST·DB_NAME·DB_USER·DB_PASS 확인).'); }
 if ($needDb && !ext_tables_ready()) {
     $die('external_products 테이블이 없습니다. 테스트 DB 에 database/20261029_external_products.sql 을 적용하세요(setup-local-test-db.sh --reset 이 적용).');
+}
+
+// ── 상담 참고 자료 승인(사람이 보고서 검토 후) — approved 만 material_info 도구가 쓴다 ─────────
+if (isset($opt['approve']) || isset($opt['approve-source']) || isset($opt['reject'])) {
+    $n = 0;
+    foreach (['approve' => 'approved', 'reject' => 'rejected'] as $o => $status) {
+        $ids = array_filter(array_map('intval', explode(',', implode(',', (array) ($opt[$o] ?? [])))));
+        if ($ids) {
+            $st = $pdo->prepare("UPDATE external_products SET review_status = ? WHERE id IN (" . implode(',', array_fill(0, count($ids), '?')) . ')');
+            $st->execute(array_merge([$status], array_values($ids)));
+            $n += $st->rowCount();
+        }
+    }
+    if (isset($opt['approve-source'])) {
+        $st = $pdo->prepare("UPDATE external_products SET review_status = 'approved' WHERE source_key = ? AND review_status = 'pending'");
+        $st->execute([(string) $opt['approve-source']]);
+        $n += $st->rowCount();
+    }
+    echo "검토 상태를 바꾼 외부 자료 {$n}건\n";
+    exit(0);
 }
 
 // ── 보고서를 본 뒤 높은 점수 1순위만 한꺼번에 확정(출처 단위) ────────────────
@@ -97,11 +118,12 @@ $key = (string) ($opt['source'] ?? '');
 $src = $sources[$key] ?? null;
 if (!$src) { $die("등록되지 않은 출처입니다: '{$key}' (--list-sources 로 확인, 새 출처는 data/external/sources.json 에 근거와 함께 추가)"); }
 if ($src['permission'] === 'blocked') { $die("'{$key}' 는 사용하지 않는 출처입니다(blocked): {$src['basis']}"); }
-if ($src['permission'] !== 'allowed' && !isset($opt['dry-run'])) {
+// facts_if_clear: 제조사 공개 페이지 — crawl-sources.php 가 robots.txt·약관 확인을 통과한 뒤 --license-checked 로만 넘긴다
+if (!in_array($src['permission'], ['allowed', 'facts_if_clear'], true) && !isset($opt['dry-run'])) {
     $die("'{$key}' 는 아직 이용 허락 전입니다(pending): {$src['basis']}\n  허락을 받으면 sources.json 의 permission 을 allowed 로 바꾸고 basis 에 근거를 적으세요. 지금은 --dry-run 분석만 가능합니다.");
 }
-if ($src['permission'] === 'allowed' && !empty($src['conditions']) && !isset($opt['license-checked']) && !isset($opt['dry-run'])) {
-    $die("'{$key}' 이용 조건을 확인한 뒤 --license-checked 를 붙여 실행하세요:\n  - " . implode("\n  - ", $src['conditions']));
+if (($src['permission'] === 'facts_if_clear' || !empty($src['conditions'])) && !isset($opt['license-checked']) && !isset($opt['dry-run'])) {
+    $die("'{$key}' 이용 조건을 확인한 뒤 --license-checked 를 붙여 실행하세요:\n  - " . implode("\n  - ", (array) ($src['conditions'] ?? [])));
 }
 
 // ── 파일 읽기 ──────────────────────────────────────────────────────
@@ -143,7 +165,7 @@ $pii = array_sum(array_column($norm, 'pii_removed'));
 // ── 저장(로컬 테스트 DB 검증 구역) ─────────────────────────────────
 $saved = 0;
 if (!isset($opt['dry-run'])) {
-    $attrsOf = static fn(array $u): string => json_encode($u['attrs'] + ['source_name' => $src['name']], JSON_UNESCAPED_UNICODE);
+    $attrsOf = static fn(array $u): string => json_encode($u['attrs'] + ['source_name' => $src['name']] + ($u['facts'] ? ['facts' => $u['facts']] : []), JSON_UNESCAPED_UNICODE);
     $ins = $pdo->prepare('INSERT INTO external_products (source_key, external_id, dedup_key, name, maker, product_type, spec_raw, width_mm, length_mm, thickness_mm, diameter_mm,
             material, attrs_json, unit, ref_price, price_basis, source_url, license_note, fetched_at)
         VALUES (:sk, :eid, :dk, :name, :maker, :type, :spec, :w, :l, :t, :d, :mat, :attrs, :unit, :price, :basis, :url, :lic, NOW())
@@ -174,12 +196,12 @@ $md = "# 외부 상품 가져오기 결과 — {$key} (" . date('Y-m-d H:i') . '
     . "- 개인 연락처 제거 {$pii}건 · 검증 구역 저장 {$saved}건 · DB {$dbName}\n"
     . "- 우리 상품 매칭: 유력(80점 이상) {$grades['probable']} · 검토(50~79) {$grades['review']} · 없음 {$grades['none']} — 확정은 사람이(--confirm)\n"
     . "- 외부 가격은 참고가로만 보관(판매가 아님). products 는 바꾸지 않음.\n\n"
-    . "| 외부ID | 외부 상품 | 규격 | 종류 | 두께·관경 | 재질 | 매칭 후보 상품ID(점수) |\n|---|---|---|---|---|---|---|\n";
+    . "| 외부ID | 외부 상품 | 규격 | 종류 | 두께·관경 | 재질 | 원문 문장 | 매칭 후보 상품ID(점수) |\n|---|---|---|---|---|---|---|---|\n";
 foreach (array_slice($uniq, 0, 30) as $u) {
     $dim = $u['thickness_mm'] ? "{$u['thickness_mm']}T" : ($u['diameter_mm'] ? "D{$u['diameter_mm']}" : '');
     $mt  = $u['matches'] ? implode(' / ', array_map(static fn($m) => "#{$m['product_id']} {$m['name']}({$m['score']})", array_slice($u['matches'], 0, 2))) : '없음';
     $cell = static fn(string $v): string => str_replace('|', '/', mb_substr($v, 0, 40));
-    $md .= '| ' . ($u['db_id'] ?? '-') . " | {$cell($u['name'])} | {$cell($u['spec_raw'])} | {$u['product_type']} | {$dim} | {$u['material']} | {$cell($mt)} |\n";
+    $md .= '| ' . ($u['db_id'] ?? '-') . " | {$cell($u['name'])} | {$cell($u['spec_raw'])} | {$u['product_type']} | {$dim} | {$u['material']} | " . array_sum(array_map('count', $u['facts'] ?? [])) . " | {$cell($mt)} |\n";
 }
 echo $md;
 if (isset($opt['md'])) { file_put_contents((string) $opt['md'], $md); }

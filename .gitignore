@@ -18,3 +18,5 @@ public/uploads/*
 /data/external/g2b/collected/
 /data/external/g2b/state.json
 /data/external/g2b/import-report.md
+# 제조사 공개 자료 수집(scripts/external/crawl-sources.php) 결과 — 수집본·보고서는 커밋하지 않음
+/data/external/crawl/

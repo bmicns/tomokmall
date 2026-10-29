@@ -345,3 +345,52 @@ function ext_api_build_url(array $op, string $key, array $over, int $page, int $
     $url = $op['url'] . '?' . $keyPart . ($qs !== '' ? '&' . $qs : '');
     return [$url, $op['url'] . '?' . $keyParam . '=****' . ($qs !== '' ? '&' . $qs : ''), $missing];
 }
+
+/** 약관 본문에서 자동수집·복제·저작권 관련 문장만 (순수 함수, 최대 6문장) */
+function ext_terms_clauses(string $html): array
+{
+    $text = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags((string) preg_replace('#<(script|style)[^>]*>.*?</\1>#isu', ' ', $html)), ENT_QUOTES, 'UTF-8')));
+    $out = [];
+    foreach (preg_split('/(?<=[.。다])\s+/u', $text) ?: [] as $sent) {
+        if (preg_match('/자동|수집|크롤|스크랩|로봇|복제|전재|무단|저작권|데이터베이스|2차적/u', $sent) && mb_strlen($sent) <= 300) {
+            $out[] = $sent;
+        }
+        if (count($out) >= 6) { break; }
+    }
+    return $out;
+}
+
+/** robots.txt 의 'User-agent: *' 규칙 판정 (순수 함수) */
+function ext_robots_check(string $txt): array
+{
+    $dis = [];
+    $active = false;
+    foreach (preg_split('/\r\n|\n|\r/', $txt) ?: [] as $line) {
+        $line = trim((string) preg_replace('/#.*/', '', $line));
+        if (preg_match('/^user-agent:\s*(.+)$/i', $line, $m)) {
+            $active = trim($m[1]) === '*';
+        } elseif ($active && preg_match('/^disallow:\s*(.*)$/i', $line, $m) && trim($m[1]) !== '') {
+            $dis[] = trim($m[1]);
+        }
+    }
+    $all = in_array('/', $dis, true);
+    $shop = (bool) array_filter($dis, static fn($d) => preg_match('#^/(shop/?$|shop/(list|item|search)|products?|goods|item)#i', $d));
+    return ['disallow' => $dis, 'verdict' => $all ? '전체 수집 금지' : ($shop ? '상품 경로 일부 금지' : ($dis ? '일부 경로만 금지(상품 경로 제외)' : '금지 규칙 없음'))];
+}
+
+/** robots.txt 'User-agent: *' 금지 경로에 걸리는지 (순수 함수) — 금지 경로로 시작하면 금지('*'·'$' 간단 처리) */
+function ext_robots_allows(array $disallow, string $path): bool
+{
+    foreach ($disallow as $d) {
+        $re = '#^' . str_replace(['\\*', '\\$'], ['.*', '$'], preg_quote($d, '#')) . '#';
+        if (preg_match($re, $path)) { return false; }
+    }
+    return true;
+}
+
+/** 약관 문장 중 자동수집·무단 복제를 금지하는 문장(이메일 무단수집 거부 문구는 제외) — 있으면 수집하지 않는다 */
+function ext_terms_prohibits(array $clauses): array
+{
+    return array_values(array_filter($clauses, static fn($c) => !preg_match('/이메일|전자우편|e-?mail/iu', $c)
+        && preg_match('/(자동|프로그램|크롤|로봇|스크랩|스크래핑|기계적).{0,30}(수집|복제|추출)|(무단|허락\s*없이|동의\s*없이|승낙\s*없이).{0,20}(수집|복제|전재|배포)/u', $c)));
+}

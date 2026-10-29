@@ -85,6 +85,9 @@ function ext_dims(string $spec): array
     $r = ['width_mm' => null, 'length_mm' => null, 'thickness_mm' => null, 'diameter_mm' => null, 'dim3_mm' => null];
     $v = parse_spec_field($spec)['spec'] ?: $spec;
     $r['thickness_mm'] = ai_block_thickness($v);
+    if ($r['thickness_mm'] === null && preg_match('/두께\s*(?:\(mm\))?\s*[:：]?\s*(\d{2,3})(?!\d)/u', $v, $m)) {   // 제조사 규격표 '두께 80'
+        $r['thickness_mm'] = (int) $m[1];
+    }
     if (preg_match('/(?:^|[^a-z])(?:d|Φ|ø|φ)\s*(\d{2,4})(?!\d)|(?<!\d)(\d{2,4})\s*(?:a|mm\s*관|파이)(?![a-z])/iu', $v, $m)) {
         $r['diameter_mm'] = (int) ($m[1] !== '' ? $m[1] : $m[2]);
     }
@@ -145,6 +148,12 @@ function ext_normalize(array $raw, string $sourceKey): array
         $pii += $n;
         return $s;
     };
+    // 원문 문장(ext_page_facts): 종류별 최대 5개·200자, 개인 연락처 제거
+    $facts = [];
+    foreach (is_array($raw['facts'] ?? null) ? array_intersect_key($raw['facts'], array_flip(['uses', 'features', 'cautions', 'certs', 'strength'])) : [] as $k => $list) {
+        $list = array_values(array_filter(array_map(static fn($t) => mb_substr($clean($t), 0, 200), (array) $list)));
+        if ($list) { $facts[$k] = array_slice($list, 0, 5); }
+    }
     $name  = $clean($raw['name'] ?? '');
     $spec  = $clean($raw['spec'] ?? '');
     $cat   = $clean($raw['category'] ?? '');
@@ -174,6 +183,7 @@ function ext_normalize(array $raw, string $sourceKey): array
         'ref_price'    => ($price !== '' && (int) $price > 0) ? (int) $price : null,
         'source_url'   => mb_substr(trim((string) ($raw['source_url'] ?? '')), 0, 500),
         'pii_removed'  => $pii,
+        'facts'        => $facts,   // 제조사 페이지 원문 문장(용도·특징·주의·인증·강도) — 원문 그대로. 중복 키에는 쓰지 않음
     ] + $dims;
     $n['dedup_key'] = sha1(implode('|', [ext_name_key($maker), $type, ext_name_key($name), $dims['width_mm'], $dims['length_mm'], $dims['dim3_mm'], $dims['thickness_mm'], $dims['diameter_mm'], ext_name_key($spec)]));
     return $n;
@@ -488,4 +498,45 @@ function ext_read_json(string $file, bool $scrape): array
         'price' => $r['priceB2c'] ?? $r['price'] ?? '', 'external_id' => $r['externalId'] ?? '', 'source_url' => $r['sourceUrl'] ?? '',
         'category' => $r['categoryName'] ?? '', 'note' => $r['description'] ?? '',
     ], $list);
+}
+
+/**
+ * 상담용 자재 참고 자료 — 사람이 승인한(review_status='approved') 외부 자료의 원문 문장만, 출처와 함께.
+ * 주제(예: '인터로킹 블록', '투수블록')의 종류·단어로 찾아 종류별(용도·특징·주의·인증·강도) 최대 3문장. 가격·판매 여부는 넣지 않는다.
+ * 테이블이 없거나 승인 자료가 없으면 빈 목록(상담은 기존처럼 일반 설명만).
+ */
+function ext_material_info(string $topic): array
+{
+    $none = ['topic' => $topic, 'facts' => [], 'sources' => [], 'note' => '승인된 참고 자료가 없습니다. 수치 없이 일반 설명만 하고, 상품·가격은 search_products 결과(토목몰)로만 안내하세요.'];
+    if (trim($topic) === '' || !ext_tables_ready()) { return $none; }
+    $type = ext_product_type($topic);
+    $words = array_values(array_filter(preg_split('/[\s,·]+/u', (string) preg_replace('/블럭/u', '블록', $topic)) ?: [], static fn($w) => mb_strlen($w) >= 2 && !preg_match('/^(차이|종류|어떤|무엇|추천|좋은|제품|자재)$/u', $w)));
+    $st = db()->query("SELECT id, name, maker, product_type, attrs_json, source_url, source_key, fetched_at FROM external_products WHERE review_status = 'approved' AND attrs_json LIKE '%\"facts\"%' LIMIT 2000");
+    $scored = [];
+    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $facts = (array) ((json_decode((string) $r['attrs_json'], true) ?: [])['facts'] ?? []);   // JSON 키(permeable 등)가 아니라 이름·종류·원문 문장에서만 찾음
+        $hay = str_replace('블럭', '블록', $r['name'] . ' ' . $r['product_type'] . ' ' . implode(' ', array_merge(...array_values(array_map('array_values', $facts)) ?: [[]])));
+        $score = ($type !== '' && $r['product_type'] === $type ? 5 : 0) + count(array_filter($words, static fn($w) => mb_stripos($hay, $w) !== false));
+        if ($score > 0) { $scored[] = [$score, $r]; }
+    }
+    if (!$scored) { return $none; }
+    usort($scored, static fn($a, $b) => $b[0] <=> $a[0]);
+    $labels = ['uses' => '용도·시공', 'features' => '특징', 'cautions' => '주의', 'certs' => '인증', 'strength' => '강도'];
+    $facts = $seen = $sources = [];
+    $per = [];
+    foreach ($scored as [, $r]) {
+        $a = json_decode((string) $r['attrs_json'], true) ?: [];
+        foreach ($labels as $k => $label) {
+            foreach ((array) ($a['facts'][$k] ?? []) as $t) {
+                if (isset($seen[$t]) || ($per[$k] ?? 0) >= 3) { continue; }
+                $seen[$t] = true;
+                $per[$k] = ($per[$k] ?? 0) + 1;
+                $facts[] = ['kind' => $label, 'text' => $t, 'maker' => (string) $r['maker'], 'product' => (string) $r['name'], 'source_url' => (string) $r['source_url'], 'fetched_at' => substr((string) $r['fetched_at'], 0, 10)];
+                $sources[$r['source_url'] ?: $r['source_key']] = ['maker' => (string) ($r['maker'] ?: ($a['source_name'] ?? $r['source_key'])), 'url' => (string) $r['source_url']];
+            }
+        }
+        if (count($facts) >= 12) { break; }
+    }
+    return ['topic' => $topic, 'facts' => $facts, 'sources' => array_values($sources),
+            'note' => '제조사 공개 자료 원문(사람이 승인한 것만) — 판매 상품·가격이 아님. 출처끼리 다르면 단정하지 말고 둘 다 출처와 함께 전하세요.'];
 }

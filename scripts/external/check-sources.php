@@ -11,6 +11,7 @@ declare(strict_types=1);
  */
 if (PHP_SAPI !== 'cli') { exit; }
 $root = dirname(__DIR__, 2);
+require_once "{$root}/app/external_api.php";   // ext_robots_check·ext_terms_clauses(수집기와 공용)
 $opt = getopt('', ['only:', 'md:', 'terms']);
 $reg = json_decode((string) file_get_contents(getenv('EXT_SOURCES_FILE') ?: "{$root}/data/external/sources.json"), true);   // EXT_SOURCES_FILE: 테스트 전용 등록부
 $only = isset($opt['only']) ? array_map('trim', explode(',', (string) $opt['only'])) : null;
@@ -32,38 +33,6 @@ function check_get(string $url, string $ua): array
     return [$code, is_string($body) ? $body : '', $final];
 }
 
-/** 약관 본문에서 자동수집·복제·저작권 관련 문장만 (순수 함수, 최대 6문장) */
-function check_terms_clauses(string $html): array
-{
-    $text = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags((string) preg_replace('#<(script|style)[^>]*>.*?</\1>#isu', ' ', $html)), ENT_QUOTES, 'UTF-8')));
-    $out = [];
-    foreach (preg_split('/(?<=[.。다])\s+/u', $text) ?: [] as $sent) {
-        if (preg_match('/자동|수집|크롤|스크랩|로봇|복제|전재|무단|저작권|데이터베이스|2차적/u', $sent) && mb_strlen($sent) <= 300) {
-            $out[] = $sent;
-        }
-        if (count($out) >= 6) { break; }
-    }
-    return $out;
-}
-
-/** robots.txt 의 'User-agent: *' 규칙 판정 (순수 함수) */
-function check_robots(string $txt): array
-{
-    $dis = [];
-    $active = false;
-    foreach (preg_split('/\r\n|\n|\r/', $txt) ?: [] as $line) {
-        $line = trim((string) preg_replace('/#.*/', '', $line));
-        if (preg_match('/^user-agent:\s*(.+)$/i', $line, $m)) {
-            $active = trim($m[1]) === '*';
-        } elseif ($active && preg_match('/^disallow:\s*(.*)$/i', $line, $m) && trim($m[1]) !== '') {
-            $dis[] = trim($m[1]);
-        }
-    }
-    $all = in_array('/', $dis, true);
-    $shop = (bool) array_filter($dis, static fn($d) => preg_match('#^/(shop/?$|shop/(list|item|search)|products?|goods|item)#i', $d));
-    return ['disallow' => $dis, 'verdict' => $all ? '전체 수집 금지' : ($shop ? '상품 경로 일부 금지' : ($dis ? '일부 경로만 금지(상품 경로 제외)' : '금지 규칙 없음'))];
-}
-
 $md = "# 외부 출처 수집 가능성 재확인 (" . date('Y-m-d H:i') . ")\n\n"
     . "robots.txt 와 이용약관 링크만 확인했다. **robots.txt 에 금지가 없어도 약관·저작권(DB 제작자 권리)·제휴 여부는 사람이 판단**한다.\n\n"
     . "| 출처 | 권한(등록부) | robots.txt | 판정 | 약관·정책 링크 |\n|---|---|---|---|---|\n";
@@ -72,7 +41,7 @@ foreach ($reg['sources'] ?? [] as $s) {
     if ($dom === '' || ($only && !in_array($s['key'], $only, true))) { continue; }
     [$code, $body] = check_get("https://{$dom}/robots.txt", $ua);
     if ($code === 0) { [$code, $body] = check_get("http://{$dom}/robots.txt", $ua); }
-    $rb = ($code === 200 && stripos($body, '<html') === false) ? check_robots($body) : null;
+    $rb = ($code === 200 && stripos($body, '<html') === false) ? ext_robots_check($body) : null;
     sleep(1);
     [$hc, $html, $final] = check_get("https://{$dom}/", $ua);
     if ($hc === 0) { [$hc, $html, $final] = check_get("http://{$dom}/", $ua); }
@@ -97,7 +66,7 @@ foreach ($reg['sources'] ?? [] as $s) {
         foreach (array_slice(array_keys(array_filter($links, static fn($t, $h) => preg_match('/약관|저작권|agreement|provision|terms|stipulation/iu', $t . $h), ARRAY_FILTER_USE_BOTH)), 0, 2) as $h) {
             sleep(1);
             [$tc, $th] = check_get($h, $ua);
-            $cl = $tc === 200 ? check_terms_clauses($th) : [];
+            $cl = $tc === 200 ? ext_terms_clauses($th) : [];
             $terms[] = "### {$s['key']} — {$h} (HTTP {$tc})\n\n" . ($cl ? '- ' . implode("\n- ", $cl) : '- 자동수집·복제·저작권 관련 문장을 찾지 못함(직접 열람 필요)') . "\n";
         }
     }
