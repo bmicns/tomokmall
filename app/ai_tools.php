@@ -94,7 +94,7 @@ function ai_tool_definitions(): array
                 'parameters'  => [
                     'type'       => 'object',
                     'properties' => [
-                        'topic' => ['type' => 'string', 'description' => "자재 종류나 특성 키워드. 예: '인터로킹 블록', '투수블록', '인조화강블록', '스틸 그레이팅'"],
+                        'topic' => ['type' => 'string', 'description' => "자재 종류 + 고객이 말한 사용 조건·특성 키워드. 예: '인터로킹 블록', '투수블록', '스틸 그레이팅 유모차 휠체어', '그레이팅 미끄럼'"],
                     ],
                     'required' => ['topic'],
                 ],

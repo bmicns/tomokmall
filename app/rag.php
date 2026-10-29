@@ -689,7 +689,7 @@ function rag_build_prompt(array $messages): array
         . "- 일반 설명에서 가격·강도·법정 기준 같은 구체 숫자를 지어내지 않는다. 숫자는 아래 [참조 문서]에 있는 것만 인용하고, 가격·수량은 검색 결과 표로 보여준다.\n"
         . "- 면적을 모르면 '가로 몇 m × 세로 몇 m인지' 물어보고, 답을 받으면 직접 곱해 area_m2로 넘긴다(예: 5m×4m → 20). 대략값도 괜찮다고 안내한다.\n"
         . "- 자재 종류의 차이·특징·물빠짐·주의사항 질문과, 사용 조건(유모차·휠체어·미끄럼·오염·차량 통행 등)에 맞는 자재를 고르는 질문에는 material_info 를 먼저 호출하고, 돌려준 원문 문장을 '○○(제조사) 자료에 따르면'처럼 그 제조사 제품 설명으로 쉬운 말로 전한다(출처끼리 다르면 단정하지 않음, 공식 기준 수치는 [L번호] 근거만).\n"
-        . "  원문에 없는 성능·용도·비교(중장비 통과, 다른 제품도 같다 등)를 덧붙이거나, 한 제조사의 제품 표기를 '이걸 쓰면 된다'는 일반 선택 기준으로 단정하지 않는다. material_info 결과가 비어 있으면 '제조사 자료에 따르면'이라고 말하지 말고, 수치 없는 일반 설명임을 밝힌다.\n"
+        . "  원문에 없는 성능·용도·비교·수치(중장비 통과, 'n톤 이상', 다른 제품도 같다 등)를 덧붙이거나, 한 제조사의 제품 표기를 '이걸 쓰면 된다'는 일반 선택 기준으로 단정하지 않는다. KS·표준 번호는 [참조 문서]·material_info 원문에 있는 것만 쓴다. material_info 결과가 비어 있으면 '제조사 자료에 따르면'이라고 말하지 말고, 수치 없는 일반 설명임을 밝힌다.\n"
         . "- 선택지를 비교한 뒤 면적·길이가 확인되면 search_products의 queries로 종류별 제품을 한 표에 모아 보여준다.\n"
         . "  표에는 제품별 필요 수량과 예상 자재비(판매가 기준, 운반·시공비 별도)가 자동 계산되어 차이를 바로 비교할 수 있다.\n"
         . "\n"
@@ -846,6 +846,9 @@ function rag_process(array $messages, string $sid): array
     $maxIter      = 3;
     $toolUsed     = false;
     $forceSearch  = false;   // '찾아 드릴게요'만 하고 끝난 응답 → 1회 검색 재요청
+    $chatUrl      = $config['openai']['chat_url'] ?? 'https://api.openai.com/v1/chat/completions';
+    $answered     = false;   // 도구 없이 끝난(최종 답을 받은) 응답이 있었는지
+    $toolLog      = [];      // 부른 도구 이름·인자(시험 결과 기록용 — chat.php 는 화면에 보내지 않음)
 
     for ($iter = 0; $iter < $maxIter; $iter++) {
         $body = json_encode([
@@ -858,7 +861,7 @@ function rag_process(array $messages, string $sid): array
         $forceSearch = false;
 
         $raw = rag_curl_post(
-            'https://api.openai.com/v1/chat/completions',
+            $chatUrl,
             $body,
             ['Content-Type: application/json', 'Authorization: Bearer ' . $apiKey]
         );
@@ -893,13 +896,14 @@ function rag_process(array $messages, string $sid): array
             $responseText .= ($responseText !== '' ? "\n" : '') . $content;
         }
 
-        if ($noTool) break;
+        if ($noTool) { $answered = true; break; }
 
         $toolUsed = true;
         $oaiMessages[] = $message;
 
         foreach ($toolCalls as $tc) {
             $input    = json_decode($tc['function']['arguments'] ?? '{}', true) ?? [];
+            $toolLog[] = ['name' => (string) ($tc['function']['name'] ?? ''), 'input' => $input];
             $output   = ai_tool_dispatch($tc['function']['name'] ?? '', $input, $sid);
             $toolData = json_decode($output, true) ?? [];
 
@@ -916,6 +920,19 @@ function rag_process(array $messages, string $sid): array
         }
     }
 
+    // 도구 호출만 하다 반복 한도에 닿으면 최종 답 없이 끝난다(빈 답변) → 도구 없이 답만 1회 더 요청
+    if (!$answered) {
+        $raw = rag_curl_post($chatUrl, json_encode(['model' => $model, 'stream' => false, 'tools' => ai_tool_definitions(), 'tool_choice' => 'none', 'messages' => $oaiMessages]),
+            ['Content-Type: application/json', 'Authorization: Bearer ' . $apiKey]);
+        $final = $raw === false ? null : json_decode($raw, true);
+        $content = (string) ($final['choices'][0]['message']['content'] ?? '');
+        if ($content !== '') {
+            $responseText .= ($responseText !== '' ? "\n" : '') . $content;
+        } elseif ($responseText === '') {
+            return ['ok' => false, 'text' => '', 'events' => $events, 'tools' => $toolLog, 'error' => '답변을 만들지 못했습니다. 다시 시도해 주세요.'];
+        }
+    }
+
     // 실제로 인용한 법령 근거만 출처로 표시(지어낸 번호는 버리고 표시는 본문에서 제거)
     $cit = rag_extract_legal_citations($responseText, $legalDocs);
     $responseText = $cit['text'];
@@ -923,5 +940,5 @@ function rag_process(array $messages, string $sid): array
         $events[] = ['type' => 'legal_sources', 'sources' => $cit['sources']];
     }
 
-    return ['ok' => true, 'text' => $responseText, 'events' => $events, 'category' => $categoryKey];
+    return ['ok' => true, 'text' => $responseText, 'events' => $events, 'category' => $categoryKey, 'tools' => $toolLog];
 }

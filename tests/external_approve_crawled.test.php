@@ -47,7 +47,9 @@ file_put_contents("{$tmp}/test_appr-20261029-000000.json", json_encode([
     $rec('[테스트]인조화강블록 차도용', '200*100 / 두께 60', 3, ['uses' => [$road]]),
 ], JSON_UNESCAPED_UNICODE));
 $pave = '[테스트] 표면 오염방지 처리로 블록의 수명을 연장합니다.';
-file_put_contents("{$tmp}/test_appr_pave-20261029-000000.json", json_encode([$rec('[테스트]컬러 보도블록', '200*200*60', 1, ['features' => [$pave]])], JSON_UNESCAPED_UNICODE));
+$stroller = '[테스트] 블록 줄눈은 유모차 바퀴가 걸리지 않게 좁습니다.';
+file_put_contents("{$tmp}/test_appr_pave-20261029-000000.json", json_encode([$rec('[테스트]컬러 보도블록', '200*200*60', 1, ['features' => [$pave,
+    '[테스트] 블록 표면은 미끄럼 방지 패턴입니다.', '[테스트] 블록 기층에 재활용 골재를 사용합니다.', $stroller]])], JSON_UNESCAPED_UNICODE));
 $env = 'EXT_SOURCES_FILE=' . escapeshellarg("{$tmp}/sources.json") . ' EXT_CRAWL_DIR=' . escapeshellarg($tmp);
 $run = static function (string $script, string $args = '') use ($env): array {
     exec("{$env} " . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . "/../scripts/external/{$script}") . " {$args} 2>&1", $out, $code);
@@ -90,6 +92,8 @@ try {
     ok('두께 조건 없는 차도 설치 문장은 상담 자료에 없음', !str_contains($facts('인조화강블록 차도'), '어디에나'));
 
     $run('approve-crawled.php', '--approve=test_appr_pave');
+    $fs = json_decode(tool_material_info(['topic' => '보도블록 유모차']), true)['facts'] ?? [];
+    ok('질문 낱말(유모차)이 든 문장을 먼저 — 종류별 3개 한도에 밀려 빠지지 않음', ($fs[0]['text'] ?? '') === $stroller);
     ok("'보도블록'으로만 표기한 제조사 행도 인조화강블록 질문에서 찾음(바닥 포장 블록끼리)", str_contains($facts('인조화강블록'), $pave) && str_contains($facts('보도블록'), $pave));
 
     echo "[다시 가져오기]\n";
@@ -100,7 +104,7 @@ try {
     [$c6, $o6] = $run('approve-crawled.php', '--revoke=test_appr');
     $a3 = json_decode((string) array_column($rows(), 'attrs_json', 'name')['[테스트]스틸그레이팅 SG-1'], true);
     ok('--revoke: 검토 대기로, 걸러 낸 문장은 원래대로 합침, 상담 자료에서 빠짐', $c6 === 0 && str_contains($o6, '승인 되돌림 1행') && !array_filter($rows(), static fn($r) => $r['review_status'] !== 'pending')
-        && count($a3['facts']['features']) === 3 && !isset($a3['facts_held']) && !str_contains($facts('그레이팅 미끄럼'), '[테스트]'));
+        && count($a3['facts']['features']) === 3 && !isset($a3['facts_held']) && !str_contains($facts('그레이팅 미끄럼'), $good));
     [$c7, $o7] = $run('approve-crawled.php', "--approve=test_appr --exclude='크로스 바'");
     ok('--exclude 로 다시 승인: 남는 후보 문장이 없으면 승인 안 함', $c7 === 0 && str_contains($o7, '승인 0행') && !array_filter($rows(), static fn($r) => $r['review_status'] !== 'pending'));
     ok('products 건수·판매가 합계 그대로', $prodBefore === $pdo->query('SELECT COUNT(*), SUM(price_b2c) FROM products')->fetch(PDO::FETCH_NUM));

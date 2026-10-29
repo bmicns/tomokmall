@@ -524,19 +524,26 @@ function ext_material_info(string $topic): array
     if (!$scored) { return $none; }
     usort($scored, static fn($a, $b) => $b[0] <=> $a[0]);
     $labels = ['uses' => '용도·시공', 'features' => '특징', 'cautions' => '주의', 'certs' => '인증', 'strength' => '강도'];
-    $facts = $seen = $sources = [];
-    $per = [];
-    foreach ($scored as [, $r]) {
+    // 문장 순서: 질문 낱말(유모차·휠체어 등)이 든 문장 먼저 → 행 점수 순. 종류별 3개·전체 12개
+    $cand = [];
+    foreach (array_slice($scored, 0, 40) as $ri => [$rs, $r]) {
         $a = json_decode((string) $r['attrs_json'], true) ?: [];
         foreach ($labels as $k => $label) {
             foreach ((array) ($a['facts'][$k] ?? []) as $t) {
-                if (isset($seen[$t]) || ($per[$k] ?? 0) >= 3) { continue; }
-                $seen[$t] = true;
-                $per[$k] = ($per[$k] ?? 0) + 1;
-                $facts[] = ['kind' => $label, 'text' => $t, 'maker' => (string) $r['maker'], 'product' => (string) $r['name'], 'source_url' => (string) $r['source_url'], 'fetched_at' => substr((string) $r['fetched_at'], 0, 10)];
-                $sources[$r['source_url'] ?: $r['source_key']] = ['maker' => (string) ($r['maker'] ?: ($a['source_name'] ?? $r['source_key'])), 'url' => (string) $r['source_url']];
+                $hit = count(array_filter($words, static fn($w) => mb_stripos(str_replace('블럭', '블록', (string) $t), $w) !== false));
+                $cand[] = [$hit, $rs, count($cand), $k, $label, (string) $t, $r, $a];
             }
         }
+    }
+    usort($cand, static fn($x, $y) => [$y[0], $y[1], $x[2]] <=> [$x[0], $x[1], $y[2]]);
+    $facts = $seen = $sources = [];
+    $per = [];
+    foreach ($cand as [, , , $k, $label, $t, $r, $a]) {
+        if (isset($seen[$t]) || ($per[$k] ?? 0) >= 3) { continue; }
+        $seen[$t] = true;
+        $per[$k] = ($per[$k] ?? 0) + 1;
+        $facts[] = ['kind' => $label, 'text' => $t, 'maker' => (string) $r['maker'], 'product' => (string) $r['name'], 'source_url' => (string) $r['source_url'], 'fetched_at' => substr((string) $r['fetched_at'], 0, 10)];
+        $sources[$r['source_url'] ?: $r['source_key']] = ['maker' => (string) ($r['maker'] ?: ($a['source_name'] ?? $r['source_key'])), 'url' => (string) $r['source_url']];
         if (count($facts) >= 12) { break; }
     }
     return ['topic' => $topic, 'facts' => $facts, 'sources' => array_values($sources),
