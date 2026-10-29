@@ -82,8 +82,9 @@ $p = rag_road_context_prompt('public_road');
 ok('공공도로: 100mm·KDS/KCS 44 50 25·설계도서 우선·80T 비권장·spec_mm 100',
     str_contains($p, '최소 100mm') && str_contains($p, 'KDS 44 50 25') && str_contains($p, '설계도서') && str_contains($p, '80T) 제품을 공공도로 차도용으로 권하지 않는다') && str_contains($p, 'spec_mm 100'));
 $p = rag_road_context_prompt('public_sidewalk');
-ok('공공 보도: 4t 이하 범위·차도는 별도 기준', str_contains($p, '4t 이하') && str_contains($p, '최소 100mm'));
+ok('공공 보도: 4t 이하 범위·차도는 별도 기준(근거 없는 100mm 수치 없음)', str_contains($p, '4t 이하') && str_contains($p, '차도 기준이 따로') && !str_contains($p, '100mm'));
 $p = rag_road_context_prompt('unclear');
+ok('불명확: 근거 없는 100mm 수치 없음', !str_contains(rag_road_context_prompt('unclear'), '100mm'));
 ok('불명확: 단정 금지 + 장소 확인 질문', str_contains($p, "'충분하다'고 단정하기 전에") && str_contains($p, '개인 부지(마당·주차장·진입로)인가요, 도로(인도·차도) 공사인가요?'));
 ok('사유지·해당 없음: 추가 구역 없음(기존 흐름 그대로)', rag_road_context_prompt('private') === '' && rag_road_context_prompt('none') === '');
 $p = rag_road_context_prompt('public_road', false);

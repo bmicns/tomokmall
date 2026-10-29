@@ -14,6 +14,7 @@ declare(strict_types=1);
  *  rag_extract_legal_citations() — AI 답변의 [L번호] 표시 → 실제 인용한 근거만 추출
  *  rag_road_context()          — 차량 블록 시공 장소 판정(공공도로 차도/공공 보도 차량 출입부/사유지/불명확)
  *  rag_road_context_prompt()   — 판정별 별도 안내 구역(사내 80T 안내 문구는 그대로 두고 공식 기준을 맥락별로 분리)
+ *  rag_build_prompt()          — 상담 시스템 프롬프트·근거 묶음 생성(API 호출 없음, rag_process 가 사용)
  */
 
 require_once __DIR__ . '/ai_tools.php';
@@ -479,11 +480,11 @@ function rag_road_context_prompt(string $ctx, bool $hasScopedDocs = true): strin
         'public_sidewalk' => "\n\n=== 공공 보도의 차량 출입부 — 공식 기준 별도 안내 ===\n"
             . "- 고객 질문이 도로의 보도(인도)를 차량이 가로질러 출입하는 곳의 포장으로 보인다.\n"
             . "- 아래 공식 근거(보도 설치 및 관리 지침)가 있으면 그 범위(최대 적재량 4t 이하 차량이 보도를 가로질러 통행하는 보도)와 함께 [L번호]로 안내한다.\n"
-            . "- 4t 를 넘는 차량이 다니거나 차도 부분이면 공공도로 차도 기준(차도용 블록 최소 100mm)이 따로 있으니 공사 성격을 확인한다.",
+            . "- 4t 를 넘는 차량이 다니거나 차도 부분이면 공공도로 차도 기준이 따로 있으니 공사 성격을 먼저 확인한다(이 구역에 없는 수치는 말하지 않는다).",
         'unclear' => "\n\n=== 차량 블록 시공 장소 확인 ===\n"
             . "- 차량이 올라가는 블록 시공이지만 장소가 분명하지 않다. 두께가 '충분하다'고 단정하기 전에 먼저 묻는다:\n"
             . "  '개인 부지(마당·주차장·진입로)인가요, 도로(인도·차도) 공사인가요? 발주처 설계도서나 시방서가 있나요?'\n"
-            . "- 도로 차도 공사로 확인되면 공식 기준(차도용 블록 최소 100mm)이 적용될 수 있음을 알리고, 개인 부지면 기존 안내대로 진행한다.",
+            . "- 도로 차도 공사로 확인되면 다음 답변에서 공식 기준을 따로 안내하고(이번 답변에서 수치를 단정하지 않는다), 개인 부지면 기존 안내대로 진행한다.",
         default => '',
     };
 }
@@ -606,22 +607,12 @@ function rag_curl_post(string $url, string $body, array $headers): string|false
 }
 
 /**
- * OpenAI Tool Use 루프 — AJAX 응답용 (SSE 없음)
- *
- * @return array{ok:bool, text:string, events:list<array>, error?:string}
+ * 상담 시스템 프롬프트와 이번 질문의 근거 묶음 생성 — API 호출 없음.
+ * rag_process() 가 이 결과를 그대로 OpenAI 에 보낸다. 프롬프트 검증(scripts/testdb/dump-prompts.php)·테스트에서도 같은 함수를 쓴다.
+ * @return array{system:string, categoryKey:string, ragDocs:array, legalDocs:array, roadCtx:string, scopes:array}
  */
-function rag_process(array $messages, string $sid): array
+function rag_build_prompt(array $messages): array
 {
-    global $config;
-
-    if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
-
-    $apiKey = $config['openai']['api_key'] ?? '';
-    $model  = $config['openai']['model']   ?? 'gpt-4o-mini';
-    if (!$apiKey) {
-        return ['ok' => false, 'text' => '', 'events' => [], 'error' => 'API 키가 설정되지 않았습니다.'];
-    }
-
     // Stage 2: 카테고리 자동 감지 + DB 가이드 로드
     $categoryKey = rag_detect_category($messages);
     $guideText   = rag_load_consult_guide($categoryKey);
@@ -746,6 +737,39 @@ function rag_process(array $messages, string $sid): array
     $scopedHit = (bool) array_filter($legalDocs, static fn($d) => array_intersect(rag_legal_doc_scopes($d), $legalIn['scopes']));
     $system .= rag_road_context_prompt($roadCtx, $scopedHit);
     $system .= rag_legal_prompt_section($legalDocs);
+
+    return [
+        'system'      => $system,
+        'categoryKey' => $categoryKey,
+        'ragDocs'     => $ragDocs,
+        'legalDocs'   => $legalDocs,
+        'roadCtx'     => $roadCtx,
+        'scopes'      => $legalIn['scopes'],
+    ];
+}
+
+/**
+ * OpenAI Tool Use 루프 — AJAX 응답용 (SSE 없음)
+ *
+ * @return array{ok:bool, text:string, events:list<array>, error?:string}
+ */
+function rag_process(array $messages, string $sid): array
+{
+    global $config;
+
+    if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
+
+    $apiKey = $config['openai']['api_key'] ?? '';
+    $model  = $config['openai']['model']   ?? 'gpt-4o-mini';
+    if (!$apiKey) {
+        return ['ok' => false, 'text' => '', 'events' => [], 'error' => 'API 키가 설정되지 않았습니다.'];
+    }
+
+    // 프롬프트·근거 생성(rag_build_prompt) — 내용은 분리 전과 동일
+    $prompt      = rag_build_prompt($messages);
+    $system      = $prompt['system'];
+    $categoryKey = $prompt['categoryKey'];
+    $legalDocs   = $prompt['legalDocs'];
 
     $oaiMessages = array_merge([['role' => 'system', 'content' => $system]], $messages);
     $responseText = '';
