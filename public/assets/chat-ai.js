@@ -194,7 +194,7 @@ function renderProductCards(products, container) {
     const price = fmt(p.price_b2c);
     const unitHtml = p.unit ? `<span class="compare-unit">/${escHtml(p.unit)}</span>` : '';
     const costHtml = (p.est_cost && p.est_cost > 0)
-      ? `<div class="compare-cost">예상 ₩${fmt(p.est_cost)}</div>`
+      ? `<div class="compare-cost">예상 ₩${fmt(p.est_cost)}${p.cost_lowest ? ' <span class="compare-lowest">예상 최저</span>' : ''}</div>`
       : '';
     const imgHtml = p.image_url
       ? `<img class="compare-img" src="${escHtml(p.image_url)}" alt="" loading="lazy" onerror="this.className='compare-img-ph';this.removeAttribute('src')">`

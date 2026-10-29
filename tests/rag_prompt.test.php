@@ -12,6 +12,7 @@ declare(strict_types=1);
  *        2026-10-29 의도적 변경 반영(3, 실제 GPT-4o 결과 반영): 공통 규칙 4줄 — 처리할 수 없는 문의·연락 약속 금지,
  *        필수 항목 확인 후 되묻지 말고 검색, '찾아 드릴게요'만 하고 끝내지 않기, alternatives(같은 두께 등록 블록)로 재검색.
  *        2026-10-29 의도적 변경 반영(4, 구매 전환): 카드 guide(고르는 기준) 활용 1줄, add_to_cart 수량 = 권장 수량(suggested_qty) 1줄 수정.
+ *        2026-10-29 의도적 변경 반영(5, 초보 고객 친절성): 추천 이유·주의사항 1줄, 가격 차이 질문은 cost_summary 만 인용, 개수 질문은 qty_basis 인용 — 3줄 추가.
  * 데이터: SQL 초안 01·02·06·07 을 적용한 테스트 DB(검증 조문 27건·활성 22건). 다르면 SKIP(기준값은 그 데이터 기준).
  * 프롬프트를 의도적으로 바꿨다면: php scripts/testdb/dump-prompts.php --out=… 로 확인 후 기준값을 갱신한다.
  * 실행: DB_HOST=127.0.0.1 DB_NAME=tomokmall_test DB_USER=… DB_PASS=… php tests/rag_prompt.test.php

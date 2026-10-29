@@ -356,6 +356,7 @@ function tool_search_products(array $input): string
         return json_encode($out, JSON_UNESCAPED_UNICODE);
     }
 
+    [$cards, $costSummary] = ai_cost_summary($cards);
     $out = [
         'products' => $cards,
         'count'    => count($cards),
@@ -363,6 +364,7 @@ function tool_search_products(array $input): string
             ['type' => 'product_cards', 'products' => $cards],
         ],
     ];
+    if ($costSummary) { $out['cost_summary'] = $costSummary; }   // '어떤 게 더 저렴해?' 답변용 — 도구가 계산한 값만
     if ($note !== null)      { $out['note']      = $note; }      // 교정/규격완화 사유
     if ($corrected !== null) { $out['corrected'] = $corrected; }
     return json_encode($out, JSON_UNESCAPED_UNICODE);
@@ -515,6 +517,30 @@ function ai_unit_label(string $spec): string
 }
 
 /**
+ * 예상 자재비 비교 요약 (순수 함수) — 같은 면적·길이로 계산된 카드가 2개 이상일 때만.
+ * 가장 낮은 카드에 cost_lowest 표시. [카드 목록, 요약|null]. 금액은 판매가 기준 자재비(운반·시공비 별도) — 지어낸 값이 아니라 카드의 est_cost.
+ */
+function ai_cost_summary(array $cards): array
+{
+    $priced = array_values(array_filter($cards, static fn($c) => ($c['est_cost'] ?? 0) > 0));
+    if (count($priced) < 2) {
+        return [$cards, null];
+    }
+    usort($priced, static fn($a, $b) => $a['est_cost'] <=> $b['est_cost']);
+    [$lo, $hi] = [$priced[0], $priced[count($priced) - 1]];
+    foreach ($cards as &$c) {
+        $c['cost_lowest'] = ((int) $c['id'] === (int) $lo['id']);
+    }
+    unset($c);
+    return [$cards, [
+        'lowest'  => ['name' => $lo['name'], 'spec' => spec_size_label((string) $lo['spec']), 'est_cost' => $lo['est_cost']],
+        'highest' => ['name' => $hi['name'], 'spec' => spec_size_label((string) $hi['spec']), 'est_cost' => $hi['est_cost']],
+        'difference' => $hi['est_cost'] - $lo['est_cost'],
+        'basis' => '같은 면적·길이 기준 판매가 자재비(운반·시공비 별도)',
+    ]];
+}
+
+/**
  * 여러 종류 비교 검색: 종류별 대표 제품을 같은 조건(spec_mm·length_m·area_m2)으로 찾아 한 표로 합친다.
  * 종류별 결과는 기존 tool_search_products 그대로 사용(검색·수량 계산 로직 공유).
  */
@@ -569,6 +595,7 @@ function ai_search_compare(array $queries, array $input): string
             '_sse'     => [],
         ], JSON_UNESCAPED_UNICODE);
     }
+    [$cards, $costSummary] = ai_cost_summary($cards);
     $out = [
         'products' => $cards,
         'count'    => count($cards),
@@ -576,6 +603,7 @@ function ai_search_compare(array $queries, array $input): string
             ['type' => 'product_cards', 'products' => $cards, 'compare' => true],
         ],
     ];
+    if ($costSummary) { $out['cost_summary'] = $costSummary; }
     if ($notes) { $out['note'] = implode(' ', $notes); }
     return json_encode($out, JSON_UNESCAPED_UNICODE);
 }

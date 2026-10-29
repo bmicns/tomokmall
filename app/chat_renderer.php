@@ -185,6 +185,7 @@ render_header('AI 자재 상담', 'chat');
   .compare-price { font-size: 13px; font-weight: 600; color: var(--color-primary); white-space: nowrap; }
   .compare-unit { font-size: 11px; font-weight: 400; color: var(--color-text-secondary); }
   .compare-cost { font-size: 11px; font-weight: 600; color: var(--color-text-primary); margin-top: 3px; }
+  .compare-lowest { display: inline-block; padding: 0 5px; margin-left: 2px; font-size: 10px; font-weight: 700; color: #fff; background: var(--color-primary); }
   .compare-summary { font-size: 12px; line-height: 1.5; padding: 8px 10px; margin-bottom: 6px; background: var(--color-surface); border: 1px solid var(--color-border); }
   .compare-summary b { color: var(--color-primary); }
   .compare-summary span { display: block; font-size: 11px; color: var(--color-text-secondary); }
@@ -370,7 +371,10 @@ render_header('AI 자재 상담', 'chat');
     .input-row textarea { height: 48px; font-size: 16px; }
     .hint-chips { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; }
     .hint-chip { white-space: nowrap; flex-shrink: 0; }
-    /* 비교표: 가로 스크롤 없이 한 상품을 세로로 — 수량·견적추가 버튼이 화면 안에 보이게 */
+  }
+
+  /* 비교표: 태블릿(채팅 칸이 좁아짐)·모바일은 가로 스크롤 없이 한 상품을 세로로 — 수량·견적추가 버튼이 화면 안에 보이게 */
+  @media (max-width: 900px) {
     .compare-table thead { display: none; }
     .compare-table table, .compare-table tbody { display: block; }
     .compare-table tr[data-pid] { display: grid; grid-template-columns: 60px 1fr auto; grid-template-areas: "img name name" "img price price" "img qty add"; gap: 6px 10px; padding: 10px 0; border-bottom: 1px solid var(--color-border); }
