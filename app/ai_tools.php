@@ -615,10 +615,13 @@ function ai_search_compare(array $queries, array $input): string
 function tool_add_to_cart(array $input, string $sid): string
 {
     $productId = (int) ($input['product_id'] ?? 0);
-    $quantity  = max(1, min(9999, (int) ($input['quantity'] ?? 1)));
+    $quantity  = (int) ($input['quantity'] ?? 1);
 
     if ($productId <= 0) {
         return json_encode(['error' => 'product_id 가 유효하지 않습니다.']);
+    }
+    if ($quantity < 1 || $quantity > 999) {   // 견적 담기 수량 1~999 (장바구니 API 와 같음)
+        return json_encode(['error' => '수량은 1~999 범위여야 합니다.'], JSON_UNESCAPED_UNICODE);
     }
 
     $stmt = db()->prepare(
@@ -632,6 +635,9 @@ function tool_add_to_cart(array $input, string $sid): string
     }
 
     $cart = cart_session_read();
+    if (($cart[$productId] ?? 0) + $quantity > 999) {
+        return json_encode(['error' => '수량은 1~999 범위여야 합니다.'], JSON_UNESCAPED_UNICODE);
+    }
     $cart[$productId] = ($cart[$productId] ?? 0) + $quantity;
     cart_session_write($cart);
 

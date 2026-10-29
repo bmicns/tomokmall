@@ -5,7 +5,7 @@ declare(strict_types=1);
  * 관심상품(자주찾는 품목·단골품목) 조회·추가·삭제
  *
  * 인증: 로그인 회원 공통(개인·기업) (require_login) — 본인(user_id=세션) 데이터만 조회·변경
- * 검증: product_id 양의 정수+DB 존재, quantity 1~9999, 최대 FAVORITES_MAX(50)개 제한
+ * 검증: product_id 양의 정수+DB 존재, quantity 1~999, 최대 FAVORITES_MAX(50)개 제한
  * 성능: GET — user_id 기준 단일 쿼리 + JOIN products
  *
  * POST 형식 2가지(기존 호출자 호환):
@@ -155,9 +155,9 @@ if ($method === 'DELETE') {
 
 // ── POST — 단골품목 추가 ─────────────────────────────────────────────────────
 $quantity = (int) ($body['quantity'] ?? 1);
-if ($quantity < 1 || $quantity > 9999) {
+if ($quantity < 1 || $quantity > 999) {
     http_response_code(400);
-    echo json_encode(['ok' => false, 'error' => 'quantity는 1~9999 범위여야 합니다.']);
+    echo json_encode(['ok' => false, 'error' => 'quantity는 1~999 범위여야 합니다.']);
     exit;
 }
 

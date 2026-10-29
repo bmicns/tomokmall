@@ -213,7 +213,7 @@ function renderProductCards(products, container) {
           ${basisHtml}
         </td>
         <td class="compare-price">₩${price}${unitHtml}${costHtml}</td>
-        <td><input type="number" class="compare-qty" value="${qtyVal}" min="1" max="9999"></td>
+        <td><input type="number" class="compare-qty" value="${qtyVal}" min="1" max="999"></td>
         <td><button class="btn-compare-add">견적추가</button></td>
       </tr>`;
   }).join('');
@@ -245,7 +245,7 @@ function renderProductCards(products, container) {
     const btn = row.querySelector('.btn-compare-add');
     const qty = row.querySelector('.compare-qty');
     btn.addEventListener('click', () => {
-      const q = Math.max(1, Math.min(9999, parseInt(qty.value, 10) || 1));
+      const q = Math.max(1, parseInt(qty.value, 10) || 1);   // 상한(999)은 장바구니 API 가 검증
       addToEstimate(pid, q, btn);
     });
   });

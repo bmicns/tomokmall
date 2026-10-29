@@ -15,6 +15,8 @@ declare(strict_types=1);
 error_reporting(E_ALL & ~E_WARNING & ~E_DEPRECATED & ~E_NOTICE);
 $_SERVER['HTTPS'] = $_SERVER['HTTPS'] ?? '';
 
+ini_set('session.use_cookies', '0');   // CLI 테스트: 세션 쿠키·캐시 헤더를 보내지 않음(장바구니 시험 때 '헤더 이미 전송' 경고 방지)
+ini_set('session.cache_limiter', '');
 require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/ai_tools.php';
 
@@ -118,6 +120,15 @@ $lowCards = array_values(array_filter($r['products'] ?? [], static fn($c) => !em
 ok('요약: 최저·최고·차이가 카드 예상 금액과 일치', $cs && $cs['lowest']['est_cost'] === min(array_column($r['products'], 'est_cost')) && $cs['difference'] === $cs['highest']['est_cost'] - $cs['lowest']['est_cost']);
 ok('최저 카드 1개에만 cost_lowest 표시', count($lowCards) === 1 && $lowCards[0]['name'] === $cs['lowest']['name']);
 ok('면적·길이 없이 검색하면 요약 없음(금액을 말하지 않음)', !isset(search(['queries' => ['인조화강블록', '점토블럭']])['cost_summary']));
+
+echo "[견적 담기 수량 1~999 — AI add_to_cart]\n";
+$pid = (int) ($r['products'][0]['id'] ?? 0);
+$add = static fn(int $q): array => json_decode(tool_add_to_cart(['product_id' => $pid, 'quantity' => $q], 'test'), true) ?: [];
+$_SESSION['cart'] = [];
+ok('1,000개는 담지 않음(1~999 안내)', ($add(1000)['error'] ?? '') === '수량은 1~999 범위여야 합니다.' && empty($_SESSION['cart'][$pid]));
+ok('999개는 담김', ($add(999)['quantity'] ?? 0) === 999);
+ok('이미 999개면 1개 더 담기 거부(합계 999 초과)', isset($add(1)['error']) && (cart_session_read()[$pid] ?? 0) === 999);
+$_SESSION['cart'] = [];
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

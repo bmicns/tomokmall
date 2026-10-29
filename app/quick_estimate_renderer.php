@@ -180,7 +180,7 @@ function renderItems(items, total) {
     <tr>
       <td>${escHtml(it.name)}</td>
       <td>${escHtml(it.spec||'-')}</td>
-      <td><input class="qty-inp" type="number" value="${it.quantity}" min="1" max="9999"
+      <td><input class="qty-inp" type="number" value="${it.quantity}" min="1" max="999"
         onchange="quickItems('update',${it.product_id},this.value)"></td>
       <td>${it.unit_price.toLocaleString()}원</td>
       <td>${it.subtotal.toLocaleString()}원</td>
@@ -274,7 +274,7 @@ async function loadProducts(catId) {
           ${p.spec ? `<div class="prod-card-spec">${escHtml(p.spec)}</div>` : ''}
           <div class="prod-card-price">${price}원</div>
           <div class="prod-card-actions">
-            <input type="number" class="prod-card-qty" value="1" min="1" max="9999">
+            <input type="number" class="prod-card-qty" value="1" min="1" max="999">
             <button class="btn-add-card" onclick="addProductCard(${p.id},this)">+ 추가</button>
           </div>
         </div>

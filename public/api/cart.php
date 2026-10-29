@@ -94,6 +94,11 @@ if (!$stmt->fetch()) {
 }
 
 if ($action === 'add') {
+    if (($cart[$productId] ?? 0) + $quantity > 999) {   // 이미 담긴 수량과 합쳐도 999 이하
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => '수량은 1~999 범위여야 합니다.']);
+        exit;
+    }
     $cart[$productId] = ($cart[$productId] ?? 0) + $quantity;
 } else {
     // update: quantity = 0 이면 삭제

@@ -11,7 +11,7 @@
 
   var PROD_PER_PAGE = 10, FAV_PER_PAGE = 10, CART_PER_PAGE = 5;
   var HISTORY_FIRST = 2, HISTORY_STEP = 5;
-  var QTY_MAX = 9999; // api/estimate/quick-items.php 수량 상한과 동일
+  var QTY_MAX = 999; // api/estimate/quick-items.php 수량 상한과 동일
 
   var byParent = DATA.byParent || {};
   var regulars = Array.isArray(DATA.regulars) ? DATA.regulars : [];
