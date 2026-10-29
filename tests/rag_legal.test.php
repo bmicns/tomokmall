@@ -104,6 +104,7 @@ $conv = static function (string ...$turns): array {
 };
 $has = static fn(array $r, string $n): bool => (bool) array_filter($r, static fn($x) => str_contains($x, $n));
 $v2122 = $pdo->query("SELECT id, is_active FROM rag_documents WHERE author = '검증 조문(2-1단계)' AND tags LIKE '@scope:public_road%'")->fetchAll(PDO::FETCH_KEY_PAIR);
+$v2122Review = $pdo->query("SELECT id, review_status FROM rag_documents WHERE author = '검증 조문(2-1단계)' AND tags LIKE '@scope:public_road%'")->fetchAll(PDO::FETCH_KEY_PAIR);
 $pdo->exec("UPDATE rag_documents SET is_active = 1, review_status = 'reviewed' WHERE id IN (" . implode(',', array_map('intval', array_keys($v2122))) . ")"); // 범위 검증용으로 켬(끝에 원상 복구)
 [$c, $r, $d] = $conv('시청에서 발주한 도로 공사인데 차도에 블록 깔려면 두께 몇 mm 써야 해요?');
 ok('공공도로 차도 질문 → KDS/KCS 44 50 25 근거', $c === 'public_road' && $has($r, '44 50 25'));
@@ -121,15 +122,18 @@ ok('장소 불명확 → 공공 근거 없음(장소 확인 질문 구역)', $c 
 ok('공공 보도 차량 출입부 → 보도 설치 및 관리 지침(구분 Ⅱ 80mm), 차도 기준 아님', $c === 'public_sidewalk' && $has($r, '보도 설치 및 관리 지침') && !$has($r, '44 50 25'));
 $sec = rag_road_context_prompt('public_road') . rag_legal_prompt_section($conv('국도 차도 블록 포장 두께 몇 mm')[2]);
 ok('공공도로 프롬프트: 100mm 별도 안내 + [L번호] 근거 + 80T 비권장', str_contains($sec, '최소 100mm') && preg_match('/\[L\d+\] KDS 44 50 25/u', $sec) === 1 && str_contains($sec, '권하지 않는다'));
-foreach ($v2122 as $id => $was) {
-    $pdo->exec('UPDATE rag_documents SET is_active = ' . (int) $was . ' WHERE id = ' . (int) $id);
+foreach ($v2122 as $id => $was) {   // 활성·검토 상태 모두 원래대로
+    $st = $pdo->prepare('UPDATE rag_documents SET is_active = ?, review_status = ? WHERE id = ?');
+    $st->execute([(int) $was, (string) $v2122Review[$id], (int) $id]);
 }
 [$c, $r, $d] = $conv('시청에서 발주한 도로 공사인데 차도에 블록 깔려면 두께 몇 mm 써야 해요?');
 $hit = (bool) array_filter($d, static fn($x) => array_intersect(rag_legal_doc_scopes($x), rag_road_scopes($c)));
 ok('V21·V22 비활성(현재 상태)에서는 공공도로 근거 없음 → 수치 없는 안전 구역', $activeAll === 24 || (!$hit && !str_contains(rag_road_context_prompt($c, $hit), '100mm')));
-foreach ($v2122 as $id => $was) {
-    $pdo->exec('UPDATE rag_documents SET is_active = ' . (int) $was . ' WHERE id = ' . (int) $id);
+foreach ($v2122 as $id => $was) {   // 활성·검토 상태 모두 원래대로
+    $st = $pdo->prepare('UPDATE rag_documents SET is_active = ?, review_status = ? WHERE id = ?');
+    $st->execute([(int) $was, (string) $v2122Review[$id], (int) $id]);
 }
+ok('범위 검증 후 V21·V22 검토 상태도 원상 복구', $pdo->query("SELECT GROUP_CONCAT(review_status ORDER BY id) FROM rag_documents WHERE author = '검증 조문(2-1단계)' AND tags LIKE '@scope:public_road%'")->fetchColumn() === implode(',', array_values($v2122Review)));
 ok('범위 검증 후 V21·V22 활성 상태 원상 복구', $pdo->query("SELECT COUNT(*) FROM rag_documents WHERE author = '검증 조문(2-1단계)' AND is_active = 1")->fetchColumn() == $activeAll);
 
 $r = refs('아파트 부설주차장 장애인 주차구역 설치 의무가 있나요?');
