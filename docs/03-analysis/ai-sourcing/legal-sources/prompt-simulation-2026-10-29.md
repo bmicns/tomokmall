@@ -188,24 +188,29 @@ DB_HOST=127.0.0.1 DB_NAME=tomokmall_test php scripts/testdb/consult-scenarios.ph
 
 검증(클로드, 실제 API 아님): 단위·통합 테스트 전체 통과. 목업 OpenAI 서버로 `rag_process` 루프와 `consult-scenarios.php --core` 전체 흐름 확인 — 약속만 한 응답 → 강제 검색 → 100mm 카드, 보도 80T 4종, 질문으로 끝나는 응답은 그대로, 검색 후에는 강제 호출 없음.
 
-### 7-4. 재테스트 — MySQL 8.0 테스트 DB 필요
+### 7-4. 재테스트 — MySQL 8.0 테스트 DB 필요 (가장 간단한 방법: 설치 없는 ZIP)
 
-XAMPP 의 MariaDB 로는 상품 추천을 점검할 수 없다. Docker Desktop 이 있으면 MySQL 8.0 테스트 DB 를 따로 띄운다(로컬 전용, 127.0.0.1 에만 열림, 테스트용이라 root 비밀번호 없음). Git Bash 에서:
+XAMPP 의 MariaDB 로는 상품 추천을 점검할 수 없다(사전 점검에서 중단). Docker 없이 **MySQL 8.0 ZIP(설치 프로그램 없음)** 을 테스트 전용으로 잠깐 띄운다. XAMPP 는 그대로 둔다(포트 3308 사용).
 
+1. https://dev.mysql.com/downloads/mysql/ → 버전 **8.0.x** 선택 → Windows (x86, 64-bit) **ZIP Archive** 다운로드 → 압축을 풀고 폴더 이름을 `C:\mysql8` 로 바꾼다(`C:\mysql8\bin\mysqld.exe` 가 있어야 함).
+2. Git Bash 창 ①(서버 — 테스트 동안 열어 둔다):
+```
+/c/mysql8/bin/mysqld.exe --initialize-insecure --datadir="C:/mysql8/data" --console
+/c/mysql8/bin/mysqld.exe --datadir="C:/mysql8/data" --port=3308 --console
+```
+3. Git Bash 창 ②(저장소 폴더에서):
 ```
 git pull origin claude/loving-gates-surk6e
-docker run -d --name tomokmall_test_mysql8 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -p 127.0.0.1:3308:3306 mysql:8.0
-# 약 30초 뒤 (비밀번호 질문에는 Enter)
-MYSQL_CMD="docker exec -i tomokmall_test_mysql8 mysql -h127.0.0.1 -uroot" bash scripts/testdb/setup-local-test-db.sh
+echo | MYSQL_CMD="/c/mysql8/bin/mysql.exe -h127.0.0.1 -P3308 -uroot" bash scripts/testdb/setup-local-test-db.sh
 export DB_HOST='127.0.0.1;port=3308' DB_NAME=tomokmall_test DB_USER=root DB_PASS=
 /c/xampp/php/php.exe scripts/testdb/consult-scenarios.php --check-only --core --with-public-road
 /c/xampp/php/php.exe scripts/testdb/consult-scenarios.php --core --with-public-road --md=consult-result-2.md
 ```
-
-- 사전 점검에 "상품 검색('인터로킹 블록' 80T): 2건 — 운영과 같은 검색 환경" 이 나와야 한다.
-- 공공도로·보도 2개만: 마지막 명령에 `--only=public_road,public_sidewalk`. 개인 마당도 7-1 문제(문의 약속·MariaDB 0건)가 있어 3개 모두 다시 하는 것을 권한다(약 0.15~0.2달러).
-- Docker 가 없으면 MySQL 8.0 Community Server(Windows) 를 3308 포트로 설치해 같은 방법으로 쓴다.
-- 이 판은 클로드 환경에서 위 절차(컨테이너 → 설정 스크립트 → `--check-only --core`)를 그대로 실행해 통과를 확인했다.
+- 사전 점검에 "상품 검색('인터로킹 블록' 80T): 2건 — 운영과 같은 검색 환경" 이 나와야 한다. 테스트 전용 root 는 비밀번호가 없고 이 PC(127.0.0.1)에서만 접속된다.
+- 끝나면 창 ① 을 닫는다(Ctrl+C). 다시 쓸 때는 2번의 둘째 줄만 실행.
+- 이 Windows 절차는 클라우드 환경에서 실행해 보지 못했다(같은 단계를 Linux MySQL 8.0 컨테이너로 확인: 설정 스크립트 → `--check-only --core` 통과). 첫 줄이 실패하면 오류 문구를 알려 주면 된다.
+- Docker Desktop 이 이미 있으면 `docker run -d --name tomokmall_test_mysql8 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -p 127.0.0.1:3308:3306 mysql:8.0` 후 `MYSQL_CMD="docker exec -i tomokmall_test_mysql8 mysql -h127.0.0.1 -uroot"` 로 같은 3번을 쓴다.
+- 핵심 3개만 본다(약 0.2달러). 결과가 통과면 반복 튜닝 없이 다음 단계(외부 상품·구매 전환)로 넘어간다.
 
 ### 7-5. V21·V22
 
