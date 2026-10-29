@@ -1,0 +1,421 @@
+<?php
+declare(strict_types=1);
+/**
+ * 외부 건축자재 데이터 — 정규화·중복 제거·기존 상품 매칭·상담 카드 선택 도움말
+ *
+ * 책임: 이용이 허락된 출처(공공데이터 파일, 제조사가 제공한 카탈로그 등)의 상품 행을 같은 형식으로 정규화하고,
+ *       같은 상품을 묶고, 우리 products 와 매칭 후보 점수를 계산한다. 상담 카드에 고르는 기준(쉬운 설명)을 붙인다.
+ * 금지: 외부 가격을 우리 판매가로 쓰기(참고가로만 보관), products 자동 등록, 개인 연락처 저장,
+ *       출처 권한 확인 없는 수집(scripts/external/import.php 가 data/external/sources.json 의 permission 으로 막음).
+ * DB: external_products · external_product_matches (database/20261029_external_products.sql — 운영 미적용).
+ *     테이블이 없으면 외부 지식 조회는 빈 배열 → 상담 카드는 상품 자체 속성만으로 동작(기존 동작 유지).
+ */
+
+/** HTML 엔티티·태그 제거, 공백 정리 */
+function ext_clean_text(?string $v): string
+{
+    $v = html_entity_decode(strip_tags((string) $v), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    return trim((string) preg_replace('/\s+/u', ' ', $v));
+}
+
+/** 전화번호·이메일 제거(개인 연락처를 보관하지 않음). [제거 후 문자열, 제거 건수] */
+function ext_scrub_pii(string $v): array
+{
+    $v = (string) preg_replace('/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/u', '', $v, -1, $c1);
+    $v = (string) preg_replace('/(?<!\d)(0\d{1,2})[-.\s]?\d{3,4}[-.\s]?\d{4}(?!\d)/u', '', $v, -1, $c2);
+    $n = $c1 + $c2;
+    return [trim((string) preg_replace('/\s{2,}/u', ' ', $v)), $n];
+}
+
+/** 판매 단위 정규화: ㎡ / 개 / 본 / m / 조 / 세트 / kg / 톤. 모르면 원문 */
+function ext_unit(string $u): string
+{
+    $t = mb_strtolower(trim($u));
+    return match (true) {
+        $t === '' => '',
+        (bool) preg_match('/^(m\s*2|㎡|m²|제곱미터|평방미터)$/u', $t) => '㎡',
+        (bool) preg_match('/^(개|ea|매|장|pcs?)$/u', $t) => '개',
+        (bool) preg_match('/^(본|개소)$/u', $t) => '본',
+        (bool) preg_match('/^(m|미터|ｍ)$/u', $t) => 'm',
+        (bool) preg_match('/^(조|set|세트)$/u', $t) => $t === '조' ? '조' : '세트',
+        (bool) preg_match('/^(kg|킬로그램)$/u', $t) => 'kg',
+        (bool) preg_match('/^(톤|ton|t)$/u', $t) => '톤',
+        default => trim($u),
+    };
+}
+
+/** 상품 종류(검색·매칭 기준). 앞쪽 규칙이 우선 */
+function ext_product_type(string $text): string
+{
+    $rules = [
+        '인조화강블록' => '/인조\s*화강/u', '점토블록' => '/점토\s*블[록럭]|점토\s*벽돌/u', '잔디블록' => '/잔디\s*블[록럭]/u',
+        '점자블록' => '/점자\s*블[록럭]/u', '인터로킹블록' => '/인터로킹/u', '보차도블록' => '/보차도/u',
+        '호안블록' => '/호안/u', '보강토블록' => '/보강토|옹벽\s*블[록럭]/u', '경계석' => '/경계\s*석|경계\s*블[록럭]/u',
+        '그레이팅' => '/그레이팅|grating/iu', '맨홀' => '/맨홀|집수정/u', '수로관' => '/수로관|플륨|측구/u',
+        '암거' => '/암거|box\s*culvert/iu', '흄관' => '/흄관|vr관/iu', 'PE관' => '/이중벽관|다중벽관|pe\s*관|hdpe|유공관/iu',
+        'PVC관' => '/pvc/iu', '구조용블록' => '/속빈|조적|축조|식생/u', '보도블록' => '/보도\s*블[록럭]|블[록럭]/u',
+    ];
+    foreach ($rules as $type => $re) {
+        if (preg_match($re, $text) === 1) {
+            return $type;
+        }
+    }
+    return '';
+}
+
+/** 재질 키. 표기가 없으면 '' (추측하지 않음) */
+function ext_material(string $text): string
+{
+    $rules = [
+        '인조화강' => '/인조\s*화강/u', '점토' => '/점토/u', '화강석' => '/화강석|자연석|판석/u', 'PE' => '/hdpe|(?<![a-z])pe(?![a-z])|폴리에틸렌|이중벽관|다중벽관/iu',
+        'PVC' => '/pvc/iu', '주철' => '/주철|닥타일|덕타일|ductile/iu', '스틸' => '/스틸|steel|ss\s*275|sts|아연도/iu',
+        '레진' => '/레진|frp/iu', '콘크리트' => '/콘크리트|흄관|pc\s*공법|시멘트/iu',
+    ];
+    foreach ($rules as $m => $re) {
+        if (preg_match($re, $text) === 1) {
+            return $m;
+        }
+    }
+    return '';
+}
+
+/** 치수: 블록·판재 두께(80T 또는 가로*세로*두께), 관경(D300·Φ300·300A), 가로·세로(mm). 소수 미터 표기(0.8*0.8*2.0)는 mm 로 환산 */
+function ext_dims(string $spec): array
+{
+    $r = ['width_mm' => null, 'length_mm' => null, 'thickness_mm' => null, 'diameter_mm' => null, 'dim3_mm' => null];
+    $v = parse_spec_field($spec)['spec'] ?: $spec;
+    $r['thickness_mm'] = ai_block_thickness($v);
+    if (preg_match('/(?:^|[^a-z])(?:d|Φ|ø|φ)\s*(\d{2,4})(?!\d)|(?<!\d)(\d{2,4})\s*(?:a|mm\s*관|파이)(?![a-z])/iu', $v, $m)) {
+        $r['diameter_mm'] = (int) ($m[1] !== '' ? $m[1] : $m[2]);
+    }
+    if (preg_match('/(\d+(?:\.\d+)?)\s*[*x×]\s*(\d+(?:\.\d+)?)(?:\s*[*x×]\s*(\d+(?:\.\d+)?))?/u', $v, $m)) {
+        $toMm = static fn(string $n): int => (int) round(str_contains($n, '.') && (float) $n < 10 ? (float) $n * 1000 : (float) $n);
+        $r['width_mm']  = $toMm($m[1]);
+        $r['length_mm'] = $toMm($m[2]);
+        $r['dim3_mm']   = isset($m[3]) && $m[3] !== '' ? $toMm($m[3]) : null;   // 셋째 치수(암거 길이 등) — 매칭 비교용
+    }
+    return $r;
+}
+
+/** 투수 여부·하중 등급·용도·KS 표기 (표기된 것만) */
+function ext_attrs(string $text): array
+{
+    $a = ['permeable' => null, 'load' => '', 'uses' => [], 'ks' => []];
+    if (preg_match('/불\s*투수/u', $text)) {
+        $a['permeable'] = false;
+    } elseif (preg_match('/투수/u', $text)) {
+        $a['permeable'] = true;
+    }
+    $a['load'] = match (true) {
+        (bool) preg_match('/안전\s*중하중/u', $text) => '안전중하중',
+        (bool) preg_match('/중하중/u', $text)       => '중하중',
+        (bool) preg_match('/경하중/u', $text)       => '경하중',
+        (bool) preg_match('/보행/u', $text)         => '보행',
+        default => '',
+    };
+    foreach (['차도' => '/차도/u', '보도' => '/보도|인도/u', '주차장' => '/주차/u', '조경' => '/조경|정원|공원/u',
+              '배수' => '/배수|우수|빗물/u', '하수' => '/하수|오수/u', '수로' => '/수로|측구/u'] as $u => $re) {
+        if (preg_match($re, $text)) {
+            $a['uses'][] = $u;
+        }
+    }
+    if (preg_match_all('/KS\s*([A-Z])\s*-?\s*(\d{4})/u', $text, $m, PREG_SET_ORDER)) {
+        $a['ks'] = array_values(array_unique(array_map(static fn($x) => "KS {$x[1]} {$x[2]}", $m)));
+    }
+    return $a;
+}
+
+/** 이름 비교용 키: 공백·괄호·기호 제거, 블럭→블록 */
+function ext_name_key(string $name): string
+{
+    $k = mb_strtolower(str_replace('블럭', '블록', $name));
+    return (string) preg_replace('/[\s()\[\]_\-·.,\/]+/u', '', $k);
+}
+
+/**
+ * 원본 행 → 정규화 행 (순수 함수).
+ * 입력 키: name, spec, maker, unit, price, external_id, source_url, category, material, use, note (없으면 빈 값)
+ * 가격은 ref_price(참고가)로만 둔다 — 우리 판매가가 아니다.
+ */
+function ext_normalize(array $raw, string $sourceKey): array
+{
+    $pii = 0;
+    $clean = static function ($v) use (&$pii): string {
+        [$s, $n] = ext_scrub_pii(ext_clean_text(is_scalar($v) ? (string) $v : ''));
+        $pii += $n;
+        return $s;
+    };
+    $name  = $clean($raw['name'] ?? '');
+    $spec  = $clean($raw['spec'] ?? '');
+    $cat   = $clean($raw['category'] ?? '');
+    if (preg_match('/^\d+(?:\.\d+)?\s*[*x×]/u', $name) && $cat !== '') {   // 이름 칸에 치수만 있는 출처(예: '0.8*0.8*2.0_130T') → 분류명이 상품명
+        [$name, $spec] = [$cat, trim("{$name} {$spec}")];
+    }
+    $maker = $clean($raw['maker'] ?? '');
+    $extra = $clean(($raw['category'] ?? '') . ' ' . ($raw['material'] ?? '') . ' ' . ($raw['use'] ?? '') . ' ' . ($raw['note'] ?? ''));
+    $all   = "{$name} {$spec} {$extra}";
+    $unit  = ext_unit((string) (($raw['unit'] ?? '') !== '' ? $raw['unit'] : parse_spec_field($spec)['unit']));
+    $price = preg_replace('/[^\d]/', '', (string) ($raw['price'] ?? ''));
+    $dims  = ext_dims($spec);
+    foreach (ext_dims($name) as $k => $v) {   // 규격 칸에 없는 치수는 이름에서
+        $dims[$k] ??= $v;
+    }
+    $type  = ext_product_type("{$name} {$extra}");
+    $n = [
+        'source_key'   => $sourceKey,
+        'external_id'  => mb_substr(trim((string) ($raw['external_id'] ?? '')), 0, 100),
+        'name'         => mb_substr($name, 0, 200),
+        'maker'        => mb_substr($maker, 0, 100),
+        'product_type' => $type,
+        'spec_raw'     => mb_substr($spec, 0, 500),
+        'material'     => ext_material($all),
+        'attrs'        => ext_attrs($all),
+        'unit'         => $unit,
+        'ref_price'    => ($price !== '' && (int) $price > 0) ? (int) $price : null,
+        'source_url'   => mb_substr(trim((string) ($raw['source_url'] ?? '')), 0, 500),
+        'pii_removed'  => $pii,
+    ] + $dims;
+    $n['dedup_key'] = sha1(implode('|', [ext_name_key($maker), $type, ext_name_key($name), $dims['width_mm'], $dims['length_mm'], $dims['dim3_mm'], $dims['thickness_mm'], $dims['diameter_mm'], ext_name_key($spec)]));
+    return $n;
+}
+
+/** 같은 dedup_key 를 하나로 묶는다(빈 칸이 적은 행 우선). [unique 목록, 중복으로 합친 건수] */
+function ext_dedup(array $rows): array
+{
+    $by = [];
+    $filled = static fn(array $r): int => count(array_filter($r, static fn($v) => $v !== null && $v !== '' && $v !== []));
+    foreach ($rows as $r) {
+        $k = $r['dedup_key'];
+        if (!isset($by[$k]) || $filled($r) > $filled($by[$k])) {
+            $by[$k] = $r;
+        }
+    }
+    return [array_values($by), count($rows) - count($by)];
+}
+
+/** 규격의 핵심 부분: '규격:' 값, 없으면 중량·단위·상차 같은 부가 표기 앞까지 */
+function ext_spec_core(string $spec): string
+{
+    $core = parse_spec_field($spec)['spec'];
+    return $core !== '' ? $core : trim((string) (preg_split('/\s*(?:\||중량|단위|상차|운반|설치)/u', $spec)[0] ?? ''));
+}
+
+/** 이름 속 모델·형식 표기(NS-03, DN형, i2형, U형 등) — 다르면 다른 상품 */
+function ext_model_code(string $name): string
+{
+    preg_match_all('/[a-z]+\d*\s*형|[a-z]{1,4}-?\d{1,3}(?![\d*])/iu', $name, $m);
+    return mb_strtolower(implode(' ', $m[0]));
+}
+
+/**
+ * 외부 정규화 행과 우리 상품 1개의 매칭 점수 0~100 (순수 함수). 상품은 ext_normalize 로 같은 형식으로 만든 행.
+ * 종류(30, 다르면 0점) + 이름(같으면 30, 아니면 유사도 20 이내, 모델 표기 다르면 -25) + 규격 문자열(같으면 15, 아니면 유사도 10 이내)
+ * + 치수(두께·관경 10, 가로·세로·셋째 5 — 다르면 2배 감점) + 재질 3 + 투수 여부 2(반대면 -20).
+ */
+function ext_match_score(array $e, array $p): array
+{
+    $score = 0;
+    $why = [];
+    if ($e['product_type'] !== '' && $e['product_type'] === $p['product_type']) {
+        $score += 30; $why[] = '종류';
+    } elseif ($e['product_type'] !== '' && $p['product_type'] !== '') {
+        return ['score' => 0, 'reasons' => '종류 다름'];
+    }
+    $en = ext_name_key($e['name']);
+    $pn = ext_name_key($p['name']);
+    if ($en === $pn) {
+        $score += ($e['product_type'] === '' && $p['product_type'] === '') ? 50 : 30;   // 종류를 모르는 품목(규사 등)은 이름 일치를 더 믿는다
+        $why[] = '이름';
+    } else {
+        similar_text($en, $pn, $pct);
+        $score += (int) round(20 * $pct / 100);
+        $em = ext_model_code($e['name']);
+        $pm = ext_model_code($p['name']);
+        if ($em !== '' && $pm !== '' && $em !== $pm) { $score -= 25; }
+    }
+    $es = ext_name_key(ext_spec_core($e['spec_raw']));
+    $ps = ext_name_key(ext_spec_core($p['spec_raw']));
+    if ($es !== '' && $es === $ps) {
+        $score += 15; $why[] = '규격';
+    } elseif ($es !== '' && $ps !== '') {
+        similar_text($es, $ps, $spct);
+        $score += (int) round(10 * $spct / 100);
+    }
+    foreach (['thickness_mm' => 10, 'diameter_mm' => 10, 'width_mm' => 5, 'length_mm' => 5, 'dim3_mm' => 5] as $k => $w) {
+        if ($e[$k] === null || $p[$k] === null) { continue; }
+        if ($e[$k] === $p[$k]) { $score += $w; }
+        else { $score -= $w * 2; }
+    }
+    if ($e['material'] !== '' && $e['material'] === $p['material']) { $score += 3; }
+    if ($e['attrs']['permeable'] !== null && $e['attrs']['permeable'] === $p['attrs']['permeable']) { $score += 2; }
+    elseif ($e['attrs']['permeable'] !== null && $p['attrs']['permeable'] !== null) { $score -= 20; }
+    return ['score' => max(0, min(100, $score)), 'reasons' => implode('·', $why)];
+}
+
+/** 우리 상품 행(products) → 매칭용 정규화 행 */
+function ext_normalize_product(array $row): array
+{
+    $f = parse_spec_field((string) ($row['spec'] ?? ''));
+    return ['id' => (int) $row['id']] + ext_normalize(['name' => $row['name'] ?? '', 'spec' => $row['spec'] ?? '', 'unit' => $f['unit']], 'products');
+}
+
+/** 매칭 후보 상위 $limit 개 (score >= 50). 판정: 80 이상 'probable', 50~79 'review'. 확정(confirmed)은 사람이 한다 */
+function ext_best_matches(array $e, array $productsNorm, int $limit = 3): array
+{
+    $out = [];
+    foreach ($productsNorm as $p) {
+        $s = ext_match_score($e, $p);
+        if ($s['score'] >= 50) {
+            $out[] = ['product_id' => $p['id'], 'name' => $p['name'], 'spec' => $p['spec_raw'], 'score' => $s['score'], 'reasons' => $s['reasons'],
+                      'grade' => $s['score'] >= 80 ? 'probable' : 'review'];
+        }
+    }
+    usort($out, static fn($a, $b) => $b['score'] <=> $a['score']);
+    return array_slice($out, 0, $limit);
+}
+
+/**
+ * 상담 카드 '고르는 기준' 문구 (순수 함수) — 초보 고객이 추가 검색 없이 고를 수 있게 규격을 쉬운 말로.
+ * 상품 자체 표기(이름·규격)에서 읽은 것과, 사람이 확정한 외부 자료($knowledge: 제조사·KS 표기, 출처명)만 쓴다.
+ * 성능·강도 수치나 가격은 만들지 않는다. 최대 4개.
+ */
+function ext_selection_guide(array $productRow, array $knowledge = []): array
+{
+    $n = ext_normalize_product($productRow);
+    $g = [];
+    $paving = in_array($n['product_type'], ['인조화강블록', '점토블록', '인터로킹블록', '보차도블록', '보도블록', '잔디블록'], true);
+    if ($paving && $n['thickness_mm'] !== null) {
+        $g[] = match (true) {
+            $n['thickness_mm'] >= 80 => "두께 {$n['thickness_mm']}mm — 차량이 올라가는 곳 두께 기준(사내 80mm 이상) 충족",
+            $n['thickness_mm'] >= 60 => "두께 {$n['thickness_mm']}mm — 사람만 다니는 곳용(차량이 올라가면 80mm 이상)",
+            default => "두께 {$n['thickness_mm']}mm",
+        };
+    }
+    if ($n['attrs']['permeable'] === true) {
+        $g[] = '투수형 — 빗물이 블록 사이·아래로 스며듦';
+    } elseif ($n['attrs']['permeable'] === false) {
+        $g[] = '불투수형 — 빗물이 스며들지 않음';
+    }
+    $g[] = match ($n['product_type']) {
+        '인조화강블록' => '인조화강 — 화강석 느낌을 낸 콘크리트 블록',
+        '점토블록'     => '점토 — 흙을 구워 만든 블록',
+        '잔디블록'     => '잔디블록 — 구멍에 잔디를 심는 블록',
+        default        => '',
+    };
+    if ($n['product_type'] === 'PE관') {
+        $g[] = preg_match('/유공/u', $productRow['name'] ?? '') ? '유공관 — 관에 구멍이 있어 땅속 물을 모아 빼는 용도'
+            : (preg_match('/이중벽/u', $productRow['name'] ?? '') ? '이중벽관 — 바깥은 주름, 안쪽은 매끈한 관' : '');
+    }
+    if (preg_match('/\bKS\b/u', (string) ($productRow['name'] ?? '')) && !$n['attrs']['ks']) {
+        $g[] = 'KS 표기 제품(상품명 기준)';
+    }
+    $g[] = match ($n['attrs']['load']) {
+        '안전중하중' => '안전중하중 — 트럭·버스 등 대형차 통행',
+        '중하중'     => '중하중 — 승용차·SUV 통행',
+        default      => '',
+    };
+    foreach ($knowledge as $k) {
+        $bits = array_filter([$k['maker'] ?? '', implode(', ', $k['ks'] ?? [])]);
+        if ($bits) {
+            $g[] = '외부 자료: ' . implode(' · ', $bits) . ' (출처 ' . ($k['source_name'] ?? $k['source_key'] ?? '') . ')';
+            break;
+        }
+    }
+    if ($n['unit'] === '㎡') {
+        $g[] = '㎡(면적) 단위 판매 — 시공 면적만큼 주문';
+    }
+    return array_slice(array_values(array_filter($g)), 0, 4);
+}
+
+/** 외부 지식 테이블 존재 여부(요청당 1회). 운영 미적용이면 false → 외부 지식 없이 동작 */
+function ext_tables_ready(): bool
+{
+    static $ready = null;
+    if ($ready === null) {
+        $pdo = db();
+        $ready = $pdo && $pdo->query("SHOW TABLES LIKE 'external_product_matches'")->fetchColumn() !== false;
+    }
+    return $ready;
+}
+
+/**
+ * 상품별 확정(confirmed) 외부 자료 — 제조사·KS 표기·출처만(가격 제외). [product_id => [ {maker, ks, source_key}, ... ]]
+ */
+function ext_knowledge_for_products(array $productIds): array
+{
+    $ids = array_values(array_unique(array_filter(array_map('intval', $productIds))));
+    if (!$ids || !ext_tables_ready()) {
+        return [];
+    }
+    $ph = implode(',', array_fill(0, count($ids), '?'));
+    $st = db()->prepare("SELECT m.product_id, e.maker, e.attrs_json, e.source_key FROM external_product_matches m
+                         JOIN external_products e ON e.id = m.external_product_id
+                         WHERE m.status = 'confirmed' AND m.product_id IN ({$ph}) ORDER BY m.score DESC");
+    $st->execute($ids);
+    $out = [];
+    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $attrs = json_decode((string) $r['attrs_json'], true) ?: [];
+        $out[(int) $r['product_id']][] = ['maker' => (string) $r['maker'], 'ks' => $attrs['ks'] ?? [], 'source_key' => (string) $r['source_key'],
+                                          'source_name' => (string) ($attrs['source_name'] ?? $r['source_key'])];
+    }
+    return $out;
+}
+
+/** CSV 읽기: UTF-8(BOM)·CP949 자동, 쉼표·탭 구분, 머리글 → 표준 키 */
+function ext_read_csv(string $file): array
+{
+    $text = (string) file_get_contents($file);
+    $text = (string) preg_replace('/^\xEF\xBB\xBF/', '', $text);
+    if (!mb_check_encoding($text, 'UTF-8')) {
+        $text = (string) mb_convert_encoding($text, 'UTF-8', 'CP949');
+    }
+    $lines = preg_split('/\r\n|\n|\r/', $text) ?: [];
+    $first = (string) ($lines[0] ?? '');
+    $delim = substr_count($first, "\t") > substr_count($first, ',') ? "\t" : ',';
+    $fh = fopen('php://memory', 'r+');
+    fwrite($fh, $text);
+    rewind($fh);
+    $head = array_map(static fn($h) => ext_csv_key((string) $h), fgetcsv($fh, 0, $delim, '"', '') ?: []);
+    $rows = [];
+    while (($r = fgetcsv($fh, 0, $delim, '"', '')) !== false) {
+        if ($r === [null]) { continue; }
+        $row = [];
+        foreach ($head as $i => $k) {
+            if ($k !== '' && isset($r[$i]) && trim((string) $r[$i]) !== '') {
+                $row[$k] = isset($row[$k]) ? $row[$k] . ' ' . $r[$i] : $r[$i];   // 같은 키로 모이는 열(규격명·세부규격 등)은 이어 붙임
+            }
+        }
+        $rows[] = $row;
+    }
+    return $rows;
+}
+
+/** 머리글 → 표준 키 (모르는 열은 '' — 버림) */
+function ext_csv_key(string $h): string
+{
+    $h = trim(str_replace(' ', '', $h));
+    $map = [
+        'name' => '/^(품명|상품명|물품명|제품명|품목명|세부품명|name)$/iu', 'spec' => '/^(규격|규격명|세부규격|모델|모델명|spec)$/iu',
+        'maker' => '/^(제조사|제조업체|제조업체명|업체명|계약업체명|브랜드|maker|brand)$/iu', 'price' => '/^(단가|계약단가|가격|판매가|공표가|price)$/iu',
+        'unit' => '/^(단위|판매단위|unit)$/iu', 'external_id' => '/^(물품식별번호|식별번호|상품코드|제품코드|품목코드|id)$/iu',
+        'category' => '/^(물품분류명|분류명|카테고리|category)$/iu', 'material' => '/^(재질|material)$/iu', 'use' => '/^(용도|사용처)$/u',
+        'source_url' => '/^(url|상세url|링크)$/iu', 'note' => '/^(인증|인증정보|ks|비고)$/iu',
+    ];
+    foreach ($map as $k => $re) {
+        if (preg_match($re, $h)) { return $k; }
+    }
+    return '';
+}
+
+/** JSON 배열 읽기. scrape-json: 기존 수집 스크립트(scripts/scrape-*.mjs) 결과 키(name·spec·brand·priceB2c·externalId·sourceUrl·categoryName·description) */
+function ext_read_json(string $file, bool $scrape): array
+{
+    $d = json_decode((string) file_get_contents($file), true);
+    $list = is_array($d) ? (array_is_list($d) ? $d : ($d['products'] ?? $d['items'] ?? [])) : [];
+    if (!$scrape) { return $list; }
+    return array_map(static fn($r) => [
+        'name' => $r['name'] ?? '', 'spec' => $r['spec'] ?? '', 'maker' => $r['brand'] ?? '', 'unit' => $r['unit'] ?? '',
+        'price' => $r['priceB2c'] ?? $r['price'] ?? '', 'external_id' => $r['externalId'] ?? '', 'source_url' => $r['sourceUrl'] ?? '',
+        'category' => $r['categoryName'] ?? '', 'note' => $r['description'] ?? '',
+    ], $list);
+}

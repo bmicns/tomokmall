@@ -48,6 +48,7 @@ for f in add_users_auth add_ai_sessions add_pricing add_vendors add_rag_document
   fix "$ROOT_DIR/database/$f.sql" | sed -E '/ADD FULLTEXT KEY ft_products_search/d' | run
 done
 run < "$ROOT_DIR/data/ktomok/import.sql"
+fix "$ROOT_DIR/database/20261029_external_products.sql" | run   # 외부 상품 검증 구역(로컬 테스트 전용)
 
 D="$ROOT_DIR/docs/03-analysis/ai-sourcing/sql-drafts"
 for f in 01_rag_documents_source_columns_DRAFT.sql 02_rag_documents_legal_candidates_DRAFT.sql 06_rag_documents_verified_clauses_DRAFT.sql 07_LOCAL_TEST_ONLY_activate_verified_clauses.sql; do

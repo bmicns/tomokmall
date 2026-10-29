@@ -310,7 +310,9 @@ function tool_search_products(array $input): string
 
     $products = array_slice($distinct, 0, $limit);
 
-    $cards = array_map(function ($p) use ($lengthM, $specMm, $areaM2) {
+    // 고르는 기준(초보 고객용 쉬운 설명) — 상품 규격 + 사람이 확정한 외부 자료(제조사·KS 표기, 가격 제외). 외부 테이블이 없으면 상품 규격만
+    $knowledge = ext_knowledge_for_products(array_column($products, 'id'));
+    $cards = array_map(function ($p) use ($lengthM, $specMm, $areaM2, $knowledge) {
         [$qty, $basis] = ai_estimate_quantity(
             $p,
             $lengthM,
@@ -330,6 +332,8 @@ function tool_search_products(array $input): string
             'stock_qty'     => (int)  $p['stock_qty'],
             'suggested_qty' => $qty,     // null 이면 계산 불가
             'qty_basis'     => $basis,   // 근거 문구 (예: "100m ÷ 2m = 50본")
+            'guide'         => ext_selection_guide($p, $knowledge[(int) $p['id']] ?? []),
+            'spec_label'    => spec_size_label((string) $p['spec']),   // 화면 표시용 규격(치수만) — 운반비·상차수량 같은 부가 표기 제외
         ];
     }, $products);
 
@@ -665,3 +669,4 @@ function tool_create_estimate(array $input, string $sid): string
 // app/estimate.php — estimate_create() (cart.php 자동 로드)
 
 require_once __DIR__ . '/estimate.php';
+require_once __DIR__ . '/external_products.php';
