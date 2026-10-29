@@ -7,6 +7,8 @@ declare(strict_types=1);
  *        (시나리오 7개 × V21·V22 비활성/활성). 분리 후 같은 시나리오의 rag_build_prompt() 결과가 글자 하나까지 같아야 한다.
  *        2026-10-29 의도적 변경 반영: s3(공공 보도)·s6(불명확) 안내 구역에서 근거 없이 적힌 '최소 100mm' 문장 1줄씩 수정
  *        (분리 자체의 전후 동일성은 수정 전 기준값으로 14건 모두 일치 확인 — 요청 본문 전체 바이트 비교).
+ *        2026-10-29 의도적 변경 반영(2): '블록'만 쓴 바닥 포장 문맥도 보도블록으로 감지 → s2~s7 에 보도블록 상담 가이드·사내 문서 추가,
+ *        공공도로 활성(s1·s2) 구역에 '적합 상품 없으면 얇은 제품 대체 금지·설계도서 확인·별도 견적' 1줄 추가. 그 밖의 문장은 그대로.
  * 데이터: SQL 초안 01·02·06·07 을 적용한 테스트 DB(검증 조문 27건·활성 22건). 다르면 SKIP(기준값은 그 데이터 기준).
  * 프롬프트를 의도적으로 바꿨다면: php scripts/testdb/dump-prompts.php --out=… 로 확인 후 기준값을 갱신한다.
  * 실행: DB_HOST=127.0.0.1 DB_NAME=tomokmall_test DB_USER=… DB_PASS=… php tests/rag_prompt.test.php
@@ -92,6 +94,15 @@ foreach (['s1_public_road_80t', 's2_public_road_multi'] as $k) {
 }
 foreach (['s3_public_sidewalk', 's4_private_yard', 's5_apartment_parking', 's6_unclear', 's7_garden_path'] as $k) {
     ok("{$k}: 활성이어도 공공도로 근거(44 50 25) 없음", !$hasLegal($A[$k], '44 50 25'));
+}
+foreach (['s1_public_road_80t', 's2_public_road_multi'] as $k) {
+    ok("{$k}: 적합 상품 없으면 얇은 두께 대체 추천 금지·설계도서 확인·별도 견적", str_contains($A[$k]['system'], '80T·60T 등 기준보다 얇은 제품을 대체품으로 권하지 않는다') && str_contains($A[$k]['system'], '별도 견적'));
+}
+
+echo "[카테고리 감지 — '블록' 바닥 포장 문맥]\n";
+foreach ($scenarios as $key => $s) {
+    ok("{$key}: 보도블록 카테고리 + 상담 가이드", $P[$key]['categoryKey'] === 'pavement' && str_contains($P[$key]['system'], '【보도블록·경계석 추가 가이드】'));
+    ok("{$key}: 블록 종류 확인 구역 없음(포장 문맥이 분명)", !str_contains($P[$key]['system'], '=== 블록 종류 확인'));
 }
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";

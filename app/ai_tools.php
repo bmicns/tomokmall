@@ -334,6 +334,11 @@ function tool_search_products(array $input): string
     }, $products);
 
     // 그래도 0건이면 손님을 위한 대안 안내(모델이 되묻지 말고 이 안내를 전달)
+    if (empty($cards) && $specMm > 0 && !empty($input['spec_strict']) && ai_is_paving_query($qText)) {
+        $out = ['products' => [], 'count' => 0] + ai_paving_unavailable([$qText], $specMm);   // 포장 블록 두께 기준 미충족 — 대체품 없음
+        if ($corrected !== null) { $out['corrected'] = $corrected; }
+        return json_encode($out, JSON_UNESCAPED_UNICODE);
+    }
     if (empty($cards)) {
         $out = [
             'products' => [],
@@ -364,6 +369,21 @@ function ai_is_paving_query(string $query): bool
 {
     return preg_match('/블[록럭]|인터로킹|보도|보차도|점토|벽돌|투수|잔디|평판|판석|포장/u', $query) === 1
         && preg_match('/호안|축조|옹벽|속빈|조적/u', $query) !== 1;
+}
+
+/**
+ * 포장 블록 두께 기준을 충족하는 등록 상품이 없을 때의 안내 (순수 함수).
+ * 기준보다 얇은 제품을 대체품으로 권하지 않고, 설계도서 규격 확인·별도 견적이 필요함을 알린다.
+ * 상담 화면에는 spec_unavailable 카드로 표시(public/assets/chat-ai.js). 상품을 만들거나 DB 에 추가하지 않는다.
+ */
+function ai_paving_unavailable(array $items, int $mm): array
+{
+    $label = "'" . implode("', '", $items) . "'";
+    return [
+        'note' => "{$label}은(는) 규격 {$mm}mm 제품이 없습니다(현재 등록 상품 기준). 기준보다 얇은 다른 두께는 대체품으로 권하지 않습니다."
+            . ' 발주처 설계도서·시방서의 블록 규격을 확인해 주세요 — 해당 규격은 별도 견적이 필요합니다.',
+        '_sse' => [['type' => 'spec_unavailable', 'spec_mm' => $mm, 'item' => implode(', ', $items)]],
+    ];
 }
 
 /**
@@ -497,6 +517,10 @@ function ai_search_compare(array $queries, array $input): string
             . ($specMm > 0 ? "규격 {$specMm}mm 제품이 없어" : '해당 조건의 제품을 찾지 못해') . ' 비교에서 빠졌습니다.';
     }
 
+    $allPaving = $specMm > 0 && !array_filter($queries, static fn($q) => !ai_is_paving_query((string) $q));
+    if (!$cards && $allPaving) {
+        return json_encode(['products' => [], 'count' => 0] + ai_paving_unavailable($missing, $specMm), JSON_UNESCAPED_UNICODE);
+    }
     if (!$cards) {
         return json_encode([
             'products' => [],

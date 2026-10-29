@@ -281,10 +281,23 @@ function processEvent(event, content) {
       renderEstimateCard(event.estimate_id, content);
       refreshEstPanel();
       break;
+    case 'spec_unavailable':
+      renderSpecUnavailable(event, content);
+      break;
     case 'legal_sources':
       renderLegalSources(event.sources, content);
       break;
   }
+}
+
+/** spec_unavailable 이벤트 → 기준 두께 적합 상품 미등록 안내(대체품 없음, 설계도서 확인·별도 견적) */
+function renderSpecUnavailable(event, container) {
+  const mm = parseInt(event.spec_mm, 10) || 0;
+  const wrap = document.createElement('div');
+  wrap.className = 'spec-unavailable';
+  wrap.innerHTML = `<div class="spec-unavailable-title">두께 ${mm}mm 포장 블록 — 현재 등록된 적합 상품이 없습니다</div>
+    <div class="spec-unavailable-body">${escHtml(event.item || '')} · 기준보다 얇은 제품은 대체로 추천하지 않습니다.<br>발주처 설계도서·시방서의 블록 규격(두께·크기·수량)을 확인해 주세요. 해당 규격은 별도 견적이 필요합니다.</div>`;
+  container.appendChild(wrap);
 }
 
 /** legal_sources 이벤트 → 답변이 실제로 인용한 공식 법령 근거(기준명·조항·시행일·적용 조건·원문 링크) */

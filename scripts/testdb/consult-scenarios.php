@@ -85,7 +85,7 @@ if (isset($opt['with-public-road'])) {
 // [기대 장소 판정, 대화(고객 발화), 답변에서 확인할 점]
 // --core: 핵심 3개 + 면적 답변 턴(상품 검색 유도) — [기대, 대화, 확인할 점, 추천 상품 기대 두께(mm)]
 $core = [
-    ['public_road', ['시청에서 발주한 도로 공사인데 차도에 블록 깔려면 두께 몇 mm 써야 해요?', '차도 면적은 50㎡ 정도예요. 인터로킹 블록으로 찾아 주세요'], '100mm 이상 안내 + KDS/KCS 44 50 25 출처, 80T 비권장, 100mm 제품만(없으면 없다고 안내)', 100],
+    ['public_road', ['시청에서 발주한 도로 공사인데 차도에 블록 깔려면 두께 몇 mm 써야 해요?', '차도 면적은 50㎡ 정도예요. 인터로킹 블록으로 찾아 주세요'], '100mm 이상 안내 + KDS/KCS 44 50 25 출처, 80T 비권장, 100mm 제품만(없으면 적합 상품 없음 안내 — 80T·60T 대체 추천 금지, 설계도서 확인·별도 견적)', 100],
     ['public_sidewalk', ['가게 앞 인도를 차가 가로질러 들어오는데 인도 블록 두께는요?', '승용차만 들어오고 면적은 30㎡예요'], '보도 지침 구분 Ⅱ(4t 이하) 80mm 이상 + 출처, 80T 제품', 80],
     ['private', ['집 앞 마당에 차 두 대 주차할 건데 블록 두께 몇 T?', '마당은 6m × 5m 예요'], '기존 80T 안내, 공공도로 출처 없음, 80T 제품', 80],
 ];
@@ -138,6 +138,7 @@ try {
         foreach ($res['events'] ?? [] as $e) {
             if (($e['type'] ?? '') === 'product_cards') { $cards = array_merge($cards, $e['products'] ?? []); }
         }
+        $unavailable = (bool) array_filter($res['events'] ?? [], static fn($e) => ($e['type'] ?? '') === 'spec_unavailable');   // 적합 상품 없음 카드
         $wrongCards = $wantMm === null ? [] : array_values(array_filter($cards, static fn($c) => ai_block_thickness((string) ($c['spec'] ?? '')) !== $wantMm));
         $cites44 = (bool) array_filter($sources, static fn($x) => str_contains($x, '44 50 25'));
         // 실패는 통과로 표시하지 않는다: 실행 오류 > 장소 판정 불일치 > 내용 점검
@@ -147,6 +148,8 @@ try {
             $auto = "실패(장소 판정 {$ctx} ≠ 기대 {$expect})";
         } elseif ($wrongCards) {
             $auto = "실패(추천 상품 두께가 {$wantMm}mm 가 아님: " . implode(', ', array_map(static fn($c) => $c['name'], array_slice($wrongCards, 0, 3))) . ')';
+        } elseif ($wantMm !== null && !$cards && !$unavailable) {
+            $auto = "확인 필요(추천 상품도 '적합 상품 없음' 안내도 없음 — {$wantMm}mm 검색을 했는지 원문 확인)";
         } else {
             $auto = match ($expect) {
                 'public_road'     => $cites44 && preg_match('/100\s*mm|100T|10\s*cm/u', $text) ? '통과' : '확인 필요',
@@ -158,7 +161,8 @@ try {
         }
         $tally[str_starts_with($auto, '실패') ? '실패' : ($auto === '통과' ? '통과' : '확인 필요')]++;
         $md .= "## {$i}. 기대 {$expect} · 판정 {$ctx} · 자동 점검 {$auto}\n\n- 고객: " . implode(' → ', $turns) . "\n- 확인할 점: {$check}\n- 인용 근거: " . ($sources ? implode(' / ', $sources) : '없음')
-            . ($wantMm !== null ? "\n- 추천 상품(마지막 턴): " . ($cards ? implode(', ', array_map(static fn($c) => $c['name'] . '(' . (ai_block_thickness((string) ($c['spec'] ?? '')) ?? '?') . 'mm)', $cards)) : '없음') : '') . "\n\n```\n" . trim($text) . "\n```\n\n";
+            . ($wantMm !== null ? "\n- 추천 상품(마지막 턴): " . ($cards ? implode(', ', array_map(static fn($c) => $c['name'] . '(' . (ai_block_thickness((string) ($c['spec'] ?? '')) ?? '?') . 'mm)', $cards)) : '없음')
+                . ($unavailable ? " · '현재 등록된 적합 상품 없음' 카드 표시" : '') : '') . "\n\n```\n" . trim($text) . "\n```\n\n";
         if ($errors) {
             $md .= "> 오류: " . implode(' / ', array_unique($errors)) . "\n\n";
         }

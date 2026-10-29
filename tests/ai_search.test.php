@@ -78,8 +78,16 @@ echo "[②'' 포장 블록 엄격 규격 = 두께 (공공도로 100mm 검색)]\n
 $r = search(['query' => '인터로킹 블록', 'area_m2' => 50, 'spec_mm' => 100, 'spec_strict' => true]);
 ok('100mm 포장 블록 없음 → 빈 결과(가로 100 블록·호안블록·60T 노출 안 함)', empty($r['products']));
 ok('안내에 100mm 제품 없음 명시', str_contains((string) ($r['note'] ?? ''), '100mm 제품이 없습니다'));
+$unavail = static fn(array $r): bool => str_contains((string) ($r['note'] ?? ''), '대체품으로 권하지 않습니다') && str_contains((string) ($r['note'] ?? ''), '설계도서')
+    && (($r['_sse'][0]['type'] ?? '') === 'spec_unavailable') && (($r['_sse'][0]['spec_mm'] ?? 0) === 100);
+ok('얇은 두께 대체 금지·설계도서 확인 안내 + 상담 화면 카드(spec_unavailable)', $unavail($r));
 $r = search(['queries' => ['인터로킹 블록', '보차도블록', '점토블럭'], 'area_m2' => 50, 'spec_mm' => 100, 'spec_strict' => true]);
 ok('비교 검색도 빈 결과 + 규격 없음 안내', empty($r['products']) && str_contains((string) ($r['note'] ?? ''), '규격 100mm 제품이 없습니다'));
+ok('비교 검색도 대체 금지 안내 + 카드', $unavail($r));
+$r = search(['query' => '점토블럭', 'area_m2' => 20, 'spec_mm' => 80, 'spec_strict' => true]);
+ok('80T 엄격 검색에서 없는 종류도 같은 안내(카드 포함)', str_contains((string) ($r['note'] ?? ''), '80mm 제품이 없습니다') && (($r['_sse'][0]['type'] ?? '') === 'spec_unavailable'));
+$r = search(['query' => 'PE 배수관', 'spec_mm' => 999, 'spec_strict' => true]);
+ok('포장 블록이 아닌 품목은 기존 안내(카드 없음)', empty($r['_sse']));
 $r = search(['queries' => ['인터로킹 블록', '인조화강블록', '점토블럭'], 'area_m2' => 30, 'spec_mm' => 80, 'spec_strict' => true]);
 ok('80T 비교: 결과 전부 두께 80', !empty($r['products']) && !array_filter($r['products'], static fn($c) => ai_block_thickness((string) $c['spec']) !== 80));
 ok('80T 비교: 구조용(호안·축조)·경계 블록 없음', !array_filter(array_column($r['products'], 'name'), static fn($n) => preg_match('/호안|축조|옹벽|속빈|경계/u', $n)));

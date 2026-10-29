@@ -185,6 +185,9 @@ render_header('AI 자재 상담', 'chat');
   .compare-summary { font-size: 12px; line-height: 1.5; padding: 8px 10px; margin-bottom: 6px; background: var(--color-surface); border: 1px solid var(--color-border); }
   .compare-summary b { color: var(--color-primary); }
   .compare-summary span { display: block; font-size: 11px; color: var(--color-text-secondary); }
+  .spec-unavailable { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--color-border); border-left: 3px solid var(--color-text-primary); background: var(--color-surface); font-size: 12px; line-height: 1.55; }
+  .spec-unavailable-title { font-weight: 700; color: var(--color-text-primary); margin-bottom: 4px; }
+  .spec-unavailable-body { color: var(--color-text-secondary, inherit); word-break: keep-all; }
   .legal-sources { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--color-border); background: var(--color-surface); font-size: 12px; line-height: 1.55; }
   .legal-sources-title { font-weight: 700; color: var(--color-text-primary); margin-bottom: 6px; }
   .legal-sources ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }

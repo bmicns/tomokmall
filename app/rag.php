@@ -221,8 +221,49 @@ function rag_detect_category(array $messages): string
     if (preg_match('/맨홀|집수정|우물통/u', $text))                         return 'manhole';
     if (preg_match('/수로관|농수로|u\s*형|ㅠ\s*형/u', $text))               return 'culvert';
     if (preg_match('/보도블[록럭]|경계석|인터로킹|포장블[록럭]|보차도|인조화강블|점토블[록럭]|투수블[록럭]|잔디블[록럭]/u', $text)) return 'pavement';
+    // '블록' 만 쓴 경우: 바닥 포장 문맥(깔기·마당·인도·차도·두께 등)이 있고 쌓는 블록(호안·옹벽·속빈·조적 등)이 아닐 때만 보도블록 상담
+    if (rag_is_paving_block_text($text)) return 'pavement';
 
     return '';
+}
+
+/** '블록·블럭' 이 쌓는 용도(호안·옹벽·속빈·조적·축조·담장 등)를 가리키는지 (순수 함수) */
+function rag_is_structural_block_text(string $text): bool
+{
+    return preg_match('/호안|옹벽|속빈|조적|축조|담장|벽체|화단\s*쌓|쌓[는아으기을]|쌓다/u', $text) === 1;
+}
+
+/** '블록·블럭' 이 바닥 포장용으로 쓰인 문맥인지 (순수 함수) — 포장 문맥 단서가 있고 쌓는 블록이 아닐 때만 true */
+function rag_is_paving_block_text(string $text): bool
+{
+    if (preg_match('/블[록럭]/u', $text) !== 1 || rag_is_structural_block_text($text)) {
+        return false;
+    }
+    return preg_match('/깔[고기아려면을]|깔다|포장|바닥|마당|주차|진입로|인도|보도|차도|도로|광장|공원|정원|산책로|길에|길을|두께|\d+\s*t\b|\d+\s*mm|㎡|m2|제곱미터|평\s|차가|차량|차를/u', $text) === 1;
+}
+
+/**
+ * '블록' 이라고만 해서 종류를 알 수 없을 때(포장 문맥·쌓는 블록 단서 모두 없음) 확인 질문 구역 (순수 함수).
+ * 보도블록으로 가정하지 않고 바닥 포장용인지 쌓는 용도인지 먼저 묻게 한다. 해당 없으면 빈 문자열.
+ */
+function rag_block_kind_prompt(array $messages, string $categoryKey): string
+{
+    if ($categoryKey !== '') {
+        return '';
+    }
+    $text = '';
+    foreach ($messages as $m) {
+        if (($m['role'] ?? '') === 'user') {
+            $text .= ($m['content'] ?? '') . ' ';
+        }
+    }
+    $text = mb_strtolower($text);
+    if (preg_match('/블[록럭]/u', $text) !== 1 || rag_is_structural_block_text($text) || rag_is_paving_block_text($text)) {
+        return '';
+    }
+    return "\n\n=== 블록 종류 확인 ===\n"
+        . "- 고객이 '블록'이라고만 해서 종류를 알 수 없다. 보도블록으로 가정하지 말고 먼저 묻는다:\n"
+        . "  '바닥에 까는 포장용(보도블록·인터로킹 등)인가요, 담장·옹벽·화단처럼 쌓는 용도인가요? 설치 장소도 알려 주세요.'";
 }
 
 /**
@@ -475,7 +516,8 @@ function rag_road_context_prompt(string $ctx, bool $hasScopedDocs = true): strin
         'public_road' => "\n\n=== 공공도로 차도 공사 — 공식 기준 별도 안내 (사내 80T 기준과 구분) ===\n"
             . "- 고객 질문이 도로법상 도로(국도·지방도·시도·군도·구도 등)의 차도에 블록을 시공하는 공사로 보인다.\n"
             . "- 이 경우 [참조 문서]의 사내 기준(80T)만으로 두께를 안내하지 않는다. 아래 공식 기준 KDS 44 50 25·KCS 44 50 25 의 '차도용 블록 최소 100mm(교통량·설계 결과에 따라 상향, 표준단면 100mm/120mm)'를 [L번호]와 함께 안내한다.\n"
-            . "- 80mm(80T) 제품을 공공도로 차도용으로 권하지 않는다. 제품 검색은 spec_mm 100, spec_strict true 로 한다(맞는 제품이 없으면 없다고 안내).\n"
+            . "- 80mm(80T) 제품을 공공도로 차도용으로 권하지 않는다. 제품 검색은 spec_mm 100, spec_strict true 로 한다.\n"
+            . "- 맞는 제품이 없으면 도구 note 대로 '현재 등록된 적합 상품이 없다'고 분명히 알리고, 80T·60T 등 기준보다 얇은 제품을 대체품으로 권하지 않는다. 발주처 설계도서의 규격 확인과 별도 견적이 필요하다고 안내한다.\n"
             . "- 최종 두께·단면은 발주처 설계도서·특기시방서가 우선이라고 함께 안내한다. 공식 기준에 없는 내용은 덧붙이지 않는다.",
         'public_sidewalk' => "\n\n=== 공공 보도의 차량 출입부 — 공식 기준 별도 안내 ===\n"
             . "- 고객 질문이 도로의 보도(인도)를 차량이 가로질러 출입하는 곳의 포장으로 보인다.\n"
@@ -734,6 +776,7 @@ function rag_build_prompt(array $messages): array
             $system .= "\n\n[" . $doc['title'] . "]\n" . $doc['content'];
         }
     }
+    $system .= rag_block_kind_prompt($messages, $categoryKey);
     $scopedHit = (bool) array_filter($legalDocs, static fn($d) => array_intersect(rag_legal_doc_scopes($d), $legalIn['scopes']));
     $system .= rag_road_context_prompt($roadCtx, $scopedHit);
     $system .= rag_legal_prompt_section($legalDocs);
