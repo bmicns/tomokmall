@@ -821,6 +821,16 @@ function rag_is_search_promise(string $text): bool
     return preg_match('/(찾아|검색해|보여|알아봐)\s*(드릴게요|드리겠습니다|드릴께요|볼게요|보겠습니다)|잠시만\s*기다려/u', $tail) === 1;
 }
 
+/** 상품 카드가 없는 답의 끝 '원하시는 제품을 선택해 주세요.' 제거 (순수 함수) — 고를 카드가 없는데 선택하라는 안내가 붙지 않게 */
+function rag_strip_dangling_choice(string $text, array $events): string
+{
+    if (in_array('product_cards', array_column($events, 'type'), true)) {
+        return $text;
+    }
+    $out = rtrim((string) preg_replace('/\s*원하시는\s*제품을\s*선택해\s*주세요\.?\s*$/u', '', $text));
+    return $out !== '' ? $out : $text;   // 그 문장뿐이면 빈 답변이 되지 않게 그대로
+}
+
 /**
  * OpenAI Tool Use 루프 — AJAX 응답용 (SSE 없음)
  *
@@ -945,7 +955,7 @@ function rag_process(array $messages, string $sid): array
 
     // 실제로 인용한 법령 근거만 출처로 표시(지어낸 번호는 버리고 표시는 본문에서 제거)
     $cit = rag_extract_legal_citations($responseText, $legalDocs);
-    $responseText = $cit['text'];
+    $responseText = rag_strip_dangling_choice($cit['text'], $events);
     if ($cit['sources']) {
         $events[] = ['type' => 'legal_sources', 'sources' => $cit['sources']];
     }

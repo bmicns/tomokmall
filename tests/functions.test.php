@@ -403,5 +403,12 @@ $rowsT = [
 ];
 eq('두께 100 포장 블록만(60T·호안·경계 제외)', array_column(ai_filter_paving_thickness($rowsT, 100), 'name'), ['인터로킹i2형블럭', '다칼라블랜딩블록']);
 
+echo "[상담: 카드 없는 답의 '원하시는 제품을 선택해 주세요.' 제거]\n";
+$cardsEv = [['type' => 'product_cards', 'products' => []]];
+ok('카드 없음 → 끝의 선택 안내 제거', rag_strip_dangling_choice("안전 그레이팅이 적합합니다.\n\n원하시는 제품을 선택해 주세요.", [['type' => 'material_sources', 'sources' => []]]) === '안전 그레이팅이 적합합니다.');
+ok('카드 있음 → 그대로', rag_strip_dangling_choice("고르는 기준입니다.\n원하시는 제품을 선택해 주세요.", $cardsEv) === "고르는 기준입니다.\n원하시는 제품을 선택해 주세요.");
+ok('그 문장뿐이면 빈 답변이 되지 않게 그대로, 중간 문장은 손대지 않음', rag_strip_dangling_choice('원하시는 제품을 선택해 주세요.', []) === '원하시는 제품을 선택해 주세요.'
+    && rag_strip_dangling_choice('원하시는 제품을 선택해 주세요. 면적도 알려 주세요.', []) === '원하시는 제품을 선택해 주세요. 면적도 알려 주세요.');
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

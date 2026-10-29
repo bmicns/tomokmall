@@ -3,7 +3,7 @@ declare(strict_types=1);
 /**
  * 수집 자료 승인 후보 정리·출처별 승인 — 로컬 테스트 DB(*_test) 의 external_products(검토 대기)를 출처별로 묶어 검토하고, 사람이 고른 출처만 승인
  *
- * 책임: ① 출처별 원문 문장을 문장 단위로 판정(ext_fact_review: 승인 후보 / 보류 + 사유) ② 행 점검(차도·차량 표기인데 두께 80mm 미만, 치수 판독 이상)
+ * 책임: ① 출처별 원문 문장을 문장 단위로 판정(ext_fact_review: 승인 후보 / 보류 + 사유) ② 행 점검(차도·차량 표기인데 두께 80mm 미만, 치수 판독 이상, 행 이름이 메뉴 글자)
  *       ③ 우리 상품 매칭 후보(50점 이상)를 나란히 보여 주고 다른 점(두께·관경·폭·재질·투수·모델)을 표시 → data/external/crawl/approval-candidates.md
  *       ④ --approve=출처,… : 그 출처의 검토 대기 행 중 승인 후보 문장이 있고 행 점검 ⚠ 가 없는 행만 approved — 원문 문장은 승인 후보만 남기고
  *          보류 문장은 attrs_json.facts_held(사유 포함)로 옮김. material_info 는 approved 행의 facts 만 쓴다.
@@ -52,6 +52,7 @@ $rowIssue = static function (array $r) use ($blocks): string {
         return "차도·차량 표기인데 두께 {$t}mm — 사내 80T 기준과 충돌";
     }
     if (($t !== null && $t > 400) || (int) $r['width_mm'] > 6000 || (int) $r['length_mm'] > 12000) { return '치수 판독 이상(단위 확인)'; }
+    if (ext_is_nav_label((string) $r['name'])) { return '행 이름이 사이트 메뉴 글자(주메뉴 등) — 제품 대상 불명확, 다시 수집 후 검토'; }
     return '';
 };
 /** 원문 문장 판정(같은 출처 문장끼리 조각 판정) — [text => [kind, 사유]] */
@@ -174,7 +175,7 @@ foreach ($keys as $k) {
             }
             if ((mb_stripos($e['name'], '몰드') !== false) !== (mb_stripos($p['name'], '몰드') !== false)) { $d[] = '몰드(거푸집) 여부 다름'; }
             $soft = str_contains($m['reasons'], '규격') ? [] : ['규격 표기 다름'];
-            $verdict = $d ? '다른 상품 가능성' : ($soft || (int) $m['score'] < 70 ? '확인 필요' : '같은 상품 가능 — 확인 후 확정');
+            $verdict = ext_is_nav_label((string) $r['name']) ? '판단 불가(외부 행 이름이 메뉴 글자)' : ($d ? '다른 상품 가능성' : ($soft || (int) $m['score'] < 70 ? '확인 필요' : '같은 상품 가능 — 확인 후 확정'));
             if ($d) { $diffN++; }
             $cell = static fn(string $v) => str_replace('|', '/', mb_substr(trim($v), 0, 50));
             $mrows[] = '| ' . $cell("{$r['id']} {$r['name']} · {$r['spec_raw']}") . ' | ' . $cell("{$m['id']} {$m['name']} · {$m['spec']}") . " | {$m['score']} | " . ($m['reasons'] ?: '-') . ' | '

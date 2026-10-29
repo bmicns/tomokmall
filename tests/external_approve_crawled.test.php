@@ -48,8 +48,10 @@ file_put_contents("{$tmp}/test_appr-20261029-000000.json", json_encode([
 ], JSON_UNESCAPED_UNICODE));
 $pave = '[테스트] 표면 오염방지 처리로 블록의 수명을 연장합니다.';
 $stroller = '[테스트] 블록 줄눈은 유모차 바퀴가 걸리지 않게 좁습니다.';
+$navFact = '[테스트] 이 블록은 표면 줄눈이 넓은 형태로 제작합니다.';
 file_put_contents("{$tmp}/test_appr_pave-20261029-000000.json", json_encode([$rec('[테스트]컬러 보도블록', '200*200*60', 1, ['features' => [$pave,
-    '[테스트] 블록 표면은 미끄럼 방지 패턴입니다.', '[테스트] 블록 기층에 재활용 골재를 사용합니다.', $stroller]])], JSON_UNESCAPED_UNICODE));
+    '[테스트] 블록 표면은 미끄럼 방지 패턴입니다.', '[테스트] 블록 기층에 재활용 골재를 사용합니다.', $stroller]]),
+    $rec('주메뉴 [테스트]보도블록', '300*300*60', 2, ['features' => [$navFact]])], JSON_UNESCAPED_UNICODE));
 $env = 'EXT_SOURCES_FILE=' . escapeshellarg("{$tmp}/sources.json") . ' EXT_CRAWL_DIR=' . escapeshellarg($tmp);
 $run = static function (string $script, string $args = '') use ($env): array {
     exec("{$env} " . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . "/../scripts/external/{$script}") . " {$args} 2>&1", $out, $code);
@@ -92,6 +94,8 @@ try {
     ok('두께 조건 없는 차도 설치 문장은 상담 자료에 없음', !str_contains($facts('인조화강블록 차도'), '어디에나'));
 
     $run('approve-crawled.php', '--approve=test_appr_pave');
+    $navSt = $pdo->query("SELECT review_status FROM external_products WHERE source_key = 'test_appr_pave' AND name LIKE '주메뉴%'")->fetchColumn();
+    ok("행 이름이 사이트 메뉴 글자('주메뉴 …')인 행은 승인해도 검토 대기(⚠), 그 문장은 상담 자료에 없음", $navSt === 'pending' && !str_contains($facts('보도블록 줄눈'), $navFact));
     $fs = json_decode(tool_material_info(['topic' => '보도블록 유모차']), true)['facts'] ?? [];
     ok('질문 낱말(유모차)이 든 문장을 먼저 — 종류별 3개 한도에 밀려 빠지지 않음', ($fs[0]['text'] ?? '') === $stroller);
     ok("'보도블록'으로만 표기한 제조사 행도 인조화강블록 질문에서 찾음(바닥 포장 블록끼리)", str_contains($facts('인조화강블록'), $pave) && str_contains($facts('보도블록'), $pave));

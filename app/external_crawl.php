@@ -9,13 +9,20 @@ declare(strict_types=1);
  * 사용처: scripts/external/crawl-sources.php, tests/external_crawl.test.php
  */
 
-/** 페이지 제목(제품명 후보): h1~h3 첫 글, 없으면 <title> */
+/** 사이트 이동용 제목('주메뉴'·'전체메뉴'·'본문 바로가기' 등)으로 시작하는지 (순수 함수) — 제품명이 아님 */
+function ext_is_nav_label(string $t): bool
+{
+    return (bool) preg_match('/^\s*((주|메인|전체|서브|하위|빠른|퀵|상단|하단)?\s*메뉴|본문\s*바로\s*가기|바로\s*가기|사이트\s*맵|skip\s*nav|navigation|menu)(\s|$)/iu', $t);
+}
+
+/** 페이지 제목(제품명 후보): h1~h3 첫 글(사이트 이동용 제목은 건너뜀), 없으면 <title> */
 function ext_page_title(string $html): string
 {
     foreach (['h1', 'h2', 'h3'] as $h) {
-        if (preg_match('#<' . $h . '[^>]*>(.*?)</' . $h . '>#isu', $html, $m)) {
-            $t = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($m[1]), ENT_QUOTES, 'UTF-8')));
-            if ($t !== '' && mb_strlen($t) <= 60) { return $t; }
+        preg_match_all('#<' . $h . '[^>]*>(.*?)</' . $h . '>#isu', $html, $all);
+        foreach ($all[1] as $inner) {
+            $t = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($inner), ENT_QUOTES, 'UTF-8')));
+            if ($t !== '' && mb_strlen($t) <= 60 && !ext_is_nav_label($t)) { return $t; }
         }
     }
     return preg_match('#<title[^>]*>(.*?)</title>#isu', $html, $m) ? trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($m[1]), ENT_QUOTES, 'UTF-8'))) : '';
@@ -187,7 +194,7 @@ function ext_fact_conflict(string $t): string
 /**
  * 원문 문장 단위 검토 (순수 함수) — 상담에 쓸 승인 후보면 '', 보류면 사유. 문장은 고치지 않는다(원문 그대로 쓰거나 빼거나).
  * $others: 같은 출처의 다른 문장(긴 문장의 조각 판정용).
- * 보류: 기준 충돌 가능(ext_fact_conflict) / 제목·시공사례 / 메뉴·제품 목록(서술 없음) / 다른 문장의 조각 / 홍보·최상급·비교 표현 / 가격·타사 언급 / 회사 소개·현장명.
+ * 보류: 기준 충돌 가능(ext_fact_conflict) / 제목·시공사례 / 메뉴·제품 목록(서술 없음) / 다른 문장의 조각 / 홍보·최상급·비교 표현 / 가격·타사 언급 / 회사 소개·현장명 / 주어 없는 비교 문장.
  */
 function ext_fact_review(string $t, array $others = []): string
 {
@@ -204,6 +211,8 @@ function ext_fact_review(string $t, array $others = []): string
         (bool) preg_match('/가장|최고|최상|획기적|훌륭|뛰어난|보석|유럽풍|어디에나|어떠한[^.]{0,10}에도|연출|분위기|경관|경쾌|개성/u', $t) => '홍보·최상급 표현(근거 확인 불가)',
         (bool) preg_match('/저렴|가격|단가|원\)|중국산|타사/u', $t) => '가격·타사 언급',
         (bool) preg_match('/에서는[^.]{0,30}(제작|판매|생산)|전문적으로|[가-힣]+구\s+[가-힣]+(아파트|단지|공원)/u', $t) => '회사 소개·현장명',
+        // 'ㄷ형강 하부를 보강하여 일반 중하중 그레이팅 보다 더 무거운 차량…'·'기존 벤치플룸관에 비해 대형' — 무엇이(주어) 없이 다른 제품과 비교 → 상담에서 다른 제품 설명으로 옮겨짐
+        (bool) preg_match('/보다\s*(더|훨씬)|에\s*비해/u', $t) && !preg_match('/^[^.]*?[가-힣A-Za-z0-9)](은|는)\s[^.]*?(보다\s*(더|훨씬)|에\s*비해)/u', $t) => '비교 대상 제품 불명확(주어 없는 비교 문장)',
         !$spec && !preg_match('/(니다|이다|한다|된다|있다|없다|있음|없음|함|됨|임|음|요망)[.!]?(\s*★[^.]*)?$/u', $t)
             && (mb_strlen($t) < 20 || count(preg_split('/[\/,]/u', $t)) >= 4 || !preg_match('/[가-힣](은|는|이|가|을|를|에|에서|으로|로|와|과|도)\s|[가-힣]며[, ]/u', $t)) => '메뉴·제품명 목록(서술 없음)',
         default => '',
