@@ -29,12 +29,14 @@
    "permission": "allowed",
    "basis": "공공데이터포털 OpenAPI — 이용허락범위 제한 없음(2026-10-27 검색 요약, 활용신청 때 재확인)",
    "methods": [
+    "api",
     "file"
    ],
    "conditions": [
-    "활용신청 후 받은 응답을 CSV/JSON 으로 저장해 파일로 가져오기(전용 API 수집기는 참고문서의 요청변수 확인 후 추가)",
+    "scripts/external/g2b-api.php 가 공식 상세 페이지의 명세·이용허락범위로 호출(명세에 없는 변수는 보내지 않음)",
+    "호출 상한(--max-calls)·간격(1초)으로 일일 트래픽 안에서 수집, 인증키는 .env.local 의 DATA_GO_KR_SERVICE_KEY",
     "출처 표시: 조달청·공공데이터포털",
-    "가격은 참고가"
+    "가격은 조달 계약단가 — 참고가로만(판매가 아님)"
    ],
    "url": "https://www.data.go.kr/data/15129471/openapi.do"
   },

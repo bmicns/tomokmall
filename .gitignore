@@ -12,3 +12,9 @@ public/uploads/*
 
 # 배포 백업(scripts/deploy-files.sh가 생성 — 운영 서버 파일 사본, 커밋 금지)
 /backup/
+
+# 외부 상품 API 수집(scripts/external/g2b-api.php) — 원본 응답·수집본·진행 상태는 커밋하지 않음(명세 spec.json 만 커밋 가능)
+/data/external/g2b/raw/
+/data/external/g2b/collected/
+/data/external/g2b/state.json
+/data/external/g2b/import-report.md
