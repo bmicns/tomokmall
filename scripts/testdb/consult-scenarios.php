@@ -145,6 +145,7 @@ if (isset($opt['material'])) {
             empty($res['ok']) || trim($text) === '' => '실패(실행 오류·답변 없음)',
             (bool) preg_match($banned, $flat) => '실패(보류한 홍보·기준 충돌 표현 사용)',
             (bool) preg_match('/○○|◯◯/u', $text) => '실패(자리표시 ○○ 를 제조사 이름 대신 그대로 씀)',
+            (bool) preg_match('/search_products|material_info|add_to_cart|get_cart|create_estimate/u', $text) => '실패(내부 도구 이름 노출)',
             $must !== null && !preg_match($must, $flat) => '실패(필수 안내 없음: 차량 80mm 이상)',
             $srcs && $wrong !== null && (bool) preg_match($wrong, $flat) => '실패(원문 밖 확대 해석: ' . (preg_match($wrong, $flat, $mm) ? $mm[0] : '') . ')',
             !$srcs && (bool) preg_match('/제조사\s*자료에\s*따르면/u', $text) => "실패(참고 자료가 없는데 '제조사 자료에 따르면' 표현)",

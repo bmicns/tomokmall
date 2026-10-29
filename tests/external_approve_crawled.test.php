@@ -98,6 +98,9 @@ try {
     ok("행 이름이 사이트 메뉴 글자('주메뉴 …')인 행은 승인해도 검토 대기(⚠), 그 문장은 상담 자료에 없음", $navSt === 'pending' && !str_contains($facts('보도블록 줄눈'), $navFact));
     $fs = json_decode(tool_material_info(['topic' => '보도블록 유모차']), true)['facts'] ?? [];
     ok('질문 낱말(유모차)이 든 문장을 먼저 — 종류별 3개 한도에 밀려 빠지지 않음', ($fs[0]['text'] ?? '') === $stroller);
+    $gf = json_decode(tool_material_info(['topic' => '그레이팅 미끄럼']), true)['facts'] ?? [];
+    ok("문장마다 설명 대상(about): 문장 앞 '제품 이름 + 은/는', 없으면 행 이름", ($fs[0]['about'] ?? '') === '[테스트]컬러 보도블록'
+        && (array_column($gf, 'about', 'text')[$good] ?? '') === '스틸 그레이팅');
     ok("'보도블록'으로만 표기한 제조사 행도 인조화강블록 질문에서 찾음(바닥 포장 블록끼리)", str_contains($facts('인조화강블록'), $pave) && str_contains($facts('보도블록'), $pave));
     $pv = json_decode(tool_material_info(['topic' => '보도블록 오염 방지']), true);
     ok("자재 종류가 다른 행은 '방지' 같은 낱말만 겹쳐도 섞이지 않음(보도블록 질문에 그레이팅 문장·출처 없음)", str_contains(json_encode($pv['facts'], JSON_UNESCAPED_UNICODE), $pave)

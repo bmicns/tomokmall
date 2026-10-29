@@ -119,6 +119,10 @@ try {
     ok('6(5회차): 고객에게 직접 검색하라고 함 → 확인 필요', str_contains($sec(6), '자동 점검: 확인 필요(고객에게 추가 검색을 하라고 함)'));
     $md = $rerun('[테스트]제조 자료에 따르면 안전 그레이팅은 유모차 바퀴가 빠지지 않습니다.', [$tool('흄관', 25), $say('[테스트]제조 자료에 따르면 흄관(B형)은 KS F 4403 표기 제품입니다.')]);
     ok("1·5(6회차): '안전' 제품명 그대로·KS 를 그 제품 표기로 전하면 통과", str_contains($sec(1), '자동 점검: 통과') && str_contains($sec(5), '자동 점검: 통과'));
+    // 7회차: 재시험 6(after6) 유형 — 답에 내부 도구 이름(search_products)을 그대로 씀(6)
+    $md = $rerun('[테스트]제조 자료에 따르면 안전 그레이팅은 유모차 바퀴가 빠지지 않습니다.', [],
+        [$tool('보도블록 오염', 26), $say('[테스트]제조 자료에 따르면 오염방지 처리 제품이 있습니다. 구체적인 제품은 search_products를 통해 확인하실 수 있습니다.')]);
+    ok('6(7회차): 내부 도구 이름 노출 → 실패', str_contains($sec(6), '자동 점검: 실패(내부 도구 이름 노출)'));
     ok('V21·V22·승인 상태 그대로', $v2122 === $pdo->query("SELECT GROUP_CONCAT(CONCAT(id, ':', is_active, ':', review_status) ORDER BY id) FROM rag_documents WHERE tags LIKE '@scope:public_road%'")->fetchColumn()
         && $approvedBefore === (int) $pdo->query("SELECT COUNT(*) FROM external_products WHERE review_status = 'approved'")->fetchColumn());
 } finally {
