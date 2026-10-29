@@ -1,0 +1,350 @@
+{
+ "_doc": "외부 상품 데이터 출처 등록부. permission: allowed(공공데이터 — 가져오기 가능) / facts_if_clear(제조사 공개 페이지 — robots·약관 자동 확인 통과 시 사실 정보만 자동 수집) / pending(허락 필요 — 별도 관리, --dry-run 분석만) / blocked(사용 안 함). allowed 로 바꿀 때는 basis 에 근거(약관 조항·허락 메일 날짜·계약)를 적는다. scripts/external/import.php 가 이 값을 확인한다.",
+ "updated": "2026-10-29",
+ "sources": [
+  {
+   "key": "g2b_mall_items_file",
+   "name": "조달청_종합쇼핑몰 품목 등록 내역(공공데이터포털 파일데이터 15142663)",
+   "domain": "www.data.go.kr",
+   "kind": "공공데이터(파일)",
+   "priority": 0,
+   "permission": "allowed",
+   "basis": "공공데이터포털 등록 공공데이터 — 다운로드 페이지의 이용허락범위 확인 조건",
+   "methods": [
+    "file"
+   ],
+   "conditions": [
+    "다운로드 페이지의 이용허락범위가 제한 없음(또는 공공누리 출처표시)인지 확인",
+    "출처 표시: 조달청·공공데이터포털",
+    "가격은 조달 계약단가 — 우리 판매가로 쓰지 않음(참고가)"
+   ],
+   "url": "https://www.data.go.kr/data/15142663/fileData.do"
+  },
+  {
+   "key": "g2b_mall_api",
+   "name": "조달청_나라장터쇼핑몰 품목정보 서비스(OpenAPI 15129471)",
+   "domain": "apis.data.go.kr",
+   "kind": "공공데이터(API)",
+   "priority": 0,
+   "permission": "allowed",
+   "basis": "공공데이터포털 OpenAPI — 이용허락범위 제한 없음(2026-10-27 검색 요약, 활용신청 때 재확인)",
+   "methods": [
+    "api",
+    "file"
+   ],
+   "conditions": [
+    "scripts/external/g2b-api.php 가 공식 상세 페이지의 명세·이용허락범위로 호출(명세에 없는 변수는 보내지 않음)",
+    "호출 상한(--max-calls)·간격(1초)으로 일일 트래픽 안에서 수집, 인증키는 .env.local 의 DATA_GO_KR_SERVICE_KEY",
+    "출처 표시: 조달청·공공데이터포털",
+    "가격은 조달 계약단가 — 참고가로만(판매가 아님)"
+   ],
+   "url": "https://www.data.go.kr/data/15129471/openapi.do"
+  },
+  {
+   "key": "manufacturer_catalog",
+   "name": "제조사 제공 카탈로그(허락받은 엑셀·CSV)",
+   "domain": "",
+   "kind": "제조사 제공 파일",
+   "priority": 0,
+   "permission": "pending",
+   "basis": "제조사별 허락 메일·계약을 받으면 출처 키를 따로 추가하고 allowed 로 바꾼다",
+   "methods": [
+    "file"
+   ],
+   "conditions": [
+    "허락 근거(메일·계약) 보관"
+   ]
+  },
+  {
+   "key": "ktomok",
+   "name": "케이토목 (사이트 표기: 케이토목-토목자재도매단가쇼핑몰)",
+   "domain": "ktomok.com",
+   "kind": "경쟁 유통몰",
+   "priority": 1,
+   "permission": "pending",
+   "basis": "유통몰·플랫폼 상품 DB(단가 포함) — 데이터베이스 제작자 권리·경쟁 위험, 기존 수집분 사후 허락 필요. 허락 전 자동 수집 안 함(별도 관리)",
+   "methods": [],
+   "conditions": [],
+   "recommended": "제휴/허락 요청(최우선): 기존 1,452건 사용 범위(상품명·규격·단가·이미지) 명시해 서면 허락 또는 공급(대리점/입점) 계약 추진. 허락 전까지 신규 수집 중단, 이미지 핫링크·단가 원문 노출 축소 검토"
+  },
+  {
+   "key": "dacity",
+   "name": "동아산업 (사이트 표기: 토목자재종합정보플랫폼)",
+   "domain": "dacity.kr",
+   "kind": "제조사+카탈로그몰",
+   "priority": 2,
+   "permission": "pending",
+   "basis": "유통몰·플랫폼 상품 DB(단가 포함) — 데이터베이스 제작자 권리·경쟁 위험, 기존 수집분 사후 허락 필요. 허락 전 자동 수집 안 함(별도 관리)",
+   "methods": [],
+   "conditions": [],
+   "recommended": "제조사 카탈로그(규격표·도면·KS 인증서) 공식 제공 요청 + 조달청 나라장터쇼핑몰 품목정보 서비스로 동아산업 등록 품목 조회(공공데이터 이용허락범위 확인 후)"
+  },
+  {
+   "key": "kcon",
+   "name": "경북산업㈜",
+   "domain": "kcon.co.kr",
+   "kind": "제조사",
+   "priority": 3,
+   "permission": "pending",
+   "basis": "보류(2026-10-29) — 사용자 PC 수집에서 접속 거부(HTTP 403). 사이트가 자동 접속을 막는 것으로 보고 우회(브라우저 위장·다른 경로)하지 않음. 제조사에 카탈로그·규격표를 직접 요청",
+   "methods": [],
+   "conditions": [],
+   "recommended": "제조사 카탈로그·규격표·출하 단가 제공 요청(공급/대리점 계약과 묶어서)",
+   "seeds": [
+    "https://kcon.co.kr/"
+   ],
+   "crawl_priority": 10,
+   "ai_value": "중(PC암거·수로관·맨홀)",
+   "difficulty": "상(HTTP 403 접속 거부 — 우회 안 함)"
+  },
+  {
+   "key": "dyhumepipe",
+   "name": "동양콘크리트산업(주)",
+   "domain": "dyhumepipe.fzst.kr",
+   "kind": "제조사",
+   "priority": 4,
+   "permission": "facts_if_clear",
+   "basis": "제조사 공개 제품 페이지 — robots.txt 준수·이용약관에 자동수집/무단 복제 금지 문장이 없을 때만 사실 정보(규격·재질·용도·KS·주의 원문 문장) 수집(crawl-sources.php 가 실행 때마다 확인). 이미지·가격 미수집, 상담 반영은 사람 승인 후",
+   "methods": [],
+   "conditions": [
+    "robots.txt·이용약관 자동 확인 통과",
+    "사실 정보·원문 문장만(이미지·가격·설명 전문 복제 없음)",
+    "요청 간 2초·출처당 최대 40쪽",
+    "상담 반영은 import.php --approve 로 사람이 승인한 것만"
+   ],
+   "recommended": "제조사 카탈로그·KS 인증서 사본 제공 및 상품정보 사용 허락 요청",
+   "seeds": [
+    "http://dyhumepipe.fzst.kr/_rshop/view.html?brandcode=0101000004&xcode=01&mcode=01",
+    "http://dyhumepipe.fzst.kr/_rshop/list.html?xcode=01"
+   ],
+   "crawl_priority": 9,
+   "ai_value": "중(흄관 B형 KS F 4403·PE·PVC)",
+   "difficulty": "중(쇼핑형 목록)"
+  },
+  {
+   "key": "krcon",
+   "name": "고려콘크리트산업(주)",
+   "domain": "kr-con.co.kr",
+   "kind": "제조사",
+   "priority": 5,
+   "permission": "facts_if_clear",
+   "basis": "제조사 공개 제품 페이지 — robots.txt 준수·이용약관에 자동수집/무단 복제 금지 문장이 없을 때만 사실 정보(규격·재질·용도·KS·주의 원문 문장) 수집(crawl-sources.php 가 실행 때마다 확인). 이미지·가격 미수집, 상담 반영은 사람 승인 후",
+   "methods": [],
+   "conditions": [
+    "robots.txt·이용약관 자동 확인 통과",
+    "사실 정보·원문 문장만(이미지·가격·설명 전문 복제 없음)",
+    "요청 간 2초·출처당 최대 40쪽",
+    "상담 반영은 import.php --approve 로 사람이 승인한 것만"
+   ],
+   "recommended": "제조사 카탈로그 제공 요청",
+   "seeds": [
+    "http://kr-con.co.kr/product/?pIdx=product3"
+   ],
+   "crawl_priority": 7,
+   "ai_value": "중(흄관·VR관 KS, 보도블럭)",
+   "difficulty": "중"
+  },
+  {
+   "key": "dhconc",
+   "name": "대한산업",
+   "domain": "dhconc.co.kr",
+   "kind": "제조사",
+   "priority": 6,
+   "permission": "facts_if_clear",
+   "basis": "제조사 공개 제품 페이지 — robots.txt 준수·이용약관에 자동수집/무단 복제 금지 문장이 없을 때만 사실 정보(규격·재질·용도·KS·주의 원문 문장) 수집(crawl-sources.php 가 실행 때마다 확인). 이미지·가격 미수집, 상담 반영은 사람 승인 후",
+   "methods": [],
+   "conditions": [
+    "robots.txt·이용약관 자동 확인 통과",
+    "사실 정보·원문 문장만(이미지·가격·설명 전문 복제 없음)",
+    "요청 간 2초·출처당 최대 40쪽",
+    "상담 반영은 import.php --approve 로 사람이 승인한 것만"
+   ],
+   "recommended": "규격표·카탈로그 사용 허락 요청",
+   "seeds": [
+    "http://www.dhconc.co.kr/product/?act=sub7"
+   ],
+   "crawl_priority": 4,
+   "ai_value": "중(주철·스틸 그레이팅 용도 구분)",
+   "difficulty": "중"
+  },
+  {
+   "key": "tomok114",
+   "name": "토목자재114 (사이트 표기: 토목114닷컴)",
+   "domain": "tomok114.com",
+   "kind": "경쟁 유통몰",
+   "priority": 7,
+   "permission": "blocked",
+   "basis": "경쟁 유통몰 단가 DB — 수집 비권장(2026-10-27 조사)",
+   "methods": [],
+   "conditions": [],
+   "recommended": "수집하지 않음. 필요 시 입점·상호 판매(제휴) 제안만"
+  },
+  {
+   "key": "kcrcic",
+   "name": "원심력철근콘크리트관 카탈로그 PDF 게시 기관(kcrcic.or.kr)",
+   "domain": "kcrcic.or.kr",
+   "kind": "업계 단체",
+   "priority": 8,
+   "permission": "pending",
+   "basis": "업계 단체 카탈로그 PDF(저작물) — 회원사 카탈로그 이용 허락 문의 후 활용(별도 관리)",
+   "methods": [],
+   "conditions": [],
+   "recommended": "단체에 회원사 카탈로그 일괄 이용 허락 문의"
+  },
+  {
+   "key": "sunroad",
+   "name": "선로드",
+   "domain": "sunroad.co.kr",
+   "kind": "제조사",
+   "priority": 9,
+   "permission": "facts_if_clear",
+   "basis": "제조사 공개 제품 페이지 — robots.txt 준수·이용약관에 자동수집/무단 복제 금지 문장이 없을 때만 사실 정보(규격·재질·용도·KS·주의 원문 문장) 수집(crawl-sources.php 가 실행 때마다 확인). 이미지·가격 미수집, 상담 반영은 사람 승인 후",
+   "methods": [],
+   "conditions": [
+    "robots.txt·이용약관 자동 확인 통과",
+    "사실 정보·원문 문장만(이미지·가격·설명 전문 복제 없음)",
+    "요청 간 2초·출처당 최대 40쪽",
+    "상담 반영은 import.php --approve 로 사람이 승인한 것만"
+   ],
+   "recommended": "조달청 품목정보 API로 식별번호 기준 조회 + 제조사 카탈로그 요청",
+   "seeds": [
+    "http://www.sunroad.co.kr/sub02_1_7.html"
+   ],
+   "crawl_priority": 1,
+   "ai_value": "상(보도·차도 인조화강블록, 투수·보통 — 초보 블록 상담 직결)",
+   "difficulty": "중(http, 단순 페이지)"
+  },
+  {
+   "key": "enmcon",
+   "name": "엔엠콘",
+   "domain": "enmcon.co.kr",
+   "kind": "제조사",
+   "priority": 10,
+   "permission": "facts_if_clear",
+   "basis": "제조사 공개 제품 페이지 — robots.txt 준수·이용약관에 자동수집/무단 복제 금지 문장이 없을 때만 사실 정보(규격·재질·용도·KS·주의 원문 문장) 수집(crawl-sources.php 가 실행 때마다 확인). 이미지·가격 미수집, 상담 반영은 사람 승인 후",
+   "methods": [],
+   "conditions": [
+    "robots.txt·이용약관 자동 확인 통과",
+    "사실 정보·원문 문장만(이미지·가격·설명 전문 복제 없음)",
+    "요청 간 2초·출처당 최대 40쪽",
+    "상담 반영은 import.php --approve 로 사람이 승인한 것만"
+   ],
+   "recommended": "최신 카탈로그 제공 요청",
+   "seeds": [
+    "http://enmcon.co.kr/product03/"
+   ],
+   "crawl_priority": 3,
+   "ai_value": "상(보도·점토·점자블럭)",
+   "difficulty": "하(워드프레스)"
+  },
+  {
+   "key": "syccrt",
+   "name": "상용콘크리트(주)",
+   "domain": "syccrt.com",
+   "kind": "제조사",
+   "priority": 11,
+   "permission": "facts_if_clear",
+   "basis": "제조사 공개 제품 페이지 — robots.txt 준수·이용약관에 자동수집/무단 복제 금지 문장이 없을 때만 사실 정보(규격·재질·용도·KS·주의 원문 문장) 수집(crawl-sources.php 가 실행 때마다 확인). 이미지·가격 미수집, 상담 반영은 사람 승인 후",
+   "methods": [],
+   "conditions": [
+    "robots.txt·이용약관 자동 확인 통과",
+    "사실 정보·원문 문장만(이미지·가격·설명 전문 복제 없음)",
+    "요청 간 2초·출처당 최대 40쪽",
+    "상담 반영은 import.php --approve 로 사람이 승인한 것만"
+   ],
+   "recommended": "제조사 카탈로그 요청",
+   "seeds": [
+    "https://syccrt.com/23"
+   ],
+   "crawl_priority": 8,
+   "ai_value": "중(흄관 A/B·유공)",
+   "difficulty": "하(robots 확인됨)"
+  },
+  {
+   "key": "gayasteel",
+   "name": "(주)가야스틸",
+   "domain": "gayasteel.kr",
+   "kind": "제조사",
+   "priority": 12,
+   "permission": "facts_if_clear",
+   "basis": "제조사 공개 제품 페이지 — robots.txt 준수·이용약관에 자동수집/무단 복제 금지 문장이 없을 때만 사실 정보(규격·재질·용도·KS·주의 원문 문장) 수집(crawl-sources.php 가 실행 때마다 확인). 이미지·가격 미수집, 상담 반영은 사람 승인 후",
+   "methods": [],
+   "conditions": [
+    "robots.txt·이용약관 자동 확인 통과",
+    "사실 정보·원문 문장만(이미지·가격·설명 전문 복제 없음)",
+    "요청 간 2초·출처당 최대 40쪽",
+    "상담 반영은 import.php --approve 로 사람이 승인한 것만"
+   ],
+   "recommended": "제조사 기술자료·구조계산서 사용 허락 요청",
+   "seeds": [
+    "http://gayasteel.kr/?page_id=67",
+    "https://xn--2i0bw4q0yi42ecvqlc.kr/grating/"
+   ],
+   "crawl_priority": 5,
+   "ai_value": "중(중하중·스틸 그레이팅, 대형차 하중)",
+   "difficulty": "중(도메인 2개)"
+  },
+  {
+   "key": "toamconcrete",
+   "name": "(주)토암콘크리트",
+   "domain": "toamconcrete.com",
+   "kind": "제조사",
+   "priority": 13,
+   "permission": "facts_if_clear",
+   "basis": "제조사 공개 제품 페이지 — robots.txt 준수·이용약관에 자동수집/무단 복제 금지 문장이 없을 때만 사실 정보(규격·재질·용도·KS·주의 원문 문장) 수집(crawl-sources.php 가 실행 때마다 확인). 이미지·가격 미수집, 상담 반영은 사람 승인 후",
+   "methods": [],
+   "conditions": [
+    "robots.txt·이용약관 자동 확인 통과",
+    "사실 정보·원문 문장만(이미지·가격·설명 전문 복제 없음)",
+    "요청 간 2초·출처당 최대 40쪽",
+    "상담 반영은 import.php --approve 로 사람이 승인한 것만"
+   ],
+   "recommended": "제조사 카탈로그 요청",
+   "seeds": [
+    "http://www.toamconcrete.com/sub/sub02_0106.php"
+   ],
+   "crawl_priority": 6,
+   "ai_value": "중(집수정·측구 그레이팅 규격표)",
+   "difficulty": "중(http)"
+  },
+  {
+   "key": "greenpipe",
+   "name": "그린파이프",
+   "domain": "greenpipe.kr",
+   "kind": "제조사",
+   "priority": 14,
+   "permission": "facts_if_clear",
+   "basis": "제조사 공개 제품 페이지 — robots.txt 준수·이용약관에 자동수집/무단 복제 금지 문장이 없을 때만 사실 정보(규격·재질·용도·KS·주의 원문 문장) 수집(crawl-sources.php 가 실행 때마다 확인). 이미지·가격 미수집, 상담 반영은 사람 승인 후",
+   "methods": [],
+   "conditions": [
+    "robots.txt·이용약관 자동 확인 통과",
+    "사실 정보·원문 문장만(이미지·가격·설명 전문 복제 없음)",
+    "요청 간 2초·출처당 최대 40쪽",
+    "상담 반영은 import.php --approve 로 사람이 승인한 것만"
+   ],
+   "recommended": "제조사에 카탈로그·공표가격표 사용 허락 요청, 또는 물가정보지 정식 구독·라이선스",
+   "seeds": [],
+   "crawl_priority": 11,
+   "ai_value": "중(PE이중벽관 — 도메인 미확인)",
+   "difficulty": "상(공식 도메인 미확인)"
+  },
+  {
+   "key": "88con",
+   "name": "88콘크리트",
+   "domain": "88con.com",
+   "kind": "제조사",
+   "priority": 15,
+   "permission": "pending",
+   "basis": "보류(2026-10-29) — 이용약관 자동 확인에서 금지 문장으로 걸린 것은 게시판 회원 행위 규정(\"저작권이 있는 글을 무단 복제하거나 mp3를 올린 경우\" 등 이용 제한 사유)으로, 자동 수집 금지 조항은 아님(오탐). 그러나 제품 정보 이용 허락이 확인되지 않아 수집·가져오기 보류 — 제조사에 카탈로그·제품 정보 사용 허락을 받은 뒤 facts_if_clear 로 되돌림",
+   "methods": [],
+   "conditions": [],
+   "recommended": "제조사에 카탈로그·제품 규격 정보 사용 허락 요청(허락 범위: 규격·용도 사실 정보, 출처 표기) — 허락 전 수집 안 함",
+   "seeds": [
+    "http://www.88con.com/?c=1%2F7&uid=12"
+   ],
+   "crawl_priority": 2,
+   "ai_value": "상(인조화강블록 보도·차도·투수 다수 규격)",
+   "difficulty": "중(쿼리형 URL)"
+  }
+ ]
+}

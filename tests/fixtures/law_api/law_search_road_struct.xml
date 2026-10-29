@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 모의 응답(테스트 전용): lawSearch.do target=law query=도로의 구조ㆍ시설 기준에 관한 규칙 — 실제 API 응답 아님 -->
+<LawSearch>
+  <target>law</target>
+  <totalCnt>1</totalCnt>
+  <page>1</page>
+  <law id="1">
+    <법령일련번호>286673</법령일련번호>
+    <현행연혁코드>현행</현행연혁코드>
+    <법령명한글>도로의 구조ㆍ시설 기준에 관한 규칙</법령명한글>
+    <법령ID>006827</법령ID>
+    <공포일자>20260603</공포일자>
+    <공포번호>01588</공포번호>
+    <제개정구분명>일부개정</제개정구분명>
+    <소관부처명>국토교통부</소관부처명>
+    <법령구분명>국토교통부령</법령구분명>
+    <시행일자>20260603</시행일자>
+    <법령상세링크>/DRF/lawService.do?OC=test&amp;target=law&amp;MST=286673&amp;type=HTML</법령상세링크>
+  </law>
+</LawSearch>

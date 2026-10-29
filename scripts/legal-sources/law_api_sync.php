@@ -1,0 +1,274 @@
+<?php
+declare(strict_types=1);
+/**
+ * 국가법령정보 OPEN API 로 법령·행정규칙을 받아 기준값(api_targets.json baseline)과 대조 → 보고서.
+ *
+ * 책임: 검색 → 현행 판 선택 → 본문 조회 → 감시 조문 해시·공포번호·시행일·별표 비교 → 상태와 사람이 할 일 출력.
+ * 금지: DB 접속·쓰기, 근거 자동 활성화. 개정·차이가 있으면 '비활성 권고' SQL 초안만 파일로 만든다(첫 줄 안전장치).
+ *       인증값(OC)은 getenv('LAW_API_OC') 로만 읽고 출력·저장하지 않는다.
+ *
+ * 실행:
+ *   모의 응답(키 없이):  php scripts/legal-sources/law_api_sync.php --fixtures=tests/fixtures/law_api
+ *   실제 API:            LAW_API_OC 를 .env.local 에 넣고 → php scripts/legal-sources/law_api_sync.php
+ *   옵션: --targets=api_targets.json  --only=parking_rule,road_struct  --today=YYYY-MM-DD
+ *         --md=보고서.md  --json=결과.json  --sql=비활성권고.sql  --no-dotenv(.env.local 을 읽지 않음 — 테스트용)
+ *         --raw-dir=폴더 : 원본 XML 저장(링크 속 OC 값은 *** 로 가림 — 공유 전 확인용)
+ *   검색 목록: php scripts/legal-sources/law_api_sync.php --search="도로설계기준" [--target=admrul|law]
+ *         → 이름이 정확히 같지 않은 항목까지 번호·시행일 목록 출력(기준값 대조 없음)
+ *   연결 점검: php scripts/legal-sources/law_api_sync.php --check
+ *         → 법령·행정규칙 검색 1회씩 호출해 인증값(OC)·등록 IP/도메인·API 권한 상태만 확인(대조 없음, OC 값은 출력 안 함)
+ * 종료 코드: 0 전부 일치/시행 예정, 3 재검토 필요 항목 있음, 2 설정 오류(키 없음 등)
+ */
+if (PHP_SAPI !== 'cli') { exit; }
+$root = dirname(__DIR__, 2);
+require "{$root}/app/law_api.php";
+
+$opt = getopt('', ['fixtures:', 'targets:', 'only:', 'today:', 'md:', 'json:', 'sql:', 'no-dotenv', 'raw-dir:', 'search:', 'target:', 'check', 'env-file:']);
+$targetsFile = $opt['targets'] ?? "{$root}/docs/03-analysis/ai-sourcing/legal-sources/api_targets.json";
+$clausesFile = dirname($targetsFile) . '/verified_clauses.json';
+$today = $opt['today'] ?? date('Y-m-d');
+$only = isset($opt['only']) ? array_filter(explode(',', (string) $opt['only'])) : [];
+$fixtures = isset($opt['fixtures']) ? rtrim((string) $opt['fixtures'], '/') : null;
+
+// .env.local(로컬 시크릿) — bootstrap 의 세션 시작 없이 키만 읽는다. 이미 설정된 환경변수는 덮지 않음(bootstrap 과 같은 규칙).
+// 셸·Windows 환경변수에 예전 값이 남아 있으면 .env.local 의 새 값이 무시되므로, 값이 다르면 경고(값 자체는 출력하지 않음).
+$envFile = (string) ($opt['env-file'] ?? "{$root}/.env.local");
+$ocSource = law_api_oc() !== '' ? '셸 환경변수' : '';
+if ($fixtures === null && !isset($opt['no-dotenv']) && is_readable($envFile)) {
+    $fileOc = '';
+    foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+        if (preg_match('/^(?:\xEF\xBB\xBF)?\s*LAW_API_OC\s*=\s*["\']?([^"\'#\s]*)/', $line, $m) && $m[1] !== '') {
+            $fileOc = $m[1];
+        }
+    }
+    if ($fileOc !== '' && $ocSource === '') {
+        putenv("LAW_API_OC={$fileOc}");
+        $ocSource = '.env.local';
+    } elseif ($fileOc !== '' && $fileOc !== law_api_oc()) {
+        fwrite(STDERR, "경고: 셸(또는 Windows) 환경변수 LAW_API_OC 가 .env.local 값과 다릅니다 — 환경변수 값이 쓰입니다.\n"
+            . "      새 OC 를 쓰려면 환경변수를 지우세요(Git Bash: unset LAW_API_OC / Windows: 시스템 환경변수에서 삭제 후 새 터미널).\n");
+    }
+}
+$oc = law_api_oc();
+if ($fixtures === null && $oc === '') {
+    fwrite(STDERR, "LAW_API_OC 미설정 — 국가법령정보 공동활용(open.law.go.kr) 인증값을 .env.local 의 LAW_API_OC= 에 넣거나,\n"
+        . "키 없이 확인하려면 --fixtures=tests/fixtures/law_api 로 실행하세요. (키를 채팅·커밋에 넣지 마세요)\n");
+    exit(2);
+}
+
+// 연결 점검 모드: 법령·행정규칙 검색을 1회씩 호출해 인증·권한 상태만 본다
+if (isset($opt['check'])) {
+    $probe = [['law', '주차장법 시행규칙', '법령(target=law)'], ['admrul', '하수관로 유지관리 기준', '행정규칙(target=admrul)']];
+    $allOk = true;
+    echo "# 국가법령정보 OPEN API 연결 점검 (" . date('Y-m-d H:i') . ")\n\n- 인증값 출처: " . ($fixtures !== null ? '모의 응답' : ($ocSource ?: '셸 환경변수')) . " (값은 표시하지 않음)\n\n| 대상 | 결과 | 확인 내용 |\n|---|---|---|\n";
+    foreach ($probe as [$target, $query, $label]) {
+        $res = $fixtures !== null
+            ? (static function () use ($fixtures, $target, $query): array {
+                $f = ((array) json_decode((string) @file_get_contents("{$fixtures}/index.json"), true))["search:{$target}:{$query}"] ?? null;
+                return $f === null ? ['ok' => false, 'error' => '모의 응답 없음'] : ['ok' => true, 'body' => (string) file_get_contents("{$fixtures}/{$f}")];
+            })()
+            : law_api_get(law_api_url('lawSearch.do', ['target' => $target, 'query' => $query, 'display' => '5'], $oc));
+        $err = $res['ok'] ? law_api_error($res['body']) : $res['error'];
+        $hit = $err === null ? law_api_pick(law_api_parse_search($res['body'])['items'], $query) : null;
+        $ok = $err === null && $hit !== null;
+        $allOk = $allOk && $ok;
+        echo "| {$label} | " . ($ok ? '정상' : '실패') . ' | ' . ($ok ? "'{$query}' 검색 → {$hit['number']}·시행 {$hit['effective']}" : ($err ?? "'{$query}' 결과 없음")) . " |\n";
+    }
+    if (!$allOk) {
+        echo "\n점검할 것: ① open.law.go.kr 마이페이지의 OC 값과 .env.local 이 같은지 ② 이 PC 의 공인 IP(또는 도메인)가 새 계정에 등록됐는지"
+            . " ③ 법령·행정규칙 API 활용 신청이 승인됐는지 ④ 셸 환경변수에 예전 OC 가 남아 있지 않은지\n";
+    }
+    exit($allOk ? 0 : 1);
+}
+
+$data = json_decode((string) file_get_contents($targetsFile), true);
+$clauses = [];
+foreach ((array) json_decode((string) @file_get_contents($clausesFile), true) as $c) {
+    $clauses[$c['id']] = $c;
+}
+$index = $fixtures !== null ? (array) json_decode((string) @file_get_contents("{$fixtures}/index.json"), true) : [];
+
+/** 응답 가져오기: 모의 응답이면 index.json 에서 파일, 아니면 실제 API(0.5초 간격) */
+$fetch = static function (string $endpoint, array $params) use ($fixtures, $index, $oc): array {
+    if ($fixtures !== null) {
+        $k = $endpoint === 'lawSearch.do' ? "search:{$params['target']}:{$params['query']}" : "detail:{$params['target']}:" . ($params['MST'] ?? $params['ID'] ?? '');
+        $f = $index[$k] ?? null;
+        return $f === null ? ['ok' => false, 'error' => '모의 응답 없음'] : ['ok' => true, 'body' => (string) file_get_contents("{$fixtures}/{$f}")];
+    }
+    usleep(500000);
+    return law_api_get(law_api_url($endpoint, $params, $oc));
+};
+$rawDir = isset($opt['raw-dir']) ? rtrim((string) $opt['raw-dir'], '/\\') : null;
+if ($rawDir !== null && !is_dir($rawDir)) {
+    mkdir($rawDir, 0777, true);
+}
+/** 원본 응답 저장(디버그·공유용) — 응답 속 링크의 OC 값을 가린다 */
+$saveRaw = static function (string $name, array $res) use ($rawDir): void {
+    if ($rawDir === null || !$res['ok']) {
+        return;
+    }
+    file_put_contents("{$rawDir}/" . preg_replace('/[^\w가-힣.-]+/u', '_', $name) . '.xml', law_api_redact((string) $res['body']));
+};
+
+// 검색 목록 모드: 이름이 바뀌었거나 따로 등록된 고시를 찾기 위함(대조·SQL 없음)
+if (isset($opt['search'])) {
+    $target = ($opt['target'] ?? 'admrul') === 'law' ? 'law' : 'admrul';
+    $md = '';
+    foreach ((array) $opt['search'] as $query) {   // --search 를 여러 번 주면 차례로 검색
+        $query = (string) $query;
+        $res = $fetch('lawSearch.do', ['target' => $target, 'query' => $query, 'display' => '100']);
+        $saveRaw("search_{$target}_{$query}", $res);
+        $err = $res['ok'] ? law_api_error($res['body']) : $res['error'];
+        if ($err !== null) {
+            $md .= "# 검색 목록 ({$target}, \"{$query}\") — {$err}\n\n";
+            continue;
+        }
+        $s = law_api_parse_search($res['body']);
+        $md .= "# 검색 목록 ({$target}, \"{$query}\", 전체 {$s['total']}건 중 " . count($s['items']) . "건)\n\n"
+            . "| 이름 | 종류 | 번호 | 발령·공포일 | 시행일 | 현행 | 상세 키 |\n|---|---|---|---|---|---|---|\n";
+        foreach ($s['items'] as $i) {
+            $md .= "| {$i['name']} | {$i['kind']} | {$i['number']} | {$i['promulgated']} | {$i['effective']} | {$i['status']} | {$i['key']} |\n";
+        }
+        $md .= "\n";
+    }
+    echo $md;
+    if (isset($opt['md'])) { file_put_contents((string) $opt['md'], $md); }
+    exit(0);
+}
+
+$rows = [];
+foreach ($data['documents'] as $doc) {
+    if ($only && !in_array($doc['key'], $only, true)) {
+        continue;
+    }
+    $row = ['key' => $doc['key'], 'name' => $doc['name'], 'clauses' => $doc['clauses'], 'status' => 'error', 'note' => ''];
+    $res = $fetch('lawSearch.do', ['target' => $doc['target'], 'query' => $doc['name'], 'display' => '20']);
+    $saveRaw("{$doc['key']}_search", $res);
+    $err = $res['ok'] ? law_api_error($res['body']) : $res['error'];
+    if ($err !== null) {
+        $row['status'] = match ($err) { '모의 응답 없음' => 'skipped', '결과 없음' => 'not_found', default => 'error' };
+        $row['note'] = "검색: {$err}";
+        $rows[] = $row;
+        continue;
+    }
+    $hit = law_api_pick(law_api_parse_search($res['body'])['items'], $doc['name'], $doc['kind']);
+    if ($hit === null) {
+        $row['status'] = 'not_found';
+        $row['note'] = '검색 결과에 같은 이름의 현행 항목 없음(명칭 변경·폐지 확인)';
+        $rows[] = $row;
+        continue;
+    }
+    $res = $fetch('lawService.do', ['target' => $doc['target'], $doc['target'] === 'law' ? 'MST' : 'ID' => $hit['key']]);
+    $saveRaw("{$doc['key']}_detail", $res);
+    $err = $res['ok'] ? law_api_error($res['body']) : $res['error'];
+    if ($err !== null) {
+        $row['status'] = $err === '모의 응답 없음' ? 'skipped' : 'error';
+        $row['note'] = "본문: {$err}";
+        $rows[] = $row;
+        continue;
+    }
+    $api = $doc['target'] === 'law' ? law_api_parse_law_detail($res['body']) : law_api_parse_admrule_detail($res['body']);
+    $cmp = law_api_compare((array) $doc['baseline'], $api, $today);
+    $titles = array_map(static fn($a) => law_api_normalize($a['title']), $api['annexes']);
+    $annexMissing = array_values(array_filter($doc['watch_annexes'], static fn($t) => !in_array(law_api_normalize($t), $titles, true)));
+    $active = (bool) array_filter($doc['clauses'], static fn($id) => !empty($clauses[$id]['active']));
+    $row = array_merge($row, $cmp, [
+        'annex_missing' => $annexMissing,
+        'annex_links'   => array_values(array_filter($api['annexes'], static fn($a) => in_array(law_api_normalize($a['title']), array_map('law_api_normalize', $doc['watch_annexes']), true))),
+        'body_in_file'  => $api['body_in_file'] ?? false,
+        'attachments'   => $api['attachments'] ?? [],
+        'action'        => match (true) {
+            ($api['body_in_file'] ?? false) && $cmp['status'] === 'same' && !empty($api['attachments'])
+                => '번호·시행일 일치 — 본문은 첨부 파일(' . count($api['attachments']) . '개, 아래 링크)에서 확인',
+            ($api['body_in_file'] ?? false) && $cmp['status'] === 'same'
+                => '고시 번호·시행일 일치 — 기준 본문은 첨부 파일·KCSC 에서 별도 확인',
+            $doc['target'] === 'admrul' && !$doc['watch_articles'] && !$api['articles'] && empty($api['body_in_file']) && $cmp['status'] === 'same'
+                => '번호·시행일 일치 — 본문 형식 미확인(--raw-dir 로 원본 확인)',
+            default => law_api_action($cmp['status'], $active),
+        },
+    ]);
+    if ($annexMissing) {
+        $row['note'] = '감시 별표 제목이 응답에 없음: ' . implode(', ', $annexMissing);
+    }
+    // API 에 아직 없는 새 고시(사용자·부처 게시로 확인)는 이전 등록본과 따로 표시
+    foreach ($doc['notice_versions'] ?? [] as $nv) {
+        if (empty($nv['registered_in_api']) && ltrim((string) $nv['number'], '0') !== ltrim((string) ($api['meta']['number'] ?? ''), '0')) {
+            $row['note'] = trim($row['note'] . " API 미반영 새 고시: 제{$nv['number']}호({$nv['promulgated']} 고시) — API 는 제" . ($api['meta']['number'] ?? '') . '호 표시');
+        }
+    }
+    $rows[] = $row;
+}
+
+// 보고서
+$label = ['same' => '일치', 'pending' => '시행 예정 개정', 'new_version_same' => '새 판(감시 조문 동일)', 'amended' => '개정됨', 'changed' => '내용 차이', 'missing' => '조문 없음',
+          'not_found' => '검색 안 됨', 'error' => '오류', 'skipped' => '건너뜀(모의 응답 없음)'];
+$md = "# 법령 API 대조 결과 (" . ($fixtures !== null ? '모의 응답' : '국가법령정보 OPEN API') . ", 기준일 {$today})\n\n"
+    . "| 문서 | 상태 | 기준값(미러) 번호·시행일 | API 번호·시행일 | 조문 | 별표 | 연결 근거 | 할 일 |\n|---|---|---|---|---|---|---|---|\n";
+foreach ($rows as $r) {
+    $arts = isset($r['articles']) ? implode(' ', array_map(static fn($k, $v) => "제{$k}조 " . ($label[$v['status']] ?? $v['status']), array_keys($r['articles']), $r['articles'])) : '';
+    $md .= sprintf("| %s | %s | %s | %s | %s | %s | %s | %s |\n",
+        $r['name'], $label[$r['status']] ?? $r['status'],
+        isset($r['version']) ? "{$r['version']['baseline']['number']} · {$r['version']['baseline']['effective']}" : '',
+        isset($r['version']) ? "{$r['version']['api']['number']} · {$r['version']['api']['effective']}" : '',
+        $arts ?: (!empty($r['body_in_file']) ? '본문 첨부 파일' : ''),
+        isset($r['annexes']) ? ($r['annex_missing'] ? '감시 별표 없음' : "{$r['annexes']}건") : '',
+        implode(', ', $r['clauses']) ?: '-',
+        trim(($r['action'] ?? '') . ' ' . $r['note']));
+}
+$links = [];
+foreach ($rows as $r) {
+    foreach ($r['annex_links'] ?? [] as $a) {
+        $links[] = [$r['name'], $a];
+    }
+    foreach ($r['attachments'] ?? [] as $f) {   // 본문 첨부 파일(예: 지침 개정전문)
+        $isPdf = (bool) preg_match('/\.pdf$/i', $f['name']);
+        $links[] = [$r['name'], ['kind' => '본문 첨부', 'no' => '0', 'branch' => '', 'title' => $f['name'], 'pdf_url' => $isPdf ? $f['url'] : '', 'file_url' => $isPdf ? '' : $f['url']]];
+    }
+}
+if ($links) {
+    $md .= "\n## 감시 별표 원문 파일 (내용 확인용 — 내려받아 공유)\n\n| 법령 | 별표 | 제목 | PDF | 원본 파일 |\n|---|---|---|---|---|\n";
+    foreach ($links as [$name, $a]) {
+        $no = $a['kind'] === '본문 첨부' ? '' : (int) $a['no'] . ((int) $a['branch'] > 0 ? '의' . (int) $a['branch'] : '');
+        $md .= "| {$name} | {$a['kind']} {$no} | {$a['title']} | {$a['pdf_url']} | {$a['file_url']} |\n";
+    }
+}
+// 시행 예정 개정 재대조 일정(api_targets.json documents[].pending) — 현재 시행판과 구분해 관리
+$sched = [];
+foreach ($data['documents'] as $doc) {
+    if ($only && !in_array($doc['key'], $only, true)) {
+        continue;
+    }
+    foreach ($doc['pending'] ?? [] as $p) {
+        $due = $p['effective'] <= $today;
+        $sched[] = "| {$doc['name']} | 제{$p['number']}호 | {$p['effective']} | " . ($due ? '**시행일 도래 — 이번 결과로 재대조 확인**' : '대기(현재 시행판 유지)') . " | {$p['note']} |";
+    }
+}
+if ($sched) {
+    $md .= "\n## 시행 예정 개정 — 재대조 일정\n\n| 법령 | 개정 | 시행일 | 상태 | 메모 |\n|---|---|---|---|---|\n" . implode("\n", $sched) . "\n";
+}
+$counts = array_count_values(array_column($rows, 'status'));
+$md .= "\n합계: " . implode(' · ', array_map(static fn($k, $v) => ($label[$k] ?? $k) . " {$v}", array_keys($counts), $counts)) . "\n"
+    . "\n※ 자동 활성화 없음. '개정됨·내용 차이·조문 없음'은 사람 검토 후 verified_clauses.json·SQL 초안을 갱신한다.\n";
+echo $md;
+if (isset($opt['md'])) { file_put_contents((string) $opt['md'], $md); }
+if (isset($opt['json'])) { file_put_contents((string) $opt['json'], json_encode($rows, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"); }
+
+// 재검토 대상 활성 근거 → 비활성 권고 SQL 초안(실행은 승인 후, 첫 줄 안전장치)
+$review = array_filter($rows, static fn($r) => in_array($r['status'], ['amended', 'changed', 'missing'], true));
+if (isset($opt['sql'])) {
+    $q = static fn(string $s): string => "'" . str_replace(["\\", "'"], ["\\\\", "''"], $s) . "'";
+    $sql = "DRAFT_STOP_승인_전_실행_금지;  -- 안전장치: 승인 후 이 줄만 지우고 실행.\n"
+        . "-- 생성: scripts/legal-sources/law_api_sync.php ({$today}) — API 대조에서 재검토가 필요한 근거를 비활성·미검토로 되돌림. MySQL 8.0.46 호환.\n";
+    foreach ($review as $r) {
+        foreach ($r['clauses'] as $id) {
+            if (empty($clauses[$id]['active'])) {
+                continue;
+            }
+            $title = mb_substr('[법령] ' . $clauses[$id]['doc_name'] . ' ' . $clauses[$id]['article'], 0, 200);
+            $sql .= "-- {$id} {$r['name']}: " . ($label[$r['status']] ?? $r['status']) . "\n"
+                . "UPDATE rag_documents SET is_active = 0, review_status = 'unreviewed' WHERE author = '검증 조문(2-1단계)' AND title = " . $q($title) . ";\n";
+        }
+    }
+    file_put_contents((string) $opt['sql'], $sql);
+}
+exit($review ? 3 : 0);

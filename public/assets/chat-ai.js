@@ -203,13 +203,19 @@ function renderProductCards(products, container) {
   const wrap = document.createElement('div');
   wrap.className = 'compare-table';
 
+  const fmt = n => new Intl.NumberFormat('ko-KR').format(n);
   const rows = products.map(p => {
     // 가격 상태: 이전 상담 복원 시 서버가 현재가 기준 price_state를 넣음. 실시간 상담은 0원만 '가격 문의'
     const state   = p.price_state || (Number(p.price_b2c) > 0 ? 'ok' : 'inquiry');
     const blocked = state === 'stopped' || state === 'changed';
     const price   = state === 'ok'
-      ? '₩' + new Intl.NumberFormat('ko-KR').format(p.price_b2c)
+      ? '₩' + fmt(p.price_b2c)
       : (PRICE_STATE_LABEL[state] || PRICE_STATE_LABEL.unknown);
+    // 단위·예상 자재비는 판매가가 있는 상품만(가격 문의·판매 중지·변경 상품에는 금액을 보이지 않음)
+    const unitHtml = (state === 'ok' && p.unit) ? `<span class="compare-unit">/${escHtml(p.unit)}</span>` : '';
+    const costHtml = (state === 'ok' && p.est_cost && p.est_cost > 0)
+      ? `<div class="compare-cost">예상 ₩${fmt(p.est_cost)}${p.cost_lowest ? ' <span class="compare-lowest">예상 최저</span>' : ''}${p.cost_diff > 0 ? `<span class="compare-diff">최저보다 +₩${fmt(p.cost_diff)}</span>` : ''}</div>`
+      : '';
     const stateNote = state === 'changed'
       ? '<div class="compare-state-note">상담 이후 상품 규격이 바뀌어 담을 수 없습니다. 다시 상담해 주세요.</div>'
       : '';
@@ -224,24 +230,35 @@ function renderProductCards(products, container) {
       <tr data-pid="${p.id}">
         <td>${imgHtml}</td>
         <td>
-          <div class="compare-name">${escHtml(p.name)}</div>
-          ${p.spec ? `<div class="compare-spec">${escHtml(p.spec)}</div>` : ''}
+          <div class="compare-name">${escHtml(p.name)} <a class="compare-detail" href="/product.php?id=${parseInt(p.id, 10)}" target="_blank" rel="noopener">상세</a></div>
+          ${(p.spec_label || p.spec) ? `<div class="compare-spec">${escHtml(p.spec_label || p.spec)}</div>` : ''}
+          ${(p.guide && p.guide.length) ? `<ul class="compare-guide">${p.guide.map(g => `<li>${escHtml(g)}</li>`).join('')}</ul>` : ''}
           ${basisHtml}
           ${stateNote}
         </td>
-        <td class="compare-price${state === 'ok' ? '' : ' is-state'}">${price}</td>
-        <td><input type="number" class="compare-qty" value="${qtyVal}" min="1" max="9999"${blocked ? ' disabled' : ''}></td>
+        <td class="compare-price${state === 'ok' ? '' : ' is-state'}">${price}${unitHtml}${costHtml}</td>
+        <td><input type="number" class="compare-qty" value="${qtyVal}" min="1" max="999"${blocked ? ' disabled' : ''}></td>
         <td><button class="btn-compare-add"${blocked ? ' disabled' : ''}>견적추가</button></td>
       </tr>`;
   }).join('');
 
-  wrap.innerHTML = `
+  // 예상 자재비 요약: 같은 면적·길이 기준으로 계산된 제품끼리 최저~최고 비교
+  const costs = products.map(p => p.est_cost).filter(c => c && c > 0);
+  let summaryHtml = '';
+  if (costs.length >= 2) {
+    const min = Math.min(...costs), max = Math.max(...costs);
+    summaryHtml = `<div class="compare-summary">입력하신 면적·길이 기준 예상 자재비 <b>₩${fmt(min)}</b>${min !== max ? ` ~ <b>₩${fmt(max)}</b>` : ''}<span>판매가 기준 · 운반비·시공비 별도 · 최종 금액은 견적 요청 후 회신으로 안내</span></div>`;
+  } else if (costs.length === 1) {
+    summaryHtml = `<div class="compare-summary"><span>예상 금액은 판매가 기준 자재비입니다 · 운반비·시공비 별도 · 최종 금액은 견적 요청 후 회신으로 안내</span></div>`;
+  }
+
+  wrap.innerHTML = `${summaryHtml}
     <table>
       <thead><tr>
         <th style="width:68px"></th>
         <th>제품명 / 규격</th>
         <th>가격</th>
-        <th style="width:54px">수량</th>
+        <th style="width:84px">수량</th>
         <th></th>
       </tr></thead>
       <tbody>${rows}</tbody>
@@ -252,7 +269,7 @@ function renderProductCards(products, container) {
     const btn = row.querySelector('.btn-compare-add');
     const qty = row.querySelector('.compare-qty');
     btn.addEventListener('click', () => {
-      const q = Math.max(1, Math.min(9999, parseInt(qty.value, 10) || 1));
+      const q = Math.max(1, parseInt(qty.value, 10) || 1);   // 상한(999)은 장바구니 API 가 검증
       addToEstimate(pid, q, btn);
     });
   });
@@ -289,7 +306,61 @@ function processEvent(event, content) {
       renderEstimateCard(event.estimate_id, content);
       refreshEstPanel();
       break;
+    case 'spec_unavailable':
+      renderSpecUnavailable(event, content);
+      break;
+    case 'legal_sources':
+      renderLegalSources(event.sources, content);
+      break;
+    case 'material_sources':
+      renderMaterialSources(event.sources, content);
+      break;
   }
+}
+
+/** spec_unavailable 이벤트 → 기준 두께 적합 상품 미등록 안내(대체품 없음, 설계도서 확인·별도 견적) */
+function renderSpecUnavailable(event, container) {
+  const mm = parseInt(event.spec_mm, 10) || 0;
+  const wrap = document.createElement('div');
+  wrap.className = 'spec-unavailable';
+  wrap.innerHTML = `<div class="spec-unavailable-title">두께 ${mm}mm 포장 블록 — 현재 등록된 적합 상품이 없습니다</div>
+    <div class="spec-unavailable-body">${escHtml(event.item || '')} · 기준보다 얇은 제품은 대체로 추천하지 않습니다.<br>발주처 설계도서·시방서의 블록 규격(두께·크기·수량)을 확인해 주세요. 해당 규격은 별도 견적이 필요합니다.</div>`;
+  container.appendChild(wrap);
+}
+
+/** material_sources 이벤트 → 설명에 쓴 자재 참고 자료(제조사 공개 자료, 승인분)의 출처 — 판매 상품·가격 아님 */
+function renderMaterialSources(sources, container) {
+  if (!sources || sources.length === 0) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'legal-sources material-sources';
+  const items = sources.slice(0, 5).map(s => {
+    const url = /^https?:\/\//.test(s.url || '') ? s.url : '';
+    return `<li>${escHtml(s.maker || '')}${url ? ` · <a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">원문 보기</a>` : ''}</li>`;
+  }).join('');
+  wrap.innerHTML = `<div class="legal-sources-title">참고 자료 출처 (제조사 공개 자료 · 판매 상품 아님)</div><ul>${items}</ul>`;
+  container.appendChild(wrap);
+}
+
+/** legal_sources 이벤트 → 답변이 실제로 인용한 공식 법령 근거(기준명·조항·시행일·적용 조건·원문 링크) */
+function renderLegalSources(sources, container) {
+  if (!sources || sources.length === 0) return;
+  const levelLabel = { original_verified: '공식 원문 검증', api_text_verified: '법제처 원문 조문 확인' };
+  const wrap = document.createElement('div');
+  wrap.className = 'legal-sources';
+  const items = sources.map(s => {
+    const url = /^https?:\/\//.test(s.url || '') ? s.url : '';
+    return `
+      <li class="legal-source">
+        <div class="legal-source-head">
+          <span class="legal-badge">법령</span>
+          <strong>${escHtml(s.name)} ${escHtml(s.ref)}</strong>
+        </div>
+        <div class="legal-source-meta">${s.effective_date ? '시행 ' + escHtml(s.effective_date) + ' · ' : ''}${escHtml(levelLabel[s.verify_level] || '')}${url ? ` · <a href="${escHtml(url)}" target="_blank" rel="noopener">원문 보기</a>` : ''}</div>
+        <div class="legal-source-cond">적용 조건: ${escHtml(s.applies_to)}</div>
+      </li>`;
+  }).join('');
+  wrap.innerHTML = `<div class="legal-sources-title">공식 법령 근거 ${sources.length}건</div><ul>${items}</ul>`;
+  container.appendChild(wrap);
 }
 
 async function send() {

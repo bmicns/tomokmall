@@ -8,6 +8,8 @@ return [
     'openai' => [
         'api_key' => getenv('OPENAI_API_KEY') ?: '',
         'model'   => 'gpt-4o',
+        // 테스트 전용: 로컬 목업 서버(http://127.0.0.1:…)만 허용 — 그 외 값은 무시하고 OpenAI 로 보낸다
+        'chat_url' => preg_match('#^http://127\.0\.0\.1:\d+/#', (string) getenv('OPENAI_CHAT_URL')) ? (string) getenv('OPENAI_CHAT_URL') : 'https://api.openai.com/v1/chat/completions',
     ],
     'db' => [
         'host'    => getenv('DB_HOST') ?: 'localhost',

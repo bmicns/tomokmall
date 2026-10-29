@@ -74,9 +74,9 @@ if ($action === 'clear') {
         unset($items[$productId]);
         $_SESSION['quick_items'] = $items;
     } else {
-        if ($quantity < 1 || $quantity > 9999) {
+        if ($quantity < 1 || $quantity > 999) {
             http_response_code(400);
-            echo json_encode(['ok' => false, 'error' => 'quantity는 1~9999 범위여야 합니다.']);
+            echo json_encode(['ok' => false, 'error' => 'quantity는 1~999 범위여야 합니다.']);
             exit;
         }
 

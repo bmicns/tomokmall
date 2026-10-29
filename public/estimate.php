@@ -27,8 +27,8 @@ foreach ($cartItems as $ci) {
 }
 $totalText = $cartTotal > 0 ? number_format($cartTotal).'원'.($hasInquiry ? ' + 문의' : '') : '담당자 문의';
 $sum0      = estimate_amount_summary($cartTotal, null); // 초기 상태: 배송 지역 미선택 → 운임 미포함
-// 수량 상한 = 저장 API 상한(장바구니 api/cart.php 999, 즉시견적 quick-items.php 9999)
-$qtyMax    = $isQuick ? 9999 : 999;
+// 수량 상한 = 저장 API 상한(장바구니 api/cart.php·즉시견적 quick-items.php 모두 999)
+$qtyMax    = 999;
 $user  = current_user();
 $nowMin = date('Y-m-d\TH:i');
 
@@ -144,8 +144,8 @@ render_header('견적 요청');
     <p class="est-sub">담당자가 확인 후 연락드립니다.</p>
 
     <div id="result-box" class="result-box" style="display:none">
-        견적 요청이 접수되었습니다.<br>담당자가 확인 후 영업일 기준 1~2일 내에 연락드립니다.<br>
-        <a href="/index.php">← 메인으로 돌아가기</a>
+        견적 요청이 접수되었습니다.<span id="result-no"></span><br>담당자가 확인 후 영업일 기준 1~2일 내에 연락드립니다.<br>
+        <?php if ($user): ?><a href="/my-estimates.php">내 견적 보기</a> · <?php endif; ?><a href="/index.php">← 메인으로 돌아가기</a>
     </div>
 
     <form id="est-form" onsubmit="submitEst(event)">
@@ -519,6 +519,7 @@ async function submitEst(e) {
         });
         const d = await r.json();
         if (d.ok) {
+            if (d.estimate_id) { document.getElementById('result-no').textContent = ' (접수 번호 ' + parseInt(d.estimate_id, 10) + ')'; }
             document.getElementById('est-form').style.display = 'none';
             document.getElementById('result-box').style.display = 'block';
             document.getElementById('result-box').scrollIntoView({ behavior: 'smooth', block: 'center' });

@@ -44,7 +44,7 @@ if (isset($_GET['ask']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $messages[] = ['role' => 'user', 'content' => $userMsg];
 
     $result = rag_process($messages, $sessionKey);
-    echo json_encode($result, JSON_UNESCAPED_UNICODE);
+    echo json_encode(array_diff_key($result, ['tools' => true]), JSON_UNESCAPED_UNICODE);   // 도구 기록은 시험용 — 화면 응답은 그대로
 
     // Stage 3: 상담 로그 기록
     if ($result['ok'] ?? false) {

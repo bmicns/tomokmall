@@ -236,14 +236,34 @@ render_header('AI 자재 상담', 'chat');
   .compare-img-ph { width: 60px; height: 60px; background: #E8E8E8; display: block; }
   .compare-name { font-size: 13px; font-weight: 500; line-height: 1.4; }
   .compare-spec { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+  .compare-detail { font-size: 11px; font-weight: 400; margin-left: 4px; color: var(--color-primary); }
+  .compare-guide { list-style: none; margin: 4px 0 0; padding: 0; font-size: 11px; line-height: 1.5; color: var(--color-text-primary); }
+  .compare-guide li::before { content: '✓ '; color: var(--color-primary); }
   .compare-qtybasis { font-size: 11px; color: var(--color-primary); font-weight: 600; margin-top: 3px; }
   .compare-price { font-size: 13px; font-weight: 600; color: var(--color-primary); white-space: nowrap; }
+  .compare-unit { font-size: 11px; font-weight: 400; color: var(--color-text-secondary); }
+  .compare-cost { font-size: 11px; font-weight: 600; color: var(--color-text-primary); margin-top: 3px; }
+  .compare-diff { display: block; font-size: 10px; font-weight: 400; color: var(--color-text-secondary); }
+  .compare-lowest { display: inline-block; padding: 0 5px; margin-left: 2px; font-size: 10px; font-weight: 700; color: #fff; background: var(--color-primary); }
+  .compare-summary { font-size: 12px; line-height: 1.5; padding: 8px 10px; margin-bottom: 6px; background: var(--color-surface); border: 1px solid var(--color-border); }
+  .compare-summary b { color: var(--color-primary); }
+  .compare-summary span { display: block; font-size: 11px; color: var(--color-text-secondary); }
+  .spec-unavailable { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--color-border); border-left: 3px solid var(--color-text-primary); background: var(--color-surface); font-size: 12px; line-height: 1.55; }
+  .spec-unavailable-title { font-weight: 700; color: var(--color-text-primary); margin-bottom: 4px; }
+  .spec-unavailable-body { color: var(--color-text-secondary, inherit); word-break: keep-all; }
+  .legal-sources { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--color-border); background: var(--color-surface); font-size: 12px; line-height: 1.55; }
+  .legal-sources-title { font-weight: 700; color: var(--color-text-primary); margin-bottom: 6px; }
+  .legal-sources ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .legal-source-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .legal-badge { padding: 1px 7px; border: 1px solid #F0C48A; background: #FFF4E5; color: #7A3E00; font-size: 11px; font-weight: 700; }
+  .legal-source-meta, .legal-source-cond { color: var(--color-text-secondary); word-break: keep-all; }
+  .legal-source-meta a { color: var(--color-primary); text-decoration: underline; }
   .compare-price.is-state { color: var(--color-text-secondary); font-weight: 500; }
   .compare-state-note { font-size: 11px; color: var(--color-danger); margin-top: 3px; }
-  /* 전역 input[type=number](width:100%·padding 8px 12px)보다 우선하도록 .compare-table 한정 */
-  .compare-table .compare-qty {
-    width: 60px; padding: 4px; border: 1px solid var(--color-border);
-    font-size: 12px; text-align: center; font-family: var(--font); background: #fff;
+  /* 전역 input[type=number](width:100%·padding 8px 12px)가 덮어써 숫자가 안 보이던 문제 방지 — .compare-table 한정 */
+  .compare-table input.compare-qty {
+    width: 72px; padding: 4px; border: 1px solid var(--color-border);
+    font-size: 13px; text-align: center; font-family: var(--font); background: #fff;
   }
   .btn-compare-add {
     background: var(--color-primary); color: #fff; border: none;
@@ -506,6 +526,21 @@ render_header('AI 자재 상담', 'chat');
     .btn-send { width: 64px; height: 48px; }
   }
 
+  /* 비교표: 태블릿(채팅 칸이 좁아짐)·모바일은 가로 스크롤 없이 한 상품을 세로로 — 수량·견적추가 버튼이 화면 안에 보이게 */
+  @media (max-width: 900px) {
+    .compare-table thead { display: none; }
+    .compare-table table, .compare-table tbody { display: block; }
+    .compare-table tr[data-pid] { display: grid; grid-template-columns: 60px 1fr auto; grid-template-areas: "img name name" "img price price" "img qty add"; gap: 6px 10px; padding: 10px 0; border-bottom: 1px solid var(--color-border); }
+    .compare-table td { padding: 0; border: none; }
+    .compare-table td:nth-child(1) { grid-area: img; }
+    .compare-table td:nth-child(2) { grid-area: name; }
+    .compare-table td:nth-child(3) { grid-area: price; }
+    .compare-table td:nth-child(4) { grid-area: qty; }
+    .compare-table td:nth-child(5) { grid-area: add; }
+    .compare-table input.compare-qty { width: 100%; min-height: 44px; font-size: 16px; }
+    .btn-compare-add { min-height: 44px; padding: 0 16px; }
+  }
+
   /* ── 채팅 페이지 푸터 여백 제거 ──────────────────────────── */
   .site-footer { margin-top: 0; }
 </style>
@@ -570,7 +605,7 @@ render_header('AI 자재 상담', 'chat');
       </div>
       <div class="hint-chips" id="starters-track">
         <?php foreach ([
-            '차량 통행 구간 그레이팅', '주차장 배수 공사', '농수로 정비 공사', '인도·공원 보행 구간', '맨홀·집수정 교체',
+            '집 앞에 보도블록 깔면 뭐가 좋아요?', '차량 통행 구간 그레이팅', '주차장 배수 공사', '농수로 정비 공사', '인도·공원 보행 구간', '맨홀·집수정 교체',
             '마당 물빠짐 해결', '집 앞 진입로 포장', '화단·텃밭 테두리', '경사지 흙 무너짐 방지', '집 하수관 연결',
             '가게 앞 배수구 덮개', '창고 바닥 배수',
         ] as $_hint): ?>

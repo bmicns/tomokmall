@@ -14,6 +14,7 @@ require __DIR__ . '/../app/product_filter_renderer.php';
 require __DIR__ . '/../app/favorites.php';
 require __DIR__ . '/../app/work_types.php';
 require __DIR__ . '/../app/corp_home.php';
+require_once __DIR__ . '/../app/rag.php';
 
 $pass = 0; $fail = 0;
 function ok(string $name, bool $cond): void {
@@ -41,6 +42,73 @@ ok('그레이팅 1m → 100m=100개', $q === 100);
 ok('경계석(길이<1m) → 수량없음(null)', $q === null);
 [$q] = ai_estimate_quantity(['spec' => '단위: m 2'], 0.0, null, 200.0);
 ok('면적 200㎡ → 200', $q === 200);
+
+echo "[포장 블록 장수 환산 ai_tile_area_m2 / ai_estimate_quantity]\n";
+ok('인터로킹 220*110*60T → 0.0242㎡', abs((float) ai_tile_area_m2('220*110*60T_회색') - 0.0242) < 1e-9);
+ok('경계석 120*120*120(T 없음) → null', ai_tile_area_m2('120*120*120(SA)') === null);
+ok('다칼라 900*1200*60(T 없음) → null', ai_tile_area_m2('900*1200*60_컬러(보도)') === null);
+ok('조경잔디 1000*1000*150T(600mm 초과) → null', ai_tile_area_m2('1000*1000*150T') === null);
+[$q, $b] = ai_estimate_quantity(['spec' => '규격: 220*110*60T_회색 | 단위: m 2'], 0.0, null, 200.0);
+ok('인터로킹(㎡) 200㎡ → 200㎡', $q === 200);
+ok('인터로킹(㎡) 근거에 장수 표시(약 8,265장)', strpos($b, '약 8,265장') !== false);
+[$q] = ai_estimate_quantity(['spec' => '규격: 230*114*60T_아이보리 | 단위: 개'], 0.0, null, 10.0);
+ok('점토블럭(개) 10㎡ → 382개', $q === 382);
+[$q] = ai_estimate_quantity(['spec' => '규격: 120*120*120(SA) | 단위: 개'], 0.0, null, 10.0);
+ok('경계석(개) 면적만 → 수량없음(null)', $q === null);
+[$q] = ai_estimate_quantity(['spec' => '규격: 230*114*60T_아이보리 | 단위: 개'], 100.0, null, null);
+ok('점토블럭(개) 길이만 → 수량없음(null)', $q === null);
+eq('단위 라벨 m 2 → ㎡', ai_unit_label('규격: 220*110*60T | 단위: m 2'), '㎡');
+eq('단위 라벨 본',        ai_unit_label('규격: 400*400*2000 | 단위: 본'), '본');
+eq('단위 라벨 없음',      ai_unit_label('220*110*60T'), '');
+
+echo "[AI 검색 대표 규격·부속 제외 — 실제 수집 상품(data/ktomok/products.json)]\n";
+// 운영 DB 적재 형식과 같게 '규격: … | 단위: …'로 구성. 상품 순서는 수집 순서(관련도 동점 시 기존엔 id가 큰 변형이 대표가 됨)
+$ktomok = json_decode((string) file_get_contents(__DIR__ . '/../data/ktomok/products.json'), true) ?: [];
+$realRows = static function (string $category, ?string $specRe = null) use ($ktomok): array {
+    $rows = [];
+    foreach ($ktomok as $i => $p) {
+        if ($p['categoryName'] !== $category || ($specRe !== null && !preg_match($specRe, $p['spec']))) { continue; }
+        $rows[] = ['id' => $i + 1, 'name' => $p['name'], 'spec' => "규격: {$p['spec']} | 단위: {$p['unit']}", 'price_b2c' => (int) $p['price']];
+    }
+    return array_reverse($rows); // 검색 정렬(p.id DESC) 재현: 마지막 변형(80T 칼라 등)이 먼저
+};
+$specOf = static fn(array $r): string => preg_match('/규격:\s*([^|]+)/u', $r['spec'], $m) ? trim($m[1]) : '';
+
+$il = $realRows('인터로킹U형블럭');
+ok('실데이터 로드: 인터로킹U형블럭 6종', count($il) === 6);
+$rep = ai_pick_representatives($il, 0.0, null, 20.0);
+eq('보행용(두께 조건 없음) 대표 = 가장 저렴한 60T 회색', $specOf($rep[0]), '220*110*60T_회색');
+$rep = ai_pick_representatives($realRows('인터로킹U형블럭', '/\*80T/'), 0.0, 80.0, 20.0);
+eq('차량용 80T만 남은 경우 대표 = 80T 회색', $specOf($rep[0]), '220*110*80T_회색');
+$rep = ai_pick_representatives($realRows('인조화강블록(투수)'), 0.0, null, 20.0);
+ok('인조화강블록(투수) 대표 = 60T 최저가(9,900원/㎡, 200×200·200×100 동가)', (int) $rep[0]['price_b2c'] === 9900 && strpos($specOf($rep[0]), '60T') !== false);
+$rep = ai_pick_representatives($realRows('점토블럭'), 0.0, null, 20.0);
+eq('점토블럭 대표 = 개당 가장 싼 레드 계열(720원)', (int) $rep[0]['price_b2c'], 720);
+ok('점토블럭 80T 규격 없음(차량용 비교에서 제외돼야 함)', $realRows('점토블럭', '/\*80T/') === []);
+$curb = array_merge($realRows('경계석집게'), $realRows('콘크리트경계석'));
+$names = array_unique(array_column(ai_exclude_accessories($curb, '경계석'), 'name'));
+ok('경계석 검색 → 경계석집게 제외', !in_array('경계석집게', $names, true) && in_array('콘크리트경계석', $names, true));
+$names = array_unique(array_column(ai_exclude_accessories($curb, '경계석 집게'), 'name'));
+ok('고객이 집게를 직접 찾으면 유지', in_array('경계석집게', $names, true));
+$rep = ai_pick_representatives($realRows('콘크리트경계석'), 18.0, null, null);
+ok('경계석 대표는 직선형(곡선 아님)', strpos($specOf($rep[0]), '곡선') === false);
+ok('집게만 있으면 원복(빈 결과 방지)', count(ai_exclude_accessories($realRows('경계석집게'), '경계석')) === count($realRows('경계석집게')));
+
+echo "[공식 법령 근거 — 점수·프롬프트·답변 출처 처리 (순수 함수)]\n";
+$lawDoc = ['id' => 7, 'tags' => '주차,주차장,주차공간', 'category_key' => 'pavement', 'source_type' => 'law',
+    'source_name' => '주차장법 시행규칙', 'source_ref' => '제3조제1항제2호', 'effective_date' => '2026-07-27',
+    'applies_to' => '주차장법상 주차장', 'source_url' => 'https://www.law.go.kr/법령/주차장법시행규칙/제3조',
+    'verify_level' => 'original_verified', 'content' => '요지: 일반형 2.5m×5.0m 이상'];
+eq('태그 2개 일치(주차·주차공간) +6, 카테고리 +1', rag_legal_score($lawDoc, '마당 주차공간 포장', 'pavement'), 3 + 3 + 1);
+eq('태그 불일치면 카테고리만으로는 0', rag_legal_score($lawDoc, '보도블록 두께', 'pavement'), 0);
+$sec = rag_legal_prompt_section([$lawDoc]);
+ok('프롬프트 구역: [L7]·적용 조건·시행일', str_contains($sec, '[L7]') && str_contains($sec, '적용 조건: 주차장법상 주차장') && str_contains($sec, '시행 2026-07-27'));
+eq('근거 없으면 프롬프트 구역 없음', rag_legal_prompt_section([]), '');
+$cit = rag_extract_legal_citations('1칸은 2.5m×5.0m 이상입니다 [L7]. 참고[L7] 추가[L3]', [$lawDoc]);
+eq('표시 제거', $cit['text'], '1칸은 2.5m×5.0m 이상입니다. 참고 추가');
+eq('넣은 근거만·중복 없이', array_column($cit['sources'], 'id'), [7]);
+eq('표시 없으면 출처 없음', rag_extract_legal_citations('80T를 권해 드려요.', [$lawDoc])['sources'], []);
+eq('DB·출처 칸 없으면(운영 미적용) 법령 근거 검색 빈 배열', rag_search_legal_documents('주차 공간', 'pavement'), []);
 
 echo "[하이라이트 highlight_terms]\n";
 ok('검색어 <mark> 삽입', strpos(highlight_terms('측구수로관', ['측구']), '<mark') !== false);
@@ -319,6 +387,29 @@ load_env_file($envTmp); unlink($envTmp);
 ok('셸 값 우선 유지(기존 동작)', getenv('TM_TEST_SHADOW') === 'from_shell' && getenv('TM_TEST_NEW') === 'new');
 eq('값이 다른 키만 기록(같은 값·새 키 제외)', env_shadowed_keys('TM_TEST_'), ['TM_TEST_SHADOW']);
 
+echo "[포장 블록 두께 판독 ai_block_thickness / 두께 필터]\n";
+eq('80T 표기', ai_block_thickness('규격: 199*99*80T_회색 | 중량: 165kg'), 80);
+eq('셋째 치수(T 없음)', ai_block_thickness('규격: 1200*900*80_컬러(차도) | 단위: m 2'), 80);
+eq('가로 100 은 두께 아님(200*100*60T → 60)', ai_block_thickness('규격: 200*100*60T(불투수)'), 60);
+eq('범위 표기 → 판독 안 함', ai_block_thickness('규격: 230*114*65~125_조경경계블록'), null);
+eq('치수 4개 이상 → 판독 안 함', ai_block_thickness('규격: 400*400*2000*120'), null);
+ok('포장 검색어 판별', ai_is_paving_query('인터로킹 블록') && ai_is_paving_query('보차도블록') && !ai_is_paving_query('호안블록') && !ai_is_paving_query('측구 수로관'));
+$rowsT = [
+    ['name' => '인터로킹i2형블럭', 'spec' => '규격: 199*99*100T_회색'],
+    ['name' => '인조화강블록(불투수)', 'spec' => '규격: 200*100*60T(불투수)'],
+    ['name' => '호안블록(저류용)', 'spec' => '규격: 400*200*100_아이블록'],
+    ['name' => '녹지경계블록', 'spec' => '규격: 190*160*100_적색'],
+    ['name' => '다칼라블랜딩블록', 'spec' => '규격: 1200*900*100_컬러(차도)'],
+];
+eq('두께 100 포장 블록만(60T·호안·경계 제외)', array_column(ai_filter_paving_thickness($rowsT, 100), 'name'), ['인터로킹i2형블럭', '다칼라블랜딩블록']);
+
+echo "[상담: 카드 없는 답의 '원하시는 제품을 선택해 주세요.' 제거]\n";
+$cardsEv = [['type' => 'product_cards', 'products' => []]];
+ok('카드 없음 → 끝의 선택 안내 제거', rag_strip_dangling_choice("안전 그레이팅이 적합합니다.\n\n원하시는 제품을 선택해 주세요.", [['type' => 'material_sources', 'sources' => []]]) === '안전 그레이팅이 적합합니다.');
+ok('카드 있음 → 그대로', rag_strip_dangling_choice("고르는 기준입니다.\n원하시는 제품을 선택해 주세요.", $cardsEv) === "고르는 기준입니다.\n원하시는 제품을 선택해 주세요.");
+ok('그 문장뿐이면 빈 답변이 되지 않게 그대로, 중간 문장은 손대지 않음', rag_strip_dangling_choice('원하시는 제품을 선택해 주세요.', []) === '원하시는 제품을 선택해 주세요.'
+    && rag_strip_dangling_choice('원하시는 제품을 선택해 주세요. 면적도 알려 주세요.', []) === '원하시는 제품을 선택해 주세요. 면적도 알려 주세요.');
+
 echo "[AI 상담 키 rag_chat_key_*]\n";
 require_once __DIR__ . '/../app/rag.php';
 $_SESSION['chat_keys'] = [];
@@ -376,6 +467,15 @@ ok('상품명·규격·이미지·근거·권장수량은 상담 당시 값 유�
     && $a['image_url'] === '/a.png' && $a['qty_basis'] === '근거' && $a['suggested_qty'] === 10);
 ok('견적 카드 등 다른 이벤트는 그대로', $ap[3][1] === $snap[3][1]);
 ok('원본(입력 배열)은 변경되지 않음', $snap[3][0]['products'][0]['price_b2c'] === 45000 && !isset($snap[3][0]['products'][0]['price_state']));
+$snapC = [1 => [['type' => 'product_cards', 'products' => [
+    ['id' => 1, 'spec' => '규격 A', 'price_b2c' => 1000, 'suggested_qty' => 10, 'est_cost' => 10000, 'cost_lowest' => true, 'cost_diff' => 0],
+    ['id' => 2, 'spec' => '규격 B', 'price_b2c' => 1200, 'suggested_qty' => 10, 'est_cost' => 12000, 'cost_lowest' => false, 'cost_diff' => 2000],
+    ['id' => 3, 'spec' => '규격 C', 'price_b2c' => 900, 'suggested_qty' => 10, 'est_cost' => 9000, 'cost_lowest' => false, 'cost_diff' => 0],
+]]]];
+$apC = rag_apply_current_prices($snapC, [1 => ['price' => 1500, 'spec' => '규격 A'], 2 => ['price' => 1200, 'spec' => '규격 B']])[1][0]['products'];
+ok('복원: 예상 자재비는 현재가 × 권장 수량으로 다시 계산, 판매 중지 상품은 금액 지움, 최저 표시 다시',
+    [$apC[0]['est_cost'], $apC[1]['est_cost'], $apC[2]['est_cost']] === [15000, 12000, null]
+    && $apC[1]['cost_lowest'] === true && $apC[0]['cost_lowest'] === false && $apC[0]['cost_diff'] === 3000 && !isset($apC[2]['cost_diff']));
 $un = rag_apply_current_prices($snap, null);
 ok('조회 실패: 모두 가격 확인 불가, 과거 가격 숨김', array_unique(array_map(static fn($p) => $p['price_state'] . ':' . var_export($p['price_b2c'], true), $un[3][0]['products'])) === ['unknown:NULL']);
 

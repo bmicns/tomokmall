@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>근거·데이터 확보 현황</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F0F2F5}
+a{color:#004EA1}a:hover{color:#003A7A}
+.st-row:hover td{background:#F8F9FB}
+.st-tab:hover{color:#004EA1 !important}
+@media (max-width:900px){.st-side{display:none !important}.st-sum{grid-template-columns:minmax(0,1fr) !important}}
+</style>
+</helmet>
+<div style="font-family: 'Noto Sans KR', -apple-system, sans-serif; color: #1A2035; background: #F0F2F5; min-height: 100vh; display: flex">
+  <aside class="st-side" style="width: 220px; flex-shrink: 0; background: #1A2035; display: flex; flex-direction: column">
+    <div style="height: 52px; display: flex; align-items: center; padding: 0 20px; color: #FFFFFF; font-size: 14px; font-weight: 700">관리자</div>
+    <nav aria-label="관리 메뉴" style="display: flex; flex-direction: column; padding: 8px 0">
+      <a href="#" style="padding: 10px 20px; font-size: 13px; color: rgba(255,255,255,0.55); text-decoration: none; border-left: 3px solid transparent">AI 상담 로그</a>
+      <a href="#" style="padding: 10px 20px; font-size: 13px; color: rgba(255,255,255,0.55); text-decoration: none; border-left: 3px solid transparent">기준 문서(RAG)</a>
+      <a href="#" aria-current="page" style="padding: 10px 20px; font-size: 13px; color: #FFFFFF; text-decoration: none; background: rgba(0,78,161,0.4); border-left: 3px solid #004EA1">근거·데이터 확보 현황</a>
+    </nav>
+  </aside>
+  <main style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+    <div style="height: 52px; background: #FFFFFF; border-bottom: 1px solid #E8EAED; display: flex; align-items: center; padding: 0 28px; font-size: 14px; font-weight: 600">근거·데이터 확보 현황</div>
+    <div style="padding: 24px 28px; display: flex; flex-direction: column; gap: 16px; max-width: 1320px; width: 100%; box-sizing: border-box">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h1 style="margin: 0; font-size: 20px; font-weight: 700">근거·데이터 확보 현황</h1>
+        <p style="margin: 0; font-size: 13px; color: #555555">2026-10-27 조사 기준. 공식 자료는 웹 검색으로 찾은 <strong>후보</strong>이며 원문을 아직 열람하지 못했습니다. 원문 확인·검토 전에는 AI 상담에서 근거로 쓰지 않습니다.</p>
+      </div>
+
+      <div class="st-sum" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+        <sc-for list="{{cards}}" as="c" hint-placeholder-count="3">
+          <div style="display: flex; flex-direction: column; gap: 6px; padding: 16px; border: 1px solid #E8EAED; border-radius: 10px; background: #FFFFFF">
+            <span style="font-size: 13px; font-weight: 700; color: #555555">{{c.title}}</span>
+            <span style="font-size: 24px; font-weight: 700">{{c.big}}</span>
+            <sc-for list="{{c.lines}}" as="l" hint-placeholder-count="3">
+              <span style="display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; color: #444444"><span>{{l.k}}</span><strong style="color: {{l.color}}">{{l.v}}</strong></span>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+
+      <div role="tablist" aria-label="현황 구분" style="display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid #DDDDDD">
+        <sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+          <button type="button" role="tab" class="st-tab" aria-selected="{{t.sel}}" onClick="{{t.pick}}" style="min-height: 44px; padding: 0 16px; border: 0; border-bottom: 3px solid {{t.bar}}; background: transparent; color: {{t.color}}; font-size: 14px; font-weight: {{t.weight}}; font-family: inherit; cursor: pointer">{{t.label}}</button>
+        </sc-for>
+      </div>
+
+      <!-- ① 법령·기술기준 -->
+      <sc-if value="{{tabLegal}}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center">
+            <sc-for list="{{typeChips}}" as="f" hint-placeholder-count="5">
+              <button type="button" onClick="{{f.pick}}" aria-pressed="{{f.sel}}" style="min-height: 36px; padding: 0 12px; border: 1px solid {{f.border}}; border-radius: 18px; background: {{f.bg}}; color: {{f.color}}; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer">{{f.label}}</button>
+            </sc-for>
+            <span style="margin-left: auto; font-size: 12.5px; color: #555555">상세 원문 검증 {{verifiedCount}} · 공식 메타데이터 확인 {{existCount}} · 검색 후보 {{searchCount}} / {{legalCount}}건 · AI 상담 사용 0건</span>
+          </div>
+          <div style="background: #FFFFFF; border: 1px solid #E8EAED; border-radius: 10px; overflow-x: auto">
+            <table style="width: 100%; min-width: 1040px; border-collapse: collapse; font-size: 12.5px">
+              <thead><tr>
+                <th style="background: #F8F9FB; padding: 9px 10px; text-align: left; font-weight: 600; color: #555555; border-bottom: 1px solid #E8EAED; width: 56px">구분</th>
+                <th style="background: #F8F9FB; padding: 9px 10px; text-align: left; font-weight: 600; color: #555555; border-bottom: 1px solid #E8EAED">공식 문서명 / 조문·기준번호</th>
+                <th style="background: #F8F9FB; padding: 9px 10px; text-align: left; font-weight: 600; color: #555555; border-bottom: 1px solid #E8EAED; width: 170px">관련 자재</th>
+                <th style="background: #F8F9FB; padding: 9px 10px; text-align: left; font-weight: 600; color: #555555; border-bottom: 1px solid #E8EAED; width: 240px">적용 범위 (검색 기준)</th>
+                <th style="background: #F8F9FB; padding: 9px 10px; text-align: left; font-weight: 600; color: #555555; border-bottom: 1px solid #E8EAED; width: 76px">검색 근거</th>
+                <th style="background: #F8F9FB; padding: 9px 10px; text-align: left; font-weight: 600; color: #555555; border-bottom: 1px solid #E8EAED; width: 120px">상태</th>
+              </tr></thead>
+              <tbody>
+                <sc-for list="{{legalRows}}" as="r" hint-placeholder-count="8">
+                  <tr class="st-row">
+                    <td style="padding: 9px 10px; border-bottom: 1px solid #F0F2F5"><span style="display: inline-block; padding: 2px 8px; border-radius: 10px; border: 1px solid {{r.kBorder}}; background: {{r.kBg}}; color: {{r.kColor}}; font-size: 11.5px; font-weight: 700">{{r.t}}</span></td>
+                    <td style="padding: 9px 10px; border-bottom: 1px solid #F0F2F5"><strong style="font-weight: 600">{{r.name}}</strong><div style="color: #555555">{{r.ref}}</div>
+                      <sc-if value="{{r.hasUrl}}" hint-placeholder-val="{{ false }}"><a href="{{r.url}}" target="_blank" rel="noopener" style="font-size: 12px">원문 위치 열기</a></sc-if>
+                    </td>
+                    <td style="padding: 9px 10px; border-bottom: 1px solid #F0F2F5; color: #444444">{{r.mats}}</td>
+                    <td style="padding: 9px 10px; border-bottom: 1px solid #F0F2F5; color: #444444">{{r.scope}}</td>
+                    <td style="padding: 9px 10px; border-bottom: 1px solid #F0F2F5; color: {{r.confColor}}; font-weight: 600">{{r.conf}}</td>
+                    <td style="padding: 9px 10px; border-bottom: 1px solid #F0F2F5"><span style="display: inline-block; padding: 2px 8px; border-radius: 4px; background: {{r.sBg}}; color: {{r.sColor}}; font-size: 11.5px; font-weight: 700">{{r.sLabel}}</span><div style="font-size: 11.5px; color: {{r.lvlColor}}; font-weight: 600; margin-top: 2px">{{r.lvlLabel}}</div><div style="font-size: 11.5px; color: #777777">AI 사용 안 함</div></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+          <p style="margin: 0; font-size: 12px; line-height: 1.6; color: #666666">· 검색 근거 '높음' = 공식 사이트(law.go.kr·molit.go.kr·standard.go.kr·kssn.net) 검색 결과에 나온 항목. 그래도 조문·본문은 직접 확인하지 못했습니다.<br>· KS 원문은 한국표준협회 판매물이라 번호·표준명·적용 범위만 기록하고 본문은 넣지 않습니다.<br>· 폐지된 규정, 도로관리청·공공하수도처럼 개인 공사와 적용 대상이 다른 규정은 확정적인 법적 근거로 쓰지 않습니다.</p>
+        </div>
+      </sc-if>
+
+      <!-- ② 외부 데이터 출처 -->
+      <sc-if value="{{tabSites}}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <div style="padding: 12px 14px; border: 1px solid #F0C48A; border-radius: 8px; background: #FFF4E5; font-size: 13px; line-height: 1.6; color: #7A3E00">민간 사이트 15곳 모두 <strong>자동 수집 보류</strong>입니다. robots.txt·이용약관을 직접 열람하지 못했고, 데이터 이용 허락도 받지 않았습니다. 이미 수집한 ktomok 1,452건은 사후 허락 또는 제휴가 가장 시급합니다.</div>
+          <div style="background: #FFFFFF; border: 1px solid #E8EAED; border-radius: 10px; overflow-x: auto">
+            <table style="width: 100%; min-width: 980px; border-collapse: collapse; font-size: 12.5px">
+              <thead><tr>
+                <th style="background: #F8F9FB; padding: 9px 10px; text-align: left; font-weight: 600; color: #555555; border-bottom: 1px solid #E8EAED; width: 40px">순위</th>
+                <th style="background: #F8F9FB; padding: 9px 10px; text-align: left; font-weight: 600; color: #555555; border-bottom: 1px solid #E8EAED">출처</th>
+                <th style="background: #F8F9FB; padding: 9px 10px; text-align: left; font-weight: 600; color: #555555; border-bottom: 1px solid #E8EAED; width: 150px">유형</th>
+                <th style="background: #F8F9FB; padding: 9px 10px; text-align: left; font-weight: 600; color: #555555; border-bottom: 1px solid #E8EAED; width: 56px">관련도</th>
+                <th style="background: #F8F9FB; padding: 9px 10px; text-align: left; font-weight: 600; color: #555555; border-bottom: 1px solid #E8EAED; width: 130px">가격 공개</th>
+                <th style="background: #F8F9FB; padding: 9px 10px; text-align: left; font-weight: 600; color: #555555; border-bottom: 1px solid #E8EAED; width: 120px">robots·약관</th>
+                <th style="background: #F8F9FB; padding: 9px 10px; text-align: left; font-weight: 600; color: #555555; border-bottom: 1px solid #E8EAED">권장 확보 방법</th>
+                <th style="background: #F8F9FB; padding: 9px 10px; text-align: left; font-weight: 600; color: #555555; border-bottom: 1px solid #E8EAED; width: 90px">수집 판정</th>
+              </tr></thead>
+              <tbody>
+                <sc-for list="{{siteRows}}" as="s" hint-placeholder-count="8">
+                  <tr class="st-row">
+                    <td style="padding: 9px 10px; border-bottom: 1px solid #F0F2F5; color: #777777">{{s.pr}}</td>
+                    <td style="padding: 9px 10px; border-bottom: 1px solid #F0F2F5"><strong style="font-weight: 600">{{s.name}}</strong><div style="color: #555555">{{s.dom}}</div></td>
+                    <td style="padding: 9px 10px; border-bottom: 1px solid #F0F2F5; color: #444444">{{s.type}}</td>
+                    <td style="padding: 9px 10px; border-bottom: 1px solid #F0F2F5; font-weight: 600">{{s.rel}}</td>
+                    <td style="padding: 9px 10px; border-bottom: 1px solid #F0F2F5; color: #444444">{{s.price}}</td>
+                    <td style="padding: 9px 10px; border-bottom: 1px solid #F0F2F5; color: #B34700">확인 불가</td>
+                    <td style="padding: 9px 10px; border-bottom: 1px solid #F0F2F5; color: #444444">{{s.path}}</td>
+                    <td style="padding: 9px 10px; border-bottom: 1px solid #F0F2F5"><span style="display: inline-block; padding: 2px 8px; border-radius: 4px; background: #FCE4EC; color: #C62828; font-size: 11.5px; font-weight: 700">보류</span><div style="font-size: 11.5px; color: #777777; margin-top: 2px">허락·제휴 필요</div></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+          <h2 style="margin: 8px 0 0; font-size: 15px; font-weight: 700">공공데이터 후보 (data.go.kr · 조달청)</h2>
+          <div class="st-sum" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+            <sc-for list="{{apis}}" as="a" hint-placeholder-count="3">
+              <div style="display: flex; flex-direction: column; gap: 6px; padding: 14px; border: 1px solid #E8EAED; border-radius: 10px; background: #FFFFFF; font-size: 12.5px; line-height: 1.55">
+                <strong style="font-size: 13.5px">{{a.name}}</strong>
+                <span style="color: #444444">{{a.what}}</span>
+                <span style="color: #777777">{{a.note}}</span>
+                <span style="align-self: flex-start; padding: 2px 8px; border-radius: 4px; background: #FFF3E0; color: #B34700; font-size: 11.5px; font-weight: 700">인증키 신청 필요 · 조건 미확인</span>
+                <a href="{{a.url}}" target="_blank" rel="noopener" style="font-size: 12px">공공데이터포털 페이지</a>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ③ 상품 데이터 품질 -->
+      <sc-if value="{{tabQuality}}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <div style="padding: 12px 14px; border: 1px solid #EF9A9A; border-radius: 8px; background: #FCE4EC; font-size: 13px; line-height: 1.6; color: #8E1B1B"><strong>긴급:</strong> ktomok 상품 102건의 규격 문구에 공급업체 담당자 연락처(이름·휴대폰·이메일·주소)가 섞여 있습니다. 정리 SQL 초안은 테스트 DB에서 검증을 마쳤고, 운영 반영은 승인을 기다리고 있습니다.</div>
+          <div style="background: #FFFFFF; border: 1px solid #E8EAED; border-radius: 10px; overflow-x: auto">
+            <table style="width: 100%; min-width: 760px; border-collapse: collapse; font-size: 13px">
+              <thead><tr>
+                <th style="background: #F8F9FB; padding: 9px 12px; text-align: left; font-weight: 600; color: #555555; border-bottom: 1px solid #E8EAED">검사 항목</th>
+                <th style="background: #F8F9FB; padding: 9px 12px; text-align: right; font-weight: 600; color: #555555; border-bottom: 1px solid #E8EAED; width: 90px">건수</th>
+                <th style="background: #F8F9FB; padding: 9px 12px; text-align: left; font-weight: 600; color: #555555; border-bottom: 1px solid #E8EAED">처리 방안</th>
+              </tr></thead>
+              <tbody>
+                <sc-for list="{{quality}}" as="q" hint-placeholder-count="8">
+                  <tr class="st-row">
+                    <td style="padding: 9px 12px; border-bottom: 1px solid #F0F2F5; font-weight: 600; color: {{q.color}}">{{q.k}}</td>
+                    <td style="padding: 9px 12px; border-bottom: 1px solid #F0F2F5; text-align: right; font-weight: 700">{{q.n}}</td>
+                    <td style="padding: 9px 12px; border-bottom: 1px solid #F0F2F5; color: #444444">{{q.fix}}</td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ④ 시연 준비 -->
+      <sc-if value="{{tabDemo}}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <sc-for list="{{demo}}" as="d" hint-placeholder-count="7">
+            <div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 14px; padding: 12px 14px; border: 1px solid #E8EAED; border-radius: 10px; background: #FFFFFF">
+              <span style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; background: #EEF4FB; color: #004EA1; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{d.no}}</span>
+              <div style="flex: 1 1 320px; min-width: 0">
+                <strong style="font-size: 14px">{{d.step}}</strong>
+                <div style="margin-top: 2px; font-size: 12.5px; line-height: 1.55; color: #555555">{{d.note}}</div>
+              </div>
+              <span style="padding: 3px 10px; border-radius: 4px; background: {{d.bg}}; color: {{d.color}}; font-size: 12px; font-weight: 700; white-space: nowrap">{{d.status}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1300}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    // 조사 결과 (docs/03-analysis/ai-sourcing/legal-sources/candidates.json · external-sources/sites.json 에서 생성 — 웹 검색 기반 후보)
+    const DATA = {"legal": [{"t": "법령", "name": "주차장법 시행규칙", "ref": "제3조(주차장의 주차구획) · 국토교통부령 제1604호", "mats": "주차장 구획선(도료), 주차블록·카스토퍼, 주차장 포장재(인터로킹·투수…", "scope": "사용자 공식 사이트 확인 수치와 원문 미러 표가 일치. 적용 범위(부설주차장 정의·조례 위임)도 법 제2조·제6조·제19조,…", "conf": "높음", "status": "현행 추정", "url": "https://law.go.kr/lsLinkCommonInfo.do?lsJoLnkSeq=1011857635", "lvl": "original_verified"}, {"t": "법령", "name": "장애인ㆍ노인ㆍ임산부 등의 편의증진 보장에 관한 법률 시행규칙", "ref": "[별표 1] 편의시설의 구조·재질등에 관한 세부기준(제2조제1항 관련) — 점…", "mats": "점자블록(점형·선형), 보도블록 접근로", "scope": "별표 1 \"편의시설의 구조·재질등에 관한 세부기준\" 존재·현행 확인. 별표 내용은 첨부파일(law.go.kr)에만 있어 미확…", "conf": "높음", "status": "현행 추정", "url": "https://www.law.go.kr/flDownload.do?flSeq=135226913", "lvl": "metadata_confirmed"}, {"t": "법령", "name": "장애인ㆍ노인ㆍ임산부 등의 편의증진 보장에 관한 법률 시행령", "ref": "[별표 2] 대상시설별 편의시설의 종류 및 설치기준(제4조 관련)", "mats": "점자블록, 보도(공원 내 보도 등)", "scope": "별표 2 \"대상시설별 편의시설의 종류 및 설치기준\" 존재·현행 확인. 별표 내용 미확보", "conf": "중간", "status": "현행 추정", "url": "https://www.law.go.kr", "lvl": "metadata_confirmed"}, {"t": "법령", "name": "교통약자의 이동편의 증진법 시행규칙", "ref": "제2조제1항, [별표 1] 이동편의시설의 구조·재질 등에 관한 세부기준", "mats": "점자블록, 보도 턱낮춤(경계석), 보행 접근로", "scope": "별표 1 \"이동편의시설의 구조ㆍ재질 등에 관한 세부기준\" 존재·현행 확인(제2조제1항). 별표 내용 미확보", "conf": "높음", "status": "현행 추정", "url": "https://www.law.go.kr/LSW/flDownload.do?flSeq=155311565&bylClsCd=110201", "lvl": "metadata_confirmed"}, {"t": "법령", "name": "보행안전 및 편의증진에 관한 법률 시행규칙", "ref": "[별표 1] 보행안전 및 편의증진 시설의 구조 및 기준(제5조제2항 관련)", "mats": "보도블록, 점자블록, 보행 안전시설", "scope": "별표 1 존재·현행 확인. 제5조제1항(설치 가능 시설: 볼라드·점자블록 등)은 본문 확인(V12). 별표 내용 미확보", "conf": "중간", "status": "현행 추정", "url": "https://www.law.go.kr/LSW/flDownload.do?gubun=&flSeq=116980749&bylClsCd=110201", "lvl": "metadata_confirmed"}, {"t": "법령", "name": "보도 설치 및 관리 지침", "ref": "국토교통부예규 제321호(행정규칙)", "mats": "보도블록(블록포장), 경계석(연석), 점자블록, 보도 포장", "scope": "현행 예규(현행여부 Y) 확인. 본문은 첨부파일로만 제공되어 조항 미확보", "conf": "높음", "status": "현행 추정", "url": "https://www.law.go.kr/admRulLsInfoP.do?chrClsCd=010202&admRulSeq=2100000203352", "lvl": "metadata_confirmed"}, {"t": "법령", "name": "도로의 구조ㆍ시설 기준에 관한 규칙", "ref": "제1조·제16조·제29조·제30조 · 국토교통부령 제1588호", "mats": "보도, 경계석(연석), 측구, 배수시설", "scope": "연석 높이 25cm 이하·보도 유효폭 2m(제16조), 배수시설(제30조) 조문 확인. 제29조 포장은 두께 수치 없음(80…", "conf": "중간", "status": "현행 추정", "url": "https://law.go.kr/LSW/lsRvsDocListP.do?chrClsCd=010102&lsId=007080", "lvl": "api_text_verified"}, {"t": "법령", "name": "도로와 다른 시설의 연결에 관한 규칙", "ref": "제2조제11호·제3조·제9조 · 국토교통부령 제882호", "mats": "경계석(연석), 진입로", "scope": "연석 정의(제2조제11호), 적용 범위(일반국도 우측 연결, 제3조), U형 측구 유효폭 30cm·깊이 60cm 이상+격자형…", "conf": "낮음", "status": "현행 추정", "url": "https://www.law.go.kr", "lvl": "api_text_verified"}, {"t": "법령", "name": "하수도법 시행규칙", "ref": "제6조 관련 [별표 5] 공공하수도의 구조에 관한 기술적 기준", "mats": "빗물받이, 맨홀(뚜껑 재질), 하수관로(흄관·PE·PVC관)", "scope": "별표 5 \"공공하수도의 구조에 관한 기술적 기준\" 존재·현행 확인(제6조). 별표 미확보. 같은 법령군의 배수설비 의무(법 …", "conf": "높음", "status": "현행 추정", "url": "https://www.law.go.kr/flDownload.do?gubun=&flSeq=160140833&bylClsCd=110201", "lvl": "metadata_confirmed"}, {"t": "법령", "name": "하수관로 유지관리 기준", "ref": "제3조·제5조·제6조 · 기후에너지환경부고시 제2025-165호", "mats": "맨홀, 빗물받이, 측구, 하수관로", "scope": "적용 지역(제3조), 점검 대상(제5조), 빗물받이·측구 불법덮개 관리(제6조제3항) 확인. 의무 주체는 공공하수도관리청", "conf": "높음", "status": "현행 추정", "url": "https://www.law.go.kr/LSW/admRulLsInfoP.do?admRulSeq=2100000221674", "lvl": "api_text_verified"}, {"t": "KDS", "name": "하수도설계기준", "ref": "KDS 61 00 00", "mats": "하수관로, 맨홀, 빗물받이, 집수정, 관종(흄관·PE·PVC)", "scope": "하수도설계기준 고시 현행 확인. 기준 본문은 별지(PDF)로만 제공 — 조항 미확보", "conf": "높음", "status": "현행 추정", "url": "https://www.law.go.kr/LSW/admRulInfoP.do?admRulSeq=2100000100709", "lvl": "metadata_confirmed"}, {"t": "KDS", "name": "관로시설 설계기준", "ref": "KDS 61 40 00", "mats": "하수관로, 맨홀(추락방지시설), 빗물받이, 관종", "scope": "상위 하수도설계기준 고시(제2025-165호, 2025-10-01 시행) 현행은 원문 미러로 확인했으나, 이 코드 번호가 별…", "conf": "높음", "status": "현행 추정", "url": "http://me.go.kr/home/web/board/read.do?boardMasterId=39&boardId=1566950&menuId=10524", "lvl": "search_candidate"}, {"t": "KDS", "name": "도로설계기준", "ref": "KDS 44 00 00 · 국토교통부고시 제2026-528호(2026-10-0…", "mats": "보도 포장, 배수시설(측구·빗물받이), 경계석", "scope": "사용자 KCSC 공지 확인(고시 제2026-528호). 참고: 법제처 행정규칙 미러(2026-10-27)는 아직 제2023-…", "conf": "높음", "status": "현행 추정", "url": "https://kcsc.re.kr/board/notdetail/9891", "lvl": "metadata_confirmed"}, {"t": "KCS", "name": "도로공사 표준시방서", "ref": "KCS 44 00 00 · 국토교통부고시 제2026-528호(2026-10-0…", "mats": "보도블록 포장, 경계석, 측구, 배수시설", "scope": "사용자 KCSC 공지 확인(고시 제2026-528호). 참고: 법제처 행정규칙 미러(2026-10-27)는 아직 제2023-…", "conf": "높음", "status": "현행 추정", "url": "https://kcsc.re.kr/board/notdetail/9891", "lvl": "metadata_confirmed"}, {"t": "KDS", "name": "차도용 블록포장설계", "ref": "KDS 44 50 25", "mats": "차도·차량 진입부 블록포장(인터로킹·인조화강 등 블록), 포장 하부 구…", "scope": "사용자 확인 기준명·고시. 상세 조항 미확보(법제처 미러에 2026 고시 미반영, KCSC 접속 차단)", "conf": "높음", "status": "현행 추정", "url": "https://kcsc.re.kr/standardCode/viewer", "lvl": "metadata_confirmed"}, {"t": "KCS", "name": "차도용 블록포장 공사 시공 기준 (고시 문구 기준 · 기준 목록상 정식 명칭 미확…", "ref": "KCS 44 50 25", "mats": "차도·차량 진입부 블록포장(인터로킹·인조화강 등 블록), 포장 하부 구…", "scope": "사용자 확인 기준명·고시. 상세 조항 미확보(법제처 미러에 2026 고시 미반영, KCSC 접속 차단)", "conf": "높음", "status": "현행 추정", "url": "https://kcsc.re.kr/board/notdetail/9891", "lvl": "metadata_confirmed"}, {"t": "KDS", "name": "보도포장 (2016 판 — 현행 여부 미확인)", "ref": "KDS 34 60 10", "mats": "보도블록, 차도용 블록(콘크리트 조립 블록)", "scope": "상위 조경설계기준(KDS 34 00 00) 고시 제2024-743호(2024-12-16 시행) 현행은 원문 미러로 확인. K…", "conf": "낮음", "status": "불명", "url": "https://kcsc.re.kr/standardCode/viewer", "lvl": "search_candidate"}, {"t": "KCS", "name": "하수관로공사", "ref": "KCS 61 10 00", "mats": "하수관(흄관·PE 이중벽관·PVC관), 맨홀", "scope": "상위 하수관로공사 표준시방서 고시(기후에너지환경부고시 제2025-165호, 2025-10-01 시행) 현행은 원문 미러로 확…", "conf": "중간", "status": "불명", "url": "https://www.kcsc.re.kr", "lvl": "search_candidate"}, {"t": "KCS", "name": "하수도관부설 및 연결공사", "ref": "KCS 61 20 00", "mats": "하수관 부설·연결(PE·PVC·흄관), 맨홀 접속", "scope": "상위 하수관로공사 표준시방서 고시(기후에너지환경부고시 제2025-165호, 2025-10-01 시행) 현행은 원문 미러로 확…", "conf": "중간", "status": "불명", "url": "https://www.kcsc.re.kr", "lvl": "search_candidate"}, {"t": "KS", "name": "보차도용 콘크리트 인터로킹 블록", "ref": "KS F 4419", "mats": "인터로킹 블록, 투수블록(2016 개정에 투수성 시험장치 수정 포함),…", "scope": "e나라표준인증 사용자 확인. KS 원문(유료)은 기술 조항 미확인", "conf": "높음", "status": "현행 추정", "url": "https://www.standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?ksNo=KSF4419&menuId=919&reformNo=15&tmprKsNo=KSF4419&topMenuId=502&upperMenuId=503", "lvl": "metadata_confirmed"}, {"t": "KS", "name": "시각장애인용 점자블록", "ref": "KS F 4561", "mats": "점자블록(점형·선형)", "scope": "e나라표준인증·한국표준협회 사이트 접속 차단으로 공식 메타데이터 미확인(검색 요약만)", "conf": "높음", "status": "현행 추정", "url": "https://standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?menuId=919&topMenuId=502&upperMenuId=503&ksNo=KSF4561&tmprKsNo=KSF4561&reformNo=09", "lvl": "search_candidate"}, {"t": "KS", "name": "포장용 콘크리트 평판", "ref": "KS F 4001", "mats": "보도용 평판 블록", "scope": "e나라표준인증·한국표준협회 사이트 접속 차단으로 공식 메타데이터 미확인(검색 요약만)", "conf": "높음", "status": "현행 추정", "url": "https://www.kssn.net/search/stddetail.do?itemNo=K001010050193", "lvl": "search_candidate"}, {"t": "KS", "name": "콘크리트 경계 블록", "ref": "KS F 4006", "mats": "경계석(콘크리트 경계블록), 인조석 표면층 경계석", "scope": "e나라표준인증 사용자 확인. KS 원문(유료)은 기술 조항 미확인", "conf": "높음", "status": "현행 추정", "url": "https://standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?ksNo=KSF4006&menuId=919&pageIndex=1&pageUnit=10&reformNo=19&tmprKsNo=KSF4006&topMenuId=502&upperMenuId=503", "lvl": "metadata_confirmed"}, {"t": "KS", "name": "무근 및 철근 콘크리트 L형 측구", "ref": "KS F 4005", "mats": "L형 측구, 노면 배수", "scope": "e나라표준인증·한국표준협회 사이트 접속 차단으로 공식 메타데이터 미확인(검색 요약만)", "conf": "높음", "status": "불명", "url": "https://www.kssn.net/search/stddetail.do?itemNo=K001010124877", "lvl": "search_candidate"}, {"t": "KS", "name": "도로용 철근 콘크리트 측구", "ref": "KS F 4417", "mats": "측구(몸체·뚜껑), 도로 배수", "scope": "e나라표준인증·한국표준협회 사이트 접속 차단으로 공식 메타데이터 미확인(검색 요약만)", "conf": "높음", "status": "불명", "url": "https://standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?pageIndex=1&pageUnit=10&ksNo=KSF4417&tmprKsNo=KSF4417&reformNo=19&menuId=919&topMenuId=502&upperMenuId=503", "lvl": "search_candidate"}, {"t": "KS", "name": "철근 콘크리트 플룸 및 벤치 플룸", "ref": "KS F 4010", "mats": "벤치플륨, 플륨형 수로관", "scope": "e나라표준인증·한국표준협회 사이트 접속 차단으로 공식 메타데이터 미확인(검색 요약만)", "conf": "높음", "status": "현행 추정", "url": "https://standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?ksNo=KSF4010&menuId=919&pageIndex=1&pageUnit=10&reformNo=19&tmprKsNo=KSF4010&topMenuId=502&upperMenuId=503", "lvl": "search_candidate"}, {"t": "KS", "name": "철근 콘크리트 U형", "ref": "KS F 4016", "mats": "U형 수로관(U형 측구)", "scope": "e나라표준인증·한국표준협회 사이트 접속 차단으로 공식 메타데이터 미확인(검색 요약만)", "conf": "중간", "status": "불명", "url": "https://standard.go.kr", "lvl": "search_candidate"}, {"t": "KS", "name": "하수도용 콘크리트 맨홀 블록", "ref": "KS F 4012", "mats": "맨홀(콘크리트 맨홀 블록), 집수정", "scope": "e나라표준인증·한국표준협회 사이트 접속 차단으로 공식 메타데이터 미확인(검색 요약만)", "conf": "높음", "status": "현행 추정", "url": "https://www.kssn.net/search/stddetail.do?itemNo=K001010150139", "lvl": "search_candidate"}, {"t": "KS", "name": "주철(강)재 맨홀 뚜껑 및 틀의 일반 요구사항", "ref": "KS D 4040", "mats": "맨홀 뚜껑·틀(주철·주강)", "scope": "e나라표준인증·한국표준협회 사이트 접속 차단으로 공식 메타데이터 미확인(검색 요약만)", "conf": "높음", "status": "현행 추정", "url": "https://www.kssn.net/search/stddetail.do?itemNo=K001010099262", "lvl": "search_candidate"}, {"t": "KS", "name": "맨홀 뚜껑 및 틀(상하수도·전기·통신용)", "ref": "KS D 6021", "mats": "맨홀 뚜껑", "scope": "검색상 폐지 표준(맨홀 뚜껑은 KS D 4040으로 확인 대상 이관). 폐지 표준은 상담 근거로 사용 금지", "conf": "중간", "status": "폐지", "url": "https://standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?pageIndex=1&pageUnit=10&ksNo=KSD6021&tmprKsNo=KSD6021&reformNo=19&menuId=919&topMenuId=502&upperMenuId=503", "lvl": "search_candidate"}, {"t": "KS", "name": "원심력 철근 콘크리트관", "ref": "KS F 4403", "mats": "흄관(원심력 철근콘크리트관) 및 A형 이음 칼라", "scope": "e나라표준인증·한국표준협회 사이트 접속 차단으로 공식 메타데이터 미확인(검색 요약만)", "conf": "높음", "status": "현행 추정", "url": "https://www.standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?ksNo=KSF4403", "lvl": "search_candidate"}, {"t": "KS", "name": "진동 및 전압 철근 콘크리트관(제목 원문 미확인)", "ref": "KS F 4402", "mats": "철근 콘크리트관(진동·롤 전압 성형)", "scope": "e나라표준인증·한국표준협회 사이트 접속 차단으로 공식 메타데이터 미확인(검색 요약만)", "conf": "중간", "status": "불명", "url": "https://www.standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?ksNo=KSF4402", "lvl": "search_candidate"}, {"t": "KS", "name": "배수 및 하수용 비압력 매설용 구조형 폴리에틸렌(PE)관 — 제1부: 이중벽관", "ref": "KS M 3500-1", "mats": "PE 이중벽관(하수·배수용)", "scope": "e나라표준인증·한국표준협회 사이트 접속 차단으로 공식 메타데이터 미확인(검색 요약만)", "conf": "높음", "status": "현행 추정", "url": "https://standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?pageIndex=1&pageUnit=10&ksNo=KSM3500-1&tmprKsNo=KSM3500-1&reformNo=19&menuId=919&topMenuId=502&upperMenuId=503", "lvl": "search_candidate"}, {"t": "KS", "name": "배수 및 하수용 비압력 매설용 구조형 폴리염화비닐(PVC)관 — 이중벽관 및 리브관", "ref": "KS M 3600", "mats": "PVC 이중벽관·리브관(하수·배수 매설용)", "scope": "e나라표준인증·한국표준협회 사이트 접속 차단으로 공식 메타데이터 미확인(검색 요약만)", "conf": "높음", "status": "현행 추정", "url": "https://standard.go.kr", "lvl": "search_candidate"}, {"t": "KS", "name": "비압력용 경질 폴리염화비닐관(구 일반용 경질 폴리염화비닐관)", "ref": "KS M 3404", "mats": "PVC관(배수·통기·건물 외부 비압력)", "scope": "e나라표준인증·한국표준협회 사이트 접속 차단으로 공식 메타데이터 미확인(검색 요약만)", "conf": "높음", "status": "현행 추정", "url": "https://standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?ksNo=KSM3404&menuId=919&pageIndex=1&pageUnit=10&reformNo=19&tmprKsNo=KSM3404&topMenuId=502&upperMenuId=503", "lvl": "search_candidate"}, {"t": "KS", "name": "비압력용 경질 폴리염화비닐 이음관", "ref": "KS M 3410", "mats": "PVC 이음관", "scope": "e나라표준인증·한국표준협회 사이트 접속 차단으로 공식 메타데이터 미확인(검색 요약만)", "conf": "높음", "status": "불명", "url": "https://www.kssn.net/search/stddetail.do?itemNo=K001010132913", "lvl": "search_candidate"}, {"t": "KS", "name": "수도용 경질 폴리염화비닐관", "ref": "KS M 3401", "mats": "PVC관(수도용)", "scope": "e나라표준인증·한국표준협회 사이트 접속 차단으로 공식 메타데이터 미확인(검색 요약만)", "conf": "높음", "status": "불명", "url": "https://www.kssn.net/search/stddetail.do?itemNo=K001010123794", "lvl": "search_candidate"}, {"t": "KS", "name": "파형 강관 및 파형 섹션", "ref": "KS D 3590", "mats": "파형강관(스파이럴형), 파형섹션, 볼트·커플링밴드", "scope": "e나라표준인증·한국표준협회 사이트 접속 차단으로 공식 메타데이터 미확인(검색 요약만)", "conf": "높음", "status": "현행 추정", "url": "https://standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?pageIndex=1&pageUnit=10&ksNo=KSD3590&tmprKsNo=KSD3590&reformNo=19&menuId=919&topMenuId=502&upperMenuId=503", "lvl": "search_candidate"}, {"t": "KS", "name": "점토 벽돌", "ref": "KS L 4201", "mats": "점토블록(참고 — 포장용 전용 표준 아님)", "scope": "점토 벽돌(건축 벽체용) 표준 — 포장용 점토블럭의 품질 근거로 적용 대상이 다름", "conf": "중간", "status": "폐지", "url": "https://standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?pageIndex=1&pageUnit=10&ksNo=KSL4201&tmprKsNo=KSL4201&reformNo=19&menuId=919&topMenuId=502&upperMenuId=503", "lvl": "search_candidate"}], "sites": [{"pr": 1, "name": "케이토목", "dom": "ktomok.com", "type": "온라인몰(도매단가 쇼핑몰, 유통)", "rel": "상", "price": "공개(목록에 단가 표시)", "path": "제휴/허락 요청(최우선): 기존 1,452건 사용 범위(상품명·규격·단가·이미지) 명시해 서면 허락 또는 …"}, {"pr": 2, "name": "동아산업", "dom": "dacity.kr", "type": "제조사 겸 온라인 카탈로그/쇼핑몰", "rel": "상", "price": "미확인(비공개 추정)", "path": "제조사 카탈로그(규격표·도면·KS 인증서) 공식 제공 요청 + 조달청 나라장터쇼핑몰 품목정보 서비스로 동아…"}, {"pr": 3, "name": "경북산업㈜", "dom": "kcon.co.kr", "type": "제조사", "rel": "상", "price": "미확인", "path": "제조사 카탈로그·규격표·출하 단가 제공 요청(공급/대리점 계약과 묶어서)"}, {"pr": 4, "name": "동양콘크리트산업(주)", "dom": "dyhumepipe.fzst.kr", "type": "제조사(제품 카탈로그형 쇼핑 페이지)", "rel": "상", "price": "미확인", "path": "제조사 카탈로그·KS 인증서 사본 제공 및 상품정보 사용 허락 요청"}, {"pr": 5, "name": "고려콘크리트산업(주)", "dom": "kr-con.co.kr", "type": "제조사", "rel": "상", "price": "미확인", "path": "제조사 카탈로그 제공 요청"}, {"pr": 6, "name": "대한산업", "dom": "dhconc.co.kr", "type": "제조사", "rel": "상", "price": "미확인", "path": "규격표·카탈로그 사용 허락 요청"}, {"pr": 7, "name": "토목자재114", "dom": "tomok114.com", "type": "온라인몰(유통)", "rel": "중", "price": "공개", "path": "수집하지 않음. 필요 시 입점·상호 판매(제휴) 제안만"}, {"pr": 8, "name": "원심력철근콘크리트관 카탈로그 PDF 게…", "dom": "kcrcic.or.kr", "type": "업계 단체(카탈로그 게시) — 추정", "rel": "중", "price": "미확인", "path": "단체에 회원사 카탈로그 일괄 이용 허락 문의"}, {"pr": 9, "name": "선로드", "dom": "sunroad.co.kr", "type": "제조사", "rel": "중", "price": "일부(조달청 가격 표기 — 검색…", "path": "조달청 품목정보 API로 식별번호 기준 조회 + 제조사 카탈로그 요청"}, {"pr": 10, "name": "엔엠콘", "dom": "enmcon.co.kr", "type": "제조사", "rel": "중", "price": "미확인", "path": "최신 카탈로그 제공 요청"}, {"pr": 11, "name": "상용콘크리트(주)", "dom": "syccrt.com", "type": "제조사", "rel": "중", "price": "미확인", "path": "제조사 카탈로그 요청"}, {"pr": 12, "name": "(주)가야스틸", "dom": "gayasteel.kr", "type": "제조사", "rel": "중", "price": "미확인", "path": "제조사 기술자료·구조계산서 사용 허락 요청"}, {"pr": 13, "name": "(주)토암콘크리트", "dom": "toamconcrete.com", "type": "제조사", "rel": "중", "price": "미확인", "path": "제조사 카탈로그 요청"}, {"pr": 14, "name": "그린파이프", "dom": "greenpipe.kr", "type": "제조사", "rel": "중", "price": "제3자 물가자료에 생산자공표가격…", "path": "제조사에 카탈로그·공표가격표 사용 허락 요청, 또는 물가정보지 정식 구독·라이선스"}, {"pr": 15, "name": "88콘크리트", "dom": "88con.com", "type": "제조사", "rel": "하", "price": "미확인", "path": "필요 시 카탈로그 요청"}]};
+    const KIND = {
+      '법령': { color: '#7A3E00', bg: '#FFF4E5', border: '#F0C48A' },
+      'KDS': { color: '#1F4E8C', bg: '#EEF4FB', border: '#A9C4E4' },
+      'KCS': { color: '#5B2A86', bg: '#F3ECFA', border: '#CDB4E6' },
+      'KS': { color: '#1F6B3A', bg: '#EAF5EE', border: '#A8D2B5' },
+    };
+    const STATUS = {
+      '현행 추정': { label: '원문 확인 전', bg: '#FFF3E0', color: '#B34700' },
+      '불명': { label: '현행 여부 불명', bg: '#F2F2F2', color: '#555555' },
+      '폐지': { label: '폐지 · 사용 금지', bg: '#FCE4EC', color: '#C62828' },
+    };
+    const LVL = {
+      original_verified: { label: '상세 원문 검증', color: '#2E7D32' },
+      metadata_confirmed: { label: '공식 메타데이터 확인', color: '#B34700' },
+      api_text_verified: { label: '원문 조문 확인(법제처 미러)', color: '#2E7D32' },
+      search_candidate: { label: '검색 후보', color: '#777777' },
+    };
+    const tab = st.tab || 'legal';
+    const fType = st.fType || '';
+    const cnt = (t) => DATA.legal.filter((r) => r.t === t).length;
+    const TABS = [['legal', '법령·기술기준 (' + DATA.legal.length + ')'], ['sites', '외부 데이터 출처 (' + DATA.sites.length + ')'], ['quality', '상품 데이터 품질'], ['demo', 'AI 상담 시연 준비']];
+    return {
+      cards: [
+        { title: '공식 근거 후보', big: DATA.legal.length + '건', lines: [
+          { k: '법령 / KDS / KCS / KS', v: cnt('법령') + ' / ' + cnt('KDS') + ' / ' + cnt('KCS') + ' / ' + cnt('KS'), color: '#222222' },
+          { k: '원문 조문 확인(공식 1 + 미러)', v: DATA.legal.filter((r) => r.lvl === 'original_verified' || r.lvl === 'api_text_verified').length + '건', color: '#2E7D32' },
+          { k: '공식 메타데이터 확인', v: DATA.legal.filter((r) => r.lvl === 'metadata_confirmed').length + '건', color: '#B34700' },
+          { k: '로컬 상담 연결(조항 단위)', v: '11건', color: '#2E7D32' } ] },
+        { title: '외부 데이터 출처', big: DATA.sites.length + '곳', lines: [
+          { k: '자동 수집 허용 확인', v: '0곳', color: '#C62828' },
+          { k: '공공데이터 API 후보', v: '3종', color: '#222222' },
+          { k: '제휴·허락 요청 필요', v: DATA.sites.length + '곳', color: '#B34700' } ] },
+        { title: '보유 상품 데이터', big: '1,462건', lines: [
+          { k: '개인정보 섞인 상품', v: '102건', color: '#C62828' },
+          { k: '수량 자동계산 가능', v: '906건', color: '#2E7D32' },
+          { k: '외부 이미지 핫링크', v: '1,361건', color: '#B34700' } ] },
+      ],
+      tabs: TABS.map(([k, label]) => ({ label, sel: tab === k ? 'true' : 'false', bar: tab === k ? '#004EA1' : 'transparent', color: tab === k ? '#004EA1' : '#555555', weight: tab === k ? 700 : 500, pick: () => this.setState({ tab: k }) })),
+      tabLegal: tab === 'legal', tabSites: tab === 'sites', tabQuality: tab === 'quality', tabDemo: tab === 'demo',
+      legalCount: DATA.legal.length,
+      existCount: DATA.legal.filter((r) => r.lvl === 'metadata_confirmed').length,
+      verifiedCount: DATA.legal.filter((r) => r.lvl === 'original_verified' || r.lvl === 'api_text_verified').length,
+      searchCount: DATA.legal.filter((r) => r.lvl === 'search_candidate').length,
+      typeChips: ['', '법령', 'KDS', 'KCS', 'KS'].map((t) => {
+        const on = fType === t;
+        return { label: (t || '전체') + ' ' + (t ? cnt(t) : DATA.legal.length), sel: on ? 'true' : 'false', border: on ? '#004EA1' : '#DDDDDD', bg: on ? '#004EA1' : '#FFFFFF', color: on ? '#FFFFFF' : '#444444', pick: () => this.setState({ fType: t }) };
+      }),
+      legalRows: DATA.legal.filter((r) => !fType || r.t === fType).map((r) => {
+        const k = KIND[r.t]; const s = STATUS[r.status];
+        return Object.assign({}, r, { kColor: k.color, kBg: k.bg, kBorder: k.border, sLabel: s.label, sBg: s.bg, sColor: s.color,
+          lvlLabel: LVL[r.lvl].label, lvlColor: LVL[r.lvl].color,
+          hasUrl: !!r.url, confColor: r.conf === '높음' ? '#2E7D32' : (r.conf === '중간' ? '#B34700' : '#C62828') });
+      }),
+      siteRows: DATA.sites,
+      apis: [
+        { name: '조달청 나라장터쇼핑몰 품목정보', what: '종합쇼핑몰 등록 품목의 계약·인증 정보', note: '검색 요약상 이용허락 제한 없음·자동승인 (직접 확인 필요)', url: 'https://www.data.go.kr/data/15129471/openapi.do' },
+        { name: '조달청 나라장터 가격정보현황', what: '시설공통자재 가격·표준시장단가', note: '조달 원가계산용 기준가 — 실거래가와 다름', url: 'https://www.data.go.kr/data/15129415/openapi.do' },
+        { name: '조달청 물품목록정보', what: '물품분류번호·식별번호·품목명', note: '규격 분류 매칭용', url: 'https://www.data.go.kr/data/15129417/openapi.do' },
+      ],
+      quality: [
+        { k: '개인정보 패턴(공급업체 담당자 연락처)', n: '102', fix: '정리 SQL 초안 테스트 DB 검증 완료 → 운영 반영 승인 필요', color: '#C62828' },
+        { k: '필드 오염(운반비·설치비·상차수량 칸에 설명 문장)', n: '802칸', fix: '설명은 description으로 이동, 숫자 칸 정리 (SQL 작성 예정)', color: '#B34700' },
+        { k: '수량 계산 필요하나 1개 길이·크기 없음', n: '201', fix: '경계석·화강경계석 길이 공급처 확인, 암거 m→mm 표기 통일', color: '#B34700' },
+        { k: '규격 m 표기(암거 0.8*0.8*2.0)', n: '55', fix: 'mm 표기 통일 또는 계산 로직이 m 표기 인식', color: '#B34700' },
+        { k: '가격 이상치(카테고리 중앙값 5배 이상 차이)', n: '23', fix: '대부분 관경 차이로 정상 추정 — 사람 확인', color: '#555555' },
+        { k: '가격 0 (dacity)', n: '10', fix: 'dacity 10건 = ktomok 암거와 중복 → 사용 안 함 권장', color: '#555555' },
+        { k: '같은 이름·규격 중복', n: '8', fix: '사람 확인 후 비활성', color: '#555555' },
+        { k: '외부 이미지 핫링크', n: '1,361', fix: '허락받은 이미지만 자체 서버 보관, 그 전엔 이미지 없이 표시', color: '#B34700' },
+      ],
+      demo: [
+        { no: 1, step: '쉬운 말로 여러 자재 추천', note: '상담 규칙에 반영(커밋 b01fa63). 실제 AI 응답은 API 키가 없어 이 환경에서 확인하지 못함.', status: '구현 · AI 응답 미검증', bg: '#FFF3E0', color: '#B34700' },
+        { no: 2, step: '자재별 장단점과 추천 이유', note: '상담 규칙에 반영. 시안은 카드에 쉬운 말 한 줄 설명.', status: '구현 · AI 응답 미검증', bg: '#FFF3E0', color: '#B34700' },
+        { no: 3, step: '가로 × 세로 면적 입력', note: '현재는 채팅 문장으로만(AI가 곱해 area_m2 전달). 입력칸·예시 버튼은 시안에만 있음.', status: '시안(목업)', bg: '#F2F2F2', color: '#555555' },
+        { no: 4, step: '실제 상품 규격으로 수량 계산', note: '테스트 DB(상품 1,452건)에서 검증: 인터로킹 20㎡ → 약 1,016장, 점토블럭 20㎡ → 763개. 경계석은 1개 길이가 없어 계산 불가.', status: '시연 가능 · 일부 불가', bg: '#E8F5E9', color: '#2E7D32' },
+        { no: 5, step: '자재별 예상 비용과 차이 비교', note: '테스트 DB에서 최저~최고와 차액 계산 확인. 단, 대표 규격이 가장 비싼 80T 칼라로 뽑히는 결함 → 수정 필요(승인 대기).', status: '개선 필요', bg: '#FCE4EC', color: '#C62828' },
+        { no: 6, step: '참고 상품 정보와 검증된 공식 근거 표시', note: '상품 카드는 표시됨. 근거 목록(실제 인용 문서만)은 시안만. 검증된 공식 근거는 아직 0건.', status: '시안(목업)', bg: '#F2F2F2', color: '#555555' },
+        { no: 7, step: '견적서 담기', note: '기존 "견적추가" 버튼 기능. 이 환경에서는 화면으로 확인하지 못함.', status: '기존 기능 · 화면 미확인', bg: '#FFF3E0', color: '#B34700' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

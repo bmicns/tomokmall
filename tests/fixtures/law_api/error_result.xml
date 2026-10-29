@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 모의 응답(테스트 전용): 오류 형식(legalize-pipeline 테스트 픽스처 형식 참고) -->
+<law>
+  <result>실패</result>
+  <msg>MST not found</msg>
+</law>

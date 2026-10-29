@@ -1,0 +1,15 @@
+{
+  "_about": "law_api_sync.php --fixtures 용 요청→모의 응답 파일 대응표. 키: search:{target}:{query} / detail:{target}:{MST|ID}",
+  "search:law:주차장법 시행규칙": "law_search_parking.xml",
+  "detail:law:288421": "law_detail_parking_rule.xml",
+  "search:law:도로의 구조ㆍ시설 기준에 관한 규칙": "law_search_road_struct.xml",
+  "detail:law:286673": "law_detail_road_struct.xml",
+  "search:admrul:하수관로 유지관리 기준": "admrul_search_sewer_maint.xml",
+  "detail:admrul:2100000267022": "admrul_detail_sewer_maint.xml",
+  "search:admrul:도로설계기준(KDS 44 00 00) 및 도로공사 표준시방서(KCS 44 00 00)": "admrul_search_road_kds.xml",
+  "detail:admrul:2100000254280": "admrul_detail_road_kds.xml",
+  "search:law:하수도법": "error_result.xml",
+  "search:admrul:보도 설치 및 관리 지침": "admrul_search_sidewalk.xml",
+  "detail:admrul:2100000203352": "admrul_detail_sidewalk.xml",
+  "search:admrul:조경설계기준(KDS 34 00 00) 및 조경공사 표준시방서(KCS 34 00 00)": "admrul_no_result.xml"
+}
