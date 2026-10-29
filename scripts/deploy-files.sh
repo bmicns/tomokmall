@@ -5,7 +5,7 @@
 #    check 는 서버에서 파일을 내려받기만 한다(서버 변경 없음).
 #
 # 사용:
-#   scripts/deploy-files.sh check  <기준커밋> <파일...>   # 백업 + 서버 파일 == 기준커밋 버전 확인
+#   scripts/deploy-files.sh check  <기준커밋> <파일...>   # 백업 + 서버 파일 == 기준커밋 버전 확인(줄바꿈 CRLF/LF 차이는 무시)
 #   scripts/deploy-files.sh upload <백업폴더>             # check 통과한 백업 기준으로 업로드 + 검증
 #   scripts/deploy-files.sh rollback <백업폴더>           # 백업 파일로 서버 복구 + 검증
 #   예) scripts/deploy-files.sh check 41b36ed app/bootstrap.php public/products.php
@@ -93,6 +93,12 @@ verify_remote() { # $1=원격경로 $2=기대 로컬파일 $3=임시폴더 [$4=�
   rm -f "${got}"
 }
 
+# 줄바꿈(CRLF/LF)만 다른지: CR 문자를 빼고 비교 (Windows 작업 폴더에서 올린 서버 파일 ↔ git show 의 LF)
+# check 의 '서버 == 기준커밋' 비교에만 사용. 업로드·복구 검증은 바이트 단위(verify_remote) 그대로.
+same_ignoring_eol() { # $1 $2 = 비교할 파일
+  cmp -s <(tr -d '\r' < "$1") <(tr -d '\r' < "$2")
+}
+
 confirm() { # $1=입력해야 할 단어
   local ans
   read -rp "계속하려면 '$1' 을(를) 입력하세요: " ans
@@ -138,11 +144,13 @@ cmd_check() {
     ok "백업 완료: ${r} ($(wc -c < "${dir}/server/${f}" | tr -d ' ') bytes)"
   done
 
-  echo "== 3) 서버 파일 == Git 기준커밋(${base}) 비교 =="
+  echo "== 3) 서버 파일 == Git 기준커밋(${base}) 비교 (줄바꿈 CRLF/LF 차이는 무시) =="
   local diff_found=0
   for f in "$@"; do
     if cmp -s "${dir}/server/${f}" "${dir}/base/${f}"; then
       ok "동일: ${f}"
+    elif same_ignoring_eol "${dir}/server/${f}" "${dir}/base/${f}"; then
+      ok "동일(줄바꿈 CRLF/LF만 다름): ${f}"
     else
       echo "  ✗ 다름: ${f}  — 서버에 Git에 없는 변경이 있을 수 있음"
       diff_found=1

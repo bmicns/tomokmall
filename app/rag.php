@@ -170,6 +170,236 @@ function rag_load_session(string $key): array
     return $row ? (json_decode($row['messages'], true) ?? []) : [];
 }
 
+/**
+ * 로그인 사용자 본인의 상담만 불러오기 (이전 상담 복원용)
+ * 반환: messages 배열, 없거나 본인 것이 아니면 null
+ */
+function rag_load_owned_session(string $key, int $userId): ?array
+{
+    $pdo = db();
+    if (!$pdo || $key === '') {
+        return null;
+    }
+    $stmt = $pdo->prepare('SELECT messages FROM ai_sessions WHERE session_key = :key AND user_id = :uid');
+    $stmt->execute(['key' => $key, 'uid' => $userId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        return null;
+    }
+    $messages = json_decode((string) $row['messages'], true);
+    return is_array($messages) ? $messages : [];
+}
+
+/**
+ * 상담 키 — 상담 1건마다 새로 발급 (PHP 세션 ID와 분리해 '새 상담'이 별도 이력으로 남도록)
+ * 이 브라우저 세션에서 발급·복원한 키만 대화 요청·저장에 사용할 수 있다.
+ */
+function rag_chat_key_issue(): string
+{
+    $key = bin2hex(random_bytes(16));
+    rag_chat_key_allow($key);
+    return $key;
+}
+
+function rag_chat_key_allow(string $key): void
+{
+    $keys   = array_values(array_diff($_SESSION['chat_keys'] ?? [], [$key]));
+    $keys[] = $key;
+    $_SESSION['chat_keys'] = array_slice($keys, -30);
+}
+
+function rag_chat_key_allowed(string $key): bool
+{
+    if ($key === '') {
+        return false;
+    }
+    // 배포 전 열어 둔 화면(세션 ID를 키로 쓰던 방식)도 계속 동작
+    return in_array($key, $_SESSION['chat_keys'] ?? [], true) || $key === session_id();
+}
+
+/**
+ * 상담 쓰기 권한 — 새 상담, 비로그인(user_id NULL) 상담, 본인 상담만 허용
+ * (다른 회원 소유 상담에 이어 쓰거나 저장하지 못하게)
+ */
+function rag_session_writable(string $key, ?int $userId): bool
+{
+    $pdo = db();
+    if (!$pdo) {
+        return true; // DB 없으면 저장 자체가 불가 — 기존 동작에 맡김
+    }
+    $stmt = $pdo->prepare('SELECT user_id FROM ai_sessions WHERE session_key = :key');
+    $stmt->execute(['key' => $key]);
+    $row = $stmt->fetch();
+    if (!$row || $row['user_id'] === null) {
+        return true;
+    }
+    return $userId !== null && (int) $row['user_id'] === $userId;
+}
+
+/**
+ * 이전 상담 복원용 — chat_logs.events_json(상품 추천표·견적 카드)을 대화의 AI 답변 위치에 맞춰 반환
+ * ai_sessions.messages 의 사용자 질문과 chat_logs 행(같은 상담 키)을 뒤에서부터 짝지음
+ * (저장 시 앞부분이 잘리는 40개 제한·저장 실패 턴이 있어도 최근 대화 기준으로 정확히 맞추기 위해).
+ * 짝이 없는 질문(로그 도입 전·로그 실패)은 이벤트 없이 텍스트만 복원. 로그 한 행은 한 번만 사용.
+ *
+ * @return array<int, list<array>>  [messages 의 assistant 인덱스 => events]
+ */
+function rag_load_turn_events(string $key, int $userId, array $messages): array
+{
+    $pdo = db();
+    if (!$pdo || $key === '') {
+        return [];
+    }
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT user_msg, events_json FROM chat_logs
+              WHERE session_key = :key AND (user_id = :uid OR user_id IS NULL)
+              ORDER BY id'
+        );
+        $stmt->execute(['key' => $key, 'uid' => $userId]);
+        $logs = $stmt->fetchAll();
+    } catch (\Throwable $e) {
+        return []; // chat_logs 없음 등 — 텍스트만 복원
+    }
+    return rag_pair_turn_events($messages, $logs);
+}
+
+/**
+ * 대화(messages)와 로그 행(user_msg, events_json)을 뒤에서부터 짝지어 AI 답변 인덱스별 이벤트 반환 (DB 불필요)
+ *
+ * @param  list<array{user_msg:string, events_json:?string}> $logs  id 오름차순
+ * @return array<int, list<array>>
+ */
+function rag_pair_turn_events(array $messages, array $logs): array
+{
+    $result = [];
+    $k      = count($logs) - 1;
+    for ($i = count($messages) - 1; $i >= 0 && $k >= 0; $i--) {
+        $m = $messages[$i];
+        if (!is_array($m) || ($m['role'] ?? '') !== 'user' || !is_string($m['content'] ?? null)) {
+            continue;
+        }
+        // chat.php 질문 엔드포인트와 같은 방식으로 자른 질문(최대 1000자)으로 비교
+        $q = trim(mb_substr(trim($m['content']), 0, 1000));
+        for ($x = $k; $x >= 0; $x--) {
+            if ((string) $logs[$x]['user_msg'] !== $q) {
+                continue;
+            }
+            $k      = $x - 1;
+            $events = json_decode((string) ($logs[$x]['events_json'] ?? ''), true);
+            $next   = $messages[$i + 1] ?? null;
+            if (is_array($events) && $events && is_array($next) && ($next['role'] ?? '') === 'assistant') {
+                $result[$i + 1] = array_values(array_filter($events, 'is_array'));
+            }
+            break;
+        }
+    }
+    return $result;
+}
+
+/**
+ * 이전 상담 복원용 현재 판매가 일괄 조회 — 견적서와 같은 규칙(cart_fetch_items: price_b2c, 판매 중 상품만)
+ *
+ * @param  list<int> $ids
+ * @return array<int, array{price:int, spec:string}>|null  [상품ID => 현재가·규격], 조회 실패 시 null
+ */
+function rag_current_product_prices(array $ids): ?array
+{
+    $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn($i) => $i > 0)));
+    if (!$ids) {
+        return [];
+    }
+    try {
+        if (!db()) {
+            return null;
+        }
+        $items = cart_fetch_items(array_fill_keys($ids, 1));
+    } catch (\Throwable $e) {
+        error_log('[chat] 이전 상담 현재가 조회 실패: ' . get_class($e));
+        return null;
+    }
+    $map = [];
+    foreach ($items as $it) {
+        $map[(int) $it['product_id']] = ['price' => (int) $it['unit_price'], 'spec' => (string) ($it['spec'] ?? '')];
+    }
+    return $map;
+}
+
+/** 복원 이벤트(상품 추천표)에 나온 상품 ID 목록 */
+function rag_event_product_ids(array $eventsByMsg): array
+{
+    $ids = [];
+    foreach ($eventsByMsg as $events) {
+        foreach ((array) $events as $ev) {
+            if (is_array($ev) && ($ev['type'] ?? '') === 'product_cards' && is_array($ev['products'] ?? null)) {
+                foreach ($ev['products'] as $p) {
+                    if (is_array($p) && (int) ($p['id'] ?? 0) > 0) {
+                        $ids[] = (int) $p['id'];
+                    }
+                }
+            }
+        }
+    }
+    return array_values(array_unique($ids));
+}
+
+/**
+ * 복원 화면용 사본에 현재 판매가·판매 상태 반영 (DB 불필요 — chat_logs 원본은 변경하지 않음)
+ * 상품명·규격·이미지·추천 근거·권장 수량은 상담 당시 값 유지, 가격(price_b2c)과 price_state만 바꾼다.
+ *   ok       현재 판매가
+ *   inquiry  현재가 0원(가격 문의)
+ *   stopped  판매 중지·삭제(현재 판매 상품에 없음)
+ *   changed  현재 규격이 상담 당시와 달라 다른 상품일 수 있음 → 담기 막음
+ *   unknown  현재가 조회 실패 → 상담 당시 가격을 현재가처럼 보이지 않게 가격 숨김
+ *
+ * @param array<int, list<array>>                          $eventsByMsg
+ * @param array<int, array{price:int, spec:string}>|null   $current  rag_current_product_prices() 결과
+ */
+function rag_apply_current_prices(array $eventsByMsg, ?array $current): array
+{
+    $norm = static fn($s): string => (string) preg_replace('/\s+/u', ' ', trim((string) $s));
+    foreach ($eventsByMsg as $mi => $events) {
+        foreach ((array) $events as $ei => $ev) {
+            if (!is_array($ev) || ($ev['type'] ?? '') !== 'product_cards' || !is_array($ev['products'] ?? null)) {
+                continue;
+            }
+            foreach ($ev['products'] as $pi => $p) {
+                if (!is_array($p)) {
+                    continue;
+                }
+                $id  = (int) ($p['id'] ?? 0);
+                $cur = $current[$id] ?? null;
+                if ($current === null) {
+                    [$state, $price] = ['unknown', null];
+                } elseif ($cur === null) {
+                    [$state, $price] = ['stopped', null];
+                } elseif ($norm($cur['spec']) !== $norm($p['spec'] ?? '')) {
+                    [$state, $price] = ['changed', null];
+                } elseif ($cur['price'] <= 0) {
+                    [$state, $price] = ['inquiry', 0];
+                } else {
+                    [$state, $price] = ['ok', $cur['price']];
+                }
+                $eventsByMsg[$mi][$ei]['products'][$pi]['price_b2c']   = $price;
+                $eventsByMsg[$mi][$ei]['products'][$pi]['price_state'] = $state;
+            }
+            // 예상 자재비는 상담 당시 판매가 × 권장 수량 → 현재가로 다시 계산(금액을 보이지 않는 상태면 지움)하고 최저 표시도 다시
+            if (array_filter($ev['products'], static fn($p) => is_array($p) && array_key_exists('est_cost', $p))) {
+                $cards = $eventsByMsg[$mi][$ei]['products'];
+                foreach ($cards as &$c) {
+                    if (!is_array($c) || !array_key_exists('est_cost', $c)) { continue; }
+                    unset($c['cost_lowest'], $c['cost_diff']);
+                    $q = (int) ($c['suggested_qty'] ?? 0);
+                    $c['est_cost'] = ($c['price_state'] === 'ok' && $q > 0) ? $q * (int) $c['price_b2c'] : null;
+                }
+                unset($c);
+                $eventsByMsg[$mi][$ei]['products'] = ai_cost_summary($cards)[0];
+            }
+        }
+    }
+    return $eventsByMsg;
+}
+
 function rag_save_session(string $key, array $messages): void
 {
     // 로그인 상태이면 user_id 자동 연결 (GAP-V2-02 해소)
@@ -183,13 +413,13 @@ function rag_save_session(string $key, array $messages): void
     }
 
     $json = json_encode($messages, JSON_UNESCAPED_UNICODE);
-    // ON DUPLICATE KEY UPDATE: user_id 는 이미 설정된 값이 있으면 유지 (COALESCE)
-    // 익명 → 로그인 후 재상담 시 user_id 연결
+    // ON DUPLICATE KEY UPDATE: user_id 는 이미 설정된 값이 있으면 유지 (COALESCE — 기존 소유자 우선)
+    // 익명(NULL) → 로그인 후 재상담 시에만 user_id 연결
     $stmt = db()->prepare(
         'INSERT INTO ai_sessions (session_key, user_id, messages)
               VALUES (:key, :uid, :msg)
          ON DUPLICATE KEY UPDATE
-              user_id    = COALESCE(:uid_upd, user_id),
+              user_id    = COALESCE(user_id, :uid_upd),
               messages   = :msg_upd,
               updated_at = NOW()'
     );

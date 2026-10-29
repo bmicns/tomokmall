@@ -410,5 +410,74 @@ ok('카드 있음 → 그대로', rag_strip_dangling_choice("고르는 기준입
 ok('그 문장뿐이면 빈 답변이 되지 않게 그대로, 중간 문장은 손대지 않음', rag_strip_dangling_choice('원하시는 제품을 선택해 주세요.', []) === '원하시는 제품을 선택해 주세요.'
     && rag_strip_dangling_choice('원하시는 제품을 선택해 주세요. 면적도 알려 주세요.', []) === '원하시는 제품을 선택해 주세요. 면적도 알려 주세요.');
 
+echo "[AI 상담 키 rag_chat_key_*]\n";
+require_once __DIR__ . '/../app/rag.php';
+$_SESSION['chat_keys'] = [];
+$k1 = rag_chat_key_issue();
+$k2 = rag_chat_key_issue();
+ok('상담마다 새 키(32자 hex, 세션 ID와 다름)', $k1 !== $k2 && preg_match('/^[0-9a-f]{32}$/', $k1) === 1 && $k1 !== session_id());
+ok('발급한 키는 허용', rag_chat_key_allowed($k1) && rag_chat_key_allowed($k2));
+ok('발급하지 않은 키·빈 키는 거부', !rag_chat_key_allowed('abcdef0123456789abcdef0123456789') && !rag_chat_key_allowed(''));
+ok('기존 방식(세션 ID 키) 허용 유지', session_id() === '' || rag_chat_key_allowed(session_id()));
+rag_chat_key_allow($k1);
+ok('같은 키 재허용 시 중복 없음', count(array_keys($_SESSION['chat_keys'], $k1, true)) === 1);
+for ($i = 0; $i < 40; $i++) rag_chat_key_issue();
+ok('허용 목록은 최근 30개까지만', count($_SESSION['chat_keys']) === 30 && !rag_chat_key_allowed($k2));
+
+echo "[이전 상담 카드 복원 rag_pair_turn_events]\n";
+$cards = '[{"type":"product_cards","products":[{"id":1}]}]';
+$msgs  = [
+    ['role' => 'user', 'content' => '안녕'],      ['role' => 'assistant', 'content' => '네'],
+    ['role' => 'user', 'content' => '그레이팅'],  ['role' => 'assistant', 'content' => '선택해 주세요.'],
+    ['role' => 'user', 'content' => '맨홀'],      ['role' => 'assistant', 'content' => ''],
+];
+$logs = [
+    ['user_msg' => '안녕', 'events_json' => null],
+    ['user_msg' => '그레이팅', 'events_json' => $cards],
+    ['user_msg' => '맨홀', 'events_json' => '[{"type":"estimate_created","estimate_id":7}]'],
+];
+$pe = rag_pair_turn_events($msgs, $logs);
+eq('카드는 해당 AI 답변 인덱스에(텍스트 없는 답변 포함)', array_keys($pe), [5, 3]);
+ok('이벤트 내용 그대로', $pe[3][0]['products'][0]['id'] === 1 && $pe[5][0]['estimate_id'] === 7);
+$pe = rag_pair_turn_events($msgs, array_merge([['user_msg' => '앞부분 잘린 질문', 'events_json' => $cards]], [$logs[1]]));
+eq('로그 없는 질문은 텍스트만, 잘린 앞부분 로그 무시', array_keys($pe), [3]);
+$pe = rag_pair_turn_events($msgs, [['user_msg' => '그레이팅', 'events_json' => '{깨진 JSON']]);
+eq('깨진 events_json 은 무시', $pe, []);
+$long = str_repeat('가', 1200);
+$pe = rag_pair_turn_events([['role' => 'user', 'content' => $long], ['role' => 'assistant', 'content' => 'x']],
+    [['user_msg' => str_repeat('가', 1000), 'events_json' => $cards]]);
+eq('1000자 초과 질문도 질문 API와 같은 기준으로 짝지음', array_keys($pe), [1]);
+
+echo "[이전 상담 현재가 rag_apply_current_prices]\n";
+$snap = [3 => [['type' => 'product_cards', 'products' => [
+    ['id' => 1, 'name' => 'A', 'spec' => '규격: 300*1000 | 단위: 개', 'price_b2c' => 45000, 'image_url' => '/a.png', 'qty_basis' => '근거', 'suggested_qty' => 10],
+    ['id' => 2, 'name' => 'B', 'spec' => '규격 B', 'price_b2c' => 61000],
+    ['id' => 3, 'name' => 'C', 'spec' => '규격 C', 'price_b2c' => 83500],
+    ['id' => 4, 'name' => 'D', 'spec' => '규격 D', 'price_b2c' => 127000],
+    ['id' => 5, 'name' => 'E', 'spec' => '규격 E', 'price_b2c' => 9000],
+]], ['type' => 'estimate_created', 'estimate_id' => 7]]];
+eq('상품 ID 일괄 수집', rag_event_product_ids($snap), [1, 2, 3, 4, 5]);
+$cur = [1 => ['price' => 47000, 'spec' => ' 규격: 300*1000  | 단위: 개'], 2 => ['price' => 61000, 'spec' => '규격 B'],
+        4 => ['price' => 0, 'spec' => '규격 D'], 5 => ['price' => 9500, 'spec' => '규격 E-2']];
+$ap = rag_apply_current_prices($snap, $cur);
+$st = array_map(static fn($p) => $p['price_state'] . ':' . var_export($p['price_b2c'], true), $ap[3][0]['products']);
+eq('상태별 가격(변경·동일·판매중지·0원·규격변경)', $st, ['ok:47000', 'ok:61000', 'stopped:NULL', 'inquiry:0', 'changed:NULL']);
+$a = $ap[3][0]['products'][0];
+ok('상품명·규격·이미지·근거·권장수량은 상담 당시 값 유지', $a['name'] === 'A' && $a['spec'] === '규격: 300*1000 | 단위: 개'
+    && $a['image_url'] === '/a.png' && $a['qty_basis'] === '근거' && $a['suggested_qty'] === 10);
+ok('견적 카드 등 다른 이벤트는 그대로', $ap[3][1] === $snap[3][1]);
+ok('원본(입력 배열)은 변경되지 않음', $snap[3][0]['products'][0]['price_b2c'] === 45000 && !isset($snap[3][0]['products'][0]['price_state']));
+$snapC = [1 => [['type' => 'product_cards', 'products' => [
+    ['id' => 1, 'spec' => '규격 A', 'price_b2c' => 1000, 'suggested_qty' => 10, 'est_cost' => 10000, 'cost_lowest' => true, 'cost_diff' => 0],
+    ['id' => 2, 'spec' => '규격 B', 'price_b2c' => 1200, 'suggested_qty' => 10, 'est_cost' => 12000, 'cost_lowest' => false, 'cost_diff' => 2000],
+    ['id' => 3, 'spec' => '규격 C', 'price_b2c' => 900, 'suggested_qty' => 10, 'est_cost' => 9000, 'cost_lowest' => false, 'cost_diff' => 0],
+]]]];
+$apC = rag_apply_current_prices($snapC, [1 => ['price' => 1500, 'spec' => '규격 A'], 2 => ['price' => 1200, 'spec' => '규격 B']])[1][0]['products'];
+ok('복원: 예상 자재비는 현재가 × 권장 수량으로 다시 계산, 판매 중지 상품은 금액 지움, 최저 표시 다시',
+    [$apC[0]['est_cost'], $apC[1]['est_cost'], $apC[2]['est_cost']] === [15000, 12000, null]
+    && $apC[1]['cost_lowest'] === true && $apC[0]['cost_lowest'] === false && $apC[0]['cost_diff'] === 3000 && !isset($apC[2]['cost_diff']));
+$un = rag_apply_current_prices($snap, null);
+ok('조회 실패: 모두 가격 확인 불가, 과거 가격 숨김', array_unique(array_map(static fn($p) => $p['price_state'] . ':' . var_export($p['price_b2c'], true), $un[3][0]['products'])) === ['unknown:NULL']);
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

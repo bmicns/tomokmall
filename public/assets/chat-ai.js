@@ -91,7 +91,8 @@ function renderEstPanel(items, total) {
     const row = document.createElement('div');
     row.className = 'est-item';
 
-    const subtotal = new Intl.NumberFormat('ko-KR').format(item.subtotal);
+    // 단가 0원 = 가격 문의 (견적 요청 페이지와 같은 규칙, 금액에서 제외)
+    const subtotal = item.unit_price > 0 ? '₩' + new Intl.NumberFormat('ko-KR').format(item.subtotal) : '가격 문의';
 
     const thumbHtml = item.image_url
       ? `<img src="${escHtml(item.image_url)}" class="est-item-thumb" alt="">`
@@ -110,7 +111,7 @@ function renderEstPanel(items, total) {
               <input type="number" class="est-item-qty" value="${item.quantity}" min="1" max="999" data-pid="${item.product_id}">
               <button class="btn-est-remove" data-pid="${item.product_id}" title="삭제">×</button>
             </div>
-            <span class="est-item-subtotal">₩${subtotal}</span>
+            <span class="est-item-subtotal">${subtotal}</span>
           </div>
         </div>
       </div>
@@ -128,7 +129,10 @@ function renderEstPanel(items, total) {
     list.appendChild(row);
   });
 
-  totalEl.textContent = '₩' + new Intl.NumberFormat('ko-KR').format(total);
+  const hasInquiry = items.some(it => !(it.unit_price > 0));
+  totalEl.textContent = total > 0
+    ? '₩' + new Intl.NumberFormat('ko-KR').format(total) + (hasInquiry ? ' + 문의' : '')
+    : '담당자 문의';
 }
 
 async function cartAction(action, productId, quantity) {
@@ -179,8 +183,18 @@ async function addToEstimate(productId, qty, btn) {
   } catch {
     btn.disabled    = false;
     btn.textContent = '견적추가';
+    // 서버에서 가격·판매 상태를 확인하지 못함(조회 실패 등) — 담기지 않았음을 안내
+    alert('상품 가격·판매 상태를 확인하지 못해 담지 못했습니다. 잠시 후 다시 시도해 주세요.');
   }
 }
+
+/** 비교표 가격 칸: 현재가 대신 표시할 상태 문구 */
+const PRICE_STATE_LABEL = {
+  inquiry: '가격 문의',
+  stopped: '판매 중지',
+  changed: '판매 상품 변경',
+  unknown: '가격 확인 불가',
+};
 
 /** product_cards 이벤트 → 비교 테이블 DOM */
 function renderProductCards(products, container) {
@@ -191,10 +205,19 @@ function renderProductCards(products, container) {
 
   const fmt = n => new Intl.NumberFormat('ko-KR').format(n);
   const rows = products.map(p => {
-    const price = fmt(p.price_b2c);
-    const unitHtml = p.unit ? `<span class="compare-unit">/${escHtml(p.unit)}</span>` : '';
-    const costHtml = (p.est_cost && p.est_cost > 0)
+    // 가격 상태: 이전 상담 복원 시 서버가 현재가 기준 price_state를 넣음. 실시간 상담은 0원만 '가격 문의'
+    const state   = p.price_state || (Number(p.price_b2c) > 0 ? 'ok' : 'inquiry');
+    const blocked = state === 'stopped' || state === 'changed';
+    const price   = state === 'ok'
+      ? '₩' + fmt(p.price_b2c)
+      : (PRICE_STATE_LABEL[state] || PRICE_STATE_LABEL.unknown);
+    // 단위·예상 자재비는 판매가가 있는 상품만(가격 문의·판매 중지·변경 상품에는 금액을 보이지 않음)
+    const unitHtml = (state === 'ok' && p.unit) ? `<span class="compare-unit">/${escHtml(p.unit)}</span>` : '';
+    const costHtml = (state === 'ok' && p.est_cost && p.est_cost > 0)
       ? `<div class="compare-cost">예상 ₩${fmt(p.est_cost)}${p.cost_lowest ? ' <span class="compare-lowest">예상 최저</span>' : ''}${p.cost_diff > 0 ? `<span class="compare-diff">최저보다 +₩${fmt(p.cost_diff)}</span>` : ''}</div>`
+      : '';
+    const stateNote = state === 'changed'
+      ? '<div class="compare-state-note">상담 이후 상품 규격이 바뀌어 담을 수 없습니다. 다시 상담해 주세요.</div>'
       : '';
     const imgHtml = p.image_url
       ? `<img class="compare-img" src="${escHtml(p.image_url)}" alt="" loading="lazy" onerror="this.className='compare-img-ph';this.removeAttribute('src')">`
@@ -211,10 +234,11 @@ function renderProductCards(products, container) {
           ${(p.spec_label || p.spec) ? `<div class="compare-spec">${escHtml(p.spec_label || p.spec)}</div>` : ''}
           ${(p.guide && p.guide.length) ? `<ul class="compare-guide">${p.guide.map(g => `<li>${escHtml(g)}</li>`).join('')}</ul>` : ''}
           ${basisHtml}
+          ${stateNote}
         </td>
-        <td class="compare-price">₩${price}${unitHtml}${costHtml}</td>
-        <td><input type="number" class="compare-qty" value="${qtyVal}" min="1" max="999"></td>
-        <td><button class="btn-compare-add">견적추가</button></td>
+        <td class="compare-price${state === 'ok' ? '' : ' is-state'}">${price}${unitHtml}${costHtml}</td>
+        <td><input type="number" class="compare-qty" value="${qtyVal}" min="1" max="999"${blocked ? ' disabled' : ''}></td>
+        <td><button class="btn-compare-add"${blocked ? ' disabled' : ''}>견적추가</button></td>
       </tr>`;
   }).join('');
 
@@ -350,8 +374,12 @@ async function send() {
   document.getElementById('hints').style.display = 'none';
   isStreaming = true;
   accText     = '';
+  let hasEvents = false;
 
   addMsg('user', msg);
+  // 대화가 시작되면 '새 상담' 버튼 활성화
+  const btnNew = document.getElementById('btn-new-chat');
+  if (btnNew) btnNew.disabled = false;
   const { bubble, content } = addMsg('assistant', '');
 
   const cursor = document.createElement('span');
@@ -384,6 +412,7 @@ async function send() {
       for (const event of (data.events || [])) {
         processEvent(event, content);
       }
+      hasEvents = (data.events || []).length > 0;
 
       if (!accText && !(data.events || []).length) {
         bubble.textContent = '응답을 받지 못했습니다. 다시 시도해 주세요.';
@@ -399,16 +428,17 @@ async function send() {
   }
 
   document.getElementById('messages').scrollTop = 9999;
-  await finalize(msg, accText);
+  await finalize(msg, accText, hasEvents);
 }
 
-async function finalize(userMsg, assistantMsg) {
-  if (assistantMsg) {
+async function finalize(userMsg, assistantMsg, hasEvents) {
+  // 텍스트 없이 상품 추천표·견적 카드만 온 답변도 저장 (카드 내용은 서버 chat_logs에 기록됨)
+  if (assistantMsg || hasEvents) {
     try {
       await fetch('/chat.php', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ sid: window.SID, user: userMsg, assistant: assistantMsg }),
+        body:    JSON.stringify({ sid: window.SID, user: userMsg, assistant: assistantMsg, has_events: !!hasEvents }),
       });
     } catch {}
   }
@@ -419,7 +449,8 @@ async function finalize(userMsg, assistantMsg) {
 
 function resetChat() {
   if (!confirm('대화를 초기화할까요?')) return;
-  location.reload();
+  // 새 상담 키를 받도록 ?sid= 없이 다시 열기 (복원한 이전 상담에서도 새 상담 시작)
+  location.href = '/chat.php';
 }
 
 // 페이지 로드 시 기존 견적 품목 반영
