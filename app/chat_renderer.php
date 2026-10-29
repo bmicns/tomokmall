@@ -185,6 +185,7 @@ render_header('AI 자재 상담', 'chat');
   .compare-price { font-size: 13px; font-weight: 600; color: var(--color-primary); white-space: nowrap; }
   .compare-unit { font-size: 11px; font-weight: 400; color: var(--color-text-secondary); }
   .compare-cost { font-size: 11px; font-weight: 600; color: var(--color-text-primary); margin-top: 3px; }
+  .compare-diff { display: block; font-size: 10px; font-weight: 400; color: var(--color-text-secondary); }
   .compare-lowest { display: inline-block; padding: 0 5px; margin-left: 2px; font-size: 10px; font-weight: 700; color: #fff; background: var(--color-primary); }
   .compare-summary { font-size: 12px; line-height: 1.5; padding: 8px 10px; margin-bottom: 6px; background: var(--color-surface); border: 1px solid var(--color-border); }
   .compare-summary b { color: var(--color-primary); }

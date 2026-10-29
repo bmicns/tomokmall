@@ -118,6 +118,7 @@ $r = search(['queries' => ['인조화강블록', '점토블럭'], 'area_m2' => 2
 $cs = $r['cost_summary'] ?? null;
 $lowCards = array_values(array_filter($r['products'] ?? [], static fn($c) => !empty($c['cost_lowest'])));
 ok('요약: 최저·최고·차이가 카드 예상 금액과 일치', $cs && $cs['lowest']['est_cost'] === min(array_column($r['products'], 'est_cost')) && $cs['difference'] === $cs['highest']['est_cost'] - $cs['lowest']['est_cost']);
+ok('카드별 최저와의 차이(cost_diff) = 예상 금액 − 최저', !array_filter($r['products'] ?? [], static fn($c) => ($c['est_cost'] ?? 0) > 0 && ($c['cost_diff'] ?? -1) !== $c['est_cost'] - $cs['lowest']['est_cost']));
 ok('최저 카드 1개에만 cost_lowest 표시', count($lowCards) === 1 && $lowCards[0]['name'] === $cs['lowest']['name']);
 ok('면적·길이 없이 검색하면 요약 없음(금액을 말하지 않음)', !isset(search(['queries' => ['인조화강블록', '점토블럭']])['cost_summary']));
 

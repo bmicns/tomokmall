@@ -35,7 +35,8 @@ file_put_contents("{$tmp}/sources.json", json_encode($reg, JSON_UNESCAPED_UNICOD
 file_put_contents("{$tmp}/items.csv", "품명,규격,제조사,단가,단위,물품식별번호,비고\n"
     . "[테스트] 인조화강블록(투수),200*100*80T(투수),[테스트]제조,1000,m2,T-1,담당 010-0000-0000\n"
     . "[테스트] 인조화강블럭 (투수),200*100*80T(투수),[테스트]제조,1000,m2,T-1,\n"
-    . "[테스트] 중하중그레이팅수로용,300*1000*50(7*4),[테스트]제조,,개,T-2,KS D 3503\n");
+    . "[테스트] 중하중그레이팅수로용,300*1000*50(7*4),[테스트]제조,,개,T-2,KS D 3503\n"
+    . "[테스트] 사무용 노트북 컴퓨터,15인치,[테스트]제조,900000,대,T-3,\n");
 $run = static function (string $args) use ($tmp): array {
     $env = 'EXT_SOURCES_FILE=' . escapeshellarg("{$tmp}/sources.json");
     exec("{$env} " . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/../scripts/external/import.php') . " {$args} 2>&1", $out, $code);
@@ -59,6 +60,9 @@ try {
     [$c, $o] = $run('--source=test_fixture --file=' . escapeshellarg("{$tmp}/items.csv"));
     ok('가져오기 성공 — 3행 중 중복 1건 합침, 고유 2건 저장', $c === 0 && str_contains($o, '중복 합침 1') && str_contains($o, '검증 구역 저장 2건'));
     ok('개인 연락처 제거 보고', str_contains($o, '개인 연락처 제거 1건'));
+    ok('우리 취급 종류가 아닌 행(노트북)은 제외', str_contains($o, '취급 종류 아님 1') && !str_contains($o, '노트북'));
+    [$c, $o2] = $run('--show-columns --file=' . escapeshellarg("{$tmp}/items.csv"));
+    ok('--show-columns: 머리글 인식 결과만 출력(저장 없음)', $c === 0 && str_contains($o2, '품명') && str_contains($o2, '→ name') && str_contains($o2, '비고'));
     $rows = $pdo->query("SELECT * FROM external_products WHERE source_key = 'test_fixture' ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
     ok('정규화 값 저장(종류·두께·단위·참고가)', count($rows) === 2 && $rows[0]['product_type'] === '인조화강블록' && (int) $rows[0]['thickness_mm'] === 80 && $rows[0]['unit'] === '㎡' && (int) $rows[0]['ref_price'] === 1000);
     ok('개인 연락처는 DB 어디에도 없음', !preg_match('/010-0000-0000/', json_encode($rows, JSON_UNESCAPED_UNICODE)));
@@ -75,10 +79,14 @@ try {
         foreach ($o['products'] ?? [] as $p) { if ((int) $p['id'] === (int) $m['product_id']) { return $p; } }
         return [];
     };
-    ok('후보(candidate) 상태에서는 외부 자료 표시 안 함', !str_contains(implode(' ', $card()['guide'] ?? []), '외부 자료'));
+    ok('후보(candidate) 상태에서는 외부 자료 표시 안 함', !str_contains(implode(' ', $card()['guide'] ?? []), '참고 자료'));
     [$c] = $run("--confirm={$rows[0]['id']}:{$m['product_id']}");
     $g = implode(' ', $card()['guide'] ?? []);
-    ok('사람이 확정(--confirm)하면 제조사·출처 표시, 가격은 표시 안 함', $c === 0 && str_contains($g, '외부 자료: [테스트]제조') && str_contains($g, '테스트 출처') && !str_contains($g, '1000'));
+    ok('사람이 확정(--confirm)하면 제조사·출처 표시, 가격은 표시 안 함', $c === 0 && str_contains($g, '참고 자료(판매 상품 아님): [테스트]제조') && str_contains($g, '테스트 출처') && !str_contains($g, '1000'));
+    [$c, $o] = $run('--source=test_fixture --confirm-min=50');
+    $per = $pdo->query("SELECT MAX(cnt) FROM (SELECT m.external_product_id, COUNT(*) cnt FROM external_product_matches m JOIN external_products e ON e.id = m.external_product_id
+                        WHERE e.source_key = 'test_fixture' AND m.status = 'confirmed' GROUP BY m.external_product_id) x")->fetchColumn();
+    ok('--confirm-min: 80점 미만 값은 80으로 올리고, 외부 상품당 1순위 1건만 확정', $c === 0 && str_contains($o, '80점 이상 1순위') && (int) $per === 1);
     $prodAfter = $pdo->query('SELECT COUNT(*), SUM(price_b2c) FROM products')->fetch(PDO::FETCH_NUM);
     ok('products 건수·판매가 합계 그대로', $prodBefore === $prodAfter);
 } finally {

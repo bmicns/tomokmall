@@ -75,7 +75,7 @@ ok('60T 는 보행용 + 차량은 80mm 이상 안내', str_contains($g[0], '사�
 $g = ext_selection_guide(['id' => 3, 'name' => '중하중그레이팅수로용', 'spec' => '규격: 300*1000*50(7*4) | 단위: 개']);
 ok('그레이팅 하중 등급 설명', $g === ['중하중 — 승용차·SUV 통행']);
 $g = ext_selection_guide(['id' => 1, 'name' => '인조화강블록(투수)', 'spec' => '규격: 200*200*80T(투수)'], [['maker' => '시험제조', 'ks' => ['KS F 4419'], 'source_name' => '시험 출처']]);
-ok('확정된 외부 자료는 출처와 함께(가격 없음)', str_contains(end($g), '외부 자료: 시험제조 · KS F 4419 (출처 시험 출처)') && !preg_match('/원|₩|가격/u', implode(' ', $g)));
+ok('확정된 외부 자료는 출처와 함께(가격 없음)', str_contains(end($g), '참고 자료(판매 상품 아님): 시험제조 · KS F 4419 — 출처 시험 출처') && !preg_match('/원|₩|가격/u', implode(' ', $g)));
 ok('관계없는 품목은 설명 없음(지어내지 않음)', ext_selection_guide(['id' => 9, 'name' => '규사', 'spec' => '규격: 5호사_1.0톤 | 단위: 톤']) === []);
 
 echo "[파일 읽기]\n";
@@ -85,6 +85,19 @@ $r = ext_read_csv($tmp);
 unlink($tmp);
 ok('CP949·탭 CSV 머리글 자동 인식', ($r[0]['name'] ?? '') === '인조화강블록' && ($r[0]['maker'] ?? '') === '시험' && ($r[0]['price'] ?? '') === '1,000' && ($r[0]['external_id'] ?? '') === 'T1');
 ok('비고의 연락처는 정규화에서 제거', ext_normalize($r[0], 't')['pii_removed'] === 1);
+
+$xlsx = tempnam(sys_get_temp_dir(), 'ext') . '.xlsx';
+$z = new ZipArchive();
+$z->open($xlsx, ZipArchive::CREATE);
+$z->addFromString('xl/sharedStrings.xml', '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><si><t>품명</t></si><si><t>규격</t></si><si><t>업체명</t></si><si><t>인조화강블록</t></si><si><t>200*100*80T</t></si></sst>');
+$z->addFromString('xl/worksheets/sheet1.xml', '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'
+    . '<row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c><c r="C1" t="s"><v>2</v></c><c r="D1" t="inlineStr"><is><t>계약단가</t></is></c></row>'
+    . '<row r="2"><c r="A2" t="s"><v>3</v></c><c r="B2" t="s"><v>4</v></c><c r="D2"><v>1500</v></c></row></sheetData></worksheet>');
+$z->close();
+$h = [];
+$r = iterator_to_array(ext_iter_table($xlsx, $h), false);
+unlink($xlsx);
+ok('XLSX(공유·인라인 문자열, 빈 칸 건너뜀) 머리글 인식', ($r[0]['name'] ?? '') === '인조화강블록' && ($r[0]['spec'] ?? '') === '200*100*80T' && ($r[0]['price'] ?? '') === '1500' && !isset($r[0]['maker']) && ($h['업체명'] ?? '') === 'maker');
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

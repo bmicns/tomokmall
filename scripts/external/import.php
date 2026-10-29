@@ -10,9 +10,12 @@ declare(strict_types=1);
  *
  * 사용:
  *   php scripts/external/import.php --list-sources
- *   php scripts/external/import.php --source=g2b_mall_items_file --file=내려받은.csv --license-checked [--limit=200] [--md=보고서.md]
+ *   php scripts/external/import.php --show-columns --file=내려받은.csv   (머리글 인식 확인만 — DB·권한 확인 없음)
+ *   php scripts/external/import.php --source=g2b_mall_items_file --file=내려받은.csv(또는 .xlsx) --license-checked [--limit=200] [--all] [--md=보고서.md]
+ *     기본: 우리 취급 종류(블록·그레이팅·관·맨홀·수로관 등)로 판별된 행만 처리(--all 이면 전부). 큰 파일도 한 행씩 읽음
  *   php scripts/external/import.php --source=dacity --format=scrape-json --file=data/dacity/products.json --dry-run   (허락 전 출처: 분석만)
  *   php scripts/external/import.php --confirm=외부ID:상품ID [--confirm=…]   (사람이 확인한 매칭만 상담 카드에 사용)
+ *   php scripts/external/import.php --source=… --confirm-min=95   (보고서를 확인한 뒤, 그 출처의 1순위 후보 중 95점 이상만 한꺼번에 확정)
  * 형식: csv(UTF-8·CP949, 쉼표·탭) — 머리글 자동 인식(품명·규격·제조사·단가·단위·물품식별번호 등) / json / scrape-json(기존 수집 스크립트 결과)
  */
 if (PHP_SAPI !== 'cli') { exit; }
@@ -23,10 +26,28 @@ require "{$root}/app/bootstrap.php";
 require_once "{$root}/app/ai_tools.php";
 require_once "{$root}/app/external_products.php";
 
-$opt = getopt('', ['list-sources', 'source:', 'file:', 'format:', 'limit:', 'dry-run', 'license-checked', 'md:', 'confirm:']);
+$opt = getopt('', ['list-sources', 'source:', 'file:', 'format:', 'limit:', 'dry-run', 'license-checked', 'md:', 'confirm:', 'confirm-min:', 'all', 'show-columns']);
 $reg = json_decode((string) file_get_contents(getenv('EXT_SOURCES_FILE') ?: "{$root}/data/external/sources.json"), true);   // EXT_SOURCES_FILE: 테스트 전용 등록부
 $sources = array_column($reg['sources'] ?? [], null, 'key');
 $die = static function (string $m, int $code = 2): never { fwrite(STDERR, "[중단] {$m}\n"); exit($code); };
+
+if (isset($opt['show-columns'])) {   // 공공데이터 파일 머리글이 어떻게 인식되는지 먼저 확인(저장·DB 없음)
+    $f = (string) ($opt['file'] ?? '');
+    if ($f === '' || !is_file($f)) { $die("--file 이 없습니다: '{$f}'"); }
+    $h = [];
+    $n = 0;
+    foreach (ext_iter_table($f, $h) as $r) {
+        if ($n === 0) {
+            foreach ($h as $orig => $k) { printf("  %-24s → %s\n", $orig, $k !== '' ? $k : '(사용 안 함)'); }
+            echo "\n예시(정규화):\n";
+        }
+        $e = ext_normalize($r, 'preview');
+        printf("  %s | %s | 종류 %s | 두께 %s | 관경 %s | 재질 %s | 단위 %s\n", $e['name'], mb_substr($e['spec_raw'], 0, 40), $e['product_type'] ?: '-',
+            $e['thickness_mm'] ?? '-', $e['diameter_mm'] ?? '-', $e['material'] ?: '-', $e['unit'] ?: '-');
+        if (++$n >= 5) { break; }
+    }
+    exit(0);
+}
 
 if (isset($opt['list-sources'])) {
     foreach ($sources as $k => $s) {
@@ -36,7 +57,7 @@ if (isset($opt['list-sources'])) {
 }
 
 $dbName = (string) ($config['db']['name'] ?? '');
-$needDb = !isset($opt['dry-run']) || isset($opt['confirm']);
+$needDb = !isset($opt['dry-run']) || isset($opt['confirm']) || isset($opt['confirm-min']);
 if ($needDb && !preg_match('/_test$/', $dbName)) {
     $die("검증 구역 저장은 로컬 테스트 DB(DB_NAME=*_test)에서만 합니다. 현재 '{$dbName}' — 운영 반영은 승인 후 별도 절차.");
 }
@@ -44,6 +65,18 @@ $pdo = db();
 if (!$pdo) { $die('DB 에 연결하지 못했습니다(DB_HOST·DB_NAME·DB_USER·DB_PASS 확인).'); }
 if ($needDb && !ext_tables_ready()) {
     $die('external_products 테이블이 없습니다. 테스트 DB 에 database/20261029_external_products.sql 을 적용하세요(setup-local-test-db.sh --reset 이 적용).');
+}
+
+// ── 보고서를 본 뒤 높은 점수 1순위만 한꺼번에 확정(출처 단위) ────────────────
+if (isset($opt['confirm-min'])) {
+    $min = max(80, min(100, (int) $opt['confirm-min']));   // 80 미만은 허용하지 않음
+    $st = $pdo->prepare("UPDATE external_product_matches m JOIN external_products e ON e.id = m.external_product_id
+        JOIN (SELECT external_product_id, MAX(score) AS top FROM external_product_matches GROUP BY external_product_id) t
+          ON t.external_product_id = m.external_product_id AND t.top = m.score
+        SET m.status = 'confirmed' WHERE e.source_key = ? AND m.score >= ? AND m.status = 'candidate'");
+    $st->execute([(string) ($opt['source'] ?? ''), $min]);
+    echo "확정한 매칭 {$st->rowCount()}건 (출처 " . ($opt['source'] ?? '') . ", {$min}점 이상 1순위)\n";
+    exit(0);
 }
 
 // ── 사람이 확인한 매칭 확정 ─────────────────────────────────────────
@@ -74,19 +107,28 @@ if ($src['permission'] === 'allowed' && !empty($src['conditions']) && !isset($op
 // ── 파일 읽기 ──────────────────────────────────────────────────────
 $file = (string) ($opt['file'] ?? '');
 if ($file === '' || !is_file($file)) { $die("--file 이 없습니다: '{$file}'"); }
-$format = (string) ($opt['format'] ?? (preg_match('/\.json$/i', $file) ? 'json' : 'csv'));
+$format = (string) ($opt['format'] ?? (preg_match('/\.json$/i', $file) ? 'json' : 'table'));
 $limit  = max(1, min(5000, (int) ($opt['limit'] ?? 200)));   // 소규모 시범부터(기본 200행)
-$rows = match ($format) {
-    'csv'         => ext_read_csv($file),
+$iter = match ($format) {
+    'table', 'csv', 'xlsx' => ext_iter_table($file),
     'json'        => ext_read_json($file, false),
     'scrape-json' => ext_read_json($file, true),
-    default       => $die("지원하지 않는 형식: {$format} (csv·json·scrape-json)"),
+    default       => $die("지원하지 않는 형식: {$format} (csv·xlsx·json·scrape-json)"),
 };
-$total = count($rows);
-$rows = array_slice($rows, 0, $limit);
 
-// ── 정규화 → 중복 제거 → 매칭 ─────────────────────────────────────
-$norm = array_values(array_filter(array_map(static fn($r) => ext_normalize($r, $key), $rows), static fn($n) => $n['name'] !== ''));
+// ── 정규화(+취급 종류 거르기) → 중복 제거 → 매칭 ─────────────────────
+$total = 0;
+$skipped = 0;
+$norm = [];
+foreach ($iter as $r) {
+    $total++;
+    $n = ext_normalize($r, $key);
+    if ($n['name'] === '') { continue; }
+    if (!isset($opt['all']) && $n['product_type'] === '') { $skipped++; continue; }   // 우리 취급 종류가 아닌 행(컴퓨터·사무용품 등)
+    $norm[] = $n;
+    if (count($norm) >= $limit) { break; }
+}
+$rows = $norm;
 [$uniq, $dupes] = ext_dedup($norm);
 $products = $pdo->query('SELECT id, name, spec FROM products WHERE is_active = 1')->fetchAll(PDO::FETCH_ASSOC);
 $prodNorm = array_map('ext_normalize_product', $products);
@@ -110,12 +152,13 @@ if (!isset($opt['dry-run'])) {
     $mIns = $pdo->prepare("INSERT INTO external_product_matches (external_product_id, product_id, score, reasons) VALUES (?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE score = VALUES(score), reasons = VALUES(reasons)");
     $pdo->beginTransaction();
-    foreach ($uniq as $u) {
+    foreach ($uniq as $ix => $u) {
         $ins->execute(['sk' => $key, 'eid' => $u['external_id'] ?: null, 'dk' => $u['dedup_key'], 'name' => $u['name'], 'maker' => $u['maker'] ?: null,
             'type' => $u['product_type'] ?: null, 'spec' => $u['spec_raw'] ?: null, 'w' => $u['width_mm'], 'l' => $u['length_mm'], 't' => $u['thickness_mm'],
             'd' => $u['diameter_mm'], 'mat' => $u['material'] ?: null, 'attrs' => $attrsOf($u), 'unit' => $u['unit'] ?: null, 'price' => $u['ref_price'],
             'basis' => $u['ref_price'] !== null ? '출처 표기 가격(참고가)' : null, 'url' => $u['source_url'] ?: null, 'lic' => mb_substr((string) $src['basis'], 0, 300)]);
         $eid = (int) $pdo->lastInsertId();
+        $uniq[$ix]['db_id'] = $eid;   // --confirm=외부ID:상품ID 에 쓰는 번호(보고서에 표시)
         foreach ($u['matches'] as $m) {
             $mIns->execute([$eid, $m['product_id'], $m['score'], $m['reasons']]);
         }
@@ -127,16 +170,16 @@ if (!isset($opt['dry-run'])) {
 // ── 보고서(개인정보·원문 설명은 넣지 않음) ───────────────────────────
 $md = "# 외부 상품 가져오기 결과 — {$key} (" . date('Y-m-d H:i') . ')' . (isset($opt['dry-run']) ? ' · 분석만(--dry-run, 저장 안 함)' : '') . "\n\n"
     . "- 출처: {$src['name']} · 권한 {$src['permission']} — {$src['basis']}\n"
-    . "- 파일 행 {$total} · 처리 " . count($rows) . " (상한 {$limit}) · 이름 없는 행 제외 후 " . count($norm) . " · 중복 합침 {$dupes} · 고유 " . count($uniq) . "\n"
+    . "- 읽은 행 {$total} · 취급 종류 아님 {$skipped}" . (isset($opt['all']) ? '(--all)' : '') . " · 처리 " . count($norm) . " (상한 {$limit}) · 중복 합침 {$dupes} · 고유 " . count($uniq) . "\n"
     . "- 개인 연락처 제거 {$pii}건 · 검증 구역 저장 {$saved}건 · DB {$dbName}\n"
     . "- 우리 상품 매칭: 유력(80점 이상) {$grades['probable']} · 검토(50~79) {$grades['review']} · 없음 {$grades['none']} — 확정은 사람이(--confirm)\n"
     . "- 외부 가격은 참고가로만 보관(판매가 아님). products 는 바꾸지 않음.\n\n"
-    . "| 외부 상품 | 규격 | 종류 | 두께·관경 | 재질 | 매칭 후보(점수) |\n|---|---|---|---|---|---|\n";
+    . "| 외부ID | 외부 상품 | 규격 | 종류 | 두께·관경 | 재질 | 매칭 후보 상품ID(점수) |\n|---|---|---|---|---|---|---|\n";
 foreach (array_slice($uniq, 0, 30) as $u) {
     $dim = $u['thickness_mm'] ? "{$u['thickness_mm']}T" : ($u['diameter_mm'] ? "D{$u['diameter_mm']}" : '');
     $mt  = $u['matches'] ? implode(' / ', array_map(static fn($m) => "#{$m['product_id']} {$m['name']}({$m['score']})", array_slice($u['matches'], 0, 2))) : '없음';
     $cell = static fn(string $v): string => str_replace('|', '/', mb_substr($v, 0, 40));
-    $md .= "| {$cell($u['name'])} | {$cell($u['spec_raw'])} | {$u['product_type']} | {$dim} | {$u['material']} | {$cell($mt)} |\n";
+    $md .= '| ' . ($u['db_id'] ?? '-') . " | {$cell($u['name'])} | {$cell($u['spec_raw'])} | {$u['product_type']} | {$dim} | {$u['material']} | {$cell($mt)} |\n";
 }
 echo $md;
 if (isset($opt['md'])) { file_put_contents((string) $opt['md'], $md); }

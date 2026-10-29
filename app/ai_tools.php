@@ -530,6 +530,9 @@ function ai_cost_summary(array $cards): array
     [$lo, $hi] = [$priced[0], $priced[count($priced) - 1]];
     foreach ($cards as &$c) {
         $c['cost_lowest'] = ((int) $c['id'] === (int) $lo['id']);
+        if (($c['est_cost'] ?? 0) > 0) {
+            $c['cost_diff'] = $c['est_cost'] - $lo['est_cost'];   // 같은 조건 최저 예상 자재비와의 차이(원)
+        }
     }
     unset($c);
     return [$cards, [

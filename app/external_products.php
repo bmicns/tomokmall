@@ -300,6 +300,7 @@ function ext_selection_guide(array $productRow, array $knowledge = []): array
         '인조화강블록' => '인조화강 — 화강석 느낌을 낸 콘크리트 블록',
         '점토블록'     => '점토 — 흙을 구워 만든 블록',
         '잔디블록'     => '잔디블록 — 구멍에 잔디를 심는 블록',
+        '인터로킹블록' => '인터로킹 — 옆 블록과 서로 맞물리게 까는 블록',
         default        => '',
     };
     if ($n['product_type'] === 'PE관') {
@@ -317,7 +318,7 @@ function ext_selection_guide(array $productRow, array $knowledge = []): array
     foreach ($knowledge as $k) {
         $bits = array_filter([$k['maker'] ?? '', implode(', ', $k['ks'] ?? [])]);
         if ($bits) {
-            $g[] = '외부 자료: ' . implode(' · ', $bits) . ' (출처 ' . ($k['source_name'] ?? $k['source_key'] ?? '') . ')';
+            $g[] = '참고 자료(판매 상품 아님): ' . implode(' · ', $bits) . ' — 출처 ' . ($k['source_name'] ?? $k['source_key'] ?? '');
             break;
         }
     }
@@ -361,33 +362,102 @@ function ext_knowledge_for_products(array $productIds): array
     return $out;
 }
 
-/** CSV 읽기: UTF-8(BOM)·CP949 자동, 쉼표·탭 구분, 머리글 → 표준 키 */
+/** CSV 읽기(작은 파일·테스트용): ext_iter_table 결과를 배열로 */
 function ext_read_csv(string $file): array
 {
-    $text = (string) file_get_contents($file);
-    $text = (string) preg_replace('/^\xEF\xBB\xBF/', '', $text);
-    if (!mb_check_encoding($text, 'UTF-8')) {
-        $text = (string) mb_convert_encoding($text, 'UTF-8', 'CP949');
-    }
-    $lines = preg_split('/\r\n|\n|\r/', $text) ?: [];
-    $first = (string) ($lines[0] ?? '');
-    $delim = substr_count($first, "\t") > substr_count($first, ',') ? "\t" : ',';
-    $fh = fopen('php://memory', 'r+');
-    fwrite($fh, $text);
-    rewind($fh);
-    $head = array_map(static fn($h) => ext_csv_key((string) $h), fgetcsv($fh, 0, $delim, '"', '') ?: []);
-    $rows = [];
-    while (($r = fgetcsv($fh, 0, $delim, '"', '')) !== false) {
-        if ($r === [null]) { continue; }
+    return iterator_to_array(ext_iter_table($file), false);
+}
+
+/**
+ * 표 파일(CSV·XLSX) 한 행씩 — 첫 비어 있지 않은 행을 머리글로 보고 표준 키(ext_csv_key)로 바꿔 돌려준다.
+ * 큰 공공데이터 파일도 메모리를 일정하게 쓰도록 스트리밍. $headers 에 [원래 머리글 => 표준 키('' = 버림)] 기록.
+ */
+function ext_iter_table(string $file, ?array &$headers = null): Generator
+{
+    $head = null;
+    foreach (preg_match('/\.xlsx$/i', $file) ? ext_iter_xlsx($file) : ext_iter_csv($file) as $r) {
+        if ($head === null) {
+            if (!array_filter($r, static fn($v) => trim((string) $v) !== '')) { continue; }
+            $head = [];
+            foreach ($r as $i => $h) { $head[$i] = ext_csv_key((string) $h); $headers[trim((string) $h)] = $head[$i]; }
+            continue;
+        }
         $row = [];
         foreach ($head as $i => $k) {
             if ($k !== '' && isset($r[$i]) && trim((string) $r[$i]) !== '') {
                 $row[$k] = isset($row[$k]) ? $row[$k] . ' ' . $r[$i] : $r[$i];   // 같은 키로 모이는 열(규격명·세부규격 등)은 이어 붙임
             }
         }
-        $rows[] = $row;
+        if ($row) { yield $row; }
     }
-    return $rows;
+}
+
+/** CSV 원시 행: UTF-8(BOM)·CP949 자동, 쉼표·탭 구분. CP949 는 칸 단위로 변환(구분자·따옴표 바이트와 겹치지 않음) */
+function ext_iter_csv(string $file): Generator
+{
+    $fh = fopen($file, 'rb');
+    if (!$fh) { throw new RuntimeException("파일을 열 수 없습니다: {$file}"); }
+    $sample = (string) fread($fh, 65536);
+    rewind($fh);
+    if (str_starts_with($sample, "\xEF\xBB\xBF")) { fread($fh, 3); }
+    $cut = strrpos($sample, "\n");
+    $utf8 = mb_check_encoding($cut !== false ? substr($sample, 0, $cut) : $sample, 'UTF-8');
+    $first = strtok($sample, "\n");
+    $delim = substr_count((string) $first, "\t") > substr_count((string) $first, ',') ? "\t" : ',';
+    while (($r = fgetcsv($fh, 0, $delim, '"', '')) !== false) {
+        if ($r === [null]) { continue; }
+        yield $utf8 ? $r : array_map(static fn($v) => (string) mb_convert_encoding((string) $v, 'UTF-8', 'CP949'), $r);
+    }
+    fclose($fh);
+}
+
+/** XLSX 첫 시트 원시 행(공유 문자열·인라인 문자열 처리). 별도 라이브러리 없이 ZipArchive + XMLReader */
+function ext_iter_xlsx(string $file): Generator
+{
+    if (!class_exists('ZipArchive') || !class_exists('XMLReader')) {
+        throw new RuntimeException('XLSX 를 읽으려면 PHP zip·xmlreader 확장이 필요합니다 — 엑셀에서 CSV 로 저장해 주세요.');
+    }
+    $zip = new ZipArchive();
+    if ($zip->open($file) !== true) { throw new RuntimeException("XLSX 파일을 열 수 없습니다: {$file}"); }
+    $shared = [];
+    if (($xml = $zip->getFromName('xl/sharedStrings.xml')) !== false) {
+        $x = new XMLReader();
+        $x->XML($xml);
+        while ($x->read()) {
+            if ($x->nodeType === XMLReader::ELEMENT && $x->localName === 'si') { $shared[] = trim($x->readString()); }
+        }
+        $x->close();
+    }
+    $sheet = $zip->getFromName('xl/worksheets/sheet1.xml');
+    $zip->close();
+    if ($sheet === false) { throw new RuntimeException('XLSX 첫 시트(sheet1)를 찾지 못했습니다.'); }
+    $x = new XMLReader();
+    $x->XML($sheet);
+    $col = static function (string $ref): int {
+        $n = 0;
+        foreach (str_split((string) preg_replace('/\d+/', '', $ref)) as $ch) { $n = $n * 26 + (ord(strtoupper($ch)) - 64); }
+        return $n - 1;
+    };
+    while ($x->read()) {
+        if ($x->nodeType !== XMLReader::ELEMENT || $x->localName !== 'row') { continue; }
+        $node = $x->expand();
+        $row = [];
+        foreach ($node->getElementsByTagName('c') as $c) {
+            $t = $c->getAttribute('t');
+            $v = $c->getElementsByTagName('v')->item(0)?->textContent ?? '';
+            $val = match ($t) {
+                's'         => $shared[(int) $v] ?? '',
+                'inlineStr' => $c->getElementsByTagName('t')->item(0)?->textContent ?? '',
+                default     => $v,
+            };
+            $row[$col($c->getAttribute('r'))] = $val;
+        }
+        if ($row) {
+            $max = max(array_keys($row));
+            yield array_replace(array_fill(0, $max + 1, ''), $row);
+        }
+    }
+    $x->close();
 }
 
 /** 머리글 → 표준 키 (모르는 열은 '' — 버림) */
@@ -396,10 +466,10 @@ function ext_csv_key(string $h): string
     $h = trim(str_replace(' ', '', $h));
     $map = [
         'name' => '/^(품명|상품명|물품명|제품명|품목명|세부품명|name)$/iu', 'spec' => '/^(규격|규격명|세부규격|모델|모델명|spec)$/iu',
-        'maker' => '/^(제조사|제조업체|제조업체명|업체명|계약업체명|브랜드|maker|brand)$/iu', 'price' => '/^(단가|계약단가|가격|판매가|공표가|price)$/iu',
-        'unit' => '/^(단위|판매단위|unit)$/iu', 'external_id' => '/^(물품식별번호|식별번호|상품코드|제품코드|품목코드|id)$/iu',
+        'maker' => '/^(제조사|제조사명|제조업체|제조업체명|업체명|계약업체명|공급업체명|브랜드|maker|brand)$/iu', 'price' => '/^(단가|계약단가|가격|판매가|공표가|price)$/iu',
+        'unit' => '/^(단위|판매단위|unit)$/iu', 'external_id' => '/^(물품식별번호|식별번호|상품식별번호|상품번호|상품코드|제품코드|품목코드|id)$/iu',
         'category' => '/^(물품분류명|분류명|카테고리|category)$/iu', 'material' => '/^(재질|material)$/iu', 'use' => '/^(용도|사용처)$/u',
-        'source_url' => '/^(url|상세url|링크)$/iu', 'note' => '/^(인증|인증정보|ks|비고)$/iu',
+        'source_url' => '/^(url|상세url|링크)$/iu', 'note' => '/^(인증|인증정보|인증구분|인증명|ks|ks인증|비고)$/iu',
     ];
     foreach ($map as $k => $re) {
         if (preg_match($re, $h)) { return $k; }
