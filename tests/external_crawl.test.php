@@ -59,5 +59,21 @@ $rb = ext_robots_check("User-agent: Googlebot\nDisallow: /\n\nUser-agent: *\nDis
 ok('robots: * 규칙만, 금지 경로 판정', $rb['disallow'] === ['/admin/', '/?mode*'] && !ext_robots_allows($rb['disallow'], '/admin/x') && !ext_robots_allows($rb['disallow'], '/?mode=list') && ext_robots_allows($rb['disallow'], '/product/1'));
 ok('약관: 자동수집·무단 복제 금지 문장 감지(이메일 무단수집 거부는 제외)', count(ext_terms_prohibits(['게시물을 자동화된 프로그램으로 수집하는 행위를 금지합니다.', '이메일 주소 무단 수집을 거부합니다.', '회원은 정보를 이용할 수 있습니다.'])) === 1);
 
+echo "[수집 행 품질·원문 문장 정리]\n";
+$nr = static fn(string $name, string $spec) => ext_normalize(['name' => $name, 'spec' => $spec], 'test');
+ok('품질: 유효 행은 사유 없음', ext_record_issue($nr('인조화강블록 차도용', '200*100*80')) === '');
+ok('품질: 머리글 행·이름 없음·규격 숫자 없음·취급 종류 아님을 걸러냄', ext_record_issue($nr('품명', '규격 200*100')) === '머리글 행' && ext_record_issue($nr('', '200*100')) === '이름 없음'
+    && ext_record_issue($nr('인조화강블록', '규격 별도 문의')) === '규격 숫자 없음' && ext_record_issue($nr('회사 연혁', '1990')) === '취급 종류 아님');
+$recs = [];
+foreach (range(1, 4) as $i) {
+    $recs[] = ['name' => "블록{$i}", 'source_url' => "http://m.example/p{$i}", 'facts' => ['uses' => ['모든 쪽에 반복되는 [테스트] 보도 시공 안내 문장입니다.', "[테스트] 제품{$i}은 보도와 광장에 적용합니다."],
+        'features' => ['Copyright (c) 테스트 All rights reserved 내구성 우수']]];
+}
+$cl = ext_clean_page_facts($recs);
+ok('정리: 출처 페이지 절반 이상 반복 문장·저작권 문구 제거, 페이지 고유 문장은 원문 그대로 유지', $cl[0]['facts'] === ['uses' => ['[테스트] 제품1은 보도와 광장에 적용합니다.']]);
+ok('정리: 페이지가 4쪽 미만이면 반복 기준을 쓰지 않음', ext_clean_page_facts(array_slice($recs, 0, 2))[0]['facts']['uses'][0] === '모든 쪽에 반복되는 [테스트] 보도 시공 안내 문장입니다.');
+ok('충돌 표시: 차량·주차용인데 80mm 미만만', ext_fact_conflict('주차장 차량 통행 구간에 두께 60mm 제품을 사용합니다.') !== '' && ext_fact_conflict('차도용은 두께 80mm 입니다.') === ''
+    && ext_fact_conflict('보도용 두께 60mm 제품입니다.') === '');
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

@@ -133,3 +133,50 @@ function ext_page_links(string $html, string $pageUrl): array
     }
     return [array_keys($pages), array_keys($docs)];
 }
+
+/**
+ * 수집 행 품질 판정 (순수 함수) — 정규화 행 기준. 유효하면 '', 아니면 사유.
+ * 원시 행 수를 상품 수로 보지 않기 위해: 이름 없음·머리글 반복·규격 숫자 없음·이름 비정상·취급 종류 아님을 걸러낸다.
+ */
+function ext_record_issue(array $n): string
+{
+    $name = trim((string) $n['name']);
+    return match (true) {
+        $name === '' => '이름 없음',
+        (bool) preg_match('/^(구분|품명|제품명|규격|합계|소계|비고|단위|번호|no\.?|순번|항목)$/iu', $name) => '머리글 행',
+        mb_strlen($name) > 80 => '이름 비정상(긴 글)',
+        !preg_match('/\d/', (string) $n['spec_raw']) => '규격 숫자 없음',
+        $n['product_type'] === '' => '취급 종류 아님',
+        default => '',
+    };
+}
+
+/** 원문 문장 정리 (순수 함수) — 회사 정보·저작권·연락처 같은 공통 문구, 출처 페이지 절반 이상에 반복되는 문장(사이트 공통 문구) 제거 */
+function ext_clean_page_facts(array $records): array
+{
+    $pages = [];
+    foreach ($records as $r) {
+        foreach ((array) ($r['facts'] ?? []) as $list) {
+            foreach ((array) $list as $t) { $pages[$t][$r['source_url'] ?? ''] = true; }
+        }
+    }
+    $nPages = max(1, count(array_unique(array_column($records, 'source_url'))));
+    $boiler = static fn(string $t): bool => (bool) preg_match('/copyright|all\s*rights|대표\s*(이사|자)?\s*[:：]|주소\s*[:：]|tel|fax|사업자|개인정보|회사\s*소개|오시는\s*길|e-?mail|고객센터|무단\s*전재/iu', $t);
+    foreach ($records as &$r) {
+        foreach ((array) ($r['facts'] ?? []) as $k => $list) {
+            $r['facts'][$k] = array_values(array_filter((array) $list, static fn($t) => !$boiler($t) && !($nPages >= 4 && count($pages[$t] ?? []) >= max(4, (int) ceil($nPages * 0.5)))));
+            if (!$r['facts'][$k]) { unset($r['facts'][$k]); }
+        }
+    }
+    unset($r);
+    return $records;
+}
+
+/** 공식 기준·사내 기준과 충돌할 수 있는 문장 표시 (순수 함수) — 차도·차량용인데 두께가 80mm 미만 등. 표시된 문장은 승인 검토 때 확인 */
+function ext_fact_conflict(string $t): string
+{
+    if (preg_match('/(차도|차량|주차)/u', $t) && preg_match('/(\d{2,3})\s*(mm|T)\b/u', $t, $m) && (int) $m[1] < 80 && (int) $m[1] >= 30) {
+        return "차량용인데 두께 {$m[1]}mm 표기 — 사내 80T·공식 기준과 충돌 가능";
+    }
+    return '';
+}
