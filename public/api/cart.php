@@ -78,10 +78,9 @@ if ($productId <= 0) {
 }
 
 $minQty = ($action === 'update') ? 0 : 1;
-// 상한 9999 = AI 상담 add_to_cart·즉시견적과 같음(면적 기준 권장 수량이 수천 장인 블록도 담을 수 있게)
-if ($quantity < $minQty || $quantity > 9999) {
+if ($quantity < $minQty || $quantity > 999) {
     http_response_code(400);
-    echo json_encode(['ok' => false, 'error' => "수량은 {$minQty}~9999 범위여야 합니다."]);
+    echo json_encode(['ok' => false, 'error' => "수량은 {$minQty}~999 범위여야 합니다."]);
     exit;
 }
 
@@ -95,7 +94,7 @@ if (!$stmt->fetch()) {
 }
 
 if ($action === 'add') {
-    $cart[$productId] = min(9999, ($cart[$productId] ?? 0) + $quantity);
+    $cart[$productId] = ($cart[$productId] ?? 0) + $quantity;
 } else {
     // update: quantity = 0 이면 삭제
     if ($quantity === 0) {

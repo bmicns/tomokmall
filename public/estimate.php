@@ -27,8 +27,8 @@ foreach ($cartItems as $ci) {
 }
 $totalText = $cartTotal > 0 ? number_format($cartTotal).'원'.($hasInquiry ? ' + 문의' : '') : '담당자 문의';
 $sum0      = estimate_amount_summary($cartTotal, null); // 초기 상태: 배송 지역 미선택 → 운임 미포함
-// 수량 상한 = 저장 API 상한(장바구니 api/cart.php·즉시견적 quick-items.php 모두 9999)
-$qtyMax    = 9999;
+// 수량 상한 = 저장 API 상한(장바구니 api/cart.php 999, 즉시견적 quick-items.php 9999)
+$qtyMax    = $isQuick ? 9999 : 999;
 $user  = current_user();
 $nowMin = date('Y-m-d\TH:i');
 

@@ -107,7 +107,7 @@ function renderEstPanel(items, total) {
           </div>
           <div class="est-item-info-right">
             <div class="est-item-qty-wrap">
-              <input type="number" class="est-item-qty" value="${item.quantity}" min="1" max="9999" data-pid="${item.product_id}">
+              <input type="number" class="est-item-qty" value="${item.quantity}" min="1" max="999" data-pid="${item.product_id}">
               <button class="btn-est-remove" data-pid="${item.product_id}" title="삭제">×</button>
             </div>
             <span class="est-item-subtotal">₩${subtotal}</span>
@@ -117,7 +117,7 @@ function renderEstPanel(items, total) {
     `;
 
     row.querySelector('.est-item-qty').addEventListener('change', async (e) => {
-      const qty = Math.max(1, Math.min(9999, parseInt(e.target.value, 10) || 1));
+      const qty = Math.max(1, Math.min(999, parseInt(e.target.value, 10) || 1));
       await cartAction('update', item.product_id, qty);
     });
 

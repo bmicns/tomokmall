@@ -111,15 +111,13 @@ function estimate_create(array $data): array
     try {
         $pdo->beginTransaction();
 
-        // status 를 'REQUESTED'(접수됨)로 명시: alter_estimates_v2.sql 이 기본값을 'PENDING' 으로 바꿔도
-        // 직원·관리자·내 견적 화면(REQUESTED 기준 탭·라벨)에 새 견적이 보이도록. REQUESTED 는 v1·v2 ENUM 모두에 있음.
         $pdo->prepare(
             'INSERT INTO estimates
                 (user_id, customer_name, company_name, phone, email,
-                 site_address, memo, mode, requested_delivery_at, status, created_at)
+                 site_address, memo, mode, requested_delivery_at, created_at)
              VALUES
                 (:uid, :name, :company, :phone, :email,
-                 :address, :memo, :mode, :delivery_at, \'REQUESTED\', NOW())'
+                 :address, :memo, :mode, :delivery_at, NOW())'
         )->execute([
             'uid'         => $userId,
             'name'        => $name,
