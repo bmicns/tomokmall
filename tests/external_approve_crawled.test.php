@@ -31,6 +31,7 @@ $tmp = sys_get_temp_dir() . '/approve_crawled_test_' . getmypid();
 @mkdir($tmp, 0777, true);
 $reg = json_decode((string) file_get_contents(__DIR__ . '/../data/external/sources.json'), true);
 $reg['sources'] = [['key' => 'test_appr', 'name' => '[테스트]제조', 'domain' => 'm.example', 'permission' => 'facts_if_clear', 'basis' => '테스트', 'conditions' => ['테스트']],
+                   ['key' => 'test_appr_pave', 'name' => '[테스트]포장', 'domain' => 'p.example', 'permission' => 'facts_if_clear', 'basis' => '테스트', 'conditions' => ['테스트']],
                    ['key' => 'test_appr_hold', 'name' => '[테스트]보류', 'domain' => 'h.example', 'permission' => 'pending', 'basis' => '테스트', 'conditions' => []]];
 file_put_contents("{$tmp}/sources.json", json_encode($reg, JSON_UNESCAPED_UNICODE));
 $good  = '[테스트] 스틸 그레이팅은 미끄럼 방지를 위해 크로스 바를 사용합니다.';
@@ -45,6 +46,8 @@ file_put_contents("{$tmp}/test_appr-20261029-000000.json", json_encode([
     $rec('[테스트]스틸그레이팅 SG-2', '폭 400 / 높이 30', 2, ['features' => [$frag]]),
     $rec('[테스트]인조화강블록 차도용', '200*100 / 두께 60', 3, ['uses' => [$road]]),
 ], JSON_UNESCAPED_UNICODE));
+$pave = '[테스트] 표면 오염방지 처리로 블록의 수명을 연장합니다.';
+file_put_contents("{$tmp}/test_appr_pave-20261029-000000.json", json_encode([$rec('[테스트]컬러 보도블록', '200*200*60', 1, ['features' => [$pave]])], JSON_UNESCAPED_UNICODE));
 $env = 'EXT_SOURCES_FILE=' . escapeshellarg("{$tmp}/sources.json") . ' EXT_CRAWL_DIR=' . escapeshellarg($tmp);
 $run = static function (string $script, string $args = '') use ($env): array {
     exec("{$env} " . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . "/../scripts/external/{$script}") . " {$args} 2>&1", $out, $code);
@@ -86,10 +89,20 @@ try {
     ok('승인 후: material_info 는 후보 문장만(홍보·메뉴 문장 없음)', str_contains($f, $good) && !str_contains($f, '가장 우수') && !str_contains($f, '디자인그레이팅'));
     ok('두께 조건 없는 차도 설치 문장은 상담 자료에 없음', !str_contains($facts('인조화강블록 차도'), '어디에나'));
 
+    $run('approve-crawled.php', '--approve=test_appr_pave');
+    ok("'보도블록'으로만 표기한 제조사 행도 인조화강블록 질문에서 찾음(바닥 포장 블록끼리)", str_contains($facts('인조화강블록'), $pave) && str_contains($facts('보도블록'), $pave));
+
     echo "[다시 가져오기]\n";
     [$c5] = $run('import-crawled.php');
     $a2 = json_decode((string) array_column($rows(), 'attrs_json', 'name')['[테스트]스틸그레이팅 SG-1'], true);
     ok('같은 JSON 을 다시 가져와도 승인 상태·걸러 낸 문장 유지(보류 문장 안 되살아남)', $c5 === 0 && $a2['facts'] === ['features' => [$good]] && array_column($rows(), 'review_status', 'name')['[테스트]스틸그레이팅 SG-1'] === 'approved');
+    echo "[승인 되돌리기·제외 후 재승인]\n";
+    [$c6, $o6] = $run('approve-crawled.php', '--revoke=test_appr');
+    $a3 = json_decode((string) array_column($rows(), 'attrs_json', 'name')['[테스트]스틸그레이팅 SG-1'], true);
+    ok('--revoke: 검토 대기로, 걸러 낸 문장은 원래대로 합침, 상담 자료에서 빠짐', $c6 === 0 && str_contains($o6, '승인 되돌림 1행') && !array_filter($rows(), static fn($r) => $r['review_status'] !== 'pending')
+        && count($a3['facts']['features']) === 3 && !isset($a3['facts_held']) && !str_contains($facts('그레이팅 미끄럼'), '[테스트]'));
+    [$c7, $o7] = $run('approve-crawled.php', "--approve=test_appr --exclude='크로스 바'");
+    ok('--exclude 로 다시 승인: 남는 후보 문장이 없으면 승인 안 함', $c7 === 0 && str_contains($o7, '승인 0행') && !array_filter($rows(), static fn($r) => $r['review_status'] !== 'pending'));
     ok('products 건수·판매가 합계 그대로', $prodBefore === $pdo->query('SELECT COUNT(*), SUM(price_b2c) FROM products')->fetch(PDO::FETCH_NUM));
 } finally {
     $pdo->exec("DELETE m FROM external_product_matches m JOIN external_products e ON e.id = m.external_product_id WHERE e.source_key LIKE 'test_appr%'");

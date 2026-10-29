@@ -516,7 +516,9 @@ function ext_material_info(string $topic): array
     foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
         $facts = (array) ((json_decode((string) $r['attrs_json'], true) ?: [])['facts'] ?? []);   // JSON 키(permeable 등)가 아니라 이름·종류·원문 문장에서만 찾음
         $hay = str_replace('블럭', '블록', $r['name'] . ' ' . $r['product_type'] . ' ' . implode(' ', array_merge(...array_values(array_map('array_values', $facts)) ?: [[]])));
-        $score = ($type !== '' && $r['product_type'] === $type ? 5 : 0) + count(array_filter($words, static fn($w) => mb_stripos($hay, $w) !== false));
+        $paving = ['인조화강블록', '보도블록', '인터로킹블록', '보차도블록', '점토블록'];   // 바닥 포장 블록끼리는 가까운 종류(제조사가 '보도블록'으로만 표기한 행도 찾음)
+        $score = ($type !== '' && $r['product_type'] === $type ? 5 : ($type !== '' && in_array($type, $paving, true) && in_array($r['product_type'], $paving, true) ? 2 : 0))
+            + count(array_filter($words, static fn($w) => mb_stripos($hay, $w) !== false));
         if ($score > 0) { $scored[] = [$score, $r]; }
     }
     if (!$scored) { return $none; }

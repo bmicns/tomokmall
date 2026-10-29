@@ -11,6 +11,7 @@ declare(strict_types=1);
  * DB: MariaDB(XAMPP)·MySQL 8.0 모두 가능.
  * 사용: DB_HOST=127.0.0.1 DB_NAME=tomokmall_test DB_USER=root DB_PASS= php scripts/external/approve-crawled.php                (보고서만)
  *       … php scripts/external/approve-crawled.php --approve=gayasteel,toamconcrete                                         (검토 후 출처별 승인)
+ *       --revoke=출처,… : 승인 되돌리기(approved → 검토 대기, facts_held 문장을 facts 로 되돌림) — 승인 전 상담 비교·다시 검토할 때
  *       --exclude='문장 일부|문장 일부' : 승인 후보라도 검토자가 뺄 문장(이 글자가 들어간 문장은 '검토자 제외'로 보류) — 보고서·승인 모두 적용
  *       --dir= 보고서 폴더(기본 data/external/crawl) · --only=출처,… 보고서 대상
  */
@@ -26,7 +27,7 @@ require_once "{$root}/app/external_products.php";
 require_once "{$root}/app/external_api.php";
 require_once "{$root}/app/external_crawl.php";
 
-$opt = getopt('', ['dir:', 'only:', 'approve:', 'exclude:']);
+$opt = getopt('', ['dir:', 'only:', 'approve:', 'exclude:', 'revoke:']);
 $dir = rtrim((string) ($opt['dir'] ?? (getenv('EXT_CRAWL_DIR') ?: "{$root}/data/external/crawl")), '/\\');
 $reg = json_decode((string) file_get_contents(getenv('EXT_SOURCES_FILE') ?: "{$root}/data/external/sources.json"), true);
 $srcs = array_column($reg['sources'] ?? [], null, 'key');
@@ -75,6 +76,28 @@ $keys = $pdo->query("SELECT DISTINCT source_key FROM external_products ORDER BY 
 $rowsSt = $pdo->prepare('SELECT id, name, product_type, spec_raw, width_mm, length_mm, thickness_mm, diameter_mm, material, attrs_json, source_url, review_status FROM external_products WHERE source_key = ? ORDER BY id');
 
 // ── 승인(사람이 고른 출처만) ───────────────────────────────────────
+// ── 승인 되돌리기(사람이 고른 출처만) — 걸러 낸 문장을 원래대로 합쳐 검토 대기로 ─────────────
+if (isset($opt['revoke'])) {
+    $back = $pdo->prepare("UPDATE external_products SET attrs_json = ?, review_status = 'pending' WHERE id = ? AND review_status = 'approved'");
+    foreach (array_values(array_filter(array_map('trim', explode(',', (string) $opt['revoke'])))) as $k) {
+        $rowsSt->execute([$k]);
+        $n = 0;
+        $pdo->beginTransaction();
+        foreach ($rowsSt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            if ($r['review_status'] !== 'approved') { continue; }
+            $a = json_decode((string) $r['attrs_json'], true) ?: [];
+            foreach ((array) ($a['facts_held'] ?? []) as $h) {
+                if (!in_array($h['text'], $a['facts'][$h['kind']] ?? [], true)) { $a['facts'][$h['kind']][] = $h['text']; }
+            }
+            unset($a['facts_held'], $a['reviewed_at']);
+            $back->execute([json_encode($a, JSON_UNESCAPED_UNICODE), (int) $r['id']]);
+            $n += $back->rowCount();
+        }
+        $pdo->commit();
+        echo "{$k}: 승인 되돌림 {$n}행(검토 대기)\n";
+    }
+    exit(0);
+}
 if ($approve) {
     $up = $pdo->prepare("UPDATE external_products SET attrs_json = ?, review_status = 'approved' WHERE id = ? AND review_status = 'pending'");
     foreach ($approve as $k) {
@@ -144,6 +167,12 @@ foreach ($keys as $k) {
             if ($e['material'] !== '' && $p['material'] !== '' && $e['material'] !== $p['material']) { $d[] = "재질 {$e['material']}≠{$p['material']}"; }
             $em = ext_model_code($e['name']); $pm = ext_model_code($p['name']);
             if ($em !== '' && $pm !== '' && $em !== $pm) { $d[] = "모델 {$em}≠{$pm}"; }
+            foreach ([['주철', '스틸', '메탈망', 'FRP', 'PVC', 'PE', '레진'], ['1련', '2련', '3련'], ['경하중', '중하중', '안전'], ['유공', '무공', '침투']] as $grp) {   // 이름 구분어: 둘 다 있는데 다르면 다른 상품
+                $ew = array_values(array_filter($grp, static fn($w) => mb_stripos($e['name'], $w) !== false));
+                $pw = array_values(array_filter($grp, static fn($w) => mb_stripos($p['name'], $w) !== false));
+                if ($ew && $pw && $ew !== $pw) { $d[] = '이름 ' . implode('·', $ew) . '≠' . implode('·', $pw); }
+            }
+            if ((mb_stripos($e['name'], '몰드') !== false) !== (mb_stripos($p['name'], '몰드') !== false)) { $d[] = '몰드(거푸집) 여부 다름'; }
             $soft = str_contains($m['reasons'], '규격') ? [] : ['규격 표기 다름'];
             $verdict = $d ? '다른 상품 가능성' : ($soft || (int) $m['score'] < 70 ? '확인 필요' : '같은 상품 가능 — 확인 후 확정');
             if ($d) { $diffN++; }

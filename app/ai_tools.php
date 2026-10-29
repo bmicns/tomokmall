@@ -90,7 +90,7 @@ function ai_tool_definitions(): array
             'type'     => 'function',
             'function' => [
                 'name'        => 'material_info',
-                'description' => '자재 종류의 차이·특징·용도·물빠짐(투수)·주의사항을 설명할 때 쓰는 참고 자료 조회. 제조사 공개 자료 중 사람이 승인한 원문 문장만 출처와 함께 돌려준다. 판매 상품·가격이 아니므로 상품 추천·가격은 search_products 로.',
+                'description' => '자재 종류의 차이·특징·용도·물빠짐(투수)·주의사항을 설명하거나, 사용 조건(유모차·휠체어·미끄럼·오염 등)에 맞는 자재를 고를 때 쓰는 참고 자료 조회. 제조사 공개 자료 중 사람이 승인한 원문 문장만 출처와 함께 돌려준다. 판매 상품·가격이 아니므로 상품 추천·가격은 search_products 로.',
                 'parameters'  => [
                     'type'       => 'object',
                     'properties' => [
