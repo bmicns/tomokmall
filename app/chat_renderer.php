@@ -210,6 +210,7 @@ render_header('AI 자재 상담', 'chat');
     display: flex; align-items: center; justify-content: center;
     font-size: 11px; color: var(--color-text-secondary);
     flex-shrink: 0;
+    border-radius: 4px;
   }
   .msg.user .msg-avatar { background: var(--color-primary); color: #fff; }
   .msg-content { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
@@ -217,11 +218,12 @@ render_header('AI 자재 상담', 'chat');
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     padding: 10px 14px;
+    border-radius: 4px 14px 14px 14px;   /* 첫 인사 말풍선과 같은 모서리(프로필 쪽 위 모서리만 작게) */
     font-size: 15px; line-height: 1.6;
     white-space: pre-wrap; word-break: break-word;
     color: #111;
   }
-  .msg.user .msg-bubble { background: #EEEEEE; }
+  .msg.user .msg-bubble { background: #EEEEEE; border-radius: 14px 4px 14px 14px; }
 
   /* ── 비교 테이블 ──────────────────────────────────────────── */
   .compare-table { width: 100%; overflow-x: auto; }
@@ -377,7 +379,10 @@ render_header('AI 자재 상담', 'chat');
     padding: 12px 14px; font-size: 14.5px; font-family: var(--font);
     color: var(--color-text-primary); resize: none; height: 46px;
     line-height: 1.5; outline: none; transition: border-color .15s;
+    /* 한 줄 입력칸: 줄 높이가 칸 안쪽보다 커서 생기던 세로 스크롤바 숨김(Shift+Enter 여러 줄은 커서 따라 스크롤) */
+    scrollbar-width: none;
   }
+  .input-row textarea::-webkit-scrollbar { display: none; }
   .input-row textarea:focus { border-color: var(--color-primary); }
   .input-row textarea::placeholder { color: #AAAAAA; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .btn-send {
