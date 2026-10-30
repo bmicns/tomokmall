@@ -167,10 +167,57 @@
 
 ### 9-3. 복구 준비 (운영 DB 변경 — 별도 승인 대상, 실행하지 않음)
 1. 확인(읽기 전용): [`prod_estimates_check_readonly.sql`](prod_estimates_check_readonly.sql) — estimates 컬럼 구성, 월별 견적 수·마지막 저장일(저장이 멈춘 시점), 외래 키 대상 id 형식.
-2. 수정 초안: [`DRAFT_20261030_estimates_missing_columns.sql`](DRAFT_20261030_estimates_missing_columns.sql) — estimates 에 4개 컬럼 + 인덱스 추가, `reorder_alerts` 생성(추가형). **status 기본값(PENDING)은 바꾸지 않음**(직원·관리자 화면 불일치 문제, purchase-flow 3장).
+2. 수정 초안(→ 10장에서 최종 확정: `database/20261030_estimates_missing_columns.sql`, 초안 파일은 삭제) — estimates 에 4개 컬럼 + 인덱스 추가, `reorder_alerts` 생성(추가형). **status 기본값(PENDING)은 바꾸지 않음**(직원·관리자 화면 불일치 문제, purchase-flow 3장).
    - 로컬 MySQL 8.0.46(운영과 같은 견적 테이블 구조 사본): 첫 줄 안전장치로 그대로 실행하면 멈춤 → 안전장치 제거 후 성공 → 운영 코드·배포 코드 모두 견적 접수 성공(status 는 기존 기본값 REQUESTED 유지) → 되돌리기 SQL 성공. 사본 DB 는 삭제.
    - 1번 결과로 없는 컬럼이 확정되면 `database/20261030_*.sql` 로 옮겨 승인 요청(phpMyAdmin 백업 → 사용자 실행).
 
 ### 9-4. 판단
 - **코드 배포(12개): 가능.** 필수 누락 2건은 기존 코드의 문제이며 이번 배포가 새로 의존하지 않는다.
 - **견적 접수 장애는 배포와 별개로 우선 복구 권장** — 프로젝트 범위의 '견적 담기 기능 유지'에 해당. DB 수정과 코드 배포는 서로 의존하지 않아 어느 쪽을 먼저 해도 되지만, 견적 접수를 바로 살리려면 DB 수정 승인이 필요하다.
+
+## 10. 견적 복구 SQL 최종 확정 (2026-10-30, 운영 확인 결과 기준 — 실행은 승인 후)
+
+운영 확인(사용자 phpMyAdmin): `estimates` **0건**, `user_id`·`mode`·`requested_delivery_at`·`delivery_completed_at` **없음**, `status` 기본값 `REQUESTED`. `reorder_alerts` 없음(9-2).
+
+### 10-1. 파일
+| 파일 | 내용 | 성격 |
+|---|---|---|
+| [`database/20261030_estimates_missing_columns.sql`](../../../database/20261030_estimates_missing_columns.sql) | [A] estimates 컬럼 4개 + 인덱스 1개 추가 / [B] `reorder_alerts` 빈 테이블 생성 / 되돌리기 SQL(주석) | **운영 DB 변경 — 승인 필요** |
+| [`estimates_fix_check_readonly.sql`](estimates_fix_check_readonly.sql) | [사전] id 형식·엔진·견적 수 / [사후-A] 컬럼·`EXPLAIN INSERT` / [사후-B] 행 수·`EXPLAIN` 배송 내역 조회 | 읽기 전용(행 추가 없음) |
+
+초안(9-3)에서 바뀐 점: 운영 확인으로 4개 컬럼 모두 없음이 확정돼 그대로 확정, 안전장치 줄 제거 후 `database/` 로 옮김(초안 파일 삭제), 사전·사후 확인을 데이터 없이 할 수 있게 `EXPLAIN` 확인 추가.
+
+### 10-2. 최소 변경 범위
+- [A] `estimates`: `user_id`(NULL 허용), `mode`(`chat`/`quick`, 기본 `chat`), `requested_delivery_at`·`delivery_completed_at`(NULL 허용), 인덱스 `idx_estimates_user`. 현재 운영 코드의 견적 저장(INSERT)이 쓰는 컬럼이 user_id·mode·requested_delivery_at 이고, `delivery_completed_at` 은 마이페이지 배송 내역·즉시견적 재주문 화면이 조회한다. 인덱스는 '내 견적'·기업 메인 조회용(견적 0건이라 즉시 생성).
+- [B] `reorder_alerts`: 배송 내역 API 의 LEFT JOIN 오류(500) 해소용 빈 테이블. 정의는 `add_reorder.sql` 과 같다(외래 키 2개 포함). 쓰는 코드는 이 API 하나뿐이다.
+- 하지 않음: `status` ENUM·기본값(`REQUESTED` 유지), 데이터 INSERT·UPDATE·DELETE, 다른 테이블.
+- 참고: 배송 내역 API 는 `status = 'DELIVERED'` 를 조회하는데 운영 status 값에는 `DELIVERED` 가 없어, 복구 후에는 오류 없이 **빈 목록**이 된다(상태 정책 미결 — purchase-flow 3장, 이번 범위 아님).
+
+### 10-3. 적용 순서 (승인 후, 사용자가 phpMyAdmin 에서)
+| 단계 | 할 일 | 기대 결과 | 다르면 |
+|---|---|---|---|
+| 0 | phpMyAdmin → `estimates` 내보내기(구조+데이터) 파일 보관 | 파일 저장 | — |
+| 1 | `estimates_fix_check_readonly.sql` **[사전]** 실행 | `users`·`estimates` 의 id = `int unsigned`, 엔진 `InnoDB`, 견적수 0 | 중단하고 결과 전달 |
+| 2 | 복구 SQL **[A] 블록만** 실행 | 오류 없음 | 중단(ALTER 는 전부 되거나 전혀 안 됨) |
+| 3 | **[사후-A]** 실행 | 컬럼 5줄(4개 + status 기본값 REQUESTED), `EXPLAIN INSERT` 1줄, 견적수 0 | 되돌리기 [A] 검토 |
+| 4 | 복구 SQL **[B] 블록만** 실행 | 오류 없음 | 외래 키 오류면 아무것도 생기지 않음 → 결과 전달 |
+| 5 | **[사후-B]** 실행 | reorder_alerts 행수 0, `EXPLAIN` 오류 없음 | 되돌리기 [B] 검토 |
+| 6 | 사이트에서 확인(선택) | 견적 요청 1건 접수 성공(접수되면 실제 견적 1행이 생김 — 원치 않으면 생략, 1·3·5 단계로 구조 검증은 끝남) | — |
+
+- 실수로 파일 전체를 다시 실행해도 첫 문장에서 `Duplicate column name` 오류로 멈추고 아무것도 바뀌지 않는다(로컬 확인).
+- 소요: 견적 0건 → 몇 초. 사이트 중단 없음.
+
+### 10-4. 되돌리기 (승인 후 — 실행하면 견적 접수가 다시 실패)
+`DROP TABLE reorder_alerts;` → `ALTER TABLE estimates DROP INDEX idx_estimates_user, DROP COLUMN user_id, DROP COLUMN mode, DROP COLUMN requested_delivery_at, DROP COLUMN delivery_completed_at;`
+(복구 SQL 파일 끝 주석과 같음. 복구 후 접수된 견적이 있으면 그 행의 추가 컬럼 값만 사라지고 견적 행은 남는다.)
+
+### 10-5. 로컬 검증 (MySQL 8.0.46, 운영과 같은 `estimates`·`users` 구조 사본 — 실제 운영 아님)
+- 복구 전: 현재 운영 코드(`516950f`) 견적 접수 실패, `EXPLAIN INSERT` → `Unknown column 'user_id'`(운영 증상과 같음).
+- 10-3 순서대로 실행: 사전 확인(int unsigned·InnoDB·0건) → [A] 성공 → 사후-A 기대값 일치 → [B] 성공 → 사후-B 기대값 일치, 견적 행 0건 그대로(EXPLAIN 으로 행 생기지 않음).
+- 복구 후 기능: 현재 운영 코드·배포 예정 코드(main) 모두 견적 접수 성공(status `REQUESTED`), 배송 내역 API 500 → 200, '내 견적' 200, PHP 오류 0.
+- 되돌리기 SQL 성공(원래 구조로 복귀). `users.id` 가 다른 형식이면 [B] 는 외래 키 오류(3780)로 멈추고 테이블이 생기지 않음.
+- 사본 DB 2개는 검증 후 삭제.
+
+### 10-6. 이후 순서
+DB 복구(승인) → 10-3 확인 결과 전달 → AI 상담 12개 파일 FileZilla 배포(별도 승인, 5-2·9-1) → 6-3 배포 후 확인.
+DB 복구와 코드 배포는 서로 의존하지 않는다(어느 쪽을 먼저 해도 동작) — 사용자 결정대로 복구 확인 후 배포.
