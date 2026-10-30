@@ -9,7 +9,7 @@
 #   restore <스냅샷.sql.gz>         다음 세션: 스냅샷으로 복원 → [TEST] 계정 비밀번호 재설정
 #   snapshot                        현재 개발 DB를 .devdb/ 에 스냅샷(.sql.gz)으로 저장
 #   status                          컨테이너·DB·복제 기준(스냅샷 정보)·행 수
-#   verify [http://127.0.0.1:8080]  실제 데이터 기능 검증(작업별 목록·검색 자동완성). 서버가 없으면 잠시 띄운다
+#   verify [http://127.0.0.1:8080]  실제 데이터 기능 검증(작업별 목록·검색 자동완성·목록 상단 배너). 서버가 없으면 잠시 띄운다
 #
 # 금지: 운영 DB 접속(접속 경로 없음 — 입력은 사용자가 phpMyAdmin에서 내보낸 CSV/스냅샷 파일뿐),
 #       운영 데이터·비밀번호를 저장소에 남기기(.devdb/ 와 .env.local 은 Git 제외), 비밀번호 출력.
@@ -199,6 +199,7 @@ cmd_verify() {
   local rc=0
   php scripts/testdb/verify-work-list.php "$base" || rc=1
   php scripts/testdb/verify-suggest.php "$base" || rc=1
+  php scripts/testdb/verify-list-banner.php "$base" || rc=1
   # 검증 중 검색 페이지 조회가 search_logs 에 쌓이므로 비운다(운영 복제 대상 아님)
   root_sql "$DB" -e "DELETE FROM search_logs" 2>/dev/null || true
   [ -n "$pid" ] && kill "$pid" 2>/dev/null || true
