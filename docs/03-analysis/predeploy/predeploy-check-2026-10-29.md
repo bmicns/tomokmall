@@ -221,3 +221,68 @@
 ### 10-6. 이후 순서
 DB 복구(승인) → 10-3 확인 결과 전달 → AI 상담 12개 파일 FileZilla 배포(별도 승인, 5-2·9-1) → 6-3 배포 후 확인.
 DB 복구와 코드 배포는 서로 의존하지 않는다(어느 쪽을 먼저 해도 동작) — 사용자 결정대로 복구 확인 후 배포.
+
+## 11. 운영 DB 복구 결과 (2026-10-30, 사용자 승인 후 사용자가 phpMyAdmin 에서 실행)
+
+| 단계 | 결과 |
+|---|---|
+| 백업 | `estimates` 테이블 SQL 파일로 내보내기 완료 |
+| [사전] | `estimates.id`·`users.id` = int unsigned / InnoDB, 견적 0건, status 기본값 REQUESTED — 기대와 일치 |
+| [A] `estimates` 컬럼 4개 + 인덱스 | 성공 |
+| [사후-A] | user_id(int unsigned, NULL 허용), mode(enum('chat','quick'), 기본 chat), requested_delivery_at·delivery_completed_at(datetime, NULL 허용), status 기본값 REQUESTED 유지, `EXPLAIN INSERT` 오류 없음, 견적 0건 유지 |
+| [B] `reorder_alerts` 생성 | 성공 |
+| [사후-B] | 행 수 0, 배송 내역 조회 `EXPLAIN` 오류 없음 |
+
+- 결과: 견적 접수 복구(현재 운영 코드로도 접수 가능 — 로컬 같은 구조 사본에서 확인), 마이페이지 배송 내역 API 500 해소(목록은 status 정책 미결로 빈 목록).
+- 데이터 변경 없음(INSERT·UPDATE·DELETE 없음, 견적 0건 유지). status ENUM·기본값 변경 없음.
+- 실행한 SQL: `database/20261030_estimates_missing_columns.sql` 의 [A]·[B](커밋 `ba84ec5` 기준, 내용 변경 없음).
+- 되돌리기가 필요하면 같은 파일 끝 주석(승인 후). 이 복구는 코드 배포 전·후 코드 모두와 호환되므로 코드 롤백 시 DB 를 되돌릴 필요 없다.
+
+## 12. AI 상담 코드 배포 — 최종 절차 (FileZilla · 실행은 별도 승인 후)
+
+배포 커밋: `main` = `02a98c2`(작업 브랜치 `claude/hopeful-ptolemy-y6eki7` 의 12개 파일과 같음 — 이후 커밋은 문서·SQL·스크립트만). 운영 기준: `516950f`(9-1).
+
+### 12-1. 업로드 직전
+1. 로컬 저장소: `git status` 깨끗함, `git log -1` 확인(위 두 브랜치 중 하나). `app/`·`public/` 에 `.env` 없음.
+2. 서버 최신 상태 재확인: 업로드할 기존 11개를 FileZilla 로 **새 폴더**에 다시 내려받아(서버 구조 그대로 `html/…`·`app/…`) 비교 → 11개 `같음`·`external_products.php` `서버에 없음` 이어야 함(9-1 이후 누가 서버 파일을 바꿨는지 확인). 이 폴더가 롤백용 백업.
+3. FileZilla 설정: 전송 유형 **바이너리**(전송 → 전송 유형), 같은 이름 파일 '덮어쓰기'.
+4. 트래픽 적은 시간, 12개를 끊지 말고 연속 업로드(약 1~2분).
+
+### 12-2. 업로드 순서 (로컬 → 서버)
+| # | 로컬 | 서버 폴더 |
+|---|---|---|
+| 1 | `app/external_products.php` (신규) | `/app/` |
+| 2 | `app/ai_tools.php` | `/app/` |
+| 3 | `app/rag.php` | `/app/` |
+| 4 | `app/chat_renderer.php` | `/app/` |
+| 5 | `app/quick_estimate_renderer.php` | `/app/` |
+| 6 | `public/api/cart.php` | `/html/api/` |
+| 7 | `public/api/estimate/favorites.php` | `/html/api/estimate/` |
+| 8 | `public/api/estimate/quick-items.php` | `/html/api/estimate/` |
+| 9 | `public/chat.php` | `/html/` |
+| 10 | `public/estimate.php` | `/html/` |
+| 11 | `public/assets/chat-ai.js` | `/html/assets/` |
+| 12 | `public/assets/corp-home.js` | `/html/assets/` |
+
+올리지 않음: `app/config.php`, `app/external_api.php`·`external_crawl.php`·`law_api.php`, `database/`, `scripts/`, `docs/`, `/app/.env`(5-3).
+
+### 12-3. 업로드 검증 (서버 변경 없음)
+12개를 FileZilla 로 다시 새 폴더에 내려받아 `bash scripts/compare-server-files.sh <폴더> 02a98c2 <12개>` → **12개 모두 `같음`**. 하나라도 다르면 그 파일만 다시 올리고 재확인.
+
+### 12-4. 배포 후 기능 확인 (브라우저, PC + 휴대폰)
+| # | 확인 | 기대 결과 |
+|---|---|---|
+| 1 | 메인·카테고리·상품 목록·상품 상세·검색('인터로킹') | 이전과 같음, 오류 없음 |
+| 2 | AI 상담: "차가 들어오는 마당 20㎡에 인조화강블록이랑 인터로킹 블록 비교해 주세요" | 비교표(80T 제품)·권장 수량·예상 자재비 요약·'예상 최저', 응답 시간 확인(대략 1분 이내) |
+| 3 | 비교표 '견적추가' → 견적서 패널 | 담김, 수량 칸 최대 999 |
+| 4 | AI 상담: "스틸 그레이팅이랑 중하중 그레이팅 차이가 뭐예요?" | 답변 정상(운영에는 제조사 자료가 없어 '참고 자료 없음·일반 설명' 이 정상) |
+| 5 | 견적 화면에서 수량 1000 입력 후 저장 | '수량은 1~999' 안내 |
+| 6 | (선택) 견적 요청 1건 접수 | 접수 번호 표시·'내 견적 보기'(로그인 시). **실제 견적 1행이 생김** — 원치 않으면 생략 |
+| 7 | 로그인(고객): 마이페이지·내 견적·이전 상담 열기 | 오류 없음(배송 내역은 빈 목록) |
+| 8 | 기업회원: 메인·즉시견적 | 수량 최대 999, 오류 없음 |
+| 9 | 직원(`/staff/`)·관리자(`/admin.php`) | 이전과 같음(관리자 통계는 기존 결함으로 오류 — 4장) |
+| 10 | 브라우저 개발자도구 Console | 빨간 오류 없음 |
+| 11 | `bash scripts/smoke.sh`(운영 대상) | 통과 — 배포 승인 시 함께 승인 필요 |
+
+### 12-5. 문제 시 롤백 (재업로드도 승인 필요)
+12-1 의 2번 폴더 파일을 **역순(12 → 2)** 으로 다시 올리고, 다시 내려받아 `compare-server-files.sh <폴더> 516950f …` → 11개 `같음` 이면 복구 완료. `external_products.php` 는 이전 코드가 쓰지 않아 남겨도 무해. DB 는 되돌리지 않는다(11장 — 이전 코드와도 호환).
