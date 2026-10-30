@@ -163,3 +163,48 @@ cmd /c "C:\xampp\mysql\bin\mysql.exe -u tm_test -p --default-character-set=utf8m
 2. **빠른 임시**: PC에 남은 `tomokmall_test_import.sql`(10-23 기준)을 첨부 → 바로 적재. 10-23 이후 운영 변경(예: `estimates` 칸 추가, 상품 변경)은 반영되지 않으므로 기준일을 보고에 명시.
 3. **회원 데이터**: 지금은 구조만 복제·`[TEST]` 계정 사용. 회원 등급가 등 실제 회원 분포가 필요하면 개인정보를 뺀 칸(역할·등급·가입일 등)만 내보내는 `02` 추가 블록을 설계해 승인받는다.
 4. **(선택) 자동화**: 세션 시작 시 `dockerd`·MySQL 컨테이너·`.env.local`을 준비하는 스크립트(운영 데이터는 포함하지 않음).
+
+## 11. 정기 재복제·복원 — 지속 사용 개발 DB (`scripts/testdb/devdb.sh`, 2026-10-30)
+
+10월 23일 절차(01·02 → `build-schema.php` → `load-export.php` → `compare.php`)를 그대로 쓰되, **phpMyAdmin 실행 2~3회 + 명령 1개**로 줄였다.
+운영에는 SELECT만 실행하고, 운영 데이터 파일·스냅샷·비밀번호는 저장소에 두지 않는다(`.devdb/`, `.env.local` 은 Git 제외).
+
+### 11-1. 운영에서 내보낼 파일 (사용자, 닷홈 phpMyAdmin — 매번 승인)
+
+| 순서 | SQL 파일 | 결과 | 저장 이름(권장) | 내용 |
+|---|---|---|---|---|
+| ① | `10_refresh_checks.sql` | 약 21줄(blk·result) | `10_YYYYMMDD.csv` | 운영 구조(information_schema)·카테고리/상품/관계 **지문** — 스키마 생성·적재 후 대조 기준. 01 1부 + 2부(P1·P2·P3·P5)를 SELECT 하나로 합침 |
+| ② | `02_prod_export_selects.sql` | 10줄(blk·cnt·result) | `02_YYYYMMDD.csv` | 카테고리·상품(규격·판매가·기업가·재고)·관련 제품·업체(이름·지역만)·상품-업체 연결·시공사례. 매입가·마진율·공급단가 0, 업체 연락처 NULL |
+| ③ 선택 | `03_prod_export_pricing.sql` | 2줄(blk·cnt·result) | `03_YYYYMMDD.csv` | 매입가·카테고리 마진율 — **회원가(개인·기업)를 운영과 같게** 보려면 필요. 영업 정보라 사용자가 포함 여부 결정 |
+
+회원·견적·주문·상담 기록 등 개인정보 테이블은 **구조만** 복제하고 데이터는 내보내지 않는다. 로그인 확인은 `[TEST]` 계정.
+
+### 11-2. Claude 세션에서 (CSV를 첨부받은 뒤)
+
+```bash
+bash scripts/testdb/devdb.sh refresh <10.csv> <02.csv> [03.csv]   # 재구축 → 대조 → [TEST] 계정 → 스냅샷(.devdb/*.sql.gz)
+bash scripts/testdb/devdb.sh verify                                  # 실제 데이터 기능 검증(작업별 목록·검색 자동완성)
+```
+
+- `refresh` 는 ① 비식별·건수·연락처 형태 검사 → ② 운영 구조 DDL로 빈 DB 재생성 → ③ 적재(+03 매입가·마진율 반영) →
+  ④ `compare.php --sql=10_refresh_checks.sql` 로 운영 지문과 **모든 블록 일치** 확인 → ⑤ `[TEST]` 계정·스냅샷. 하나라도 다르면 멈추고 스냅샷을 만들지 않는다.
+- 상품 설명 등에 이메일·전화번호 형태 문자열이 있으면 적재를 멈춘다. 내용 확인 후 `--mask-contacts` 를 붙이면 '[비식별]'로 바꿔 적재하고, 바뀐 spec 때문에 상품 지문(C2)만 대조에서 뺀다.
+- 스냅샷(`.devdb/tomokmall_devdb_YYYYMMDD-HHMM.sql.gz`)은 Claude가 세션 파일로 전달 → 사용자가 PC에 보관(저장소·운영 서버·메일에 올리지 않음).
+
+### 11-3. 다음 세션에서 복원 (운영 접속 없음)
+
+```bash
+bash scripts/testdb/devdb.sh restore <스냅샷.sql.gz>   # 컨테이너·DB·.env.local 준비 → 복원 → [TEST] 계정 비밀번호 재설정 → 상태 출력
+bash scripts/testdb/devdb.sh status                    # 복제 기준(적재 시각·상품 수·최근 created_at·매입가 포함 여부)·행 수
+```
+
+- 사용자는 보관한 스냅샷 파일을 새 세션에 첨부만 하면 된다(약 15초 복원). 운영 데이터가 바뀌었으면 11-1부터 다시(최신성 판단은 CLAUDE.md 4-1장 3번).
+- `up` 은 데이터 없이 컨테이너·DB·`.env.local`(DB 접속값, `[TEST]` 계정 이메일·무작위 비밀번호)만 준비한다. `.env.local` 의 `DB_NAME` 이 `*_test` 가 아니면 덮어쓰지 않고 멈춘다.
+- 사용자 PC(XAMPP)에서는 9장 절차로 같은 스냅샷을 가져올 수 있다(MariaDB 는 ngram·collation 변환 필요).
+
+### 11-4. 도구 점검 (2026-10-30, 운영 데이터 없이)
+
+저장소 데이터(`schema.sql`·마이그레이션·`data/ktomok/import.sql`)로 만든 일회용 원본 DB에 10·02·03 SQL을 실행해 phpMyAdmin 형식 CSV를 만들고,
+`refresh` → 연락처 형태 102건 감지·중단 확인 → `--mask-contacts` 적재 → 대조 20/20 일치(C2 제외) → `[TEST]` 계정 → 스냅샷,
+컨테이너·`.env.local` 삭제 후 `restore` → 같은 행 수·`[TEST]` 계정 비밀번호 재설정까지 확인. CSV 읽기는 열 이름 줄 유무·세미콜론 구분자 모두 확인.
+점검 후 일회용 DB·스냅샷은 삭제했다. **운영 데이터로는 아직 실행하지 않았다.**

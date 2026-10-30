@@ -20,3 +20,6 @@ public/uploads/*
 /data/external/g2b/import-report.md
 # 제조사 공개 자료 수집(scripts/external/crawl-sources.php) 결과 — 수집본·보고서는 커밋하지 않음
 /data/external/crawl/
+
+# 운영 복제 개발 DB 스냅샷·작업 파일(scripts/testdb/devdb.sh) — 운영 데이터, 커밋 금지
+/.devdb/
