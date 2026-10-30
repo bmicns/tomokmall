@@ -145,3 +145,21 @@ cmd /c "C:\xampp\mysql\bin\mysql.exe -u tm_test -p --default-character-set=utf8m
 # 4) 기존 방식으로 서버 실행 후 http://localhost:8080 , 자동 검증(다른 창, 같은 $env 설정):
 & "C:\xampp\php\php.exe" scripts\testdb\verify-work-list.php http://localhost:8080
 ```
+
+## 10. 실제 데이터 접근 점검 (2026-10-30, 클라우드 세션)
+
+개발 원칙 변경(CLAUDE.md 0장 11번·4-1장: 실제 데이터 기반 개발)에 따라 현재 환경을 점검했다. 운영 DB·운영 서버 변경 없음.
+
+| 항목 | 결과 |
+|---|---|
+| 운영 DB 직접 접속 | **불가** — `tomokmall.dothome.co.kr:3306` TCP 연결 실패(환경은 HTTP/HTTPS 프록시만 허용), 운영 DB도 서버 내부(`127.0.0.1`) 전용, 인증정보 없음 |
+| 운영 사이트 HTTP | 가능 — 메인 200, 공개 API `by-category.php` 200 (카테고리 단위 상품 조회만, 전체 복제 용도 아님) |
+| 로컬 MySQL | 가능 — `dockerd` 수동 실행 후 `mysql:8.0`(8.0.46) 컨테이너를 `127.0.0.1:3306`에 띄워 PHP PDO 연결 확인. **빈 DB**(이 세션에는 운영 복제 데이터 없음) |
+| 저장소 안 복제 데이터 | 없음(규칙상 두지 않음). 2026-10-23 복제본은 이전 세션과 함께 소멸, PC용 `tomokmall_test_import.sql`은 사용자 PC(`C:\dev\`)에만 있을 수 있음 |
+| `.env.local` | 없음 → 사이트는 DB 미연결(데모 대체) 상태로 실행됨 |
+
+실제 데이터로 개발하려면(각각 승인 필요):
+1. **최신 복제(권장)**: 사용자가 phpMyAdmin에서 `01` 1부·2부와 `02`를 실행해 CSV를 세션에 첨부 → `build-schema.php`·`load-export.php --apply`·`compare.php`로 적재·대조. 1~6장 절차 그대로(승인 ②·③).
+2. **빠른 임시**: PC에 남은 `tomokmall_test_import.sql`(10-23 기준)을 첨부 → 바로 적재. 10-23 이후 운영 변경(예: `estimates` 칸 추가, 상품 변경)은 반영되지 않으므로 기준일을 보고에 명시.
+3. **회원 데이터**: 지금은 구조만 복제·`[TEST]` 계정 사용. 회원 등급가 등 실제 회원 분포가 필요하면 개인정보를 뺀 칸(역할·등급·가입일 등)만 내보내는 `02` 추가 블록을 설계해 승인받는다.
+4. **(선택) 자동화**: 세션 시작 시 `dockerd`·MySQL 컨테이너·`.env.local`을 준비하는 스크립트(운영 데이터는 포함하지 않음).
