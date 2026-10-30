@@ -40,7 +40,9 @@ function tdb_test_pdo(): PDO
 }
 
 /**
- * phpMyAdmin 결과 CSV(첫 줄 헤더, 열: blk, [cnt,] result) → ['blk' => ['cnt' => ?int, 'data' => JSON 디코드 값]]
+ * phpMyAdmin 결과 CSV(열: blk, [cnt,] result) → ['blk' => ['cnt' => ?int, 'data' => JSON 디코드 값]]
+ * 첫 줄 열 이름은 있어도 없어도 된다(없으면 열 2개 = blk·result, 3개 = blk·cnt·result).
+ * 구분자는 쉼표(CSV) 또는 세미콜론(CSV for MS Excel)을 첫 줄로 판별한다.
  * 소수는 문자열로 유지(JSON_BIGINT_AS_STRING + 정밀도 보존).
  */
 function tdb_read_csv(string $path): array
@@ -49,16 +51,26 @@ function tdb_read_csv(string $path): array
         tdb_stop("파일 없음: {$path}");
     }
     $fh = fopen($path, 'rb');
-    $head = fgetcsv($fh, 0, ',', '"', '');
-    if ($head && isset($head[0])) {
-        $head[0] = preg_replace('/^\xEF\xBB\xBF/', '', $head[0]);   // BOM 제거
+    $first = (string) fgets($fh);
+    $first = (string) preg_replace('/^\xEF\xBB\xBF/', '', $first);   // BOM 제거
+    $sep = substr_count($first, ';') > substr_count($first, ',') ? ';' : ',';
+    rewind($fh);
+    if (fread($fh, 3) !== "\xEF\xBB\xBF") {
+        rewind($fh);
     }
+    $head = null;
     $out = [];
-    while (($r = fgetcsv($fh, 0, ',', '"', '')) !== false) {
+    while (($r = fgetcsv($fh, 0, $sep, '"', '')) !== false) {
         if (count($r) < 2) {
             continue;
         }
-        $row  = array_combine(array_slice($head, 0, count($r)), $r);
+        if ($head === null) {
+            $head = $r[0] === 'blk' ? $r : (count($r) >= 3 ? ['blk', 'cnt', 'result'] : ['blk', 'result']);
+            if ($r[0] === 'blk') {
+                continue;
+            }
+        }
+        $row  = array_combine(array_slice($head, 0, count($r)), array_slice($r, 0, count($head)));
         $json = (string) ($row['result'] ?? '');
         $out[(string) $row['blk']] = [
             'cnt'  => isset($row['cnt']) && $row['cnt'] !== '' && $row['cnt'] !== 'NULL' ? (int) $row['cnt'] : null,
@@ -66,5 +78,8 @@ function tdb_read_csv(string $path): array
         ];
     }
     fclose($fh);
+    if (!$out) {
+        tdb_stop("CSV에서 결과를 읽지 못했습니다: {$path} — phpMyAdmin 내보내기 형식을 'CSV'로 했는지 확인하세요.");
+    }
     return $out;
 }

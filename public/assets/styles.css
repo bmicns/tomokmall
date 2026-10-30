@@ -2037,13 +2037,24 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .gh-need-name span, .gh-need-desc{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 }
 
+/* ── 상품 목록 상단 배너 (products.php — 상황별 진입·카테고리 진입 공통 틀) ─────────────── */
+/* 위치 → 제목 → 설명 + 오른쪽 사진. 사진은 글자 뒤가 아니라 글자 오른쪽에만 둔다(명도 대비) */
+.ut-banner{position:relative;overflow:hidden;display:flex;align-items:stretch;gap:28px;min-height:150px;margin-top:24px;padding:30px 40px;background:#EEF3F9;border:1px solid #E3EAF2;box-sizing:border-box}
+.ut-banner-text{flex:0 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:center}
+.ut-banner-path{font-size:12px;color:#666}
+.ut-banner-path a{color:inherit;text-decoration:none}
+.ut-banner-path a:hover{color:var(--color-primary);text-decoration:underline}
+.ut-banner-title{margin:8px 0 0;font-size:34px;font-weight:700;line-height:1.3;color:var(--color-primary);letter-spacing:-0.8px;word-break:keep-all;overflow-wrap:anywhere}
+.ut-banner-sub{margin:8px 0 0;font-size:16px;line-height:1.5;color:#333;word-break:keep-all;overflow-wrap:anywhere}
+/* 상황 현장 사진: 글자 끝난 뒤부터 배너 오른쪽 끝까지, 그라데이션은 사진 안에서만 */
+.ut-banner-photo{position:relative;flex:1 1 0;min-width:200px;max-width:58%;margin:-30px -40px -30px auto}
+.ut-banner-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;-webkit-mask-image:linear-gradient(to right,transparent 0%,#000 45%);mask-image:linear-gradient(to right,transparent 0%,#000 45%)}
+/* 품목(자재) 사진 1장: 오른쪽에 작게. 흰 바탕 이미지가 배너 색에 묻히도록 multiply */
+.ut-banner-side{flex:0 0 auto;align-self:center;width:190px;height:110px;margin-left:auto;object-fit:contain;mix-blend-mode:multiply}
+/* 배너 아래 관련 제품(동종·공정연결) 줄 */
+.pt-related-wrap.ut-related{border-left:0;border-bottom:1px solid var(--color-border);flex-wrap:wrap}
+.ut-related .pt-related-col:first-child{padding-left:0}
 /* ── 작업별 상품 목록 (products.php?category=ID&work=키) ─────────────── */
-.ut-banner{position:relative;overflow:hidden;height:150px;margin-top:24px;background:#EEF3F9;border:1px solid #E3EAF2;display:flex;align-items:center}
-.ut-banner-img{position:absolute;right:0;top:0;width:58%;height:100%;object-fit:cover;-webkit-mask-image:linear-gradient(to right,transparent 0%,#000 35%);mask-image:linear-gradient(to right,transparent 0%,#000 35%)}
-.ut-banner-img.is-product{width:30%;object-fit:contain;padding:12px;box-sizing:border-box;-webkit-mask-image:none;mask-image:none}
-.ut-banner-text{position:relative;padding:0 40px}
-.ut-banner-title{margin:0;font-size:34px;font-weight:600;color:var(--color-primary);letter-spacing:-0.8px}
-.ut-banner-sub{margin:8px 0 0;font-size:16px;color:#333}
 .pt-filter-usage{display:flex;flex-direction:column;gap:12px}
 .ut-mats{border:1px solid var(--color-border);border-radius:10px;background:#fff;padding:4px 14px 12px}
 .ut-mats-title{margin:0;padding:12px 0 10px;font-size:13px;font-weight:800}
@@ -2060,9 +2071,17 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .ut-mat{min-height:44px;padding:0;font-size:14px}
 }
 @media (max-width:640px){
-  .ut-banner{height:120px;margin-top:16px}
-  .ut-banner-img{width:100%;opacity:.35}
-  .ut-banner-text{padding:0 20px}
-  .ut-banner-title{font-size:26px}
+  .ut-banner{gap:16px;min-height:0;margin-top:16px;padding:20px}
+  .ut-banner-title{font-size:24px}
   .ut-banner-sub{font-size:14px}
+  /* 현장 사진은 글자 아래 띠로(글자와 겹치지 않게) */
+  .ut-banner.has-photo{flex-direction:column}
+  .ut-banner-photo{flex:0 0 auto;height:110px;min-width:0;max-width:none;margin:0 -20px -20px}
+  .ut-banner-photo img{-webkit-mask-image:linear-gradient(to bottom,transparent 0%,#000 45%);mask-image:linear-gradient(to bottom,transparent 0%,#000 45%)}
+  .ut-banner-side{width:64px;height:48px;align-self:flex-start}
+  .ut-related .pt-related-col{flex:1 1 100%;min-width:0;padding:16px 0}
+  .ut-related .pt-related-subcols{flex-direction:column}
+  .ut-related .pt-related-list-right{margin-left:0}
+  .ut-related .pt-related-list li{min-width:0}
+  .ut-related .pt-related-col:last-child{border-left:0;margin-left:0}
 }
