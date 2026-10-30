@@ -365,7 +365,7 @@ render_header('AI 자재 상담', 'chat');
     flex: 0 0 auto; scroll-snap-align: start;
     display: flex; align-items: center; min-height: 32px; padding: 5px 12px;
     border: 1px solid #A9C4E4; border-radius: 8px; background: #EEF4FB;
-    font-size: 13.5px; color: var(--color-primary); white-space: nowrap;
+    font-size: 13.5px; font-weight: 400; color: var(--color-primary); white-space: nowrap;
     cursor: pointer; font-family: var(--font); text-align: left;
     transition: border-color .15s, box-shadow .15s;
   }
