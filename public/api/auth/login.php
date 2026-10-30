@@ -7,6 +7,9 @@ declare(strict_types=1);
  * 인증: 불필요
  * 검증: email 형식+160자, password 1~100자, is_active=1, password_verify()
  * 보안: session_regenerate(true), last_login_at 갱신, 비밀번호 미노출
+ * 관리자: 응답 redirect='/admin.php'(role=admin) → 화면이 기업회원 메인 대신 관리자 페이지로 이동
+ *         admin_only=true(관리자 로그인 화면)면 admin 이 아닌 계정은 세션을 만들지 않고 거절
+ *         (이 거절은 HTTP 200 + ok:false — 닷홈이 4xx 응답 본문을 바꿔 문구가 사라지는 문제 회피)
  */
 
 require __DIR__ . '/../../../app/bootstrap.php';
@@ -22,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $body     = json_decode(file_get_contents('php://input'), true) ?? [];
 $email    = trim((string) ($body['email']    ?? ''));
 $password = (string) ($body['password'] ?? '');
+$adminOnly = ($body['admin_only'] ?? false) === true;
 
 // 입력 검증 (공격자에게 힌트 주지 않기 위해 동일 에러 메시지 사용)
 $authError = ['ok' => false, 'error' => '이메일 또는 비밀번호가 올바르지 않습니다.'];
@@ -61,6 +65,12 @@ if (!$user || !password_verify($password, $hash)) {
     exit;
 }
 
+// 관리자 로그인 화면: 비밀번호가 맞아도 관리자가 아니면 로그인시키지 않는다(세션·last_login_at 변경 없음)
+if ($adminOnly && $user['role'] !== 'admin') {
+    echo json_encode(['ok' => false, 'error' => '관리자 계정이 아닙니다. 일반 로그인을 이용해 주세요.'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 // 세션 고정 공격 방지: 로그인 성공 시 세션 ID 재발급
 session_regenerate_id(true);
 
@@ -77,8 +87,9 @@ $pdo->prepare('UPDATE users SET last_login_at = NOW() WHERE id = :id')
     ->execute(['id' => (int) $user['id']]);
 
 echo json_encode([
-    'ok'   => true,
-    'user' => [
+    'ok'       => true,
+    'redirect' => $user['role'] === 'admin' ? '/admin.php' : null,
+    'user'     => [
         'id'           => (int)  $user['id'],
         'name'         =>        $user['name'],
         'role'         =>        $user['role'],

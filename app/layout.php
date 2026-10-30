@@ -231,6 +231,36 @@ function render_header(string $title, string $mode = 'normal'): void
     <p class="auth-modal-err" id="m-login-err"></p>
     <button class="auth-modal-btn" id="m-login-btn" onclick="doAuthLogin()">로그인</button>
     <p class="auth-modal-switch">계정이 없으신가요? <a onclick="openAuthModal('register')">회원가입</a></p>
+    <hr class="auth-modal-divider">
+    <button type="button" class="auth-modal-admin" onclick="openAuthModal('admin')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="1.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+      관리자로 로그인하기
+    </button>
+  </div>
+</div>
+
+<!-- ── 관리자 로그인 모달 (로그인 모달에서 전환, 관리자 계정만 → /admin.php) ── -->
+<div class="auth-overlay" id="modal-admin" onclick="if(event.target===this)closeAuthModal()">
+  <div class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="m-admin-title">
+    <button class="auth-modal-close" onclick="closeAuthModal()" aria-label="닫기">×</button>
+    <div class="auth-modal-title" id="m-admin-title">관리자 로그인</div>
+    <div class="auth-modal-sub">관리자 계정으로만 로그인할 수 있습니다.</div>
+    <div class="auth-modal-field">
+      <label class="auth-modal-label" for="m-admin-email">이메일</label>
+      <input id="m-admin-email" type="email" class="auth-modal-input" placeholder="admin@example.com" autocomplete="email">
+    </div>
+    <div class="auth-modal-field">
+      <label class="auth-modal-label" for="m-admin-pw">비밀번호</label>
+      <input id="m-admin-pw" type="password" class="auth-modal-input" placeholder="비밀번호" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')doAdminLogin()">
+    </div>
+    <p class="auth-modal-err" id="m-admin-err" role="alert"></p>
+    <button class="auth-modal-btn" id="m-admin-btn" onclick="doAdminLogin()">관리자 로그인</button>
+    <hr class="auth-modal-divider">
+    <button type="button" class="auth-modal-admin" onclick="openAuthModal('login')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+      일반 로그인으로 돌아가기
+    </button>
   </div>
 </div>
 
@@ -292,13 +322,13 @@ function render_header(string $title, string $mode = 'normal'): void
 
 <script>
 function openAuthModal(type) {
-  ['login','register'].forEach(function(t){ document.getElementById('modal-'+t).classList.remove('open'); });
+  ['login','register','admin'].forEach(function(t){ document.getElementById('modal-'+t).classList.remove('open'); });
   document.getElementById('modal-'+type).classList.add('open');
   document.body.style.overflow='hidden';
-  setTimeout(function(){ var el=document.getElementById(type==='login'?'m-login-email':'m-reg-name'); if(el)el.focus(); },80);
+  setTimeout(function(){ var el=document.getElementById({login:'m-login-email',admin:'m-admin-email'}[type]||'m-reg-name'); if(el)el.focus(); },80);
 }
 function closeAuthModal() {
-  ['login','register'].forEach(function(t){ document.getElementById('modal-'+t).classList.remove('open'); });
+  ['login','register','admin'].forEach(function(t){ document.getElementById('modal-'+t).classList.remove('open'); });
   document.body.style.overflow='';
 }
 document.addEventListener('keydown',function(e){ if(e.key==='Escape')closeAuthModal(); });
@@ -326,9 +356,30 @@ async function doAuthLogin() {
   try{
     var r=await fetch('/api/auth/login.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,password:pw})});
     var d=await r.json();
-    if(d.ok){location.reload();}
+    if(d.ok){ if(d.redirect){location.href=d.redirect;} else {location.reload();} }   // 관리자 계정은 /admin.php
     else{authShowErr(err,d.error||'로그인에 실패했습니다.');btn.disabled=false;btn.textContent='로그인';}
   }catch{authShowErr(err,'네트워크 오류가 발생했습니다.');btn.disabled=false;btn.textContent='로그인';}
+}
+
+// 관리자 로그인: admin 계정만 세션 생성(서버 admin_only) → 바로 /admin.php
+async function doAdminLogin() {
+  var email=document.getElementById('m-admin-email').value.trim();
+  var pw=document.getElementById('m-admin-pw').value;
+  var err=document.getElementById('m-admin-err');
+  var btn=document.getElementById('m-admin-btn');
+  if(!email||!pw){authShowErr(err,'이메일과 비밀번호를 입력해주세요.');return;}
+  btn.disabled=true;btn.textContent='로그인 중...';err.style.display='none';
+  try{
+    var r=await fetch('/api/auth/login.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,password:pw,admin_only:true})});
+    // 닷홈은 4xx 응답 본문을 기본 오류 페이지로 바꾸므로 401(아이디·비밀번호 불일치)은 상태 코드로 판단
+    if(r.status===401){authShowErr(err,'이메일 또는 비밀번호가 올바르지 않습니다.');}
+    else{
+      var d=await r.json();
+      if(d.ok){location.href=d.redirect||'/admin.php';return;}
+      authShowErr(err,d.error||'로그인에 실패했습니다.');
+    }
+  }catch{authShowErr(err,'네트워크 오류가 발생했습니다.');}
+  btn.disabled=false;btn.textContent='관리자 로그인';
 }
 
 async function doAuthRegister() {
