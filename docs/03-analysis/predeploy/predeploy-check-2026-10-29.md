@@ -147,3 +147,30 @@
 | DB 변경 필요(다음 단계, 별도 승인) | 제조사 자재 참고 자료 운영 사용 | `20261029_external_products.sql`(테이블 2개 추가) + 승인 14행 데이터 이관 SQL(새로 작성 필요) |
 | DB 변경 필요(다음 단계, 별도 승인) | 법령 근거 표시 | `sql-drafts/01`(rag_documents 칸 추가) + `02`·`06`(근거 등록, 비활성) + 검토 후 활성화(07 은 로컬 전용) |
 | 확인 후 판단 | `categories.discount_corporate` | 1-2 SQL 결과가 '없음'이면 기업 마진이 0%로 계산되는 중 → 원인 파악 후 별도 판단 |
+
+## 9. 최종 점검 결과 (2026-10-30, 사용자 운영 확인 결과 반영)
+
+### 9-1. 운영 서버 파일 (FileZilla 백업 + `compare-server-files.sh` → `516950f`)
+같음 11 · 서버에 없음 1(`app/external_products.php`, 신규) · 다름 0 → **운영 = `516950f`**. 5-2 의 12개·순서를 그대로 확정.
+
+### 9-2. 운영 DB 구조 (`prod_schema_check_readonly.sql`)
+필수 33 있음 · **2 없음**, 선택은 예상대로(외부 자재·법령 칸 없음, `category_gallery` 있음, `home_featured` 없음). `categories.discount_corporate` 있음(기업 마진 정상).
+
+| 없음 | 쓰는 곳(운영 코드 = 이번 배포 후에도 같음) | 영향 |
+|---|---|---|
+| `estimates.user_id` | `app/estimate.php` 견적 저장(INSERT 에 user_id·mode·requested_delivery_at), `my-estimates.php`·`corp_home.php` 조회 | **견적 접수 실패**(고객 견적 요청·AI 상담 견적 요청 모두 '견적 생성 중 오류'). 조회 화면은 빈 목록(오류 처리 있음) |
+| `reorder_alerts` | `public/api/mypage/delivery-history.php` | 마이페이지 배송 내역 API 500 |
+
+- 로컬 재현: 운영 코드(`516950f`) + user_id 없는 DB → 견적 접수 `견적 생성 중 오류가 발생했습니다.`(저장 0건).
+- 원인 추정: `database/alter_estimates_v2.sql` 이 MariaDB 전용 `ADD COLUMN IF NOT EXISTS` 라 MySQL 8.0 에서 5번째 줄 문법 오류(로컬 확인) → 운영에 적용되지 않음. 같은 파일의 `mode`·`requested_delivery_at`·`delivery_completed_at` 도 없을 가능성이 높다.
+- **이번 배포와의 관계**: 12개 파일은 두 항목을 새로 쓰지 않는다(견적 저장 함수 `app/estimate.php`·배송 내역 API 는 배포 대상 아님) → 배포해도 좋아지거나 나빠지지 않음. 배포로 추가되는 '내 견적 보기' 링크는 빈 목록으로 열린다(오류 아님).
+
+### 9-3. 복구 준비 (운영 DB 변경 — 별도 승인 대상, 실행하지 않음)
+1. 확인(읽기 전용): [`prod_estimates_check_readonly.sql`](prod_estimates_check_readonly.sql) — estimates 컬럼 구성, 월별 견적 수·마지막 저장일(저장이 멈춘 시점), 외래 키 대상 id 형식.
+2. 수정 초안: [`DRAFT_20261030_estimates_missing_columns.sql`](DRAFT_20261030_estimates_missing_columns.sql) — estimates 에 4개 컬럼 + 인덱스 추가, `reorder_alerts` 생성(추가형). **status 기본값(PENDING)은 바꾸지 않음**(직원·관리자 화면 불일치 문제, purchase-flow 3장).
+   - 로컬 MySQL 8.0.46(운영과 같은 견적 테이블 구조 사본): 첫 줄 안전장치로 그대로 실행하면 멈춤 → 안전장치 제거 후 성공 → 운영 코드·배포 코드 모두 견적 접수 성공(status 는 기존 기본값 REQUESTED 유지) → 되돌리기 SQL 성공. 사본 DB 는 삭제.
+   - 1번 결과로 없는 컬럼이 확정되면 `database/20261030_*.sql` 로 옮겨 승인 요청(phpMyAdmin 백업 → 사용자 실행).
+
+### 9-4. 판단
+- **코드 배포(12개): 가능.** 필수 누락 2건은 기존 코드의 문제이며 이번 배포가 새로 의존하지 않는다.
+- **견적 접수 장애는 배포와 별개로 우선 복구 권장** — 프로젝트 범위의 '견적 담기 기능 유지'에 해당. DB 수정과 코드 배포는 서로 의존하지 않아 어느 쪽을 먼저 해도 되지만, 견적 접수를 바로 살리려면 DB 수정 승인이 필요하다.
