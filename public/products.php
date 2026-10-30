@@ -128,20 +128,6 @@ if (db()) {
     }
 }
 
-// 시공사례 갤러리 (소분류면 부모 중분류 기준으로 조회)
-$galleryImgs = [];
-if ($categoryId && db()) {
-    try {
-        $galleryCatId = $categoryId;
-        if ($category && !empty($category['parent_id']) && !in_array((int)$category['parent_id'], [11,12,13,14,15])) {
-            $galleryCatId = (int)$category['parent_id'];
-        }
-        $st = db()->prepare("SELECT image_url, caption FROM category_gallery WHERE category_id = ? ORDER BY sort_order LIMIT 3");
-        $st->execute([$galleryCatId]);
-        $galleryImgs = $st->fetchAll();
-    } catch (\Throwable $e) {}
-}
-
 $pageTitle = $category['name'] ?? $query ?: '상품 목록';
 // 작업별 목록: 카테고리 행을 못 읽었으면(DB 미연결 등) 설정의 자재명으로 제목 표시
 if ($workType && !$category) {
@@ -179,22 +165,28 @@ render_header($pageTitle);
 ?>
 <div class="content-wrap">
 
-    <!-- ── 카테고리 상단 정보 ─────────────────────────────── -->
+    <!-- ── 목록 상단 배너 (상황별·카테고리 공통 틀: 위치 → 제목 → 설명 + 오른쪽 사진) ── -->
     <?php
-    // 작업별 목록은 카테고리 정보 대신 작업 배너를 표시
+    // 작업별 목록(상황별 자재로 진입)은 상황 배너, 그 밖은 카테고리 배너. 두 경로 모두 같은 틀(.ut-banner)을 쓴다.
     $hasCatSection = !$workType && ($category || $similar || $nextSteps || $demoMode);
     $workMats = [];
     if ($workType):
         $workMats  = work_type_materials($workType, work_type_category_info(array_column($workType['materials'], 0)));
         $bannerImg = $workType['banner'] ?? $workType['img'] ?? ($workMats[0]['img'] ?? '');
-        $bannerFit = isset($workType['banner']) || ($workType['img_kind'] ?? '') === 'photo' ? '' : ' is-product';
+        // 현장 사진(banner·photo)은 글자 오른쪽을 채우고, 자재 이미지는 오른쪽에 작게
+        $bannerFull = $bannerImg !== '' && (isset($workType['banner']) || ($workType['img_kind'] ?? '') === 'photo');
     ?>
-    <section class="ut-banner">
-        <?php if ($bannerImg !== ''): ?><img class="ut-banner-img<?= $bannerFit ?>" src="<?= e($bannerImg) ?>" alt=""><?php endif; ?>
+    <section class="ut-banner<?= $bannerFull ? ' has-photo' : '' ?>" aria-label="목록 상단 배너">
         <div class="ut-banner-text">
+            <nav class="ut-banner-path" aria-label="현재 위치"><a href="/index.php">홈</a> › 상황별 자재 › <?= e($workType['name']) ?></nav>
             <h1 class="ut-banner-title"><?= e($workType['name']) ?></h1>
             <p class="ut-banner-sub"><?= e($workType['summary']) ?></p>
         </div>
+        <?php if ($bannerFull): ?>
+        <div class="ut-banner-photo"><img src="<?= e($bannerImg) ?>" alt="<?= e($workType['img_alt'] ?? '') ?>"></div>
+        <?php elseif ($bannerImg !== ''): ?>
+        <img class="ut-banner-side" src="<?= e($bannerImg) ?>" alt="<?= e($workType['img_alt'] ?? '') ?>">
+        <?php endif; ?>
     </section>
     <?php endif;
     if ($hasCatSection):
@@ -217,34 +209,39 @@ render_header($pageTitle);
                 $catDesc = $ps->fetchColumn() ?: '';
             } catch (\Throwable $e) {}
         }
+        // 위치 표시: 홈 › 상위 카테고리 경로(자기 제외). 부모 체인만 조회, 최상위 '제품' 접미사는 GNB처럼 뗀다(category_path_label).
+        $catPath = '';
+        if (!empty($category['parent_id']) && db()) {
+            try {
+                $pathRows = [];
+                $pid = (int) $category['parent_id'];
+                $ps  = db()->prepare('SELECT id, parent_id, name FROM categories WHERE id = ?');
+                for ($i = 0; $i < 6 && $pid > 0 && !isset($pathRows[$pid]); $i++) {
+                    $ps->execute([$pid]);
+                    $pr = $ps->fetch();
+                    if (!$pr) { break; }
+                    $pathRows[$pid] = $pr;
+                    $pid = $pr['parent_id'] !== null ? (int) $pr['parent_id'] : 0;
+                }
+                $catPath = category_path_label((int) $category['parent_id'], $pathRows);
+            } catch (\Throwable $e) {}
+        }
 
         $showSimilar   = $demoMode ? $demoSimilar   : $similar;
         $showNextSteps = $demoMode ? $demoNextSteps : $nextSteps;
     ?>
-    <div class="pt-top-section">
-        <?php if ($catImg): ?>
-        <img src="<?= e($catImg) ?>" alt="<?= e($catName) ?>" class="pt-cat-img">
-        <?php endif; ?>
-        <div class="pt-cat-meta">
-            <p class="pt-cat-name"><?= e($catName) ?></p>
+    <section class="ut-banner" aria-label="목록 상단 배너">
+        <div class="ut-banner-text">
+            <nav class="ut-banner-path" aria-label="현재 위치"><a href="/index.php">홈</a><?php if ($catPath !== ''): ?> › <?= e($catPath) ?><?php endif; ?></nav>
+            <h1 class="ut-banner-title"><?= e($catName) ?></h1>
             <?php if ($catDesc): ?>
-                <p class="pt-cat-desc"><?= e($catDesc) ?></p>
+                <p class="ut-banner-sub"><?= e($catDesc) ?></p>
             <?php endif; ?>
         </div>
-
-        <?php if ($galleryImgs): ?>
-        <div class="pt-gallery">
-            <p class="pt-gallery-label">시공사례</p>
-            <div class="pt-gallery-thumbs">
-                <?php foreach ($galleryImgs as $gi): ?>
-                <button class="pt-gallery-thumb" onclick="openGallery('<?= e($gi['image_url']) ?>','<?= e($gi['caption']) ?>')" type="button">
-                    <img src="<?= e($gi['image_url']) ?>" alt="<?= e($gi['caption']) ?>">
-                    <span class="pt-gallery-zoom"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-                </button>
-                <?php endforeach; ?>
-            </div>
-        </div>
+        <?php if ($catImg): ?>
+        <img class="ut-banner-side" src="<?= e($catImg) ?>" alt="<?= e($catName) ?>">
         <?php endif; ?>
+    </section>
 
         <?php if ($showSimilar || $showNextSteps):
             // 관련 제품 목록을 2개 서브컬럼(각 최대 4개)으로 렌더링하는 클로저
@@ -284,12 +281,11 @@ render_header($pageTitle);
                 <?php
             };
         ?>
-        <div class="pt-related-wrap">
+        <div class="pt-related-wrap ut-related">
             <?php if ($showSimilar):   $renderRelCols($showSimilar,   '동종(유사)제품'); endif; ?>
             <?php if ($showNextSteps): $renderRelCols($showNextSteps, '공정연결제품');   endif; ?>
         </div>
         <?php endif; ?>
-    </div>
     <?php endif; ?>
 
     <!-- ── 품목보기: 좌측 필터 + 목록 ──────────────────────── -->
@@ -536,14 +532,6 @@ render_header($pageTitle);
 
 </div>
 
-<!-- 시공사례 확대보기 모달 -->
-<div id="gallery-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)this.style.display='none'">
-    <div class="gallery-modal-inner">
-        <button class="gallery-modal-close" onclick="document.getElementById('gallery-modal').style.display='none'" type="button"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-        <img id="gallery-modal-img" src="" alt="" class="gallery-modal-img">
-        <p id="gallery-modal-cap" class="gallery-modal-cap"></p>
-    </div>
-</div>
 <?php if ($favEnabled): ?>
 <div class="pt-fav-toast" id="pt-fav-toast" role="status" aria-live="polite" hidden></div>
 <script src="/assets/product-fav.js?v=<?= is_file(__DIR__ . '/assets/product-fav.js') ? filemtime(__DIR__ . '/assets/product-fav.js') : 1 ?>" defer></script>
@@ -598,12 +586,6 @@ render_header($pageTitle);
     if (window.ResizeObserver) { new ResizeObserver(update).observe(box); }
     update();
 })();
-
-function openGallery(url, cap) {
-    document.getElementById('gallery-modal-img').src = url;
-    document.getElementById('gallery-modal-cap').textContent = cap;
-    document.getElementById('gallery-modal').style.display = 'flex';
-}
 </script>
 
 <?php render_footer(); ?>
