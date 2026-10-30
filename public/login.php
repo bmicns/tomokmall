@@ -56,6 +56,7 @@ $redirect = e($_GET['redirect'] ?? '/estimate-quick.php');
 
 <script>
 const REDIRECT = '<?= $redirect ?>';
+const HAS_REDIRECT = <?= isset($_GET['redirect']) ? 'true' : 'false' ?>;
 async function login() {
   const email    = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
@@ -70,7 +71,7 @@ async function login() {
       body: JSON.stringify({email, password})
     });
     const data = await r.json();
-    if (data.ok) { location.href = REDIRECT; }
+    if (data.ok) { location.href = (!HAS_REDIRECT && data.redirect) ? data.redirect : REDIRECT; }   // redirect 지정이 없으면 관리자는 /admin.php
     else { showErr(data.error || '로그인에 실패했습니다.'); btn.disabled = false; btn.textContent = '로그인'; }
   } catch { showErr('네트워크 오류가 발생했습니다.'); btn.disabled = false; btn.textContent = '로그인'; }
 }
