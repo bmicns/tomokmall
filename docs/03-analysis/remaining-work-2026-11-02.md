@@ -2,6 +2,7 @@
 
 > 작업 브랜치 `claude/blissful-turing-8e4xrr`(main `b81f93a` 기준). 이전 정리 [`remaining-work-2026-10-30.md`](remaining-work-2026-10-30.md) 중 A-1·A-3·A-7·A-9(일부)는 이번에 코드로 해결(운영 배포 전).
 > 사용자 PC 실행 명령: [`ai-sourcing/user-pc-runbook-2026-11-02.md`](ai-sourcing/user-pc-runbook-2026-11-02.md) · 운영 DB 반영 통합 절차: [`ai-sourcing/prod-apply/APPLY-ORDER.md`](ai-sourcing/prod-apply/APPLY-ORDER.md)(로컬 종단 리허설 `scripts/testdb/rehearse-prod-apply.sh` PASS 181·FAIL 0)
+> **4차 갱신(2026-11-02 저녁): 운영 반영 1단계 완료** — AI 상담 코드 5개·제조사 승인 자료 14행·법령 근거 20건(V21·V22 운영 비활성). 기록: [`ai-sourcing/prod-apply/DEPLOY-LOG.md`](ai-sourcing/prod-apply/DEPLOY-LOG.md). 남은 승인: main 병합, 2단계(B+D 22개)·3단계(C 14개) 배포.
 > 3차 갱신: **V21·V22 는 로컬 테스트 DB 에서만 활성(사용자 승인 2026-11-02, SQL 초안 08 — 로컬 활성 24건)**, 운영 반영 SQL 은 계속 V21·V22 제외(활성화 20건). 실제 GPT-4o 1~3차 결과·수정: [`ai-sourcing/gpt4o-results-2026-11-02.md`](ai-sourcing/gpt4o-results-2026-11-02.md).
 > 2차 갱신(같은 날): 이관 1차 결과(14행·막힘 0) 반영 — 이름 정리·도메인 별칭으로 **이관 SQL 재생성 필요(1차 지문 무효)**. A-5·A-6·주문 API 503 도 해결.
 
