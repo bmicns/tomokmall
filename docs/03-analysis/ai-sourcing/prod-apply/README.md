@@ -63,6 +63,8 @@
 후보 39건(author 'AI 조사 초안(검색 기반)')은 전부 비활성 등록만(활성화 SQL 없음). 사내 문서(80T 안내 3문구 포함)는 변경 없음.
 
 <!-- manual:start -->
+> **제조사 자료 + 법령 근거 합친 운영 적용 순서(승인·백업·사전 점검·상담 확인·되돌리기): [`APPLY-ORDER.md`](APPLY-ORDER.md)** — 로컬 리허설 `bash scripts/testdb/rehearse-prod-apply.sh`
+
 ## 최신성 재확인 — 원문 미러 (2026-11-02, `php scripts/legal-sources/mirror_recheck.php`)
 
 - GitHub `legalize-kr/legalize-kr`·`admrule-kr` HEAD(legalize-kr 최신 커밋 2026-10-30)를 내려받아 16개 문서의 공포·발령번호·시행일과 감시 조문 25개를 2026-10-27 기준 해시와 비교: **15개 문서 same, 감시 조문 전부 같음, 바뀐 근거 없음**.

@@ -4,7 +4,7 @@ declare(strict_types=1);
  * 승인된 외부 자재 자료(external_products.review_status='approved')만 운영 이관 SQL 로 내보내기 — 로컬 테스트 DB(*_test) 에서 실행
  *
  * 책임: ① 승인 행 전체를 ext_export_issues 로 다시 검증(출처 권한·도메인, 현재 규칙의 문장 재판정, 개인 연락처, 메뉴 글자, 다른 종류 제품 문장, 긴 인용, 문장 중복·섞임)
- *       ② 막힌 행이 하나라도 있으면 SQL 을 만들지 않음(--allow-skip 이면 막힌 행만 빼고 생성, 보고서에 표시)
+ *       ② 막힌 행이 하나라도 있으면 SQL 을 만들지 않음(--allow-skip 이면 막힌 행만 빼고 생성, 보고서에 표시). 중단하면 이전 실행의 20·30 도 지움
  *       ③ --expect=N 과 이관 행 수가 다르면 중단(예: 승인 14행)
  *       ④ 출력 폴더(기본 data/external/crawl/export — .gitignore)에
  *          10_create_tables.sql(database/20261029_external_products.sql 원본) · 20_insert_approved.sql(다시 실행해도 중복 없음, 한 트랜잭션)
@@ -49,6 +49,10 @@ $report = "# 승인 자료 운영 이관 검증 (" . date('Y-m-d H:i') . ", {$db
 if ($blocked) { $report .= "\n## 막힘(이관 안 함)\n\n" . implode("\n", array_map(static fn($x) => '- ' . $line($x[0]) . ' — ' . implode(' / ', $x[1]), $blocked)) . "\n"; }
 if ($warns) { $report .= "\n## 경고(이관함)\n\n" . implode("\n", array_map(static fn($x) => '- ' . $line($x[0]) . ' — ' . implode(' / ', $x[1]), $warns)) . "\n"; }
 @mkdir($out, 0777, true);
+// 이전 실행의 20·30 이 남아 있으면 막힘·기대값 불일치로 중단돼도 옛 SQL(옛 지문)을 운영에 적용할 수 있음 → 먼저 지움(성공하면 아래에서 다시 만듦)
+foreach (['20_insert_approved.sql', '30_post_check_readonly.sql'] as $stale) {
+    if (is_file("{$out}/{$stale}")) { unlink("{$out}/{$stale}"); }
+}
 if ($blocked && !isset($opt['allow-skip'])) {
     file_put_contents("{$out}/export-report.md", $report);
     fwrite(STDERR, $report . "\n");

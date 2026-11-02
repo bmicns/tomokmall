@@ -77,12 +77,15 @@ $insert->execute(['test_exp', sha1('r3'), '[테스트]스틸그레이팅 SG-9', 
 $env = 'EXT_SOURCES_FILE=' . escapeshellarg("{$tmp}/sources.json") . ' EXT_EXPORT_DIR=' . escapeshellarg("{$tmp}/out");
 $run = static function (string $args = '') use ($env): array {
     exec("{$env} " . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/../scripts/external/export-approved.php') . " {$args} 2>&1", $o, $c);
+    clearstatcache();   // 자식 프로세스가 지운 파일을 is_file 이 캐시로 '있음'이라 하지 않게
     return [$c, implode("\n", $o)];
 };
 [$c, $o] = $run('--expect=3');
 ok('정상 내보내기(3행)', $c === 0 && is_file("{$tmp}/out/20_insert_approved.sql"));
 [$c2] = $run('--expect=4');
 ok('--expect 불일치 중단', $c2 !== 0);
+ok('중단 시 이전 실행의 20·30 을 지움(옛 지문 SQL 적용 방지)', !is_file("{$tmp}/out/20_insert_approved.sql") && !is_file("{$tmp}/out/30_post_check_readonly.sql"));
+$run('--expect=3');
 $fp = preg_match('/fingerprint\s+([0-9a-f]{64})/', (string) @file_get_contents("{$tmp}/out/30_post_check_readonly.sql"), $m) ? $m[1] : '';
 ok('사후 확인 SQL 에 지문 기대값', $fp !== '');
 ok('매칭·참고가 이관 안 함', !str_contains((string) file_get_contents("{$tmp}/out/20_insert_approved.sql"), 'INSERT INTO external_product_matches') && !str_contains((string) file_get_contents("{$tmp}/out/20_insert_approved.sql"), '15000'));
@@ -114,9 +117,9 @@ $pdo->exec('DROP DATABASE tomokmall_export_test');
 
 // 막힌 행: 허락 필요 출처의 승인 행
 $insert->execute(['test_exp_hold', sha1('h1'), '[테스트]흄관', '[테스트]보류', '흄관', 'D300', null, $facts(['uses' => ['[테스트] 흄관은 하수관으로 사용합니다.']]), '본', null, 'http://h.example/p1', '테스트', '2026-10-29 06:18:00', 'approved']);
-@unlink("{$tmp}/out/20_insert_approved.sql");
+ok('막힘 실행 전: 이전 실행의 20 이 있음', is_file("{$tmp}/out/20_insert_approved.sql"));
 [$c3] = $run();
-ok('막힌 행 있으면 SQL 미생성', $c3 !== 0 && !is_file("{$tmp}/out/20_insert_approved.sql"));
+ok('막힌 행 있으면 SQL 미생성(이전 실행의 20·30 도 지움)', $c3 !== 0 && !is_file("{$tmp}/out/20_insert_approved.sql") && !is_file("{$tmp}/out/30_post_check_readonly.sql"));
 [$c4] = $run('--allow-skip --expect=3');
 ok('--allow-skip 이면 막힌 행만 빠짐', $c4 === 0 && !str_contains((string) file_get_contents("{$tmp}/out/20_insert_approved.sql"), 'test_exp_hold'));
 

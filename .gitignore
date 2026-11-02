@@ -21,5 +21,8 @@ public/uploads/*
 # 제조사 공개 자료 수집(scripts/external/crawl-sources.php) 결과 — 수집본·보고서는 커밋하지 않음
 /data/external/crawl/
 
+# 운영 법령 근거 활성화 SQL(build_prod_sql.php --reviewer … 로 검토 때마다 생성, 검토자 이름 포함) — 커밋 금지
+/docs/03-analysis/ai-sourcing/prod-apply/20_activate_ready.sql
+
 # 운영 복제 개발 DB 스냅샷·작업 파일(scripts/testdb/devdb.sh) — 운영 데이터, 커밋 금지
 /.devdb/
