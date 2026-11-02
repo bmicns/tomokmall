@@ -39,7 +39,7 @@ $ua = 'tomokmall-catalog-reader/1.0 (공개 제품 규격 확인용, robots.txt 
 function crawl_get(string $url, string $ua): array
 {
     $ch = curl_init($url);
-    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 3, CURLOPT_TIMEOUT => 20,
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 6, CURLOPT_COOKIEFILE => '',   // 쿠키 확인 후 되돌려 보내는 사이트(고려콘크리트 302 반복) — 메모리 쿠키만, 파일 저장 없음 CURLOPT_TIMEOUT => 20,
         CURLOPT_CONNECTTIMEOUT => 8, CURLOPT_USERAGENT => $ua, CURLOPT_RANGE => '0-1500000']);
     $body = curl_exec($ch);
     $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);

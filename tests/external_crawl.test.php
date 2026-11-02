@@ -108,5 +108,12 @@ ok("제목: 사이트 메뉴용 제목('주메뉴' 등)은 건너뛰고 제품 �
     && ext_is_nav_label('주메뉴 그레이팅') && ext_is_nav_label('본문 바로가기') && !ext_is_nav_label('메뉴판 블록') && !ext_is_nav_label('스틸 그레이팅'));
 ok("분류: '빠지지 않도록 제작'은 주의가 아니라 특징", ext_fact_kind('[테스트] 작은 바퀴가 빠지지 않도록 제작한 안전 그레이팅') === 'features' && ext_fact_kind('[테스트] 다짐이 부족하지 않도록 하십시오') === 'cautions');
 
+$pg = '<html><title>그린 회사</title><h1>회사 소개</h1><h3>[테스트] PE 이중벽관</h3><p>[테스트] 이중벽관은 하수 배수용으로 사용합니다. 내면이 매끄러워 흐름이 좋습니다.</p></html>';
+$pr = ext_page_records($pg, 'http://g.example/pe', '[테스트]그린');
+ok('설명 문장만 있는 제품 페이지: 제목이 회사명이어도 본문 소제목(제품명)으로 1행', count($pr) === 1 && $pr[0]['name'] === '[테스트] PE 이중벽관' && !empty($pr[0]['facts']));
+$pn = ext_normalize($pr[0] ?? [], 'test');
+ok('규격 숫자 없는 설명 행은 유지(종류·문장 있음), 문장 없으면 제외', ext_record_issue($pn) === '' && ext_record_issue(['facts' => []] + $pn) === '규격 숫자 없음');
+ok('소제목에 제품 종류가 없으면 행 없음', ext_page_records('<h1>회사 소개</h1><p>[테스트] 이 회사는 하수 배수 공사를 합니다.</p>', 'http://g.example/a', 'x') === []);
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);
