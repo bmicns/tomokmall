@@ -1,7 +1,8 @@
 # 남은 작업 (2026-11-02) — AI 상담 크롤링·법령·품질 고도화 세션 이후
 
 > 작업 브랜치 `claude/blissful-turing-8e4xrr`(main `b81f93a` 기준). 이전 정리 [`remaining-work-2026-10-30.md`](remaining-work-2026-10-30.md) 중 A-1·A-3·A-7·A-9(일부)는 이번에 코드로 해결(운영 배포 전).
-> 사용자 PC 실행 명령: [`ai-sourcing/user-pc-runbook-2026-11-02.md`](ai-sourcing/user-pc-runbook-2026-11-02.md) · 법령 운영 반영: [`ai-sourcing/prod-apply/README.md`](ai-sourcing/prod-apply/README.md)
+> 사용자 PC 실행 명령: [`ai-sourcing/user-pc-runbook-2026-11-02.md`](ai-sourcing/user-pc-runbook-2026-11-02.md) · 운영 DB 반영 통합 절차: [`ai-sourcing/prod-apply/APPLY-ORDER.md`](ai-sourcing/prod-apply/APPLY-ORDER.md)(로컬 종단 리허설 `scripts/testdb/rehearse-prod-apply.sh` PASS 181·FAIL 0)
+> 2차 갱신(같은 날): 이관 1차 결과(14행·막힘 0) 반영 — 이름 정리·도메인 별칭으로 **이관 SQL 재생성 필요(1차 지문 무효)**. A-5·A-6·주문 API 503 도 해결.
 
 ## 승인이 필요한 작업 (순서)
 
@@ -25,5 +26,4 @@
 1. GPT-4o 결과 반영 튜닝(근거 구분·전체 흐름·벤치플룸관)과 V21·V22 로컬 활성 판단
 2. 승인 자료 확대: 재수집분 검토·승인 → 이관 SQL 재생성(같은 도구)
 3. 제조사 이용 허락(카탈로그) 확보 — 토암·88con·경북산업·동아산업(dacity, 벤치플륨관 취급)·부흥콘크리트(벤치플륨관 3종, 도메인 미확인)
-4. 견적 페이지 모바일 360px 가로 스크롤(A-5), 견적서 패널 수량칸 폭(A-6), 주문 API DB 미연결 시 빈 500(`public/api/order.php`)
 5. 후순위 유지: 회원 가격 정책(B-3), 견적 상태 정책(A-2)
