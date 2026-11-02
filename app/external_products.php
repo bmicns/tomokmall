@@ -523,16 +523,40 @@ function ext_fact_subject(string $t, string $fallback): string
 }
 
 /**
+ * 주제의 사용 조건 낱말 → 그 조건을 직접 말하는 표현 목록 (순수 함수). 조건이 없으면 [].
+ * 예: '그레이팅 미끄럼' → ['미끄럼','미끄러'], '인도 덮개 유모차 휠체어' → ['유모차','휠체어','바퀴']
+ */
+function ext_condition_words(string $topic): array
+{
+    $map = [
+        '미끄' => ['미끄럼', '미끄러'], '유모차' => ['유모차', '휠체어', '바퀴'], '휠체어' => ['유모차', '휠체어', '바퀴'], '바퀴' => ['유모차', '휠체어', '바퀴'],
+        '오염' => ['오염', 'Self-Cleaning', '친수'], '물빠짐' => ['투수', '물빠짐', '빗물', '배수'], '투수' => ['투수', '물빠짐', '빗물'],
+        '소음' => ['소음', '덜컹'], '막힘' => ['막힘', '오물', '낙엽', '꽁초'], '부식' => ['부식', '녹', '도금', '아연'],
+    ];
+    $out = [];
+    foreach ($map as $k => $ws) {
+        if (mb_stripos($topic, $k) !== false) { $out = array_merge($out, $ws); }
+    }
+    return array_values(array_unique($out));
+}
+
+/**
  * 상담용 자재 참고 자료 — 사람이 승인한(review_status='approved') 외부 자료의 원문 문장만, 출처와 함께.
  * 주제(예: '인터로킹 블록', '투수블록')의 종류·단어로 찾아 종류별(용도·특징·주의·인증·강도) 최대 3문장. 가격·판매 여부는 넣지 않는다.
  * 테이블이 없거나 승인 자료가 없으면 빈 목록(상담은 기존처럼 일반 설명만).
  */
 function ext_material_info(string $topic): array
 {
-    $none = ['topic' => $topic, 'facts' => [], 'sources' => [], 'note' => '승인된 제조사 참고 자료가 없습니다. 답 첫머리에 제조사 자료가 없다고 밝히세요. basics 가 있으면 그 사실(국가표준 번호·이름, 토목몰 등록 상품 이름·규격·중량·단위)로 설명하고, basics 에 없는 구조·관경·용도·성능은 지어내지 마세요(확실한 일반 상식도 수치 없이 짧게만, 일반 설명이라고 밝힘). 정확한 사양은 제조사 자료 확인이 필요하다고 안내하세요. 상품·가격은 search_products 결과(토목몰)로만 안내하고, 답에 도구 이름은 쓰지 마세요.'];
+    $none = ['topic' => $topic, 'facts' => [], 'sources' => [], 'note' => '승인된 제조사 참고 자료가 없습니다. 답 첫머리에 제조사 자료가 없다고 밝히세요. basics 가 있으면 그 사실(국가표준 번호·이름, 토목몰 등록 상품 이름·규격·중량·단위)로만 설명하세요. '
+        . 'basics 에 없는 구조·관경·용도·설치 장소·장단점·제품끼리의 차이는 일반 상식으로도 채우지 마세요(예: \'하천·농업용 배수에 쓴다\', \'청소가 쉽다\' 같은 설명 금지). '
+        . '그 대신 정확한 용도·차이는 제조사 자료 확인이 필요하다고 안내하고, 등록 규격으로 상품을 찾아 드릴 수 있다고 하세요. 상품·가격은 search_products 결과(토목몰)로만 안내하고, 답에 도구 이름은 쓰지 마세요.'];
     if (trim($topic) === '' || !ext_tables_ready()) { return $none; }
-    $type = ext_product_type($topic);
-    $words = array_values(array_filter(preg_split('/[\s,·]+/u', (string) preg_replace('/블럭/u', '블록', $topic)) ?: [], static fn($w) => mb_strlen($w) >= 2 && !preg_match('/^(차이|종류|어떤|무엇|추천|좋은|제품|자재)$/u', $w)));
+    $topicN = str_replace(['플룸', '플럼', '블럭'], ['플륨', '플륨', '블록'], $topic);   // '벤치플룸관' 이 수로관 종류로 안 잡혀 다른 종류(그레이팅) 문장이 섞이던 문제(실제 GPT-4o 2026-11-02 8번)
+    $type = ext_product_type($topicN);
+    // 질문 일반어('규격'·'사용'·'용도' 등)는 찾는 낱말에서 뺀다 — '벤치플룸관 규격' 의 '규격' 이 그레이팅 문장과 겹쳐 섞이던 문제
+    $words = array_values(array_filter(preg_split('/[\s,·]+/u', $topicN) ?: [], static fn($w) => mb_strlen($w) >= 2
+        && !preg_match('/^(차이|종류|어떤|무엇|추천|좋은|제품|자재|규격|크기|사용|용도|설명|특징|시공|가격|장점|단점|방법|일반|관련|정보)$/u', $w)));
+    $conds = ext_condition_words($topicN);   // 사용 조건 낱말(미끄럼·유모차·오염 등) — 있으면 그 조건을 직접 말하는 문장만
     $st = db()->query("SELECT id, name, maker, product_type, attrs_json, source_url, source_key, fetched_at FROM external_products WHERE review_status = 'approved' AND attrs_json LIKE '%\"facts\"%' LIMIT 2000");
     $scored = [];
     foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
@@ -560,6 +584,10 @@ function ext_material_info(string $topic): array
         }
     }
     usort($cand, static fn($x, $y) => [$y[0], $y[1], $x[2]] <=> [$x[0], $x[1], $y[2]]);
+    if ($conds) {   // 조건 질문: 그 조건을 직접 말하는 문장만(실제 GPT-4o 3번 — 크로스 바 '지지' 문장을 미끄럼 방지 설명으로 바꿔 말함)
+        $rel = array_values(array_filter($cand, static fn($c) => (bool) array_filter($conds, static fn($w) => mb_stripos($c[5], $w) !== false)));
+        if ($rel) { $cand = $rel; }
+    }
     $facts = $seen = $sources = [];
     $per = [];
     foreach ($cand as [, , , $k, $label, $t, $r, $a]) {

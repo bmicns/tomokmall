@@ -134,13 +134,24 @@ function tool_material_info(array $input): string
         $info['_sse'] = [['type' => 'material_sources', 'sources' => $info['sources']]];
     }
     unset($info['sources']);
+    if ($info['facts']) {   // 제품별로 묶어 준다 — 한 목록에 섞여 오면 GPT 가 다른 제품 문장을 옮겨 말함(실제 GPT-4o 1번: 안전 중하중의 '작은 바퀴'를 중하중에)
+        $by = [];
+        foreach ($info['facts'] as $f) {
+            $k = $f['about'] . '|' . $f['maker'];
+            $by[$k] ??= ['product' => $f['about'], 'maker' => $f['maker'], 'statements' => []];
+            $by[$k]['statements'][] = '[' . $f['kind'] . '] ' . $f['text'];
+        }
+        $info['by_product'] = array_values($by);
+        $info['note'] .= ' by_product 는 같은 문장을 제품별로 묶은 것이다. 답할 때도 제품별로 나눠 쓰고, 고객이 묻지 않은 제품(예: 안전 중하중 그레이팅)의 문장은 그 제품 이름을 밝혀 따로 한 줄로만 쓴다.';
+    }
     // 확인된 기본 정보(국가표준 번호·이름, 토목몰 등록 규격) — 제조사 자료가 없을 때 일반 지식으로 사양을 지어내지 않게 실제 근거를 준다
     $basics = ai_material_basics($topic);
     if ($basics['standards'] || $basics['products']) {
         $info['basics'] = $basics;
-        $info['basics_note'] = 'basics 는 확인된 사실만 담았다: standards = 국가표준 목록에서 확인한 표준 번호·이름(요구 수치·조항은 미확인 — 수치를 말하지 않음, \'이 표준 대상 제품 종류\'로만), '
-            . 'products = 토목몰에 등록된 상품 이름과 규격 표기 그대로. 제품 설명은 이 둘에서 바로 읽히는 것(종류 이름·등록 규격 범위·중량·판매 단위)만 말하고, '
-            . '규격 숫자 순서(폭·높이·길이)를 추측해 풀어 쓰거나 구조(개거·폐쇄형 등)·성능·용도를 이름에 없는데 덧붙이지 않는다. 출처는 \'국가표준 목록\'·\'토목몰 등록 상품\'으로 밝힌다.';
+        $info['basics_note'] = 'basics 는 확인된 사실만 담았다: standards = 국가표준 목록에서 확인한 표준 번호·이름(요구 수치·조항은 미확인 — 수치를 말하지 않음), '
+            . 'products = 토목몰에 등록된 상품 이름과 규격 표기 그대로. 제품 설명은 이 둘에서 바로 읽히는 것(종류 이름·등록 규격·중량·판매 단위)만 말한다. '
+            . '국가표준은 \'KS F 4010(철근 콘크리트 플룸 및 벤치 플룸) 표준의 대상 종류\'처럼만 말하고 \'이 표준에 따라 제조된다\'·\'이 번호 제품을 고르면 된다\'고 단정하지 않는다(개별 상품의 KS 인증 여부는 상품 표기·제조사 자료로 확인). '
+            . '규격은 표기 그대로(예: 200*150*2000*35T) 쓰고 각 숫자가 폭·높이·길이 중 무엇인지, 단위(cm·mm)를 풀어 쓰지 않는다. 구조(개거·폐쇄형 등)·성능·용도는 이름에 없으면 덧붙이지 않는다. 출처는 \'국가표준 목록\'·\'토목몰 등록 상품\'으로 밝힌다.';
     }
     return json_encode($info, JSON_UNESCAPED_UNICODE);
 }

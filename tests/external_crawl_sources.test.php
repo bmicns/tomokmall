@@ -106,7 +106,9 @@ try {
     $before = json_decode(tool_material_info(['topic' => '인조화강블록']), true);
     ok('승인 전: material_info 에 이 자료 없음', !str_contains(json_encode($before, JSON_UNESCAPED_UNICODE), '[테스트]'));
     exec("{$env} " . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/../scripts/external/approve-crawled.php') . ' --approve=test_site_a 2>&1', $o2, $c2);   // 제조사 수집분은 문장 단위 검토 후 승인
-    $info = json_decode(tool_material_info(['topic' => '물이 잘 빠지는 투수 블록']), true);
+    $info = json_decode(tool_material_info(['topic' => '인조화강블록']), true);
+    $perm = array_column(json_decode(tool_material_info(['topic' => '물이 잘 빠지는 투수 블록']), true)['facts'] ?? [], 'text');
+    ok("조건 질문(투수·물빠짐)은 그 조건을 말하는 문장만 — 인증·주의 문장은 빠짐", $perm !== [] && !array_filter($perm, static fn($x) => !preg_match('/투수|물빠짐|빗물/u', $x)));
     $kinds = array_unique(array_column($info['facts'] ?? [], 'kind'));
     ok('승인 후: 원문 문장(특징·용도·주의·인증)과 출처 URL', $c2 === 0 && in_array('특징', $kinds, true) && in_array('주의', $kinds, true) && in_array('인증', $kinds, true)
         && str_contains(json_encode($info, JSON_UNESCAPED_UNICODE), '빗물이 블록 사이로 스며들어') && str_contains((string) ($info['facts'][0]['source_url'] ?? ''), '127.0.0.1'));
