@@ -160,10 +160,13 @@ if (isset($opt['material'])) {
             !$srcs && (bool) preg_match('/제조사\s*자료에\s*따르면/u', $text) => "실패(참고 자료가 없는데 '제조사 자료에 따르면' 표현)",
             (bool) $badTon => '실패(자료에 없는 하중 수치: ' . implode(', ', $badTon) . ')',
             (bool) $badKs => '실패(자료에 없는 KS 번호: KS F ' . implode(', ', $badKs) . ')',
+            !$srcs && (bool) preg_match('/폐쇄형|밀폐형/u', $flat) && !str_contains($used, '폐쇄') => '실패(자료에 없는 구조 설명: 폐쇄형)',
+            (bool) preg_match('/KS\s*[A-Z]\s*-?\s*\d{4}[^.\n]{0,25}(에\s*따라|에\s*맞게|기준으로)\s*(제조|생산|만들)|(번호|표준|규격)에\s*맞는\s*제품을\s*(선택|고르)|선택하는\s*것이\s*바람직/u', $flat, $km) => '실패(국가표준·KS 를 적합 단정 또는 선택 기준으로 권함: ' . $km[0] . ')',
+            (bool) preg_match('/(폭|높이|길이|두께)\s*\((cm|mm|m)\)/u', $flat) => '실패(등록 규격 숫자를 폭·높이·단위로 풀어 씀 — 표기 그대로 써야 함)',
             $needMat && $avail && !$srcs => '확인 필요(승인 자료가 있는데 material_info 미사용)',
             $srcs && !$cited => '확인 필요(제조사 자료 출처 표시 없음)',
-            !$srcs && (bool) preg_match('/폐쇄형|밀폐형/u', $flat) && !str_contains($used, '폐쇄') => '실패(자료에 없는 구조 설명: 폐쇄형)',
             $askedMat && !$srcs && !preg_match('/일반적인\s*(설명|특징|내용|정보|차이)|일반\s*설명|자료(가|는)?\s*없|확보되지|확인되지/u', $text) => '확인 필요(참고 자료가 없는데 일반 설명이라고 밝히지 않음)',
+            !$srcs && $askedMat && ($inv = array_values(array_filter(['하천', '호수', '농업', '농경지', '농수로', '지하차도', '운동장', '퇴적물', '청소가'], static fn($w) => str_contains($flat, $w) && !str_contains($used . ' ' . implode(' ', $basicNames), $w)))) => '확인 필요(제조사 자료가 없는데 자료에 없는 용도·장점 설명: ' . implode(', ', $inv) . ')',
             (bool) preg_match('/직접\s*검색|검색해\s*(보셔야|보세요|보시기)/u', $text) => '확인 필요(고객에게 추가 검색을 하라고 함)',
             $askedMat && !$srcs && $basicNames && !$usedBasics => '확인 필요(제조사 자료가 없는데 확인된 기본 정보(국가표준·등록 규격)를 쓰지 않음)',
             $core !== null && $srcs && !preg_match($core, $text) => '확인 필요(승인 자료의 핵심 문장 미사용)',
@@ -189,7 +192,7 @@ if (isset($opt['with-public-road'])) {
 }
 
 // [기대 장소 판정, 대화(고객 발화), 답변에서 확인할 점]
-// --core: 핵심 3개 + 면적 답변 턴(상품 검색 유도) — [기대, 대화, 확인할 점, 추천 상품 기대 두께(mm)]
+// --core: 핵심 4개(3 + 초보 고객 전체 흐름) + 면적 답변 턴(상품 검색 유도) — [기대, 대화, 확인할 점, 추천 상품 기대 두께(mm)]
 $core = [
     ['public_road', ['시청에서 발주한 도로 공사인데 차도에 블록 깔려면 두께 몇 mm 써야 해요?', '차도 면적은 50㎡ 정도예요. 인터로킹 블록으로 찾아 주세요'], '100mm 이상 안내 + KDS/KCS 44 50 25 출처, 80T 비권장, 100mm 제품만(없으면 적합 상품 없음 안내 — 80T·60T 대체 추천 금지, 설계도서 확인·별도 견적)', 100],
     ['public_sidewalk', ['가게 앞 인도를 차가 가로질러 들어오는데 인도 블록 두께는요?', '승용차만 들어오고 면적은 30㎡예요'], '보도 지침 구분 Ⅱ(4t 이하) 80mm 이상 + 출처, 80T 제품', 80],
@@ -216,7 +219,7 @@ if (isset($opt['only'])) {
     $scenarios = array_values(array_filter($scenarios, static fn($sc) => in_array($sc[0], $only, true)));
 }
 $productCheck = $searchOk;   // false 면 상품 추천 점검은 '판정 불가'
-$md = "# 실제 LLM 상담 시나리오 결과 (" . (isset($opt['core']) ? '핵심 3개, ' : '') . date('Y-m-d H:i') . ", 모델 " . ($config['openai']['model'] ?? '') . ", V21·V22 " . ($restore ? '실행 중 활성' : '현재 상태') . ")\n\n"
+$md = "# 실제 LLM 상담 시나리오 결과 (" . (isset($opt['core']) ? '핵심 ' . count($core) . '개, ' : '') . date('Y-m-d H:i') . ", 모델 " . ($config['openai']['model'] ?? '') . ", V21·V22 " . ($restore ? '실행 중 활성' : '현재 상태') . ")\n\n"
     . "- 연결: {$info['v']} · DB {$info['d']} · 검증 조문 {$clauses}건(활성 {$active})\n"
     . "- 상품 검색 환경: " . ($searchOk ? "운영과 같음('인터로킹 블록' 80T " . count($probe['products']) . '건)' : "운영과 다름('인터로킹 블록' 80T 0건 — 상품 추천 점검 판정 불가)") . "\n\n";
 $tally = ['통과' => 0, '확인 필요' => 0, '실패' => 0];   // '판정 불가'는 확인 필요로 센다
@@ -273,6 +276,7 @@ try {
             foreach (array_reverse($log) as $t) { if ($t['cards'] || $t['unavailable']) { $cards = $t['cards']; $unavailable = $t['unavailable']; break; } }
         }
         $cartOk = !$wantCart || in_array('add_to_cart', $last['tools'] ?? [], true);
+        $tableBeforeCart = !$wantCart || (bool) array_filter(array_slice($log, 0, -1), static fn($t) => $t['cards'] !== []);   // 담기 전에 고객이 비교표를 봤는지(2026-11-02 실제: 2턴째 종류만 되물음)
         $costShown = (bool) array_filter($cards, static fn($c) => ($c['suggested_qty'] ?? null) !== null);
         $wrongCards = $wantMm === null ? [] : array_values(array_filter($cards, static fn($c) => ai_block_thickness((string) ($c['spec'] ?? '')) !== $wantMm));
         $wantExists = $wantMm !== null && ai_paving_names_with_thickness($wantMm) !== [];   // 그 두께로 등록된 포장 블록이 있는지(DB 종류 무관)
@@ -295,6 +299,8 @@ try {
             $auto = '실패(공공도로 출처 인용)';
         } elseif ($wantCart && !$cartOk) {
             $auto = '실패(마지막 턴에서 견적 담기(add_to_cart)를 하지 않음)';
+        } elseif ($wantCart && !$tableBeforeCart) {
+            $auto = '확인 필요(면적까지 받은 턴에 비교표 없이 되물음 — 고객이 표를 보기 전에 담김)';
         } elseif ($wantCart && !$costShown) {
             $auto = '확인 필요(비교표에 면적 기준 필요 수량이 없음)';
         } elseif ($wantCart && preg_match('/법(적|정)\s*(의무|기준)[^.\n]{0,20}80|80[^.\n]{0,20}법(적|정)/u', $allText)) {
