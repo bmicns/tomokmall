@@ -20,6 +20,8 @@ declare(strict_types=1);
  *        2026-10-29 의도적 변경 반영(9, 실제 GPT-4o 재시험): 같은 줄에 원문 밖 수치('n톤 이상') 금지, KS·표준 번호는 [참조 문서]·material_info 원문만.
  *        2026-10-29 의도적 변경 반영(10, 실제 GPT-4o 재시험 2): material_info 호출 대상에 KS(인증) 질문 추가, 원문 제품명을 넓은 종류로 바꿔 말하기 금지.
  *        2026-10-29 의도적 변경 반영(11, 실제 GPT-4o 재시험 3): 출처 표현 예시 '○○(제조사)'를 maker 이름 그대로 쓰는 예로 바꿈('○○가야스틸'처럼 자리표시가 답에 나옴).
+ *        2026-11-02 의도적 변경 반영(12): '근거 구분' 구역 5줄 추가 — 공식 기준([L번호])·제조사 자료·국가표준/등록 규격(basics)·저희 권장 기준을 섞지 않고, 시공 조건 질문은 조건 정리 → 근거별 설명 → 비교표로.
+ *        비교는 [L번호] 숫자를 빼고 한다(근거 문서 ID 가 DB 마다 달라 생기던 8건 차이 해소).
  * 데이터: SQL 초안 01·02·06·07 을 적용한 테스트 DB(검증 조문 27건·활성 22건). 다르면 SKIP(기준값은 그 데이터 기준).
  * 프롬프트를 의도적으로 바꿨다면: php scripts/testdb/dump-prompts.php --out=… 로 확인 후 기준값을 갱신한다.
  * 실행: DB_HOST=127.0.0.1 DB_NAME=tomokmall_test DB_USER=… DB_PASS=… php tests/rag_prompt.test.php
@@ -73,7 +75,8 @@ echo "[분리 전후 동일성 — 기준값과 글자 단위 비교]\n";
 foreach ($prompts as $state => $byKey) {
     foreach ($byKey as $key => $p) {
         $g = (string) @file_get_contents("{$golden}/{$key}_{$state}.txt");
-        ok("{$key} ({$state}) 시스템 프롬프트 = 분리 전", $g !== '' && $p['system'] === $g);
+        $norm = static fn(string $x): string => (string) preg_replace('/\[L\d+\]/', '[L#]', $x);   // 근거 문서 ID 는 DB 마다 다름 — 번호만 빼고 비교
+        ok("{$key} ({$state}) 시스템 프롬프트 = 분리 전", $g !== '' && $norm($p['system']) === $norm($g));
     }
 }
 ok('rag_process 가 rag_build_prompt 결과를 그대로 사용', (bool) preg_match('/\$prompt\s*=\s*rag_build_prompt\(\$messages\);\s*\$system\s*=\s*\$prompt\[\'system\'\];/', (string) file_get_contents(__DIR__ . '/../app/rag.php')));

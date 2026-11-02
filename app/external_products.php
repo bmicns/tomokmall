@@ -516,7 +516,7 @@ function ext_fact_subject(string $t, string $fallback): string
  */
 function ext_material_info(string $topic): array
 {
-    $none = ['topic' => $topic, 'facts' => [], 'sources' => [], 'note' => '승인된 참고 자료가 없습니다. 답 첫머리에 제조사 참고 자료가 없어 일반적인 설명이라고 밝히고, 수치 없이 확실한 일반 설명만 하세요. 확실하지 않은 제품의 구조·관경·용도는 지어내지 말고 정확한 사양은 제조사 자료 확인이 필요하다고 안내하세요. 상품·가격은 search_products 결과(토목몰)로만 안내하고, 답에 도구 이름은 쓰지 마세요.'];
+    $none = ['topic' => $topic, 'facts' => [], 'sources' => [], 'note' => '승인된 제조사 참고 자료가 없습니다. 답 첫머리에 제조사 자료가 없다고 밝히세요. basics 가 있으면 그 사실(국가표준 번호·이름, 토목몰 등록 상품 이름·규격·중량·단위)로 설명하고, basics 에 없는 구조·관경·용도·성능은 지어내지 마세요(확실한 일반 상식도 수치 없이 짧게만, 일반 설명이라고 밝힘). 정확한 사양은 제조사 자료 확인이 필요하다고 안내하세요. 상품·가격은 search_products 결과(토목몰)로만 안내하고, 답에 도구 이름은 쓰지 마세요.'];
     if (trim($topic) === '' || !ext_tables_ready()) { return $none; }
     $type = ext_product_type($topic);
     $words = array_values(array_filter(preg_split('/[\s,·]+/u', (string) preg_replace('/블럭/u', '블록', $topic)) ?: [], static fn($w) => mb_strlen($w) >= 2 && !preg_match('/^(차이|종류|어떤|무엇|추천|좋은|제품|자재)$/u', $w)));

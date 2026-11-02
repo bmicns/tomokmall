@@ -106,6 +106,7 @@ if (isset($opt['material'])) {
         ['흄관', '흄관은 무슨 KS 규격 제품을 쓰면 돼요?', 'KS F 4403 은 제조사 제품 표기로 전달, B형 등 한 제조사 표기를 선택 기준으로 단정하지 않음, 자료에 없는 KS 번호 금지', null, '/B형[^.\n]{0,40}(사용하면|쓰면)\s*됩니다|KS\s*F\s*4403[^.\n]{0,30}(사용하는\s*것이\s*적합|(사용하|쓰|사용하시|쓰시)면\s*됩니다)/u', true, null],
         ['보도블록 오염', '보도블록 중에 오염이 덜 타는 제품도 있어요?', '제조사 설명(오염 방지 등)을 제조사 주장으로 전달 + 출처, 자료 없는 특성 추측 없음', null, null, true, null],
         ['인조화강블록', '차가 들어오는 집 마당에 인조화강블록 깔아도 되나요?', "차량이면 80mm(80T) 이상 유지, '어디에나 설치 가능' 같은 보류 문장 미사용(두께 질문이라 제조사 자료는 없어도 됨)", '/80\s*(mm|T|㎜)|8\s*cm/u', null, false, null],
+        ['벤치플룸관 U형 수로관', '벤치플룸관이 뭐예요? 어떤 규격이 있어요?', '제조사 자료 없음을 밝히고 국가표준 번호·이름(KS F 4010)·토목몰 등록 규격으로만 설명, 구조(폐쇄형 등)·용도 추측 없음', null, null, false, null],
     ];
     $banned = '/어디에나|가장 우수|중국산|보석같이/u';   // 승인에서 보류한 홍보·기준 충돌 문장
     $approved = $n("SELECT COUNT(*) FROM external_products WHERE review_status = 'approved'");
@@ -128,9 +129,16 @@ if (isset($opt['material'])) {
             if (($e['type'] ?? '') === 'legal_sources') { foreach ($e['sources'] as $x) { $legal[] = $x['name'] . ' ' . $x['ref']; } }
         }
         $calls = array_map(static fn($t) => $t['name'] . '(' . json_encode($t['input'], JSON_UNESCAPED_UNICODE) . ')', $res['tools'] ?? []);
+        $basicNames = [];   // material_info 가 돌려준 확인된 기본 정보(국가표준 번호, 토목몰 등록 상품 이름)
         foreach ($res['tools'] ?? [] as $t) {
-            if ($t['name'] === 'material_info') { $used .= ' ' . implode(' ', array_column(ext_material_info((string) ($t['input']['topic'] ?? ''))['facts'], 'text')); }
+            if ($t['name'] !== 'material_info') { continue; }
+            $tp = (string) ($t['input']['topic'] ?? '');
+            $used .= ' ' . implode(' ', array_column(ext_material_info($tp)['facts'], 'text'));
+            $b = ai_material_basics($tp);
+            $used .= ' ' . implode(' ', array_column($b['standards'], 'ref'));
+            $basicNames = array_merge($basicNames, array_column($b['standards'], 'ref'), array_column($b['products'], 'name'));
         }
+        $usedBasics = (bool) array_filter($basicNames, static fn($x) => $x !== '' && (str_contains($text, $x) || str_contains(str_replace(' ', '', $text), str_replace(' ', '', $x))));
         $used .= ' ' . implode(' ', $legal);
         $flat = str_replace(['*', '#'], '', $text);   // 굵게·제목 표시 제거 후 표현 점검
         $plain = (string) preg_replace('/\(주\)|㈜|주식회사|\s/u', '', $text);
@@ -153,8 +161,10 @@ if (isset($opt['material'])) {
             (bool) $badKs => '실패(자료에 없는 KS 번호: KS F ' . implode(', ', $badKs) . ')',
             $needMat && $avail && !$srcs => '확인 필요(승인 자료가 있는데 material_info 미사용)',
             $srcs && !$cited => '확인 필요(제조사 자료 출처 표시 없음)',
+            !$srcs && (bool) preg_match('/폐쇄형|밀폐형/u', $flat) && !str_contains($used, '폐쇄') => '실패(자료에 없는 구조 설명: 폐쇄형)',
             $askedMat && !$srcs && !preg_match('/일반적인\s*(설명|특징|내용|정보|차이)|일반\s*설명|자료(가|는)?\s*없|확보되지|확인되지/u', $text) => '확인 필요(참고 자료가 없는데 일반 설명이라고 밝히지 않음)',
             (bool) preg_match('/직접\s*검색|검색해\s*(보셔야|보세요|보시기)/u', $text) => '확인 필요(고객에게 추가 검색을 하라고 함)',
+            $askedMat && !$srcs && $basicNames && !$usedBasics => '확인 필요(제조사 자료가 없는데 확인된 기본 정보(국가표준·등록 규격)를 쓰지 않음)',
             $core !== null && $srcs && !preg_match($core, $text) => '확인 필요(승인 자료의 핵심 문장 미사용)',
             default => '통과',
         };

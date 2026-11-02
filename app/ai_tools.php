@@ -128,12 +128,125 @@ function ai_tool_dispatch(string $toolName, array $input, string $sid): string
 /** 자재 참고 자료(승인된 제조사 공개 자료 원문 + 출처). 상담 화면에는 출처 목록 카드(material_sources) */
 function tool_material_info(array $input): string
 {
-    $info = ext_material_info(trim((string) ($input['topic'] ?? '')));
+    $topic = trim((string) ($input['topic'] ?? ''));
+    $info = ext_material_info($topic);
     if ($info['sources']) {
         $info['_sse'] = [['type' => 'material_sources', 'sources' => $info['sources']]];
     }
     unset($info['sources']);
+    // 확인된 기본 정보(국가표준 번호·이름, 토목몰 등록 규격) — 제조사 자료가 없을 때 일반 지식으로 사양을 지어내지 않게 실제 근거를 준다
+    $basics = ai_material_basics($topic);
+    if ($basics['standards'] || $basics['products']) {
+        $info['basics'] = $basics;
+        $info['basics_note'] = 'basics 는 확인된 사실만 담았다: standards = 국가표준 목록에서 확인한 표준 번호·이름(요구 수치·조항은 미확인 — 수치를 말하지 않음, \'이 표준 대상 제품 종류\'로만), '
+            . 'products = 토목몰에 등록된 상품 이름과 규격 표기 그대로. 제품 설명은 이 둘에서 바로 읽히는 것(종류 이름·등록 규격 범위·중량·판매 단위)만 말하고, '
+            . '규격 숫자 순서(폭·높이·길이)를 추측해 풀어 쓰거나 구조(개거·폐쇄형 등)·성능·용도를 이름에 없는데 덧붙이지 않는다. 출처는 \'국가표준 목록\'·\'토목몰 등록 상품\'으로 밝힌다.';
+    }
     return json_encode($info, JSON_UNESCAPED_UNICODE);
+}
+
+/** 자재 이름 표기 통일 (순수 함수) — 블럭→블록, 플룸·플럼→플륨, 공백 제거 후 비교 */
+function ai_material_norm(string $s): string
+{
+    return mb_strtolower(str_replace([' ', '블럭', '플룸', '플럼'], ['', '블록', '플륨', '플륨'], $s));
+}
+
+/** 주제 낱말 (순수 함수) — 2글자 이상, 질문 일반어 제외, 표기 통일 */
+function ai_material_words(string $topic): array
+{
+    $ws = preg_split('/[\s,·\/]+/u', $topic) ?: [];
+    $ws = array_filter($ws, static fn($w) => mb_strlen($w) >= 2 && !preg_match('/^(차이|종류|어떤|무엇|추천|좋은|제품|자재|설명|용도|특징|규격|가격|사용|시공)$/u', $w));
+    return array_values(array_unique(array_map('ai_material_norm', $ws)));
+}
+
+/**
+ * 이름·태그와 주제의 일치 점수 (순수 함수) — 주제 낱말이 이름에 있거나, 이름·태그 조각(쉼표·괄호로 나눈 3글자 이상)이 주제에 있으면 하나당 1점.
+ * 예: 주제 '벤치플룸관' ↔ 태그 '벤치플륨'(표기 통일 후 주제에 포함) → 1점.
+ */
+function ai_material_match(string $nameAndTags, string $topic, bool $specificOnly = false): int
+{
+    $hay = ai_material_norm($nameAndTags);
+    $t = ai_material_norm($topic);
+    $words = ai_material_words($topic);
+    if ($specificOnly) { $words = array_values(array_diff($words, AI_MATERIAL_GENERIC)); }
+    $score = count(array_filter($words, static fn($w) => mb_strpos($hay, $w) !== false));
+    foreach (preg_split('/[,()（）]+/u', $hay) ?: [] as $piece) {
+        if (mb_strlen($piece) >= 3 && mb_strpos($t, $piece) !== false && !in_array($piece, $words, true)
+            && !($specificOnly && in_array($piece, AI_MATERIAL_GENERIC, true))) { $score++; }
+    }
+    return $score;
+}
+
+/** 종류만 나타내는 넓은 낱말 — 주제에 더 구체적인 낱말(벤치플륨관·인터로킹 등)이 있으면 이것만 맞는 항목은 뺀다 */
+const AI_MATERIAL_GENERIC = ['블록', '보도블록', '수로관', '관', '그레이팅', '맨홀', '경계석', '배수관', '하수관', '덮개', '포장'];
+
+/** 후보 중 구체적 낱말이 맞는 것이 있으면 그것만 (순수 함수). $items: [[이름·태그, 값], …] → 값 목록(점수 순) */
+function ai_material_pick(array $items, string $topic): array
+{
+    $hasSpecific = (bool) array_diff(ai_material_words($topic), AI_MATERIAL_GENERIC);
+    $scored = [];
+    foreach ($items as $i => [$hay, $val]) {
+        $all = ai_material_match($hay, $topic);
+        if ($all === 0) { continue; }
+        $spec = $hasSpecific ? ai_material_match($hay, $topic, true) : 0;
+        $scored[] = [$spec, $all, $i, $val];
+    }
+    if ($hasSpecific && array_filter($scored, static fn($x) => $x[0] > 0)) {
+        $scored = array_values(array_filter($scored, static fn($x) => $x[0] > 0));
+    }
+    usort($scored, static fn($a, $b) => [$b[0], $b[1], $a[2]] <=> [$a[0], $a[1], $b[2]]);
+    return array_map(static fn($x) => $x[3], $scored);
+}
+
+/** 규격 문자열에서 규격·중량·단위만 (순수 함수) — 운반비·설치비 예상 같은 부가 칸은 뺀다 */
+function ai_spec_brief(string $spec): string
+{
+    $keep = array_filter(array_map('trim', explode('|', $spec)), static fn($p) => preg_match('/^(규격|중량|단위)\s*:/u', $p) === 1);
+    return $keep ? implode(' · ', $keep) : mb_substr(trim($spec), 0, 60);
+}
+
+/**
+ * 자재 기본 정보 — 국가표준 번호·이름(rag_documents 의 KS 메타데이터 확인 행) + 토목몰 등록 상품 이름·규격(판매 중).
+ * 둘 다 저장된 사실만 돌려준다(설명문 생성 없음). 운영 DB 에 근거 칸이 없으면 standards 는 빈 배열.
+ * @return array{standards: list<array>, products: list<array>}
+ */
+function ai_material_basics(string $topic): array
+{
+    $out = ['standards' => [], 'products' => []];
+    $pdo = db();
+    if (!ai_material_words($topic) || !$pdo) { return $out; }
+    if (function_exists('rag_documents_has_source_columns') && rag_documents_has_source_columns()) {
+        try {
+            $rows = $pdo->query("SELECT source_ref, title, tags, applies_to FROM rag_documents
+                                 WHERE source_type = 'ks' AND verify_level IN ('metadata_confirmed', 'original_verified', 'api_text_verified') AND legal_status <> 'repealed'
+                                 ORDER BY source_ref")->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {
+            $rows = [];
+        }
+        $items = [];
+        foreach ($rows as $r) {
+            $name = trim((string) preg_replace('/^\[KS\]\s*|\s*\(KS[^)]*\)\s*$/u', '', (string) $r['title']));
+            $s = ['ref' => (string) $r['source_ref'], 'name' => $name, 'basis' => '국가표준 목록(표준 번호·이름 확인, 본문 수치 미확인)'];
+            if (str_contains((string) $r['applies_to'], '사용자 확인')) {   // e나라표준인증 상세 페이지를 사람이 확인한 적용 범위만
+                $s['scope'] = trim((string) preg_replace('/\s*\([^)]*사용자 확인[^)]*\)\s*$/u', '', (string) $r['applies_to']));
+            }
+            $items[] = [$name . ',' . $r['tags'], $s];
+        }
+        $out['standards'] = array_slice(ai_material_pick($items, $topic), 0, 3);
+    }
+    $st = $pdo->query('SELECT name, spec FROM products WHERE is_active = 1 ORDER BY id LIMIT 5000');
+    $groups = [];
+    foreach ($st ? $st->fetchAll(PDO::FETCH_ASSOC) : [] as $p) {
+        $groups[(string) $p['name']][] = ai_spec_brief((string) $p['spec']);
+    }
+    $items = [];
+    $acc = '/몰드|거푸집|집게|크램프|운반구/u';   // 부속·시공 도구는 주제가 그것을 말할 때만
+    foreach ($groups as $name => $specs) {
+        if (preg_match($acc, $name) && !preg_match($acc, $topic)) { continue; }
+        $items[] = [$name, ['name' => $name, 'count' => count($specs), 'specs' => array_slice(array_values(array_unique($specs)), 0, 3)]];
+    }
+    $out['products'] = array_slice(ai_material_pick($items, $topic), 0, 5);
+    return $out;
 }
 
 /**
