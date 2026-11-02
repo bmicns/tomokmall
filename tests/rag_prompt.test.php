@@ -79,7 +79,7 @@ foreach ($prompts as $state => $byKey) {
         ok("{$key} ({$state}) 시스템 프롬프트 = 분리 전", $g !== '' && $norm($p['system']) === $norm($g));
     }
 }
-ok('rag_process 가 rag_build_prompt 결과를 그대로 사용', (bool) preg_match('/\$prompt\s*=\s*rag_build_prompt\(\$messages\);\s*\$system\s*=\s*\$prompt\[\'system\'\];/', (string) file_get_contents(__DIR__ . '/../app/rag.php')));
+ok('rag_process 가 rag_build_prompt 결과를 그대로 사용', (bool) preg_match('/\$prompt\s*=\s*rag_build_prompt\(\$messages(?:,\s*rag_recent_cards\(\$sid\))?\);\s*\$system\s*=\s*\$prompt\[\'system\'\];/', (string) file_get_contents(__DIR__ . '/../app/rag.php')));
 
 echo "[시나리오별 내용 — V21·V22 비활성(현재 상태)]\n";
 $P = $prompts['inactive'];
