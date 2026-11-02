@@ -129,7 +129,7 @@ if (isset($opt['material'])) {
             if (($e['type'] ?? '') === 'product_cards') { foreach ($e['products'] ?? [] as $c) { $cards[] = $c['name']; } }
             if (($e['type'] ?? '') === 'legal_sources') { foreach ($e['sources'] as $x) { $legal[] = $x['name'] . ' ' . $x['ref']; } }
         }
-        $calls = array_map(static fn($t) => $t['name'] . '(' . json_encode($t['input'], JSON_UNESCAPED_UNICODE) . ')', $res['tools'] ?? []);
+        $calls = array_map(static fn($t) => $t['name'] . '(' . json_encode($t['input'], JSON_UNESCAPED_UNICODE) . ')' . (($t['summary'] ?? '') !== '' ? ' → ' . $t['summary'] : ''), $res['tools'] ?? []);
         $basicNames = [];   // material_info 가 돌려준 확인된 기본 정보(국가표준 번호, 토목몰 등록 상품 이름)
         foreach ($res['tools'] ?? [] as $t) {
             if ($t['name'] !== 'material_info') { continue; }
@@ -149,7 +149,7 @@ if (isset($opt['material'])) {
         preg_match_all('/(\d+(?:\.\d+)?)\s*(톤|ton|kN)/u', $text, $tons);
         $badTon = array_values(array_filter($tons[0], static fn($x) => !str_contains($used, $x)));
         preg_match_all('/KS\s*[A-Z]\s*-?\s*(\d{4})/u', $text, $ks);
-        $badKs = array_values(array_filter($ks[1], static fn($x) => !preg_match('/KS\s*[A-Z]\s*-?\s*' . $x . '/u', $used)));
+        $badKs = array_values(array_unique(array_filter($ks[1], static fn($x) => !preg_match('/KS\s*[A-Z]\s*-?\s*' . $x . '/u', $used))));   // 답 끝 '확인 안 된 번호' 안내에 같은 번호가 다시 나와도 한 번만
         $auto = match (true) {
             empty($res['ok']) || trim($text) === '' => '실패(실행 오류·답변 없음)',
             (bool) preg_match($banned, $flat) => '실패(보류한 홍보·기준 충돌 표현 사용)',
@@ -242,7 +242,9 @@ try {
                 $errors[] = (string) ($res['error'] ?? '알 수 없음');
             }
             $msgs[] = ['role' => 'assistant', 'content' => (string) ($res['text'] ?? '')];
-            $t = ['user' => $turn, 'text' => (string) ($res['text'] ?? ''), 'sources' => [], 'cards' => [], 'unavailable' => false, 'tools' => array_column($res['tools'] ?? [], 'name')];
+            $t = ['user' => $turn, 'text' => (string) ($res['text'] ?? ''), 'sources' => [], 'cards' => [], 'unavailable' => false, 'tools' => array_column($res['tools'] ?? [], 'name'),
+                  'calls' => array_map(static fn($c) => $c['name'] . '(' . json_encode($c['input'], JSON_UNESCAPED_UNICODE) . ')' . (($c['summary'] ?? '') !== '' ? ' → ' . $c['summary'] : ''), $res['tools'] ?? []),
+                  'unverified_ks' => $res['unverified_ks'] ?? []];
             foreach ($res['events'] ?? [] as $e) {
                 $type = $e['type'] ?? '';
                 if ($type === 'legal_sources') {
@@ -306,7 +308,9 @@ try {
         foreach ($log as $k => $t) {
             $md .= '### 턴 ' . ($k + 1) . "\n\n- 고객: {$t['user']}\n- 인용 근거: " . ($t['sources'] ? implode(' / ', $t['sources']) : '없음')
                 . "\n- 추천 상품: " . ($t['cards'] ? implode(', ', array_map(static fn($c) => $c['name'] . '(' . (ai_block_thickness((string) ($c['spec'] ?? '')) ?? '?') . 'mm)', $t['cards'])) : '없음')
-                . ($t['unavailable'] ? " · '현재 등록된 적합 상품 없음' 카드 표시" : '') . "\n\n```\n" . trim($t['text']) . "\n```\n\n";
+                . ($t['unavailable'] ? " · '현재 등록된 적합 상품 없음' 카드 표시" : '')
+                . "\n- 부른 도구: " . ($t['calls'] ? implode(' → ', $t['calls']) : '없음')
+                . ($t['unverified_ks'] ? "\n- 확인 안 된 KS 번호(답 끝 안내 붙임): " . implode(', ', $t['unverified_ks']) : '') . "\n\n```\n" . trim($t['text']) . "\n```\n\n";
         }
         if ($errors) {
             $md .= "> 오류: " . implode(' / ', array_unique($errors)) . "\n\n";

@@ -489,5 +489,14 @@ ok("구체적 낱말(인터로킹)이 맞는 것만 — '블록'만 맞는 항�
 ok('구체적 낱말이 없으면 넓은 낱말로', ai_material_pick([['콘크리트경계석', 'A'], ['PE관', 'B']], '경계석') === ['A']);
 ok('규격 요약: 운반비·설치비 칸 제외', ai_spec_brief('규격: 200*150*2000*35T | 중량: 90kg | 단위: 본 | 상차수량: 200본/25톤 | 운반비예상: 1,500원') === '규격: 200*150*2000*35T · 중량: 90kg · 단위: 본');
 
+echo "[상담: 확인 안 된 KS 번호 안내]\n";
+$g = rag_guard_unverified_ks('흄관은 KS F 4009 제품을 쓰시면 됩니다.', '참고 자료: 흄관 (B형) KS F 4403');
+ok('자료에 없는 번호 → 본문 그대로 + 끝에 확인 필요 안내', $g['unknown'] === ['KS F 4009'] && str_starts_with($g['text'], '흄관은 KS F 4009 제품을') && str_contains($g['text'], '확인된 자료에 없는 표준 번호'));
+ok('자료에 있는 번호(띄어쓰기 달라도) → 그대로', rag_guard_unverified_ks('KS F4403 표기 제품입니다.', 'KS F 4403')['text'] === 'KS F4403 표기 제품입니다.');
+ok('KS 번호 없음 → 그대로', rag_guard_unverified_ks('80mm 이상 블록을 쓰세요.', '')['unknown'] === []);
+ok('부속 번호(KS M 3500-1)도 본 번호로 대조', rag_guard_unverified_ks('KS M 3500-1 이중벽관', 'KS M 3500-1 배수')['unknown'] === []);
+ok('도구 요약: 검색 결과 수·수량·금액', str_contains(rag_tool_summary('search_products', ['products' => [['name' => '인터로킹', 'spec' => '규격: 200*100*80T | 단위: m 2', 'suggested_qty' => 20, 'est_cost' => 300000]], 'cost_summary' => ['x']]), '상품 1건(인터로킹 200*100*80T ×20 ≈300,000원)'));
+ok('도구 요약: 자재 자료 출처·국가표준', rag_tool_summary('material_info', ['facts' => [['maker' => 'A산업']], 'basics' => ['standards' => [['ref' => 'KS F 4010']], 'products' => [[], []]]]) === '제조사 문장 1개(A산업) · 국가표준 KS F 4010 · 등록 상품 2종');
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

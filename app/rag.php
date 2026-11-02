@@ -1048,6 +1048,47 @@ function rag_build_prompt(array $messages): array
     ];
 }
 
+/**
+ * 확인되지 않은 KS 번호 표시 (순수 함수) — 답에 나온 'KS F 4009' 같은 번호가 확인된 글($known: 프롬프트·도구 결과·고객 발화)에 없으면
+ * 본문은 그대로 두고 끝에 '확인된 자료에 없는 번호' 안내 1줄을 붙인다(GPT 가 비슷한 번호를 지어내는 경우 고객이 그대로 믿지 않게).
+ * @return array{text:string, unknown:list<string>}
+ */
+function rag_guard_unverified_ks(string $text, string $known): array
+{
+    $norm = static fn(string $x): string => strtoupper((string) preg_replace('/[\s\-]+/u', '', $x));
+    $k = $norm($known);
+    preg_match_all('/KS\s*([A-Z])\s*-?\s*(\d{4})(?:\s*-\s*(\d{1,2}))?/u', $text, $m, PREG_SET_ORDER);
+    $unknown = [];
+    foreach ($m as $x) {
+        $ref = "KS {$x[1]} {$x[2]}" . (isset($x[3]) && $x[3] !== '' ? "-{$x[3]}" : '');
+        if (!str_contains($k, $norm("KS{$x[1]}{$x[2]}"))) { $unknown[$ref] = true; }
+    }
+    $unknown = array_keys($unknown);
+    if (!$unknown) { return ['text' => $text, 'unknown' => []]; }
+    return ['text' => rtrim($text) . "\n\n※ 답변의 " . implode(', ', $unknown) . ' 은(는) 확인된 자료에 없는 표준 번호입니다. 정확한 규격·인증은 제조사 자료로 확인해 주세요.', 'unknown' => $unknown];
+}
+
+/** 도구 결과 요약 (순수 함수) — 시험 결과 문서에 남겨 실제 GPT 답과 도구가 준 근거를 바로 대조하기 위함 */
+function rag_tool_summary(string $name, array $d): string
+{
+    if ($name === 'search_products') {
+        $cards = $d['products'] ?? [];
+        $cs = $d['cost_summary'] ?? null;
+        return '상품 ' . count($cards) . '건' . ($cards ? '(' . implode(', ', array_map(static fn($c) => trim(($c['name'] ?? '') . ' ' . (preg_match('/규격:\s*([^|]+)/u', (string) ($c['spec'] ?? ''), $mm) ? trim($mm[1]) : '')) . (isset($c['suggested_qty']) ? " ×{$c['suggested_qty']}" : '') . (isset($c['est_cost']) ? ' ≈' . number_format((int) $c['est_cost']) . '원' : ''), array_slice($cards, 0, 4))) . ')' : '')
+            . (!empty($d['note']) ? ' · note: ' . mb_substr((string) $d['note'], 0, 60) : '') . (!empty($d['alternatives']) ? ' · alternatives: ' . implode(', ', (array) $d['alternatives']) : '')
+            . ($cs ? ' · cost_summary 있음' : '');
+    }
+    if ($name === 'material_info') {
+        $b = $d['basics'] ?? ['standards' => [], 'products' => []];
+        return '제조사 문장 ' . count($d['facts'] ?? []) . '개' . (($d['facts'] ?? []) ? '(' . implode(', ', array_unique(array_column($d['facts'], 'maker'))) . ')' : '')
+            . ' · 국가표준 ' . (implode(', ', array_column($b['standards'] ?? [], 'ref')) ?: '없음') . ' · 등록 상품 ' . count($b['products'] ?? []) . '종';
+    }
+    if ($name === 'add_to_cart') {
+        return !empty($d['success']) || !empty($d['ok']) ? '담기 성공' : '담기 실패: ' . mb_substr((string) ($d['error'] ?? json_encode($d, JSON_UNESCAPED_UNICODE)), 0, 60);
+    }
+    return mb_substr(json_encode($d, JSON_UNESCAPED_UNICODE) ?: '', 0, 80);
+}
+
 /** 답변이 '제품을 찾아/검색해 드리겠다'는 약속으로 끝나는지 (순수 함수) — 도구 호출 없이 끝나면 손님이 결과 없이 기다리게 됨 */
 function rag_is_search_promise(string $text): bool
 {
@@ -1100,7 +1141,8 @@ function rag_process(array $messages, string $sid): array
     $chatUrl      = $config['openai']['chat_url'] ?? 'https://api.openai.com/v1/chat/completions';
     $answered     = false;   // 도구 없이 끝난(최종 답을 받은) 응답이 있었는지
     $promised     = '';      // 검색 약속 문장(강제 검색 재요청 때 버림 — 도구가 안 불리면 되살림)
-    $toolLog      = [];      // 부른 도구 이름·인자(시험 결과 기록용 — chat.php 는 화면에 보내지 않음)
+    $toolLog      = [];      // 부른 도구 이름·인자·결과 요약(시험 결과 기록용 — chat.php 는 화면에 보내지 않음)
+    $known        = $system . ' ' . implode(' ', array_map(static fn($m) => (string) ($m['content'] ?? ''), $messages));   // 답에 나올 수 있는 확인된 글(KS 번호 대조용)
 
     for ($iter = 0; $iter < $maxIter; $iter++) {
         $body = json_encode([
@@ -1160,9 +1202,10 @@ function rag_process(array $messages, string $sid): array
 
         foreach ($toolCalls as $tc) {
             $input    = json_decode($tc['function']['arguments'] ?? '{}', true) ?? [];
-            $toolLog[] = ['name' => (string) ($tc['function']['name'] ?? ''), 'input' => $input];
             $output   = ai_tool_dispatch($tc['function']['name'] ?? '', $input, $sid);
             $toolData = json_decode($output, true) ?? [];
+            $toolLog[] = ['name' => (string) ($tc['function']['name'] ?? ''), 'input' => $input, 'summary' => rag_tool_summary((string) ($tc['function']['name'] ?? ''), $toolData)];
+            $known   .= ' ' . $output;
 
             foreach ($toolData['_sse'] ?? [] as $sseEvent) {
                 $events[] = $sseEvent;
@@ -1196,6 +1239,9 @@ function rag_process(array $messages, string $sid): array
     if ($cit['sources']) {
         $events[] = ['type' => 'legal_sources', 'sources' => $cit['sources']];
     }
+    // 확인된 자료(프롬프트·도구 결과·고객 발화)에 없는 KS 번호 → 답 끝에 확인 필요 안내(본문은 고치지 않음)
+    $ks = rag_guard_unverified_ks($responseText, $known);
+    $responseText = $ks['text'];
 
-    return ['ok' => true, 'text' => $responseText, 'events' => $events, 'category' => $categoryKey, 'tools' => $toolLog];
+    return ['ok' => true, 'text' => $responseText, 'events' => $events, 'category' => $categoryKey, 'tools' => $toolLog, 'unverified_ks' => $ks['unknown']];
 }
