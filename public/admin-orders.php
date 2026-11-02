@@ -8,7 +8,7 @@ require_admin();
 
 // ── 파라미터 ─────────────────────────────────────────────────────
 $status = in_array($_GET['status'] ?? '', ['','PENDING','PAID','PREPARING','SHIPPED','DELIVERED','CANCELED'], true)
-        ? $_GET['status'] : '';
+        ? ($_GET['status'] ?? '') : '';
 $q      = trim($_GET['q'] ?? '');
 $page   = max(1, (int)($_GET['page'] ?? 1));
 $limit  = 25;
