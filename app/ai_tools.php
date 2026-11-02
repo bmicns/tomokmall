@@ -684,8 +684,9 @@ function ai_cost_summary(array $cards): array
     }
     usort($priced, static fn($a, $b) => $a['est_cost'] <=> $b['est_cost']);
     [$lo, $hi] = [$priced[0], $priced[count($priced) - 1]];
+    $tied = array_values(array_filter($priced, static fn($p) => $p['est_cost'] === $lo['est_cost']));   // 최저 금액이 같은 제품이 여럿(실제 GPT-4o: 인터로킹 i2·U 192,000원 동률인데 하나만 '가장 저렴')
     foreach ($cards as &$c) {
-        $c['cost_lowest'] = ((int) $c['id'] === (int) $lo['id']);
+        $c['cost_lowest'] = ($c['est_cost'] ?? null) === $lo['est_cost'] && $lo['est_cost'] > 0;
         if (($c['est_cost'] ?? 0) > 0) {
             $c['cost_diff'] = $c['est_cost'] - $lo['est_cost'];   // 같은 조건 최저 예상 자재비와의 차이(원)
         }
@@ -696,7 +697,10 @@ function ai_cost_summary(array $cards): array
         'highest' => ['name' => $hi['name'], 'spec' => spec_size_label((string) $hi['spec']), 'est_cost' => $hi['est_cost']],
         'difference' => $hi['est_cost'] - $lo['est_cost'],
         'basis' => '같은 면적·길이 기준 판매가 자재비(운반·시공비 별도)',
-    ]];
+    ] + (count($tied) > 1 ? [
+        'lowest_tied' => array_map(static fn($t) => $t['name'] . ' ' . spec_size_label((string) $t['spec']), $tied),
+        'tie_note'    => '최저 예상 자재비가 같은 제품이 ' . count($tied) . '개입니다. 가장 저렴한 것을 말하거나 담을 때 같은 금액 제품이 여럿이라고 함께 알리고, 고객이 고르지 않았으면 표에서 먼저 나온 제품으로 하되 다른 제품도 같은 금액이라고 안내하세요.',
+    ] : [])];
 }
 
 /**

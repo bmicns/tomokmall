@@ -119,7 +119,12 @@ $cs = $r['cost_summary'] ?? null;
 $lowCards = array_values(array_filter($r['products'] ?? [], static fn($c) => !empty($c['cost_lowest'])));
 ok('요약: 최저·최고·차이가 카드 예상 금액과 일치', $cs && $cs['lowest']['est_cost'] === min(array_column($r['products'], 'est_cost')) && $cs['difference'] === $cs['highest']['est_cost'] - $cs['lowest']['est_cost']);
 ok('카드별 최저와의 차이(cost_diff) = 예상 금액 − 최저', !array_filter($r['products'] ?? [], static fn($c) => ($c['est_cost'] ?? 0) > 0 && ($c['cost_diff'] ?? -1) !== $c['est_cost'] - $cs['lowest']['est_cost']));
-ok('최저 카드 1개에만 cost_lowest 표시', count($lowCards) === 1 && $lowCards[0]['name'] === $cs['lowest']['name']);
+$minCost = min(array_filter(array_column($r['products'], 'est_cost')));
+ok('최저 금액 카드(동률 포함)에만 cost_lowest 표시', $lowCards !== [] && !array_filter($lowCards, static fn($c) => $c['est_cost'] !== $minCost)
+    && count($lowCards) === count(array_filter($r['products'], static fn($c) => ($c['est_cost'] ?? null) === $minCost)) && in_array($cs['lowest']['name'], array_column($lowCards, 'name'), true));
+$t = search(['query' => '인터로킹 블록', 'spec_mm' => 80, 'spec_strict' => true, 'area_m2' => 20]);   // 실제 GPT-4o: i2·U 형 192,000원 동률
+$tl = array_values(array_filter($t['products'] ?? [], static fn($c) => !empty($c['cost_lowest'])));
+ok('최저 동률: 둘 다 최저 표시 + lowest_tied·tie_note(같은 금액이라고 알리게)', count($tl) >= 2 && count($t['cost_summary']['lowest_tied'] ?? []) === count($tl) && str_contains((string) ($t['cost_summary']['tie_note'] ?? ''), '같은 금액'));
 ok('면적·길이 없이 검색하면 요약 없음(금액을 말하지 않음)', !isset(search(['queries' => ['인조화강블록', '점토블럭']])['cost_summary']));
 
 echo "['투수' 검색에 '불투수' 섞지 않음]\n";
