@@ -220,6 +220,7 @@ $md = "# 실제 LLM 상담 시나리오 결과 (" . (isset($opt['core']) ? '핵�
     . "- 연결: {$info['v']} · DB {$info['d']} · 검증 조문 {$clauses}건(활성 {$active})\n"
     . "- 상품 검색 환경: " . ($searchOk ? "운영과 같음('인터로킹 블록' 80T " . count($probe['products']) . '건)' : "운영과 다름('인터로킹 블록' 80T 0건 — 상품 추천 점검 판정 불가)") . "\n\n";
 $tally = ['통과' => 0, '확인 필요' => 0, '실패' => 0];   // '판정 불가'는 확인 필요로 센다
+$runSid = 'scenario-test-' . date('His') . '-';   // 실행마다 새 상담 키(이전 실행의 추천표가 섞이지 않게) — 끝나면 기록 삭제
 try {
     $i = 0;
     foreach ($scenarios as $sc) {
@@ -234,7 +235,7 @@ try {
         foreach ($turns as $turn) {   // 턴마다 실제로 답을 받아 대화에 이어 붙임 — 한 턴이라도 실패하면 시나리오 실패
             $msgs[] = ['role' => 'user', 'content' => $turn];
             try {
-                $res = rag_process($msgs, 'scenario-test-' . $i);
+                $res = rag_process($msgs, $runSid . $i);
             } catch (\Throwable $e) {
                 $res = ['ok' => false, 'text' => '', 'events' => [], 'error' => get_class($e) . ': ' . $e->getMessage()];
             }
@@ -242,6 +243,9 @@ try {
                 $errors[] = (string) ($res['error'] ?? '알 수 없음');
             }
             $msgs[] = ['role' => 'assistant', 'content' => (string) ($res['text'] ?? '')];
+            if (!empty($res['ok'])) {   // 운영 chat.php 처럼 턴을 기록 → 다음 턴 프롬프트에 직전 추천표(담기·비교용)가 들어감
+                rag_log_chat($runSid . $i, $turn, (string) ($res['text'] ?? ''), $res['events'] ?? [], (string) ($res['category'] ?? ''));
+            }
             $t = ['user' => $turn, 'text' => (string) ($res['text'] ?? ''), 'sources' => [], 'cards' => [], 'unavailable' => false, 'tools' => array_column($res['tools'] ?? [], 'name'),
                   'calls' => array_map(static fn($c) => $c['name'] . '(' . json_encode($c['input'], JSON_UNESCAPED_UNICODE) . ')' . (($c['summary'] ?? '') !== '' ? ' → ' . $c['summary'] : ''), $res['tools'] ?? []),
                   'unverified_ks' => $res['unverified_ks'] ?? []];
@@ -317,6 +321,7 @@ try {
         }
     }
 } finally {
+    $pdo->prepare('DELETE FROM chat_logs WHERE session_key LIKE ?')->execute([$runSid . '%']);
     foreach ($restore as $r) {   // 중간에 오류가 나도 V21·V22 활성 상태를 원래대로
         $st = $pdo->prepare('UPDATE rag_documents SET is_active = ?, review_status = ? WHERE id = ?');
         $st->execute([(int) $r['is_active'], $r['review_status'], (int) $r['id']]);

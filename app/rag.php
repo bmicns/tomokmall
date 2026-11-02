@@ -894,7 +894,7 @@ function rag_curl_post(string $url, string $body, array $headers): string|false
  * rag_process() 가 이 결과를 그대로 OpenAI 에 보낸다. 프롬프트 검증(scripts/testdb/dump-prompts.php)·테스트에서도 같은 함수를 쓴다.
  * @return array{system:string, categoryKey:string, ragDocs:array, legalDocs:array, roadCtx:string, scopes:array}
  */
-function rag_build_prompt(array $messages): array
+function rag_build_prompt(array $messages, array $recentCards = []): array
 {
     // Stage 2: 카테고리 자동 감지 + DB 가이드 로드
     $categoryKey = rag_detect_category($messages);
@@ -1037,6 +1037,7 @@ function rag_build_prompt(array $messages): array
     $scopedHit = (bool) array_filter($legalDocs, static fn($d) => array_intersect(rag_legal_doc_scopes($d), $legalIn['scopes']));
     $system .= rag_road_context_prompt($roadCtx, $scopedHit);
     $system .= rag_legal_prompt_section($legalDocs);
+    $system .= rag_recent_cards_prompt($recentCards);   // 이 상담에서 고객 화면에 보인 직전 추천표(담기·비교 질문용) — 없으면 빈 문자열(기존과 같음)
 
     return [
         'system'      => $system,
@@ -1046,6 +1047,57 @@ function rag_build_prompt(array $messages): array
         'roadCtx'     => $roadCtx,
         'scopes'      => $legalIn['scopes'],
     ];
+}
+
+/**
+ * 이 상담(session_key)에서 마지막으로 고객 화면에 보인 상품 추천표 — chat_logs.events_json 의 최근 product_cards, 판매가·판매 상태는 현재 기준.
+ * 다음 턴에 '제일 저렴한 걸로 담아 줘'·'두 번째 거 20㎡' 처럼 표를 가리키면 GPT 가 표의 실제 상품 ID 로 담게 한다(대화 기록에는 표가 글로 남지 않음).
+ * @return list<array{id:int,name:string,spec:string,price:?int,qty:?int,unit:string}>
+ */
+function rag_recent_cards(string $sid): array
+{
+    if ($sid === '' || !db()) { return []; }
+    try {
+        $st = db()->prepare("SELECT events_json FROM chat_logs WHERE session_key = ? AND events_json LIKE '%product_cards%' ORDER BY id DESC LIMIT 1");
+        $st->execute([$sid]);
+        $ev = json_decode((string) $st->fetchColumn(), true) ?: [];
+    } catch (\Throwable $e) {
+        return [];
+    }
+    $cards = [];
+    foreach ($ev as $e) {
+        if (($e['type'] ?? '') === 'product_cards') { $cards = array_merge($cards, (array) ($e['products'] ?? [])); }
+    }
+    $cards = array_slice($cards, 0, 12);
+    $current = rag_current_product_prices(array_column($cards, 'id'));
+    $out = [];
+    foreach ($cards as $c) {
+        $id = (int) ($c['id'] ?? 0);
+        if ($id <= 0) { continue; }
+        $now = $current[$id] ?? null;
+        $out[] = ['id' => $id, 'name' => (string) ($c['name'] ?? ''), 'spec' => (string) ($c['spec_label'] ?? '') ?: (string) ($c['spec'] ?? ''),
+                  'price' => $current === null ? null : ($now !== null && $now['price'] > 0 ? (int) $now['price'] : null),
+                  'qty' => isset($c['suggested_qty']) ? (int) $c['suggested_qty'] : null, 'unit' => (string) ($c['unit'] ?? '')];
+    }
+    return $out;
+}
+
+/** 직전 추천표 프롬프트 구역 (순수 함수) — 표 순서·ID·현재 판매가·권장 수량·예상 자재비(현재가 × 권장 수량)와 가장 저렴한 상품 표시 */
+function rag_recent_cards_prompt(array $cards): string
+{
+    if (!$cards) { return ''; }
+    $priced = array_filter($cards, static fn($c) => $c['price'] !== null && $c['qty'] !== null);
+    $min = $priced ? min(array_map(static fn($c) => $c['price'] * $c['qty'], $priced)) : null;
+    $lines = [];
+    foreach (array_values($cards) as $i => $c) {
+        $est = ($c['price'] !== null && $c['qty'] !== null) ? $c['price'] * $c['qty'] : null;
+        $lines[] = ($i + 1) . ". [id {$c['id']}] {$c['name']}" . ($c['spec'] !== '' ? " {$c['spec']}" : '')
+            . ' · 판매가 ' . ($c['price'] !== null ? number_format($c['price']) . '원' . ($c['unit'] !== '' ? "/{$c['unit']}" : '') : '문의·판매 중지(담기 불가)')
+            . ($c['qty'] !== null ? " · 권장 수량 {$c['qty']}" : '') . ($est !== null ? ' · 예상 자재비 ' . number_format($est) . '원' . ($est === $min ? ' (가장 저렴)' : '') : '');
+    }
+    return "\n\n=== 직전 추천표 (이 상담에서 고객 화면에 보인 상품 · 현재 판매가 기준) ===\n" . implode("\n", $lines)
+        . "\n- 고객이 표의 상품을 가리켜(예: '제일 저렴한 걸로', '두 번째 거', '이걸로') 담아 달라고 하면 다시 검색하지 말고 이 표의 id 로 add_to_cart 를 호출한다(quantity 는 권장 수량, 고객이 말한 수량이 있으면 그 수량, 1~999).\n"
+        . "- 이 표에 없는 id 를 만들지 않는다. 판매가가 '문의·판매 중지'인 상품은 담지 말고 그 사실을 알린다. 조건(면적·두께 등)이 바뀌면 search_products 로 다시 찾는다.";
 }
 
 /**
@@ -1156,7 +1208,7 @@ function rag_process(array $messages, string $sid): array
     }
 
     // 프롬프트·근거 생성(rag_build_prompt) — 내용은 분리 전과 동일
-    $prompt      = rag_build_prompt($messages);
+    $prompt      = rag_build_prompt($messages, rag_recent_cards($sid));
     $system      = $prompt['system'];
     $categoryKey = $prompt['categoryKey'];
     $legalDocs   = $prompt['legalDocs'];
