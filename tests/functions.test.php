@@ -108,7 +108,14 @@ $cit = rag_extract_legal_citations('1칸은 2.5m×5.0m 이상입니다 [L7]. 참
 eq('표시 제거', $cit['text'], '1칸은 2.5m×5.0m 이상입니다. 참고 추가');
 eq('넣은 근거만·중복 없이', array_column($cit['sources'], 'id'), [7]);
 eq('표시 없으면 출처 없음', rag_extract_legal_citations('80T를 권해 드려요.', [$lawDoc])['sources'], []);
-eq('DB·출처 칸 없으면(운영 미적용) 법령 근거 검색 빈 배열', rag_search_legal_documents('주차 공간', 'pavement'), []);
+// DB 불필요 테스트지만 .env.local 로 로컬 DB(법령 칸 있음)에 붙은 PC 에서도 같은 결과가 나와야 함(2026-11-02 사용자 PC 배포 사전 점검 실패 원인)
+$legalHits = rag_search_legal_documents('주차 공간', 'pavement');
+if (!db() || !rag_documents_has_source_columns()) {
+    eq('DB·출처 칸 없으면(운영 미적용) 법령 근거 검색 빈 배열', $legalHits, []);
+} else {
+    ok('DB·출처 칸 있으면 검증·활성 공식 근거만(사내 문서·미검증 제외)', !array_filter($legalHits, static fn($d) => ($d['source_type'] ?? '') === 'internal'
+        || !in_array($d['verify_level'] ?? '', RAG_LEGAL_VERIFY_LEVELS, true)));
+}
 
 echo "[하이라이트 highlight_terms]\n";
 ok('검색어 <mark> 삽입', strpos(highlight_terms('측구수로관', ['측구']), '<mark') !== false);
@@ -468,9 +475,10 @@ ok('상품명·규격·이미지·근거·권장수량은 상담 당시 값 유�
 ok('견적 카드 등 다른 이벤트는 그대로', $ap[3][1] === $snap[3][1]);
 ok('원본(입력 배열)은 변경되지 않음', $snap[3][0]['products'][0]['price_b2c'] === 45000 && !isset($snap[3][0]['products'][0]['price_state']));
 $snapC = [1 => [['type' => 'product_cards', 'products' => [
-    ['id' => 1, 'spec' => '규격 A', 'price_b2c' => 1000, 'suggested_qty' => 10, 'est_cost' => 10000, 'cost_lowest' => true, 'cost_diff' => 0],
-    ['id' => 2, 'spec' => '규격 B', 'price_b2c' => 1200, 'suggested_qty' => 10, 'est_cost' => 12000, 'cost_lowest' => false, 'cost_diff' => 2000],
-    ['id' => 3, 'spec' => '규격 C', 'price_b2c' => 900, 'suggested_qty' => 10, 'est_cost' => 9000, 'cost_lowest' => false, 'cost_diff' => 0],
+    // 실제 추천표 카드(tool_search_products·chat_logs 복원)에는 항상 name 이 있다 — 테스트 자료도 같게(없으면 ai_cost_summary 최저·최고 이름에서 경고)
+    ['id' => 1, 'name' => '상품 A', 'spec' => '규격 A', 'price_b2c' => 1000, 'suggested_qty' => 10, 'est_cost' => 10000, 'cost_lowest' => true, 'cost_diff' => 0],
+    ['id' => 2, 'name' => '상품 B', 'spec' => '규격 B', 'price_b2c' => 1200, 'suggested_qty' => 10, 'est_cost' => 12000, 'cost_lowest' => false, 'cost_diff' => 2000],
+    ['id' => 3, 'name' => '상품 C', 'spec' => '규격 C', 'price_b2c' => 900, 'suggested_qty' => 10, 'est_cost' => 9000, 'cost_lowest' => false, 'cost_diff' => 0],
 ]]]];
 $apC = rag_apply_current_prices($snapC, [1 => ['price' => 1500, 'spec' => '규격 A'], 2 => ['price' => 1200, 'spec' => '규격 B']])[1][0]['products'];
 ok('복원: 예상 자재비는 현재가 × 권장 수량으로 다시 계산, 판매 중지 상품은 금액 지움, 최저 표시 다시',
