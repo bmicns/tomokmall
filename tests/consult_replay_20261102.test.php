@@ -86,10 +86,22 @@ try {
     $md = $runCs(array_merge($prior, [$say($b['core4'][0]),
         $call('search_products', ['queries' => ['인터로킹 블록', '인조화강블록', '점토블럭'], 'area_m2' => 20, 'spec_mm' => 80, 'spec_strict' => true], 2), $say($b['core4'][1]),
         $call('add_to_cart', ['product_id' => $pid, 'quantity' => 20], 3), $say($b['core4'][2])]), '--core --only=private --skip-product-check');
-    ok('초보 흐름: 비교표 뒤 담기(이전 문제 해결) — 동률 상품을 알리지 않은 담기 답 → 확인 필요', str_contains($sec($md, 2), '확인 필요(최저가 동률 상품이 여럿인데 담을 때 같은 금액 제품을 알리지 않음)'));
+    ok('초보 흐름(2차 답): 동률 안내 없던 담기 답에 서버가 같은 예상 자재비 상품 한 줄을 붙여 통과(3차 수정 — 2차 판정은 확인 필요)', str_contains($sec($md, 2), '같은 예상 자재비의') && str_contains($sec($md, 2), '자동 점검 통과'));
     $md = $runCs([$say('일반 설명입니다.'), $say('일반 설명입니다.'), $say('일반 설명입니다.'), $say('일반 설명입니다.'), $say('일반 설명입니다.'), $say('일반 설명입니다.'),
         $say('차가 다니면 두께 80mm 이상 블록을 쓰세요.'), $call('material_info', ['topic' => '벤치플룸관'], 8), $say($b['mat8'])], '--material');
     ok("자재 8번 '제조사 자료는 현재 없습니다' 는 자료 없음을 밝힌 것 → 통과(이전: 확인 필요 오판)", str_contains($sec($md, 8), '자동 점검: 통과'));
+
+    echo "[3차 실행(05:51·05:54) 실제 답변 재생]\n";
+    $c = json_decode((string) file_get_contents(__DIR__ . '/fixtures/gpt4o-20261102c-answers.json'), true);
+    $md = $runCs(array_merge($prior, [$say($c['core4'][0]),
+        $call('search_products', ['queries' => ['인터로킹 블록', '인조화강블록', '점토블럭'], 'area_m2' => 20, 'spec_mm' => 80, 'spec_strict' => true], 2), $say($c['core4'][1]),
+        $call('add_to_cart', ['product_id' => $pid, 'quantity' => 20], 3), $say($c['core4'][2])]), '--core --only=private --skip-product-check');
+    $j = $sec($md, 2);
+    ok("초보 흐름 3턴째: 동률 안내가 없는 실제 답에 '같은 예상 자재비의 … 도 있습니다' 한 줄이 서버에서 붙음", str_contains($j, '같은 예상 자재비의') && !str_contains($j, '최저가 동률 상품이 여럿인데'));
+    ok("초보 흐름: 사유지 80mm 를 '저희 권장'으로 밝히지 않은 실제 답 → 확인 필요", str_contains($j, "확인 필요(사유지 80mm 를 '저희 권장 기준'으로 밝히지 않음)") || str_contains($j, '확인 필요(근거 없는 효과·성능 표현'));
+    $md = $runCs([$say($c['core2'][0]), $call('search_products', ['queries' => ['인터로킹 블록', '보차도블록'], 'area_m2' => 30, 'spec_mm' => 80, 'spec_strict' => true], 1), $say($c['core2'][1])],
+        '--core --only=public_sidewalk --skip-product-check');
+    ok("공공 보도 2턴째 '강도 우수' → 확인 필요(근거 없는 효과)", str_contains($md, '확인 필요(근거 없는 효과·성능 표현: 강도 우수'));
 } finally {
     proc_terminate($srv);
     $pdo->exec("DELETE FROM external_products WHERE source_key = 'test_replay'");

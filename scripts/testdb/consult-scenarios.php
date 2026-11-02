@@ -36,6 +36,8 @@ $fail = static function (string $msg): never {
     fwrite(STDERR, "\n[사전 점검 실패] {$msg}\n");
     exit(2);
 };
+// 근거 없이 덧붙이는 효과·성능 표현(실제 GPT-4o 3차: '강도 우수'·'균열을 방지'·'오랜 사용을 보장'·불투수형 '비가 많이 오는 곳에 적합'·'중장비')
+const RAG_EFFECT_CLAIM_RE = '/강도\s*(가\s*)?우수|튼튼|견고|균열[^.\n]{0,12}(방지|막|없)|오랜\s*사용을\s*보장|수명을\s*보장|불투수[^.\n]{0,30}비가?\s*많이\s*오는|하중을\s*잘\s*견딜|중장비/u';
 $pdo = db();
 if (!$pdo) {
     $fail("DB 에 연결하지 못했습니다(DB_HOST={$config['db']['host']}, DB_NAME={$dbName}, DB_USER={$config['db']['user']}). "
@@ -141,7 +143,9 @@ if (isset($opt['material'])) {
             $used .= ' ' . implode(' ', array_column($b['standards'], 'ref'));
             $basicNames = array_merge($basicNames, array_column($b['standards'], 'ref'), array_column($b['products'], 'name'));
         }
-        $usedBasics = (bool) array_filter($basicNames, static fn($x) => $x !== '' && (str_contains($text, $x) || str_contains(str_replace(' ', '', $text), str_replace(' ', '', $x))));
+        $nameCore = static fn(string $x): string => str_replace(' ', '', (string) preg_replace('/\([^)]*\)/u', '', $x));   // 'PE이중벽관1종(유공관)' → 'PE이중벽관1종' — 괄호 부분 없이 써도 사용으로 인정
+        $usedBasics = (bool) array_filter($basicNames, static fn($x) => $x !== '' && (str_contains($text, $x) || str_contains(str_replace(' ', '', $text), str_replace(' ', '', $x))
+            || ($nameCore($x) !== '' && mb_strlen($nameCore($x)) >= 4 && str_contains(str_replace(' ', '', $text), $nameCore($x)))));
         $used .= ' ' . implode(' ', $legal);
         $flat = str_replace(['*', '#'], '', $text);   // 굵게·제목 표시 제거 후 표현 점검
         $plain = (string) preg_replace('/\(주\)|㈜|주식회사|\s/u', '', $text);
@@ -169,6 +173,7 @@ if (isset($opt['material'])) {
             $srcs && !$cited => '확인 필요(제조사 자료 출처 표시 없음)',
             $askedMat && !$srcs && !preg_match('/일반적인\s*(설명|특징|내용|정보|차이|기준)|일반\s*설명|자료[^.\n]{0,10}없|확보되지|확인되지/u', $text) => '확인 필요(참고 자료가 없는데 일반 설명이라고 밝히지 않음)',
             !$srcs && $askedMat && ($inv = array_values(array_filter(['하천', '호수', '농업', '농경지', '농수로', '지하차도', '운동장', '퇴적물', '청소가'], static fn($w) => str_contains($flat, $w) && !str_contains($used . ' ' . implode(' ', $basicNames), $w)))) => '확인 필요(제조사 자료가 없는데 자료에 없는 용도·장점 설명: ' . implode(', ', $inv) . ')',
+            (bool) preg_match(RAG_EFFECT_CLAIM_RE, $flat, $em) => '확인 필요(근거 없는 효과·성능 표현: ' . $em[0] . ')',
             (bool) preg_match('/직접\s*검색|검색해\s*(보셔야|보세요|보시기)/u', $text) => '확인 필요(고객에게 추가 검색을 하라고 함)',
             $askedMat && !$srcs && $basicNames && !$usedBasics => '확인 필요(제조사 자료가 없는데 확인된 기본 정보(국가표준·등록 규격)를 쓰지 않음)',
             $core !== null && $srcs && !preg_match($core, $text) => '확인 필요(승인 자료의 핵심 문장 미사용)',
@@ -305,12 +310,16 @@ try {
             $auto = '확인 필요(면적까지 받은 턴에 비교표 없이 되물음 — 고객이 표를 보기 전에 담김)';
         } elseif ($wantCart && !$costShown) {
             $auto = '확인 필요(비교표에 면적 기준 필요 수량이 없음)';
-        } elseif ($wantCart && ($tie = array_filter($cards, static fn($c) => !empty($c['cost_lowest']))) && count($tie) > 1 && !preg_match('/같은\s*(금액|가격)|동일한\s*(금액|가격)|가격이\s*같/u', (string) $last['text'])) {
+        } elseif ($wantCart && ($tie = array_filter($cards, static fn($c) => !empty($c['cost_lowest']))) && count($tie) > 1 && !preg_match('/같은\s*(예상\s*자재비|금액|가격)|동일한\s*(금액|가격)|가격이\s*같|금액이\s*같|자재비가\s*같/u', (string) $last['text'])) {
             $auto = '확인 필요(최저가 동률 상품이 여럿인데 담을 때 같은 금액 제품을 알리지 않음)';
         } elseif ($expect === 'public_sidewalk' && str_contains($allText, '저희 권장')) {
             $auto = "확인 필요(공공 보도의 80mm 공식 기준(보도 지침)을 '저희 권장 기준'으로 말함)";
         } elseif ($wantCart && preg_match('/법(적|정)\s*(의무|기준)[^.\n]{0,20}80|80[^.\n]{0,20}법(적|정)/u', $allText)) {
             $auto = '확인 필요(저희 권장 80T 를 법정 기준처럼 말함)';
+        } elseif ($expect === 'private' && preg_match('/80\s*(mm|T|㎜)/u', $allText) && !str_contains($allText, '권장')) {
+            $auto = "확인 필요(사유지 80mm 를 '저희 권장 기준'으로 밝히지 않음)";
+        } elseif (preg_match(RAG_EFFECT_CLAIM_RE, $allText, $em)) {
+            $auto = '확인 필요(근거 없는 효과·성능 표현: ' . $em[0] . ')';
         } else {
             $auto = match ($expect) {
                 'public_road'     => $cites44 && preg_match('/100\s*mm|100T|10\s*cm/u', $allText) ? '통과' : '확인 필요(KDS/KCS 44 50 25 인용·100mm 안내 원문 확인)',

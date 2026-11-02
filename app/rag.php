@@ -766,7 +766,7 @@ function rag_road_context_prompt(string $ctx, bool $hasScopedDocs = true): strin
             . "- 이 경우 80mm 는 공식 기준(보도 지침)이다. 상품을 추천할 때도 '저희 권장 기준'이라고 하지 말고 '보도 지침 기준(80mm 이상)'이라고 말한다.",
         'private' => "\n\n=== 개인 부지(마당·진입로·주차장) — 저희 권장 기준으로 안내 ===\n"
             . "- 개인 부지 블록 두께는 저희가 확인한 공식 기준(법령·KDS)에 수치가 없다. 차량이 올라가는 곳의 '80mm 이상'은 '저희 권장 기준'이라고 밝혀 말하고, 법적 의무·반드시 지켜야 하는 기준처럼 말하지 않는다.\n"
-            . "- 공공도로 차도 기준(KDS·KCS)은 인용하지 않는다. '80mm 면 균열이 생기지 않는다' 같은 성능 보장은 하지 않는다(시공·지반 상태에 따라 다름).",
+            . "- 공공도로 차도 기준(KDS·KCS)은 인용하지 않는다. '균열을 방지'·'오래 사용 보장'·'하중을 잘 견딘다' 같은 효과 설명을 붙이지 않는다(시공·지반 상태에 따라 다름).",
         'unclear' => "\n\n=== 차량 블록 시공 장소 확인 ===\n"
             . "- 차량이 올라가는 블록 시공이지만 장소가 분명하지 않다. 두께가 '충분하다'고 단정하기 전에 먼저 묻는다:\n"
             . "  '개인 부지(마당·주차장·진입로)인가요, 도로(인도·차도) 공사인가요? 발주처 설계도서나 시방서가 있나요?'\n"
@@ -947,6 +947,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "  허용: 고르는 기준을 쉬운 말 1~2문장(숫자 없이, 예: '물이 잘 고이는 곳이면 투수 제품이 좋습니다.') + 마지막 줄 '원하시는 제품을 선택해 주세요.'\n"
         . "  표의 상품마다 guide(두께·투수·재질 등 고르는 기준)가 함께 보인다. 고객 상황에 맞는 기준 하나를 골라 쉬운 말로 짚어 준다(guide 에 없는 성능·수치는 덧붙이지 않는다).\n"
         . "  추천 이유는 guide 의 기준으로 말하고, 주의할 점은 고객 조건과 맞지 않는 것만 짚는다(예: 차량이 올라가는데 60mm 제품).\n"
+        . "  효과·성능을 덧붙이지 않는다(예: '강도 우수'·'튼튼'·'견고'·'균열 방지'·'오래 사용 보장'·'불투수형은 비가 많이 오는 곳에 적합'). 투수·불투수는 guide 문구 그대로만 말한다.\n"
         . "  guide 의 '참고 자료(판매 상품 아님)' 줄은 공공데이터·제조사 자료로 확인한 정보다. 판매 상품이나 가격처럼 말하지 않고 출처와 함께 참고로만 언급한다.\n"
         . "  예외① 고객이 '어떤 게 더 저렴해?'처럼 가격 차이를 물으면 도구 결과 cost_summary 의 상품명·예상 금액·차이만 인용해 1~2문장으로 답한다(cost_summary 가 없으면 금액을 말하지 않는다).\n"
         . "  예외② '몇 개 필요해?'처럼 개수를 물으면 해당 상품 qty_basis(면적→장수 계산 근거)를 인용한다. ㎡ 단위 판매 제품은 ㎡ 로 주문하고 장수는 참고라고 덧붙인다.\n"
@@ -1107,6 +1108,36 @@ function rag_recent_cards_prompt(array $cards): string
 }
 
 /**
+ * 동률 최저가 안내 (순수 함수) — 담은 상품이 예상 자재비 최저 동률(2개 이상) 중 하나이고 답에 '같은 금액' 언급이 없으면 다른 동률 상품 이름을 알리는 한 줄.
+ * $turnCards: 이번 턴 검색 카드(cost_lowest 표시), $recent: 직전 추천표(rag_recent_cards — price·qty 로 예상 금액 계산). 해당 없으면 ''.
+ */
+function rag_tie_note(string $text, array $addedIds, array $turnCards, array $recent): string
+{
+    if (!$addedIds || preg_match('/같은\s*(예상\s*자재비|금액|가격)|동일한\s*(금액|가격)|가격이\s*같|금액이\s*같|자재비가\s*같/u', $text)) { return ''; }
+    $tied = [];
+    $low = array_values(array_filter($turnCards, static fn($c) => !empty($c['cost_lowest'])));
+    if (count($low) > 1) {
+        foreach ($low as $c) { $tied[(int) $c['id']] = (string) $c['name']; }
+    } else {
+        $est = [];
+        foreach ($recent as $c) { if ($c['price'] !== null && $c['qty'] !== null) { $est[(int) $c['id']] = [$c['price'] * $c['qty'], (string) $c['name']]; } }
+        if ($est) {
+            $min = min(array_column($est, 0));
+            foreach ($est as $id => [$v, $n]) { if ($v === $min) { $tied[$id] = $n; } }
+        }
+    }
+    if (count($tied) < 2) { return ''; }
+    foreach ($addedIds as $id) {
+        if (isset($tied[$id])) {
+            $others = array_values(array_unique(array_diff_key($tied, [$id => true])));
+            $others = array_values(array_diff($others, [$tied[$id]])) ?: $others;   // 같은 이름(색상만 다름)이면 이름 그대로
+            return "\n\n참고: 같은 예상 자재비의 " . implode(', ', $others) . '도 있습니다. 바꾸시려면 말씀해 주세요.';
+        }
+    }
+    return '';
+}
+
+/**
  * 확인되지 않은 KS 번호·강도 수치 표시 (순수 함수) — 답에 나온 'KS F 4009'·'24MPa' 같은 번호·수치가 확인된 글($known: 프롬프트·도구 결과·고객 발화)에 없으면
  * 본문은 그대로 두고 끝에 '확인된 자료에 없는 번호' 안내 1줄을 붙인다(GPT 가 비슷한 번호를 지어내는 경우 고객이 그대로 믿지 않게).
  * @return array{text:string, unknown:list<string>}
@@ -1219,7 +1250,8 @@ function rag_process(array $messages, string $sid): array
     }
 
     // 프롬프트·근거 생성(rag_build_prompt) — 내용은 분리 전과 동일
-    $prompt      = rag_build_prompt($messages, rag_recent_cards($sid));
+    $recentCards = rag_recent_cards($sid);
+    $prompt      = rag_build_prompt($messages, $recentCards);
     $system      = $prompt['system'];
     $categoryKey = $prompt['categoryKey'];
     $legalDocs   = $prompt['legalDocs'];
@@ -1234,6 +1266,7 @@ function rag_process(array $messages, string $sid): array
     $answered     = false;   // 도구 없이 끝난(최종 답을 받은) 응답이 있었는지
     $promised     = '';      // 검색 약속 문장(강제 검색 재요청 때 버림 — 도구가 안 불리면 되살림)
     $toolLog      = [];      // 부른 도구 이름·인자·결과 요약(시험 결과 기록용 — chat.php 는 화면에 보내지 않음)
+    $turnCards    = [];      // 이번 턴 검색 결과 카드(동률 최저가 안내용)
     $preToolText  = '';      // 도구 호출과 함께 온 중간 글(최종 답이 없을 때만 사용)
     $basicsSeen   = [];      // material_info 가 준 확인된 기본 정보(국가표준·등록 상품) — 답에 실제로 쓴 것만 출처 카드로
     $known        = $system . ' ' . implode(' ', array_map(static fn($m) => (string) ($m['content'] ?? ''), $messages));   // 답에 나올 수 있는 확인된 글(KS 번호 대조용)
@@ -1307,6 +1340,7 @@ function rag_process(array $messages, string $sid): array
             $toolLog[] = ['name' => (string) ($tc['function']['name'] ?? ''), 'input' => $input, 'summary' => rag_tool_summary((string) ($tc['function']['name'] ?? ''), $toolData)];
             $known   .= ' ' . $output;
             if (($tc['function']['name'] ?? '') === 'material_info' && !empty($toolData['basics'])) { $basicsSeen[] = $toolData['basics']; }
+            if (($tc['function']['name'] ?? '') === 'search_products') { $turnCards = array_merge($turnCards, (array) ($toolData['products'] ?? [])); }
 
             foreach ($toolData['_sse'] ?? [] as $sseEvent) {
                 $events[] = $sseEvent;
@@ -1343,6 +1377,9 @@ function rag_process(array $messages, string $sid): array
     if ($cit['sources']) {
         $events[] = ['type' => 'legal_sources', 'sources' => $cit['sources']];
     }
+    // '제일 저렴한 것'을 담았는데 같은 금액 제품이 또 있으면 그 사실을 한 줄로(실제 GPT-4o 3차까지 안내 누락 — 프롬프트만으로는 일정하지 않음)
+    $added = array_map(static fn($t) => (int) ($t['input']['product_id'] ?? 0), array_values(array_filter($toolLog, static fn($t) => $t['name'] === 'add_to_cart')));
+    $responseText .= rag_tie_note($responseText, $added, $turnCards, $recentCards);
     $basicSrc = rag_basic_sources_used($responseText, $basicsSeen);
     if ($basicSrc['standards'] || $basicSrc['products']) {
         $events[] = ['type' => 'basic_sources'] + $basicSrc;

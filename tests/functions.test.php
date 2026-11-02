@@ -507,5 +507,12 @@ ok('기본 정보 출처: 답에 없으면 빈 목록', rag_basic_sources_used('
 ok('직전 추천표: 최저 동률이면 같은 금액 제품도 알리라는 줄', str_contains(rag_recent_cards_prompt([['id' => 1, 'name' => 'A', 'spec' => '', 'price' => 100, 'qty' => 2, 'unit' => '㎡'], ['id' => 2, 'name' => 'B', 'spec' => '', 'price' => 100, 'qty' => 2, 'unit' => '㎡']]), '같은 금액의 다른 제품')
     && !str_contains(rag_recent_cards_prompt([['id' => 1, 'name' => 'A', 'spec' => '', 'price' => 100, 'qty' => 2, 'unit' => '㎡'], ['id' => 2, 'name' => 'B', 'spec' => '', 'price' => 120, 'qty' => 2, 'unit' => '㎡']]), '같은 금액의 다른 제품'));
 
+$rc = [['id' => 402, 'name' => '인터로킹i2형블럭', 'spec' => '', 'price' => 9600, 'qty' => 20, 'unit' => '㎡'], ['id' => 396, 'name' => '인터로킹U형블럭', 'spec' => '', 'price' => 9600, 'qty' => 20, 'unit' => '㎡'],
+       ['id' => 416, 'name' => '인조화강블록(불투수)', 'spec' => '', 'price' => 11000, 'qty' => 20, 'unit' => '㎡']];
+ok('동률 최저가 담기 → 다른 동률 상품 이름 한 줄(직전 추천표 기준)', str_contains(rag_tie_note('인터로킹i2형블럭을 20㎡ 담았습니다.', [402], [], $rc), '인터로킹U형블럭도 있습니다')
+    && !str_contains(rag_tie_note('인터로킹i2형블럭을 20㎡ 담았습니다.', [402], [], $rc), '인조화강'));
+ok('동률 안내: 이미 같은 금액이라고 말했거나·동률 아닌 상품·이번 턴 카드 기준', rag_tie_note('같은 금액의 U형도 있습니다.', [402], [], $rc) === '' && rag_tie_note('담았습니다.', [416], [], $rc) === ''
+    && str_contains(rag_tie_note('담았습니다.', [7], [['id' => 7, 'name' => 'A', 'cost_lowest' => true], ['id' => 8, 'name' => 'B', 'cost_lowest' => true], ['id' => 9, 'name' => 'C', 'cost_lowest' => false]], []), 'B도 있습니다'));
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);
