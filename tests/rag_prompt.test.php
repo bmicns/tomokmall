@@ -41,8 +41,10 @@ if (!preg_match('/_test$/', $dbName) || !db() || !rag_documents_has_source_colum
 }
 $pdo = db();
 $cnt = static fn(string $w): int => (int) $pdo->query("SELECT COUNT(*) FROM rag_documents WHERE {$w}")->fetchColumn();
-if ($cnt("author = '검증 조문(2-1단계)'") !== 27 || $cnt("author = '검증 조문(2-1단계)' AND is_active = 1") !== 22) {
-    echo "SKIP: 기준값은 검증 조문 27건·활성 22건 데이터 기준입니다(SQL 초안 06·07 재적용 필요).\n";
+// 활성 22건(07) 또는 24건(08 — V21·V22 로컬 활성, 사용자 승인 2026-11-02). 'inactive' 기준값은 V21·V22 를 잠시 끄고 만든다(끝나면 원래 값)
+$activeNonRoad = $cnt("author = '검증 조문(2-1단계)' AND is_active = 1 AND (tags IS NULL OR tags NOT LIKE '@scope:public_road%')");
+if ($cnt("author = '검증 조문(2-1단계)'") !== 27 || $activeNonRoad !== 22) {
+    echo "SKIP: 기준값은 검증 조문 27건·(V21·V22 외) 활성 22건 데이터 기준입니다(SQL 초안 06·07 재적용 필요).\n";
     exit(0);
 }
 
@@ -60,6 +62,9 @@ $scoped = $pdo->query("SELECT id, is_active, review_status FROM rag_documents WH
 $prompts = [];
 try {
     foreach (['inactive', 'active'] as $state) {
+        if ($state === 'inactive') {
+            $pdo->exec("UPDATE rag_documents SET is_active = 0 WHERE author = '검증 조문(2-1단계)' AND tags LIKE '@scope:public_road%'");
+        }
         if ($state === 'active') {
             $pdo->exec("UPDATE rag_documents SET is_active = 1, review_status = 'reviewed' WHERE author = '검증 조문(2-1단계)' AND tags LIKE '@scope:public_road%'");
         }

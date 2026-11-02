@@ -2,13 +2,14 @@
 
 > 작업 브랜치 `claude/blissful-turing-8e4xrr`(main `b81f93a` 기준). 이전 정리 [`remaining-work-2026-10-30.md`](remaining-work-2026-10-30.md) 중 A-1·A-3·A-7·A-9(일부)는 이번에 코드로 해결(운영 배포 전).
 > 사용자 PC 실행 명령: [`ai-sourcing/user-pc-runbook-2026-11-02.md`](ai-sourcing/user-pc-runbook-2026-11-02.md) · 운영 DB 반영 통합 절차: [`ai-sourcing/prod-apply/APPLY-ORDER.md`](ai-sourcing/prod-apply/APPLY-ORDER.md)(로컬 종단 리허설 `scripts/testdb/rehearse-prod-apply.sh` PASS 181·FAIL 0)
+> 3차 갱신: **V21·V22 는 로컬 테스트 DB 에서만 활성(사용자 승인 2026-11-02, SQL 초안 08 — 로컬 활성 24건)**, 운영 반영 SQL 은 계속 V21·V22 제외(활성화 20건). 실제 GPT-4o 1~3차 결과·수정: [`ai-sourcing/gpt4o-results-2026-11-02.md`](ai-sourcing/gpt4o-results-2026-11-02.md).
 > 2차 갱신(같은 날): 이관 1차 결과(14행·막힘 0) 반영 — 이름 정리·도메인 별칭으로 **이관 SQL 재생성 필요(1차 지문 무효)**. A-5·A-6·주문 API 503 도 해결.
 
 ## 승인이 필요한 작업 (순서)
 
 | # | 작업 | 종류 | 준비물 |
 |---|---|---|---|
-| 1 | 작업 브랜치 → main 병합 | Git 승인 | 커밋 27개(main 대비) |
+| 1 | 작업 브랜치 → main 병합 | Git 승인 | `git log origin/main..` 기준 커밋 전부 |
 | 2 | 코드 배포(닷홈 4xx 문구 1·2단계, 관리자 통계, 자재 기본 정보·근거 구분 프롬프트, 상담 장소 판정 보완, XSS) | 배포 승인 | DB 변경 없이 동작 |
 | 3 | 제조사 자료: 운영 `external_products` 테이블 + 승인 14행 | DB 구조·데이터 승인 | 사용자 PC 에서 `export-approved.php --expect=14` → `10`·`20`·`30` |
 | 4 | 법령: 근거 칸 마이그레이션 → 66행 비활성 등록 → 검토자·날짜로 `20_activate_ready.sql` 생성(20건) | DB 구조·데이터 승인 | `database/20261102_rag_documents_legal_columns.sql`, `prod-apply/10·30·90` |

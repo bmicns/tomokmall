@@ -55,7 +55,8 @@ for f in add_ai_orders add_sites add_user_address add_reorder 20261023_add_favor
 done
 
 D="$ROOT_DIR/docs/03-analysis/ai-sourcing/sql-drafts"
-for f in 01_rag_documents_source_columns_DRAFT.sql 02_rag_documents_legal_candidates_DRAFT.sql 06_rag_documents_verified_clauses_DRAFT.sql 07_LOCAL_TEST_ONLY_activate_verified_clauses.sql; do
+# 08: V21·V22(공공도로 차도 100mm) 로컬 테스트 DB 전용 활성화 — 사용자 승인 2026-11-02(운영은 계속 비활성)
+for f in 01_rag_documents_source_columns_DRAFT.sql 02_rag_documents_legal_candidates_DRAFT.sql 06_rag_documents_verified_clauses_DRAFT.sql 07_LOCAL_TEST_ONLY_activate_verified_clauses.sql 08_LOCAL_TEST_ONLY_activate_public_road_V21_V22.sql; do
   sed '/^DRAFT_STOP_/d' "$D/$f" | run   # 초안 안전장치 줄은 테스트 DB 적용 때만 제거(원본 파일은 그대로)
 done
 
