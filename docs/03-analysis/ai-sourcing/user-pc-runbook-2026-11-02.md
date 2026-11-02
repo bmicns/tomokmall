@@ -23,6 +23,7 @@ DB_HOST=127.0.0.1 DB_NAME=tomokmall_test DB_USER=root DB_PASS= php scripts/exter
 ## 2. 실제 GPT-4o 시험 (MySQL 8.0 테스트 DB 필요 — 상품 검색이 운영과 같아야 함)
 
 > 1차 결과(2026-11-02 05:13·05:19) 분석과 수정: [`gpt4o-results-2026-11-02.md`](gpt4o-results-2026-11-02.md). `git pull` 후 같은 명령으로 **재실행**하고 결과 파일 이름만 `consult-core-2026-11-02b.md`·`material-after9.md` 로 바꿔 공유.
+> 2차 결과 검토·수정: 같은 문서 6장. 3차는 `consult-core-2026-11-02c.md`·`material-after10.md`(자재 10문항 — 경계석·PE 이중벽관 추가).
 
 MySQL 8.0 준비는 [`legal-sources/prompt-simulation-2026-10-29.md`](legal-sources/prompt-simulation-2026-10-29.md) 7-4장(설치 없는 ZIP, 포트 3308) 그대로. 준비된 뒤:
 
