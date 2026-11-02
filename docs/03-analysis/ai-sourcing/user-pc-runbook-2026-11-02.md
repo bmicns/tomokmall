@@ -24,6 +24,7 @@ DB_HOST=127.0.0.1 DB_NAME=tomokmall_test DB_USER=root DB_PASS= php scripts/exter
 
 > 1차 결과(2026-11-02 05:13·05:19) 분석과 수정: [`gpt4o-results-2026-11-02.md`](gpt4o-results-2026-11-02.md). `git pull` 후 같은 명령으로 **재실행**하고 결과 파일 이름만 `consult-core-2026-11-02b.md`·`material-after9.md` 로 바꿔 공유.
 > 2차 결과 검토·수정: 같은 문서 6장. 3차는 `consult-core-2026-11-02c.md`·`material-after10.md`(자재 10문항 — 경계석·PE 이중벽관 추가).
+> 3차 결과 검토·수정: 같은 문서 7장. 4차(선택)는 `consult-core-2026-11-02d.md`·`material-after11.md`. 테스트 DB 를 새로 만들면 V21·V22 가 로컬에서 켜진 상태(초안 08) — `--with-public-road` 는 없어도 됨. 기존 DB 는 `mysql … tomokmall_test < docs/03-analysis/ai-sourcing/sql-drafts/08_LOCAL_TEST_ONLY_activate_public_road_V21_V22.sql` 로 켠다.
 
 MySQL 8.0 준비는 [`legal-sources/prompt-simulation-2026-10-29.md`](legal-sources/prompt-simulation-2026-10-29.md) 7-4장(설치 없는 ZIP, 포트 3308) 그대로. 준비된 뒤:
 
