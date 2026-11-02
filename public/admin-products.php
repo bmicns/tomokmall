@@ -167,7 +167,8 @@ async function load(page) {
     const q      = document.getElementById('filter-q').value;
     document.getElementById('prod-tbody').innerHTML = '<tr><td colspan="9" class="empty-row">불러오는 중...</td></tr>';
     const r = await fetch(`${API}?status=${status}&cat_id=${catId}&q=${encodeURIComponent(q)}&page=${page}`);
-    const d = await r.json();
+    // 오류는 200 + ok:false + error 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
+    const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok) { alert(d.error); return; }
     render(d.products);
     renderPaging(d.total, d.limit, page);
@@ -286,7 +287,7 @@ async function save() {
     if (!payload.name) { alert('제품명을 입력해 주세요.'); return; }
     if (!payload.category_id) { alert('카테고리를 선택해 주세요.'); return; }
     const r = await fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
-    const d = await r.json();
+    const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok) { alert('저장 실패: ' + d.error); return; }
     closeModal();
     load(curPage);
@@ -295,7 +296,7 @@ async function save() {
 async function del(id, name) {
     if (!confirm(`"${name}" 제품을 삭제(비활성화)하시겠습니까?`)) return;
     const r = await fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'delete', id})});
-    const d = await r.json();
+    const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok) { alert('삭제 실패: ' + d.error); return; }
     load(curPage);
 }

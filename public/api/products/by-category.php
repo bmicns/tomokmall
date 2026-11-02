@@ -8,6 +8,9 @@ declare(strict_types=1);
  * 검증: category_id 양의 정수 + is_active=1 카테고리만 허용
  * 보안: 기업회원만 price_b2b 노출, 미로그인/일반회원은 price_b2c만 반환
  * 성능: 필요한 컬럼만 SELECT, 단일 쿼리
+ * 오류 응답: 입력 검증 실패(category_id·비활성 카테고리)도 HTTP 200 + {"ok":false,"error":…}
+ *           (닷홈 Apache 가 4xx 본문을 HTML 오류 페이지로 바꿔 JSON 문구가 사라짐 — quote.php 와 같은 방식)
+ *           405(메서드)·503(DB 연결 실패)은 상태 코드 유지
  */
 
 require __DIR__ . '/../../../app/bootstrap.php';
@@ -23,7 +26,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 
 $categoryId = (int) ($_GET['category_id'] ?? 0);
 if ($categoryId <= 0) {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => 'category_id가 유효하지 않습니다.']);
     exit;
 }
@@ -39,7 +41,6 @@ if (!$pdo) {
 $catStmt = $pdo->prepare('SELECT id FROM categories WHERE id = :id AND is_active = 1');
 $catStmt->execute(['id' => $categoryId]);
 if (!$catStmt->fetch()) {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => '유효하지 않은 카테고리입니다.']);
     exit;
 }

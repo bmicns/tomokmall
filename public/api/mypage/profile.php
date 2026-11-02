@@ -7,6 +7,9 @@ declare(strict_types=1);
  * 인증: 로그인 필요 (require_login)
  * GET  → name, email, phone, company_name 반환
  * POST → name, phone, company_name 수정 / 비밀번호 선택 변경
+ * 오류 응답: 입력 검증 실패·현재 비밀번호 불일치도 HTTP 200 + {"ok":false,"error":…}
+ *           (닷홈 Apache 가 4xx 본문을 HTML 오류 페이지로 바꿔 JSON 문구가 사라짐 — quote.php 와 같은 방식)
+ *           405(메서드)·503(DB 연결 실패)·401(비로그인, require_login)은 상태 코드 유지
  */
 
 require __DIR__ . '/../../../app/bootstrap.php';
@@ -50,32 +53,26 @@ $cur_pw         = (string) ($body['current_password'] ?? '');
 $new_pw         = (string) ($body['new_password']     ?? '');
 
 if ($name === '' || mb_strlen($name) > 80) {
-    http_response_code(422);
     echo json_encode(['ok' => false, 'error' => '이름은 1~80자로 입력해주세요.']);
     exit;
 }
 if ($phone !== '' && mb_strlen($phone) > 40) {
-    http_response_code(422);
     echo json_encode(['ok' => false, 'error' => '전화번호는 40자 이하로 입력해주세요.']);
     exit;
 }
 if ($company_name !== '' && mb_strlen($company_name) > 120) {
-    http_response_code(422);
     echo json_encode(['ok' => false, 'error' => '회사명은 120자 이하로 입력해주세요.']);
     exit;
 }
 if ($address_zip !== '' && mb_strlen($address_zip) > 10) {
-    http_response_code(422);
     echo json_encode(['ok' => false, 'error' => '우편번호가 올바르지 않습니다.']);
     exit;
 }
 if ($address !== '' && mb_strlen($address) > 255) {
-    http_response_code(422);
     echo json_encode(['ok' => false, 'error' => '기본주소는 255자 이하로 입력해주세요.']);
     exit;
 }
 if ($address_detail !== '' && mb_strlen($address_detail) > 255) {
-    http_response_code(422);
     echo json_encode(['ok' => false, 'error' => '상세주소는 255자 이하로 입력해주세요.']);
     exit;
 }
@@ -84,7 +81,6 @@ if ($address_detail !== '' && mb_strlen($address_detail) > 255) {
 $newHash = null;
 if ($new_pw !== '') {
     if (mb_strlen($new_pw) < 8 || mb_strlen($new_pw) > 100) {
-        http_response_code(422);
         echo json_encode(['ok' => false, 'error' => '새 비밀번호는 8~100자로 입력해주세요.']);
         exit;
     }
@@ -93,7 +89,6 @@ if ($new_pw !== '') {
     $st->execute(['id' => $user['id']]);
     $row = $st->fetch();
     if (!$row || !password_verify($cur_pw, (string) $row['password_hash'])) {
-        http_response_code(401);
         echo json_encode(['ok' => false, 'error' => '현재 비밀번호가 올바르지 않습니다.']);
         exit;
     }

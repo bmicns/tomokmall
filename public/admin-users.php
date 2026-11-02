@@ -181,7 +181,8 @@ async function deleteUser(id, name){
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ id }),
     });
-    const d = await r.json();
+    // 오류는 200 + ok:false + error 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
+    const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if(d.ok){ location.reload(); }
     else alert('오류: ' + d.error);
 }
@@ -195,7 +196,7 @@ async function saveUser(){
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ id, role, is_active: active }),
     });
-    const d = await r.json();
+    const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if(d.ok){ closeEdit(); location.reload(); }
     else alert('오류: ' + d.error);
 }

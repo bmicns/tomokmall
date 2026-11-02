@@ -74,7 +74,8 @@ let rootMap = {};
 
 async function loadRoots() {
     const r = await fetch(API);
-    const d = await r.json();
+    // 오류는 200 + ok:false + error 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
+    const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok || !d.roots.length) return;
     rootMap = {};
     d.roots.forEach(rt => { rootMap[rt.id] = rt; });
@@ -90,7 +91,7 @@ async function updDiscount(id, val, field, isRoot) {
     const body = {action:'discount', id};
     body[field] = v;
     const r = await fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
-    const d = await r.json();
+    const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok) { alert('마진율 저장 실패: ' + d.error); return; }
     if (isRoot && rootMap[id]) rootMap[id][field] = v;
 }
@@ -102,7 +103,7 @@ async function selectRoot(rootId) {
     if (tab) tab.classList.add('active');
     document.getElementById('tree-area').innerHTML = '<div style="padding:24px;text-align:center;color:#aaa;font-size:13px">불러오는 중...</div>';
     const r = await fetch(`${API}?root_id=${rootId}`);
-    const d = await r.json();
+    const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok) return;
     renderTree(d.categories, rootId);
 }
@@ -168,7 +169,7 @@ async function updSort(id, val) {
 
 async function toggle(id) {
     const r = await fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'toggle', id})});
-    const d = await r.json();
+    const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok) { alert(d.error); return; }
     selectRoot(curRoot);
 }
@@ -205,7 +206,7 @@ async function saveCat() {
         ? {action:'update', id:+id, name, sort_order:sort}
         : {action:'create', parent_id:+pid, name, sort_order:sort};
     const r = await fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
-    const d = await r.json();
+    const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok) { alert('저장 실패: ' + d.error); return; }
     closeMod();
     selectRoot(curRoot);

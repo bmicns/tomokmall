@@ -292,8 +292,9 @@ function clearVendorModal(){
 
 async function editVendor(id){
     const r = await fetch('/api/staff/vendors.php?id='+id);
-    const d = await r.json();
-    if(!d.ok) return;
+    // 오류는 200 + ok:false + error 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
+    const d = await r.json().catch(() => null);
+    if(!d || !d.ok){ alert('오류: '+((d && d.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.')); return; }
     const v = d.data;
     document.getElementById('vm-id').value      = v.id;
     document.getElementById('vm-name').value    = v.name;
@@ -325,9 +326,9 @@ async function saveVendor(){
     const r = await fetch('/api/staff/vendors.php', {
         method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
     });
-    const d = await r.json();
-    if(d.ok){ closeModal('vendor-modal'); location.reload(); }
-    else alert('오류: '+d.error);
+    const d = await r.json().catch(() => null);
+    if(d && d.ok){ closeModal('vendor-modal'); location.reload(); }
+    else alert('오류: '+((d && d.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
 }
 
 // ── 품목-업체 연결 ─────────────────────────────────────────────
@@ -385,9 +386,9 @@ async function addProductVendor(){
     const r = await fetch('/api/staff/vendors.php', {
         method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
     });
-    const d = await r.json();
-    if(d.ok){ await loadProductVendors(productId); }
-    else alert('오류: '+d.error);
+    const d = await r.json().catch(() => null);
+    if(d && d.ok){ await loadProductVendors(productId); }
+    else alert('오류: '+((d && d.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
 }
 
 async function removeProductVendor(pvId){
@@ -396,10 +397,10 @@ async function removeProductVendor(pvId){
     const r = await fetch('/api/staff/vendors.php', {
         method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
     });
-    const d = await r.json();
+    const d = await r.json().catch(() => null);
     const pid = document.getElementById('pv-product-id').value;
-    if(d.ok) await loadProductVendors(parseInt(pid));
-    else alert('오류: '+d.error);
+    if(d && d.ok) await loadProductVendors(parseInt(pid));
+    else alert('오류: '+((d && d.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
 }
 </script>
 

@@ -4,6 +4,10 @@ declare(strict_types=1);
  * 직원 견적 API
  * GET  /api/staff/estimates.php?id=N  — 견적 상세 (items 포함)
  * POST /api/staff/estimates.php       — 견적 저장/상태변경
+ *
+ * 오류 응답: 입력 검증 실패(id·견적 없음·발송 불가 상태·action)도 HTTP 200 + {"ok":false,"error":…}
+ *           (닷홈 Apache 가 4xx 본문을 HTML 오류 페이지로 바꿔 JSON 문구가 사라짐 — quote.php 와 같은 방식)
+ *           405(메서드)·500(예외 — 상세는 서버 로그, 화면에는 일반 문구)·401/403(require_staff)은 상태 코드 유지
  */
 require __DIR__ . '/../../../app/bootstrap.php';
 require __DIR__ . '/../../../app/auth.php';
@@ -11,8 +15,10 @@ require __DIR__ . '/../../../app/auth.php';
 header('Content-Type: application/json; charset=utf-8');
 
 set_exception_handler(function (\Throwable $e) {
+    // 내부 오류 문구(SQL 등)는 화면에 보내지 않고 서버 로그에만 남긴다
+    error_log('[api/staff/estimates] ' . get_class($e) . ': ' . $e->getMessage());
     if (!headers_sent()) http_response_code(500);
-    echo json_encode(['ok' => false, 'error' => '서버 오류: ' . $e->getMessage()]);
+    echo json_encode(['ok' => false, 'error' => '서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'], JSON_UNESCAPED_UNICODE);
     exit;
 });
 
@@ -23,12 +29,12 @@ $method = $_SERVER['REQUEST_METHOD'];
 // ── GET: 견적 상세 ─────────────────────────────────────────────────────────
 if ($method === 'GET') {
     $id = (int)($_GET['id'] ?? 0);
-    if (!$id) { http_response_code(400); echo json_encode(['ok'=>false,'error'=>'id 필요']); exit; }
+    if (!$id) { echo json_encode(['ok'=>false,'error'=>'id 필요']); exit; }
 
     $est = db()->prepare('SELECT e.*, u.name AS staff_name FROM estimates e LEFT JOIN users u ON u.id = e.staff_id WHERE e.id = :id');
     $est->execute(['id' => $id]);
     $estimate = $est->fetch();
-    if (!$estimate) { http_response_code(404); echo json_encode(['ok'=>false,'error'=>'없음']); exit; }
+    if (!$estimate) { echo json_encode(['ok'=>false,'error'=>'없음']); exit; }
 
     $items = db()->prepare(
         'SELECT ei.*, p.name AS product_name, p.spec, p.brand, p.image_url
@@ -50,13 +56,13 @@ if ($method === 'POST') {
     $id     = (int)($body['id'] ?? 0);
     $action = $body['action'] ?? '';
 
-    if (!$id) { http_response_code(400); echo json_encode(['ok'=>false,'error'=>'id 필요']); exit; }
+    if (!$id) { echo json_encode(['ok'=>false,'error'=>'id 필요']); exit; }
 
     // 견적 존재 확인
     $check = db()->prepare('SELECT id, status FROM estimates WHERE id = :id');
     $check->execute(['id' => $id]);
     $est = $check->fetch();
-    if (!$est) { http_response_code(404); echo json_encode(['ok'=>false,'error'=>'없음']); exit; }
+    if (!$est) { echo json_encode(['ok'=>false,'error'=>'없음']); exit; }
 
     $staffUser = \current_user();
 
@@ -109,7 +115,6 @@ if ($method === 'POST') {
     // action: send — 견적 발송 처리 (WORKING → SENT)
     if ($action === 'send') {
         if (!in_array($est['status'], ['WORKING','REQUESTED'], true)) {
-            http_response_code(400);
             echo json_encode(['ok'=>false,'error'=>'발송할 수 없는 상태입니다.']);
             exit;
         }
@@ -134,7 +139,6 @@ if ($method === 'POST') {
         exit;
     }
 
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => '알 수 없는 action']);
     exit;
 }

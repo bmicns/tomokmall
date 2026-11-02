@@ -9,6 +9,10 @@ declare(strict_types=1);
  * POST action=remove_product_vendor — 삭제
  * POST (id 없음)            — 업체 등록
  * POST (id 있음)            — 업체 수정
+ *
+ * 오류 응답: 입력 검증 실패(파라미터·업체 없음·업체명·이메일)도 HTTP 200 + {"ok":false,"error":…}
+ *           (닷홈 Apache 가 4xx 본문을 HTML 오류 페이지로 바꿔 JSON 문구가 사라짐 — quote.php 와 같은 방식)
+ *           405(메서드)·500(예외 — 상세는 서버 로그, 화면에는 일반 문구)·401/403(require_staff)은 상태 코드 유지
  */
 require __DIR__ . '/../../../app/bootstrap.php';
 require __DIR__ . '/../../../app/auth.php';
@@ -16,8 +20,10 @@ require __DIR__ . '/../../../app/auth.php';
 header('Content-Type: application/json; charset=utf-8');
 
 set_exception_handler(function (\Throwable $e) {
+    // 내부 오류 문구(SQL 등)는 화면에 보내지 않고 서버 로그에만 남긴다
+    error_log('[api/staff/vendors] ' . get_class($e) . ': ' . $e->getMessage());
     if (!headers_sent()) http_response_code(500);
-    echo json_encode(['ok' => false, 'error' => $e->getMessage()]);
+    echo json_encode(['ok' => false, 'error' => '서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'], JSON_UNESCAPED_UNICODE);
     exit;
 });
 
@@ -38,7 +44,7 @@ if ($method === 'GET') {
         $st = db()->prepare('SELECT * FROM vendors WHERE id=:id');
         $st->execute(['id' => $id]);
         $row = $st->fetch();
-        if (!$row) { http_response_code(404); echo json_encode(['ok'=>false,'error'=>'없음']); exit; }
+        if (!$row) { echo json_encode(['ok'=>false,'error'=>'없음']); exit; }
         echo json_encode(['ok' => true, 'data' => $row]);
         exit;
     }
@@ -57,7 +63,6 @@ if ($method === 'GET') {
         echo json_encode(['ok' => true, 'data' => $st->fetchAll()]);
         exit;
     }
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => '파라미터 필요']);
     exit;
 }
@@ -75,7 +80,7 @@ if ($method === 'POST') {
         $lead  = max(0, (int)($body['lead_days']    ?? 0));
         $prim  = ($body['is_primary'] ?? 0) ? 1 : 0;
 
-        if (!$pid || !$vid) { http_response_code(400); echo json_encode(['ok'=>false,'error'=>'product_id, vendor_id 필요']); exit; }
+        if (!$pid || !$vid) { echo json_encode(['ok'=>false,'error'=>'product_id, vendor_id 필요']); exit; }
 
         // 주거래 설정 시 기존 주거래 해제
         if ($prim) {
@@ -96,7 +101,7 @@ if ($method === 'POST') {
     // 품목-업체 삭제
     if ($action === 'remove_product_vendor') {
         $id = (int)($body['id'] ?? 0);
-        if (!$id) { http_response_code(400); echo json_encode(['ok'=>false,'error'=>'id 필요']); exit; }
+        if (!$id) { echo json_encode(['ok'=>false,'error'=>'id 필요']); exit; }
         db()->prepare('DELETE FROM product_vendors WHERE id=:id')->execute(['id'=>$id]);
         echo json_encode(['ok' => true]);
         exit;
@@ -112,9 +117,9 @@ if ($method === 'POST') {
     $address = substr(trim($body['address'] ?? ''), 0, 255);
     $memo    = substr(trim($body['memo']    ?? ''), 0, 1000);
 
-    if ($name === '') { http_response_code(400); echo json_encode(['ok'=>false,'error'=>'업체명 필수']); exit; }
+    if ($name === '') { echo json_encode(['ok'=>false,'error'=>'업체명 필수']); exit; }
     if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        http_response_code(400); echo json_encode(['ok'=>false,'error'=>'이메일 형식 오류']); exit;
+        echo json_encode(['ok'=>false,'error'=>'이메일 형식 오류']); exit;
     }
 
     $id = (int)($body['id'] ?? 0);

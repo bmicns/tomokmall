@@ -15,7 +15,7 @@ declare(strict_types=1);
  *
  * 오류 응답: 검증 실패(action·product_id·수량·상품 없음)도 HTTP 200 + {"ok":false,"error":…}
  *           (닷홈 Apache 가 4xx 본문을 HTML 오류 페이지로 바꿔 JSON 문구가 사라짐 — quote.php 와 같은 방식)
- *           405(메서드)는 상태 코드 유지
+ *           405(메서드)·503(add/update 의 DB 연결 실패)은 상태 코드 유지
  */
 
 require __DIR__ . '/../../app/bootstrap.php';
@@ -84,8 +84,16 @@ if ($quantity < $minQty || $quantity > 999) {
     exit;
 }
 
+// DB 연결 실패 시 빈 500 대신 JSON 오류(다른 API 와 같은 503 응답)
+$pdo = db();
+if (!$pdo) {
+    http_response_code(503);
+    echo json_encode(['ok' => false, 'error' => '서버 오류가 발생했습니다.']);
+    exit;
+}
+
 // DB 존재 + is_active 확인
-$stmt = db()->prepare('SELECT id FROM products WHERE id = :id AND is_active = 1');
+$stmt = $pdo->prepare('SELECT id FROM products WHERE id = :id AND is_active = 1');
 $stmt->execute(['id' => $productId]);
 if (!$stmt->fetch()) {
     echo json_encode(['ok' => false, 'error' => '상품을 찾을 수 없습니다.']);

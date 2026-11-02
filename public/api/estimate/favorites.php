@@ -13,6 +13,9 @@ declare(strict_types=1);
  *  - 다중: {product_ids:[...]}     → 200 {ok, added[], already[], failed[{product_id,reason}], total}
  *          이미 등록된 상품은 기존 저장 내역(수량 포함) 유지, 신규만 기본 수량 1로 저장.
  *          reason: invalid(판매 중 아님) | limit(최대 개수 초과)
+ * 오류 응답: 입력 검증 실패(product_id·quantity·상품 없음·최대 개수)도 HTTP 200 + {"ok":false,"error":…}
+ *           (닷홈 Apache 가 4xx 본문을 HTML 오류 페이지로 바꿔 JSON 문구가 사라짐 — quote.php 와 같은 방식)
+ *           405(메서드)·503(DB 연결 실패)·401(비로그인, require_login)은 상태 코드 유지
  */
 
 require __DIR__ . '/../../../app/bootstrap.php';
@@ -85,7 +88,6 @@ if (!is_array($body)) {
 if ($method === 'POST' && array_key_exists('product_ids', $body)) {
     $ids = favorite_parse_ids($body['product_ids']);
     if ($ids === null) {
-        http_response_code(400);
         echo json_encode(['ok' => false, 'error' => '선택한 상품 정보가 올바르지 않습니다. (1~' . FAVORITES_BULK_MAX . '개)'], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -128,7 +130,6 @@ if ($method === 'POST' && array_key_exists('product_ids', $body)) {
 $productId = (int) ($body['product_id'] ?? 0);
 
 if ($productId <= 0) {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => 'product_id가 유효하지 않습니다.']);
     exit;
 }
@@ -137,7 +138,6 @@ if ($productId <= 0) {
 $pStmt = $pdo->prepare('SELECT id FROM products WHERE id = :id AND is_active = 1');
 $pStmt->execute(['id' => $productId]);
 if (!$pStmt->fetch()) {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => '존재하지 않거나 판매 중단된 상품입니다.']);
     exit;
 }
@@ -156,7 +156,6 @@ if ($method === 'DELETE') {
 // ── POST — 단골품목 추가 ─────────────────────────────────────────────────────
 $quantity = (int) ($body['quantity'] ?? 1);
 if ($quantity < 1 || $quantity > 999) {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => 'quantity는 1~999 범위여야 합니다.']);
     exit;
 }
@@ -167,7 +166,6 @@ $countStmt = $pdo->prepare(
 );
 $countStmt->execute(['uid' => $user['id']]);
 if ((int) $countStmt->fetchColumn() >= FAVORITES_MAX) {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => '단골품목은 최대 50개까지 등록할 수 있습니다.']);
     exit;
 }

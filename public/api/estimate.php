@@ -8,6 +8,9 @@ declare(strict_types=1);
  * v2.0 변경: requested_delivery_at, delivery_undecided, user_id 자동 연결
  *
  * 인증: 불필요 (세션 기반, 로그인 시 user_id 자동 연결)
+ * 오류 응답: 입력 검증 실패(estimate_create 의 ok:false)도 HTTP 200 + {"ok":false,"error":…}
+ *           (닷홈 Apache 가 4xx 본문을 HTML 오류 페이지로 바꿔 JSON 문구가 사라짐 — quote.php 와 같은 방식)
+ *           405(메서드)·500(예외)은 상태 코드 유지
  */
 
 require __DIR__ . '/../../app/bootstrap.php';
@@ -49,7 +52,6 @@ $result = estimate_create([
 ]);
 
 if (!$result['ok']) {
-    http_response_code(400);
     echo json_encode($result);
     exit;
 }

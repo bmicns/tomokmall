@@ -206,7 +206,8 @@ async function save() {
         is_active: +document.getElementById('f-active').value,
     };
     const r = await fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
-    const d = await r.json();
+    // 오류는 200 + ok:false + error 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
+    const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok) { showErr('저장 실패: ' + d.error); return; }
     const badge = document.getElementById('badge-status');
     badge.textContent = payload.is_active ? '활성' : '비활성';
@@ -218,7 +219,7 @@ async function del() {
     const name = document.getElementById('f-name').value || '이 제품';
     if (!confirm(`"${name}" 제품을 삭제(비활성화)하시겠습니까?`)) return;
     const r = await fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'delete',id:prodId})});
-    const d = await r.json();
+    const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok) { showErr('삭제 실패: ' + d.error); return; }
     location.href = '/admin-products.php';
 }

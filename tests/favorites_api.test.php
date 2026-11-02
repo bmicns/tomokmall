@@ -188,12 +188,13 @@ ok('body의 user_id 무시(세션 사용자에만 저장)', ($d['added'] ?? []) 
     && (int) $pdo->query("SELECT COUNT(*) FROM favorite_products WHERE user_id={$uids['corp2']} AND product_id={$pids[2]}")->fetchColumn() === 1);
 
 echo "[입력 검증 + 부분 실패]\n";
+// 검증 실패는 HTTP 200 + ok:false + error(닷홈 Apache 가 4xx 본문을 HTML 로 바꿔 문구가 사라지는 문제 회피)
 [$st, $d] = http('POST', $api, ['product_ids' => []], $jCust);
-ok('빈 배열 → 400', $st === 400 && ($d['ok'] ?? true) === false);
-[$st] = http('POST', $api, ['product_ids' => ['abc']], $jCust);
-ok('잘못된 id → 400', $st === 400);
-[$st] = http('POST', $api, ['product_ids' => range(1, FAVORITES_BULK_MAX + 1)], $jCust);
-ok('1회 최대 개수 초과 → 400', $st === 400);
+ok('빈 배열 → 200 ok:false + 오류 문구', $st === 200 && ($d['ok'] ?? true) === false && str_contains((string) ($d['error'] ?? ''), '선택한 상품 정보가 올바르지 않습니다'));
+[$st, $d] = http('POST', $api, ['product_ids' => ['abc']], $jCust);
+ok('잘못된 id → 200 ok:false', $st === 200 && ($d['ok'] ?? true) === false);
+[$st, $d] = http('POST', $api, ['product_ids' => range(1, FAVORITES_BULK_MAX + 1)], $jCust);
+ok('1회 최대 개수 초과 → 200 ok:false', $st === 200 && ($d['ok'] ?? true) === false);
 // 회귀: 카테고리 목록 '전체선택'(60개 초과) 요청이 통째로 400 되던 오류 — 한도(50) 안에서 저장, 나머지는 failed
 $many = array_merge([$pids[9]], range(900000001, 900000239));
 [$st, $d] = http('POST', $api, ['product_ids' => $many], $jCust);
@@ -215,14 +216,15 @@ ok('DB 50개', (int) $pdo->query("SELECT COUNT(*) FROM favorite_products WHERE u
 [$st, $d] = http('POST', $api, ['product_ids' => [$pids[2]]], $jCust);
 ok('한도 도달 상태에서 이미 등록된 상품 → already(실패 아님)', $st === 200 && $d['already'] === [$pids[2]] && $d['failed'] === []);
 [$st, $d] = http('POST', $api, ['product_id' => $rest[count($rest) - 1]], $jCust);
-ok('단건 POST도 한도 50 유지 → 400', $st === 400);
+ok('단건 POST도 한도 50 유지 → 200 ok:false + 오류 문구', $st === 200 && ($d['ok'] ?? true) === false
+    && ($d['error'] ?? '') === '단골품목은 최대 50개까지 등록할 수 있습니다.');
 
 echo "[저장 실패 후 재시도]\n";
 http('DELETE', $api, ['product_id' => $pids[9]], $jCust);
 http('DELETE', $api, ['product_id' => $pids[10]], $jCust);
-[$st] = http('POST', $api, ['product_ids' => 'x'], $jCust);
+[$st, $d0] = http('POST', $api, ['product_ids' => 'x'], $jCust);
 [$st2, $d] = http('POST', $api, ['product_ids' => [$pids[9], $pids[10]]], $jCust);
-ok('잘못된 요청(400) 뒤 같은 세션으로 재시도 → 저장', $st === 400 && $st2 === 200 && count($d['added']) === 2);
+ok('잘못된 요청(ok:false) 뒤 같은 세션으로 재시도 → 저장', $st === 200 && ($d0['ok'] ?? true) === false && $st2 === 200 && count($d['added']) === 2);
 
 echo "[마이페이지·상품 목록 화면]\n";
 [$st, , $html] = http('GET', "{$base}/mypage.php?tab=favorites", null, $jCust);
