@@ -349,6 +349,7 @@ async function openProductVendors(productId, productName){
     openModal('pv-modal');
 }
 
+function pvEsc(v){ return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 async function loadProductVendors(productId){
     const r = await fetch('/api/staff/vendors.php?product_id='+productId);
     const d = await r.json();
@@ -360,13 +361,13 @@ async function loadProductVendors(productId){
     list.innerHTML = d.data.map(pv => `
         <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f5f5">
             <div>
-                <span style="font-size:13px;font-weight:600">${pv.vendor_name}</span>
+                <span style="font-size:13px;font-weight:600">${pvEsc(pv.vendor_name)}</span>
                 ${pv.is_primary ? '<span style="margin-left:6px;font-size:10px;background:#003580;color:#fff;padding:1px 5px;border-radius:3px">주거래</span>' : ''}
                 <div style="font-size:11px;color:#888;margin-top:2px">
                     공급단가: ${parseInt(pv.supply_price||0).toLocaleString()}원 | 리드타임: ${pv.lead_days||0}일
                 </div>
             </div>
-            <button onclick="removeProductVendor(${pv.id})" style="background:#fce4ec;color:#c62828;border:none;border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer">삭제</button>
+            <button onclick="removeProductVendor(${parseInt(pv.id, 10)})" style="background:#fce4ec;color:#c62828;border:none;border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer">삭제</button>
         </div>
     `).join('');
 }

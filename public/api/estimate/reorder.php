@@ -10,7 +10,7 @@ declare(strict_types=1);
  * 성능: estimate_items JOIN products 단일 쿼리 — N+1 방지
  * 오류 응답: 입력 검증 실패(estimate_id·재구매 가능 품목 없음)도 HTTP 200 + {"ok":false,"error":…}
  *           (닷홈 Apache 가 4xx 본문을 HTML 오류 페이지로 바꿔 JSON 문구가 사라짐 — quote.php 와 같은 방식)
- *           405(메서드)·503(DB 연결 실패)·403(본인 견적 아님)·401(require_login)은 상태 코드 유지
+ *           405(메서드)·503(DB 연결 실패)·401(require_login)은 상태 코드 유지
  */
 
 require __DIR__ . '/../../../app/bootstrap.php';
@@ -47,7 +47,7 @@ $estStmt = $pdo->prepare(
 );
 $estStmt->execute(['eid' => $estimateId, 'uid' => $user['id']]);
 if (!$estStmt->fetch()) {
-    http_response_code(403);
+    // 본인 견적 아님 — 닷홈이 4xx 본문을 바꾸므로 200 + ok:false (확인 자체는 그대로)
     echo json_encode(['ok' => false, 'error' => '접근 권한이 없습니다.']);
     exit;
 }

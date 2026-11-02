@@ -6,7 +6,7 @@ declare(strict_types=1);
  *
  * 오류 응답: 입력 검증 실패(id·역할·변경 내용 없음)도 HTTP 200 + {"ok":false,"error":…}
  *           (닷홈 Apache 가 4xx 본문을 HTML 오류 페이지로 바꿔 JSON 문구가 사라짐 — quote.php 와 같은 방식)
- *           405(메서드)·403(자기 자신 변경)·500(예외 — 상세는 서버 로그, 화면에는 일반 문구)은 상태 코드 유지
+ *           405(메서드)·500(예외 — 상세는 서버 로그, 화면에는 일반 문구)은 상태 코드 유지
  */
 require __DIR__ . '/../../../app/bootstrap.php';
 require __DIR__ . '/../../../app/auth.php';
@@ -37,7 +37,7 @@ if (!$id) { echo json_encode(['ok'=>false,'error'=>'id 필요']); exit; }
 // 자기 자신의 역할·상태는 변경 불가
 $me = \current_user();
 if ($me && $me['id'] === $id) {
-    http_response_code(403); echo json_encode(['ok'=>false,'error'=>'자기 자신은 변경할 수 없습니다.']); exit;
+    echo json_encode(['ok'=>false,'error'=>'자기 자신은 변경할 수 없습니다.']); exit;
 }
 
 $allowed = ['customer','corporate','staff','admin'];
