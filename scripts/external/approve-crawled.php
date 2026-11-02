@@ -26,6 +26,7 @@ require_once "{$root}/app/ai_tools.php";
 require_once "{$root}/app/external_products.php";
 require_once "{$root}/app/external_api.php";
 require_once "{$root}/app/external_crawl.php";
+require_once "{$root}/app/external_export.php";
 
 $opt = getopt('', ['dir:', 'only:', 'approve:', 'exclude:', 'revoke:']);
 $dir = rtrim((string) ($opt['dir'] ?? (getenv('EXT_CRAWL_DIR') ?: "{$root}/data/external/crawl")), '/\\');
@@ -74,7 +75,7 @@ $judge = static function (array $rows) use ($exclude): array {
 };
 
 $keys = $pdo->query("SELECT DISTINCT source_key FROM external_products ORDER BY source_key")->fetchAll(PDO::FETCH_COLUMN);
-$rowsSt = $pdo->prepare('SELECT id, name, product_type, spec_raw, width_mm, length_mm, thickness_mm, diameter_mm, material, attrs_json, source_url, review_status FROM external_products WHERE source_key = ? ORDER BY id');
+$rowsSt = $pdo->prepare('SELECT id, source_key, name, product_type, spec_raw, width_mm, length_mm, thickness_mm, diameter_mm, material, attrs_json, source_url, ref_price, review_status FROM external_products WHERE source_key = ? ORDER BY id');
 
 // ── 승인(사람이 고른 출처만) ───────────────────────────────────────
 // ── 승인 되돌리기(사람이 고른 출처만) — 걸러 낸 문장을 원래대로 합쳐 검토 대기로 ─────────────
@@ -119,6 +120,9 @@ if ($approve) {
                 }
             }
             if (!$keep) { $skipNoFact++; continue; }   // 승인할 문장이 없는 행(규격만)은 검토 대기로 둔다
+            // 운영 이관 검증과 같은 기준(도메인·연락처·다른 종류 제품 문장·긴 인용 등) — 이관에서 막힐 행은 승인하지 않는다
+            $chk = ext_export_issues(['review_status' => 'approved', 'attrs_json' => json_encode(['facts' => $keep], JSON_UNESCAPED_UNICODE)] + $r, $srcs[$k] ?? null);
+            if ($chk['block']) { $skipIssue++; echo "  검토 대기 유지 {$r['id']} {$r['name']}: " . implode(' / ', $chk['block']) . "\n"; continue; }
             $a['facts'] = $keep;
             $a['facts_held'] = $held;
             $a['reviewed_at'] = date('Y-m-d');
