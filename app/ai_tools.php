@@ -134,6 +134,9 @@ function tool_material_info(array $input): string
         $info['_sse'] = [['type' => 'material_sources', 'sources' => $info['sources']]];
     }
     unset($info['sources']);
+    // 승인 제조사 자료가 없는 질문 주제 기록(화면 표시 없음 — 상담 기록 chat_logs 에만 남아 다음 자료 확보 우선순위에 씀)
+    $gap = ai_material_gap_event($topic, (bool) $info['facts']);
+    if ($gap !== null) { $info['_sse'][] = $gap; }
     if ($info['facts']) {   // 제품별로 묶어 준다 — 한 목록에 섞여 오면 GPT 가 다른 제품 문장을 옮겨 말함(실제 GPT-4o 1번: 안전 중하중의 '작은 바퀴'를 중하중에)
         $by = [];
         foreach ($info['facts'] as $f) {
@@ -154,6 +157,13 @@ function tool_material_info(array $input): string
             . '규격은 표기 그대로(예: 200*150*2000*35T) 쓰고 각 숫자가 폭·높이·길이 중 무엇인지, 단위(cm·mm)를 풀어 쓰지 않는다. 구조(개거·폐쇄형 등)·성능·용도는 이름에 없으면 덧붙이지 않는다. 출처는 \'국가표준 목록\'·\'토목몰 등록 상품\'으로 밝힌다.';
     }
     return json_encode($info, JSON_UNESCAPED_UNICODE);
+}
+
+/** 자료 공백 이벤트 (순수 함수) — 제조사 자료가 없을 때만 {type: material_gap, topic}. 주제는 60자까지, 전화번호·이메일 모양은 지움 */
+function ai_material_gap_event(string $topic, bool $hasFacts): ?array
+{
+    $t = trim((string) preg_replace('/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+|\d{2,4}[-.\s]?\d{3,4}[-.\s]?\d{4}/u', '', $topic));
+    return ($hasFacts || $t === '') ? null : ['type' => 'material_gap', 'topic' => mb_substr($t, 0, 60)];
 }
 
 /** 자재 이름 표기 통일 (순수 함수) — 블럭→블록, 플룸·플럼→플륨, 공백 제거 후 비교 */

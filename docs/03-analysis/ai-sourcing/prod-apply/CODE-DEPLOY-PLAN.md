@@ -4,6 +4,8 @@
 > 절차: [`docs/DEPLOYMENT.md`](../../../DEPLOYMENT.md) 5-1장 `scripts/deploy-files.sh` — ② `check`(백업·서버 = 02a98c2 확인, 서버 변경 없음) → ③ `upload`(승인 후) → ⑤ `rollback`(문제 시).
 > 목표(1단계): **제조사 승인 자료 14행 + 검증 법령 근거를 운영 AI 상담에 반영**. 2·3단계는 AI 상담과 독립.
 
+> **2026-11-02 1단계(A 5개) 운영 반영 완료** — [DEPLOY-LOG.md](DEPLOY-LOG.md). 이후 A 파일에 생긴 변경(예: `app/ai_tools.php` 자료 공백 기록 material_gap)은 '1단계 후속'으로 같은 방식(`check <1단계 배포 커밋> 파일`)으로 따로 승인·배포.
+
 ## 1. 41개 파일 분류
 
 | 묶음 | 파일 | 내용 | 다른 묶음 의존 |

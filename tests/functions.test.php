@@ -522,5 +522,8 @@ ok('동률 최저가 담기 → 다른 동률 상품 이름 한 줄(직전 추�
 ok('동률 안내: 이미 같은 금액이라고 말했거나·동률 아닌 상품·이번 턴 카드 기준', rag_tie_note('같은 금액의 U형도 있습니다.', [402], [], $rc) === '' && rag_tie_note('담았습니다.', [416], [], $rc) === ''
     && str_contains(rag_tie_note('담았습니다.', [7], [['id' => 7, 'name' => 'A', 'cost_lowest' => true], ['id' => 8, 'name' => 'B', 'cost_lowest' => true], ['id' => 9, 'name' => 'C', 'cost_lowest' => false]], []), 'B도 있습니다'));
 
+ok('자료 공백 이벤트: 제조사 자료 없을 때만, 연락처 모양 제거', ai_material_gap_event('벤치플룸관', false) === ['type' => 'material_gap', 'topic' => '벤치플룸관']
+    && ai_material_gap_event('그레이팅', true) === null && ai_material_gap_event('흄관 010-1234-5678', false)['topic'] === '흄관' && ai_material_gap_event('  ', false) === null);
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);
