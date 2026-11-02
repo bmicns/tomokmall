@@ -40,10 +40,15 @@ function ext_export_issues(array $row, ?array $src, array $factOwners = []): arr
     if (($row['review_status'] ?? '') !== 'approved') { $block[] = '승인(approved) 행이 아님'; }
     $host = strtolower((string) parse_url((string) ($row['source_url'] ?? ''), PHP_URL_HOST));
     $dom = strtolower(preg_replace('/^www\./', '', (string) ($src['domain'] ?? '')));
-    if ($src !== null && $dom !== '' && ($host === '' || !str_ends_with(preg_replace('/^www\./', '', $host), $dom))) {
+    $doms = array_filter(array_merge([$dom], array_map(static fn($d) => strtolower(preg_replace('/^www\./', '', (string) $d)), (array) ($src['aliases'] ?? []))));   // 등록부 aliases: 확인된 이동 도메인
+    $h0 = preg_replace('/^www\./', '', $host);
+    if ($src !== null && $dom !== '' && ($host === '' || !array_filter($doms, static fn($d) => str_ends_with($h0, $d)))) {
         $warn[] = "출처 URL 도메인({$host})이 등록부 도메인({$dom})과 다름 — 홈페이지 이동(리디렉션) 여부 확인";   // 수집기는 같은 호스트만 따라가므로 차이는 리디렉션 — 사람이 확인
     }
     if (ext_is_nav_label((string) ($row['name'] ?? ''))) { $block[] = '행 이름이 사이트 메뉴 글자'; }
+    $shown = ext_display_name((string) ($row['name'] ?? ''), (string) ($row['product_type'] ?? ''));
+    if ($shown !== trim((string) ($row['name'] ?? ''))) { $warn[] = "행 이름 정리('" . ($row['name'] ?? '') . "' → '{$shown}') — 가격·'PRODUCT' 같은 쪽 제목은 이름에서 뺌"; }
+    if ($shown === '') { $block[] = '행 이름이 비어 있음(정리 후)'; }
     if (($src['permission'] ?? '') !== 'allowed' && ($row['ref_price'] ?? null) !== null && (string) $row['ref_price'] !== '') {
         $warn[] = '제조사 공개 자료의 참고가 — 이관 때 비움(가격은 쓰지 않음)';
     }
@@ -101,6 +106,7 @@ function ext_export_row(array $row, ?array $src): array
         $out[$c] = $v;
     }
     if (($src['permission'] ?? '') !== 'allowed') { $out['ref_price'] = null; $out['price_basis'] = null; }
+    $out['name'] = ext_display_name((string) $out['name'], (string) ($out['product_type'] ?? ''));
     return $out;
 }
 
@@ -116,7 +122,7 @@ function ext_export_insert_sql(array $r): string
 /** 운영에서 같은 값으로 계산할 지문 — SHA2(GROUP_CONCAT(source_key:dedup_key:SHA2(attrs_json) 정렬, '|')) 와 같다 */
 function ext_export_fingerprint(array $rows): string
 {
-    $parts = array_map(static fn($r) => $r['source_key'] . ':' . $r['dedup_key'] . ':' . hash('sha256', (string) $r['attrs_json']), $rows);
+    $parts = array_map(static fn($r) => $r['source_key'] . ':' . $r['dedup_key'] . ':' . hash('sha256', ($r['name'] ?? '') . '|' . $r['attrs_json']), $rows);
     sort($parts, SORT_STRING);
     return hash('sha256', implode('|', $parts));
 }
@@ -124,7 +130,7 @@ function ext_export_fingerprint(array $rows): string
 /** 운영에서 지문을 계산하는 SELECT (읽기 전용) */
 function ext_export_fingerprint_sql(): string
 {
-    $k = "CONCAT(source_key, ':', dedup_key, ':', SHA2(attrs_json, 256))";   // 정렬은 바이트 순(PHP sort 와 같게) — 대소문자 무시 정렬과 '_' 순서 차이 방지
+    $k = "CONCAT(source_key, ':', dedup_key, ':', SHA2(CONCAT(name, '|', attrs_json), 256))";   // 이름(정리 후)·원문 문장 모두 대조   // 정렬은 바이트 순(PHP sort 와 같게) — 대소문자 무시 정렬과 '_' 순서 차이 방지
     return "SET SESSION group_concat_max_len = 1048576;\n"
         . "SELECT COUNT(*) AS approved_rows, SHA2(GROUP_CONCAT({$k} ORDER BY CAST({$k} AS BINARY) SEPARATOR '|'), 256) AS fingerprint\n"
         . "FROM external_products WHERE review_status = 'approved';";

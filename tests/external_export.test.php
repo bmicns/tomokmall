@@ -44,7 +44,13 @@ ok('같은 문장이 같은 종류 행에도 → 경고만', ext_export_issues($
     && (bool) ext_export_issues($row(['features' => [$good]]), $src, [$good => [1 => '그레이팅', 2 => '그레이팅']])['warn']);
 ok('제조사 자료 참고가 비움', ext_export_row($row(['features' => [$good]], ['ref_price' => '12000']), $src)['ref_price'] === null);
 ok('공공데이터(allowed) 참고가 유지', ext_export_row($row(['features' => [$good]], ['ref_price' => '12000']), ['permission' => 'allowed'] + $src)['ref_price'] === 12000);
+ok('등록부 aliases 도메인(한글 도메인 이동)은 경고 없음', ext_export_issues($row(['features' => [$good]], ['source_url' => 'http://xn--2i0bw4q0yi42ecvqlc.kr/p']), ['aliases' => ['xn--2i0bw4q0yi42ecvqlc.kr']] + $src)['warn'] === []);
+ok("이름의 가격·'PRODUCT' 정리 — 경고 + 이관 값 정리", (bool) ext_export_issues($row(['features' => [$good]], ['name' => 'PRODUCT 21,500']), $src)['warn']
+    && ext_export_row($row(['features' => [$good]], ['name' => 'PRODUCT 21,500', 'product_type' => '보도블록']), $src)['name'] === '보도블록'
+    && ext_export_row($row(['features' => [$good]], ['name' => 'PRODUCT 투수블록']), $src)['name'] === '투수블록');
+ok('치수 숫자(2,000*2,000·1,200mm)는 이름에 그대로', ext_display_name('2,000*2,000 암거') === '2,000*2,000 암거' && ext_display_name('흄관 1,200mm') === '흄관 1,200mm');
 ok('이스케이프', ext_sql_value("a'b\\c\n") === "'a\\'b\\\\c\\n'" && ext_sql_value(null) === 'NULL' && ext_sql_value(3) === '3');
+ok('지문에 이름 포함(이름이 바뀌면 다름)', ext_export_fingerprint([['source_key' => 'a', 'dedup_key' => '1', 'name' => 'x', 'attrs_json' => 'j']]) !== ext_export_fingerprint([['source_key' => 'a', 'dedup_key' => '1', 'name' => 'y', 'attrs_json' => 'j']]));
 ok('지문은 행 순서와 무관', ext_export_fingerprint([['source_key' => 'a', 'dedup_key' => '1', 'attrs_json' => 'x'], ['source_key' => 'b', 'dedup_key' => '2', 'attrs_json' => 'y']])
     === ext_export_fingerprint([['source_key' => 'b', 'dedup_key' => '2', 'attrs_json' => 'y'], ['source_key' => 'a', 'dedup_key' => '1', 'attrs_json' => 'x']]));
 
@@ -66,15 +72,16 @@ $insert = $pdo->prepare('INSERT INTO external_products (source_key, external_id,
 $facts = static fn(array $f, array $held = []) => json_encode(['facts' => $f, 'facts_held' => $held, 'source_name' => '[테스트]제조', 'reviewed_at' => '2026-10-29'], JSON_UNESCAPED_UNICODE);
 $insert->execute(['test_exp', sha1('r1'), '[테스트]스틸그레이팅 SG-1', '[테스트]제조', '그레이팅', '폭 300 / 높이 30', null, $facts(['features' => [$good, "[테스트] 따옴표 '작은' \"큰\" 역슬래시 \\ 포함 문장입니다."]], [['kind' => 'features', 'text' => '[테스트] 가장 우수합니다.', 'reason' => '홍보']]), '개', 15000, 'http://m.example/p1', '테스트', '2026-10-29 06:18:00', 'approved']);
 $insert->execute(['test_exp', sha1('r2'), '[테스트]인조화강블록 80T', '[테스트]제조', '인조화강블록', '200*100*80', 80, $facts(['uses' => ['[테스트] 인조화강블록은 보도 포장에 사용합니다.']]), '㎡', null, 'http://m.example/p2', '테스트', '2026-10-29 06:18:00', 'approved']);
+$insert->execute(['test_exp', sha1('r4'), 'PRODUCT 21,500', '[테스트]제조', '보도블록', '200*200*60', 60, $facts(['features' => ['[테스트] 보도블록 표면은 오염방지 처리를 했습니다.']]), '㎡', null, 'http://m.example/p4', '테스트', '2026-10-29 06:18:00', 'approved']);
 $insert->execute(['test_exp', sha1('r3'), '[테스트]스틸그레이팅 SG-9', '[테스트]제조', '그레이팅', '폭 400', null, $facts(['features' => [$good]]), '개', null, 'http://m.example/p3', '테스트', '2026-10-29 06:18:00', 'pending']);
 $env = 'EXT_SOURCES_FILE=' . escapeshellarg("{$tmp}/sources.json") . ' EXT_EXPORT_DIR=' . escapeshellarg("{$tmp}/out");
 $run = static function (string $args = '') use ($env): array {
     exec("{$env} " . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/../scripts/external/export-approved.php') . " {$args} 2>&1", $o, $c);
     return [$c, implode("\n", $o)];
 };
-[$c, $o] = $run('--expect=2');
-ok('정상 내보내기(2행)', $c === 0 && is_file("{$tmp}/out/20_insert_approved.sql"));
-[$c2] = $run('--expect=3');
+[$c, $o] = $run('--expect=3');
+ok('정상 내보내기(3행)', $c === 0 && is_file("{$tmp}/out/20_insert_approved.sql"));
+[$c2] = $run('--expect=4');
 ok('--expect 불일치 중단', $c2 !== 0);
 $fp = preg_match('/fingerprint\s+([0-9a-f]{64})/', (string) @file_get_contents("{$tmp}/out/30_post_check_readonly.sql"), $m) ? $m[1] : '';
 ok('사후 확인 SQL 에 지문 기대값', $fp !== '');
@@ -88,11 +95,12 @@ $p2 = new PDO("mysql:host={$host};dbname=tomokmall_export_test;charset=utf8mb4",
 $p2->exec((string) file_get_contents("{$tmp}/out/10_create_tables.sql"));
 $p2->exec((string) file_get_contents("{$tmp}/out/20_insert_approved.sql"));
 $p2->exec((string) file_get_contents("{$tmp}/out/20_insert_approved.sql"));   // 다시 실행
-ok('20 두 번 실행해도 2행', (int) $p2->query('SELECT COUNT(*) FROM external_products')->fetchColumn() === 2);
+ok('20 두 번 실행해도 3행', (int) $p2->query('SELECT COUNT(*) FROM external_products')->fetchColumn() === 3);
+ok("이관된 이름에 가격 없음('PRODUCT 21,500' → '보도블록')", $p2->query("SELECT COUNT(*) FROM external_products WHERE name = '보도블록'")->fetchColumn() == 1 && $p2->query("SELECT COUNT(*) FROM external_products WHERE name LIKE '%21,500%'")->fetchColumn() == 0);
 $p2->exec('SET SESSION group_concat_max_len = 1048576');
 $sql = preg_replace('/^SET SESSION[^;]*;\s*/m', '', ext_export_fingerprint_sql());
 $got = $p2->query($sql)->fetch(PDO::FETCH_ASSOC);
-ok('운영 모의 DB 지문 = 내보낼 때 지문', ($got['fingerprint'] ?? '') === $fp && (int) $got['approved_rows'] === 2);
+ok('운영 모의 DB 지문 = 내보낼 때 지문', ($got['fingerprint'] ?? '') === $fp && (int) $got['approved_rows'] === 3);
 $orig = $pdo->query("SELECT attrs_json FROM external_products WHERE source_key = 'test_exp' AND dedup_key = '" . sha1('r1') . "'")->fetchColumn();
 $copy = $p2->query("SELECT attrs_json FROM external_products WHERE dedup_key = '" . sha1('r1') . "'")->fetchColumn();
 ok('따옴표·역슬래시 문장 원문 그대로', $orig === $copy);
@@ -109,7 +117,7 @@ $insert->execute(['test_exp_hold', sha1('h1'), '[테스트]흄관', '[테스트]
 @unlink("{$tmp}/out/20_insert_approved.sql");
 [$c3] = $run();
 ok('막힌 행 있으면 SQL 미생성', $c3 !== 0 && !is_file("{$tmp}/out/20_insert_approved.sql"));
-[$c4] = $run('--allow-skip --expect=2');
+[$c4] = $run('--allow-skip --expect=3');
 ok('--allow-skip 이면 막힌 행만 빠짐', $c4 === 0 && !str_contains((string) file_get_contents("{$tmp}/out/20_insert_approved.sql"), 'test_exp_hold'));
 
 $pdo->exec("DELETE FROM external_products WHERE source_key LIKE 'test_exp%'");

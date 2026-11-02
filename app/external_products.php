@@ -501,6 +501,19 @@ function ext_read_json(string $file, bool $scrape): array
 }
 
 /**
+ * 상담·이관에 쓸 행 이름 (순수 함수) — 수집 때 쪽 제목·표 칸이 섞여 생긴 'PRODUCT 21,500'(영문 쪽 제목 + 가격) 같은 이름을 정리.
+ * 가격 모양 숫자(21,500·12,000원)와 영문 일반 제목(PRODUCT·PRODUCTS·ITEM)만 뺀다. 남는 글이 없으면 제품 종류 이름. 글자를 새로 만들지 않는다.
+ */
+function ext_display_name(string $name, string $type = ''): string
+{
+    // 치수(2,000*2,000·1,200mm)는 그대로: 앞뒤에 *·x·×·mm·T 가 붙은 숫자는 가격으로 보지 않음
+    $n = (string) preg_replace('/(?<![\d.*x×])(?<![*x×]\s)\d{1,3}(?:,\d{3})+(?:\s*원)?(?![\d.])(?!\s*[*x×]|\s*(?:mm|㎜|T|t)\b)|(?<![\d,])\d+\s*원(?![가-힣])/u', ' ', $name);
+    $n = (string) preg_replace('/\b(PRODUCTS?|ITEMS?|GOODS)\b/iu', ' ', $n);
+    $n = trim((string) preg_replace('/\s+/u', ' ', $n), " \t-·|/");
+    return $n !== '' ? $n : $type;
+}
+
+/**
  * 원문 문장이 설명하는 제품(순수 함수) — 문장 앞 '제품 이름 + 은/는'(예: '안전 중하중 그레이팅은 …'), 없으면 $fallback(행 이름).
  * 한 주제에 여러 제품 문장이 섞여 오면 GPT 가 다른 제품 특징을 옮겨 말하므로(안전 중하중의 작은 바퀴 → 중하중 전체) 문장마다 대상을 밝혀 준다.
  */
@@ -553,7 +566,8 @@ function ext_material_info(string $topic): array
         if (isset($seen[$t]) || ($per[$k] ?? 0) >= 3) { continue; }
         $seen[$t] = true;
         $per[$k] = ($per[$k] ?? 0) + 1;
-        $facts[] = ['kind' => $label, 'text' => $t, 'about' => ext_fact_subject($t, (string) $r['name']), 'maker' => (string) $r['maker'], 'product' => (string) $r['name'], 'source_url' => (string) $r['source_url'], 'fetched_at' => substr((string) $r['fetched_at'], 0, 10)];
+        $shown = ext_display_name((string) $r['name'], (string) $r['product_type']);   // 'PRODUCT 21,500' 같은 이름의 가격·쪽 제목은 상담에 넘기지 않음
+        $facts[] = ['kind' => $label, 'text' => $t, 'about' => ext_fact_subject($t, $shown), 'maker' => (string) $r['maker'], 'product' => $shown, 'source_url' => (string) $r['source_url'], 'fetched_at' => substr((string) $r['fetched_at'], 0, 10)];
         $sources[$r['source_url'] ?: $r['source_key']] = ['maker' => (string) ($r['maker'] ?: ($a['source_name'] ?? $r['source_key'])), 'url' => (string) $r['source_url']];
         if (count($facts) >= 12) { break; }
     }

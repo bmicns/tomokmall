@@ -22,7 +22,7 @@ function ext_page_title(string $html): string
         preg_match_all('#<' . $h . '[^>]*>(.*?)</' . $h . '>#isu', $html, $all);
         foreach ($all[1] as $inner) {
             $t = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($inner), ENT_QUOTES, 'UTF-8')));
-            if ($t !== '' && mb_strlen($t) <= 60 && !ext_is_nav_label($t)) { return $t; }
+            if ($t !== '' && mb_strlen($t) <= 60 && !ext_is_nav_label($t) && !preg_match('/^(PRODUCTS?|ITEMS?|GOODS|제품\s*(소개|안내|정보)?|상품\s*(소개|안내)?)$/iu', $t)) { return $t; }   // 영문·일반 쪽 제목(PRODUCT)은 제품명 아님
         }
     }
     return preg_match('#<title[^>]*>(.*?)</title>#isu', $html, $m) ? trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($m[1]), ENT_QUOTES, 'UTF-8'))) : '';
