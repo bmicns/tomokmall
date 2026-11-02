@@ -360,7 +360,8 @@ function tool_search_products(array $input): string
         return ai_search_compare(array_slice($multi, 0, 4), $input);
     }
 
-    $rawQuery = trim((string) ($input['query'] ?? ''));
+    // queries 를 1개만 보내고 query 를 비운 호출(실제 GPT-4o 2026-11-02 공공도로·공공 보도 시나리오) → 그 1개를 query 로(오류 응답 → '오류가 발생' 안내가 손님에게 보이던 문제)
+    $rawQuery = trim((string) ($input['query'] ?? '')) ?: ($multi[0] ?? '');
     if ($rawQuery === '') {
         return json_encode(['error' => 'query 파라미터가 필요합니다.']);
     }

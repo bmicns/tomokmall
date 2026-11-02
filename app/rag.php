@@ -1228,6 +1228,7 @@ function rag_process(array $messages, string $sid): array
     $answered     = false;   // 도구 없이 끝난(최종 답을 받은) 응답이 있었는지
     $promised     = '';      // 검색 약속 문장(강제 검색 재요청 때 버림 — 도구가 안 불리면 되살림)
     $toolLog      = [];      // 부른 도구 이름·인자·결과 요약(시험 결과 기록용 — chat.php 는 화면에 보내지 않음)
+    $preToolText  = '';      // 도구 호출과 함께 온 중간 글(최종 답이 없을 때만 사용)
     $basicsSeen   = [];      // material_info 가 준 확인된 기본 정보(국가표준·등록 상품) — 답에 실제로 쓴 것만 출처 카드로
     $known        = $system . ' ' . implode(' ', array_map(static fn($m) => (string) ($m['content'] ?? ''), $messages));   // 답에 나올 수 있는 확인된 글(KS 번호 대조용)
 
@@ -1278,8 +1279,14 @@ function rag_process(array $messages, string $sid): array
             continue;
         }
 
+        // 도구 호출과 함께 온 글('찾아볼게요·잠시만요', 검색 전 추측성 종류 설명, '오류가 발생' 등)은 최종 답이 오면 버린다 — 손님에게는 도구 결과를 본 뒤의 답만.
+        // 최종 답이 끝내 비면 이 글을 대신 쓴다(빈 답변 방지).
         if ($content !== '' && $content !== null) {
-            $responseText .= ($responseText !== '' ? "\n" : '') . $content;
+            if ($noTool) {
+                $responseText .= ($responseText !== '' ? "\n" : '') . $content;
+            } else {
+                $preToolText .= ($preToolText !== '' ? "\n" : '') . $content;
+            }
         }
 
         if ($noTool) { $answered = true; break; }
@@ -1316,11 +1323,14 @@ function rag_process(array $messages, string $sid): array
         $content = (string) ($final['choices'][0]['message']['content'] ?? '');
         if ($content !== '') {
             $responseText .= ($responseText !== '' ? "\n" : '') . $content;
-        } elseif ($responseText === '') {
+        } elseif ($responseText === '' && $preToolText === '') {
             return ['ok' => false, 'text' => '', 'events' => $events, 'tools' => $toolLog, 'error' => '답변을 만들지 못했습니다. 다시 시도해 주세요.'];
         }
     }
 
+    if (trim($responseText) === '' && $preToolText !== '') {
+        $responseText = $preToolText;
+    }
     // 실제로 인용한 법령 근거만 출처로 표시(지어낸 번호는 버리고 표시는 본문에서 제거)
     $cit = rag_extract_legal_citations($responseText, $legalDocs);
     $responseText = rag_strip_dangling_choice($cit['text'], $events);
