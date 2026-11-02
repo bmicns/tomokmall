@@ -49,6 +49,10 @@ for f in add_users_auth add_ai_sessions add_pricing add_vendors add_rag_document
 done
 run < "$ROOT_DIR/data/ktomok/import.sql"
 fix "$ROOT_DIR/database/20261029_external_products.sql" | run   # 외부 상품 검증 구역(로컬 테스트 전용)
+# 주문·현장·주소·재주문·즐겨찾기 + 견적 누락 칸(운영 복구와 같은 20261030 — MariaDB 전용 alter_estimates_v2 대신) — favorites_api·stock_filter 테스트용
+for f in add_ai_orders add_sites add_user_address add_reorder 20261023_add_favorite_products 20261030_estimates_missing_columns; do
+  fix "$ROOT_DIR/database/$f.sql" | run >/dev/null
+done
 
 D="$ROOT_DIR/docs/03-analysis/ai-sourcing/sql-drafts"
 for f in 01_rag_documents_source_columns_DRAFT.sql 02_rag_documents_legal_candidates_DRAFT.sql 06_rag_documents_verified_clauses_DRAFT.sql 07_LOCAL_TEST_ONLY_activate_verified_clauses.sql; do
