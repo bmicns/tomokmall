@@ -1101,7 +1101,7 @@ function rag_recent_cards_prompt(array $cards): string
 }
 
 /**
- * 확인되지 않은 KS 번호 표시 (순수 함수) — 답에 나온 'KS F 4009' 같은 번호가 확인된 글($known: 프롬프트·도구 결과·고객 발화)에 없으면
+ * 확인되지 않은 KS 번호·강도 수치 표시 (순수 함수) — 답에 나온 'KS F 4009'·'24MPa' 같은 번호·수치가 확인된 글($known: 프롬프트·도구 결과·고객 발화)에 없으면
  * 본문은 그대로 두고 끝에 '확인된 자료에 없는 번호' 안내 1줄을 붙인다(GPT 가 비슷한 번호를 지어내는 경우 고객이 그대로 믿지 않게).
  * @return array{text:string, unknown:list<string>}
  */
@@ -1115,9 +1115,14 @@ function rag_guard_unverified_ks(string $text, string $known): array
         $ref = "KS {$x[1]} {$x[2]}" . (isset($x[3]) && $x[3] !== '' ? "-{$x[3]}" : '');
         if (!str_contains($k, $norm("KS{$x[1]}{$x[2]}"))) { $unknown[$ref] = true; }
     }
+    // 강도 수치(24MPa·240kgf/㎠·N/㎟)도 같은 방식 — 제품 사양 수치를 일반 지식으로 지어내는 경우
+    preg_match_all('/(\d+(?:\.\d+)?)\s*(MPa|N\/㎟|N\/mm2|N\/mm²|kgf\/㎠|kgf\/cm2)/iu', $text, $m2, PREG_SET_ORDER);
+    foreach ($m2 as $x) {
+        if (!preg_match('/(?<![\d.])' . preg_quote($x[1], '/') . '\s*' . preg_quote($x[2], '/') . '/iu', $known)) { $unknown[$x[1] . $x[2]] = true; }
+    }
     $unknown = array_keys($unknown);
     if (!$unknown) { return ['text' => $text, 'unknown' => []]; }
-    return ['text' => rtrim($text) . "\n\n※ 답변의 " . implode(', ', $unknown) . ' 은(는) 확인된 자료에 없는 표준 번호입니다. 정확한 규격·인증은 제조사 자료로 확인해 주세요.', 'unknown' => $unknown];
+    return ['text' => rtrim($text) . "\n\n※ 답변의 " . implode(', ', $unknown) . ' 은(는) 확인된 자료에 없는 번호·수치입니다. 정확한 규격·인증·강도는 제조사 자료로 확인해 주세요.', 'unknown' => $unknown];
 }
 
 /**
