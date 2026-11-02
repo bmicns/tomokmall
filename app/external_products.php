@@ -296,7 +296,7 @@ function ext_selection_guide(array $productRow, array $knowledge = []): array
     $paving = in_array($n['product_type'], ['인조화강블록', '점토블록', '인터로킹블록', '보차도블록', '보도블록', '잔디블록'], true);
     if ($paving && $n['thickness_mm'] !== null) {
         $g[] = match (true) {
-            $n['thickness_mm'] >= 80 => "두께 {$n['thickness_mm']}mm — 차량이 올라가는 곳 두께 기준(사내 80mm 이상) 충족",
+            $n['thickness_mm'] >= 80 => "두께 {$n['thickness_mm']}mm — 차량이 올라가는 곳 저희 권장 기준(80mm 이상) 충족",
             $n['thickness_mm'] >= 60 => "두께 {$n['thickness_mm']}mm — 사람만 다니는 곳용(차량이 올라가면 80mm 이상)",
             default => "두께 {$n['thickness_mm']}mm",
         };
