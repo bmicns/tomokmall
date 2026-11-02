@@ -12,6 +12,10 @@ declare(strict_types=1);
  *   - action whitelist
  *   - product_id: 양의 정수 + DB 존재 + is_active = 1
  *   - quantity: 1~999 (update 는 0 허용 — 삭제 처리)
+ *
+ * 오류 응답: 검증 실패(action·product_id·수량·상품 없음)도 HTTP 200 + {"ok":false,"error":…}
+ *           (닷홈 Apache 가 4xx 본문을 HTML 오류 페이지로 바꿔 JSON 문구가 사라짐 — quote.php 와 같은 방식)
+ *           405(메서드)는 상태 코드 유지
  */
 
 require __DIR__ . '/../../app/bootstrap.php';
@@ -29,7 +33,6 @@ $body   = json_decode(file_get_contents('php://input'), true) ?? [];
 $action = $body['action'] ?? '';
 
 if (!in_array($action, ['add', 'update', 'remove', 'get', 'clear'], true)) {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => '유효하지 않은 action 입니다.']);
     exit;
 }
@@ -55,7 +58,6 @@ if ($action === 'clear') {
 if ($action === 'remove') {
     $productId = (int) ($body['product_id'] ?? 0);
     if ($productId <= 0) {
-        http_response_code(400);
         echo json_encode(['ok' => false, 'error' => 'product_id 가 유효하지 않습니다.']);
         exit;
     }
@@ -72,14 +74,12 @@ $productId = (int) ($body['product_id'] ?? 0);
 $quantity  = (int) ($body['quantity']   ?? 1);
 
 if ($productId <= 0) {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => 'product_id 가 유효하지 않습니다.']);
     exit;
 }
 
 $minQty = ($action === 'update') ? 0 : 1;
 if ($quantity < $minQty || $quantity > 999) {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => "수량은 {$minQty}~999 범위여야 합니다."]);
     exit;
 }
@@ -88,14 +88,12 @@ if ($quantity < $minQty || $quantity > 999) {
 $stmt = db()->prepare('SELECT id FROM products WHERE id = :id AND is_active = 1');
 $stmt->execute(['id' => $productId]);
 if (!$stmt->fetch()) {
-    http_response_code(404);
     echo json_encode(['ok' => false, 'error' => '상품을 찾을 수 없습니다.']);
     exit;
 }
 
 if ($action === 'add') {
     if (($cart[$productId] ?? 0) + $quantity > 999) {   // 이미 담긴 수량과 합쳐도 999 이하
-        http_response_code(400);
         echo json_encode(['ok' => false, 'error' => '수량은 1~999 범위여야 합니다.']);
         exit;
     }

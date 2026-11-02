@@ -355,9 +355,10 @@ async function doAuthLogin() {
   btn.disabled=true;btn.textContent='로그인 중...';err.style.display='none';
   try{
     var r=await fetch('/api/auth/login.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,password:pw})});
-    var d=await r.json();
-    if(d.ok){ if(d.redirect){location.href=d.redirect;} else {location.reload();} }   // 관리자 계정은 /admin.php
-    else{authShowErr(err,d.error||'로그인에 실패했습니다.');btn.disabled=false;btn.textContent='로그인';}
+    // 오류도 200 + ok:false 로 온다(닷홈 4xx 본문 교체 회피). JSON 이 아니면(서버 오류 페이지 등) 일반 문구
+    var d=await r.json().catch(function(){return null;});
+    if(d&&d.ok){ if(d.redirect){location.href=d.redirect;} else {location.reload();} }   // 관리자 계정은 /admin.php
+    else{authShowErr(err,(d&&d.error)||'로그인에 실패했습니다.');btn.disabled=false;btn.textContent='로그인';}
   }catch{authShowErr(err,'네트워크 오류가 발생했습니다.');btn.disabled=false;btn.textContent='로그인';}
 }
 
@@ -371,13 +372,11 @@ async function doAdminLogin() {
   btn.disabled=true;btn.textContent='로그인 중...';err.style.display='none';
   try{
     var r=await fetch('/api/auth/login.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,password:pw,admin_only:true})});
-    // 닷홈은 4xx 응답 본문을 기본 오류 페이지로 바꾸므로 401(아이디·비밀번호 불일치)은 상태 코드로 판단
-    if(r.status===401){authShowErr(err,'이메일 또는 비밀번호가 올바르지 않습니다.');}
-    else{
-      var d=await r.json();
-      if(d.ok){location.href=d.redirect||'/admin.php';return;}
-      authShowErr(err,d.error||'로그인에 실패했습니다.');
-    }
+    // 닷홈은 4xx 응답 본문을 기본 오류 페이지로 바꾸므로 API 는 아이디·비밀번호 불일치도 200 + ok:false 로 보낸다.
+    // JSON 이 아니면(서버 오류 페이지 등) 일반 문구
+    var d=await r.json().catch(function(){return null;});
+    if(d&&d.ok){location.href=d.redirect||'/admin.php';return;}
+    authShowErr(err,(d&&d.error)||'로그인에 실패했습니다.');
   }catch{authShowErr(err,'네트워크 오류가 발생했습니다.');}
   btn.disabled=false;btn.textContent='관리자 로그인';
 }
@@ -403,12 +402,13 @@ async function doAuthRegister() {
   btn.disabled=true;btn.textContent='처리 중...';err.style.display='none';
   try{
     var r=await fetch('/api/auth/register.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role,name,company_name:co,phone,email,password:pw,address_zip:zip,address:addr,address_detail:addrDetail})});
-    var d=await r.json();
-    if(d.ok){
+    // 오류도 200 + ok:false 로 온다. JSON 이 아니면(서버 오류 페이지 등) 일반 문구
+    var d=await r.json().catch(function(){return null;});
+    if(d&&d.ok){
       btn.style.display='none';
       document.getElementById('m-reg-ok').style.display='block';
       setTimeout(function(){openAuthModal('login');},1800);
-    }else{authShowErr(err,d.error||'가입에 실패했습니다.');btn.disabled=false;btn.textContent='가입하기';}
+    }else{authShowErr(err,(d&&d.error)||'가입에 실패했습니다.');btn.disabled=false;btn.textContent='가입하기';}
   }catch{authShowErr(err,'네트워크 오류가 발생했습니다.');btn.disabled=false;btn.textContent='가입하기';}
 }
 function authShowErr(el,msg){el.textContent=msg;el.style.display='block';}

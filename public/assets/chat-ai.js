@@ -139,11 +139,14 @@ async function cartAction(action, productId, quantity) {
   try {
     const body = { action, product_id: productId };
     if (quantity !== undefined) body.quantity = quantity;
-    await fetch('/api/cart.php', {
+    const r = await fetch('/api/cart.php', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(body),
     });
+    // 오류는 200 + ok:false + error 로 온다. JSON 이 아니면(서버 오류 페이지 등) 일반 문구
+    const d = await r.json().catch(() => null);
+    if (!d || !d.ok) alert((d && d.error) || '변경한 내용을 저장하지 못했습니다.');
     await refreshEstPanel();
   } catch {}
 }

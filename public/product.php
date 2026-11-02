@@ -558,9 +558,11 @@ function addCart(pid) {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({action:'add', product_id: pid, quantity: pdQtyValue()})
-    }).then(r => r.json()).then(d => {
-        showToast(d.ok ? '견적에 추가했습니다.' : (d.error || '오류가 발생했습니다.'), d.ok);
-    });
+    // 오류는 200 + ok:false + error 로 온다. JSON 이 아니거나 요청 실패면 일반 문구
+    }).then(r => r.json().catch(() => null)).then(d => {
+        const ok = !!(d && d.ok);
+        showToast(ok ? '견적에 추가했습니다.' : ((d && d.error) || '오류가 발생했습니다.'), ok);
+    }).catch(() => showToast('오류가 발생했습니다.', false));
 }
 // 관심상품 추가 — 기존 API 다중 형식({product_ids:[id]})으로 저장: 이미 등록된 상품은 기존 내역(수량) 유지·중복 저장 없음
 (function () {

@@ -70,9 +70,10 @@ async function login() {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({email, password})
     });
-    const data = await r.json();
-    if (data.ok) { location.href = (!HAS_REDIRECT && data.redirect) ? data.redirect : REDIRECT; }   // redirect 지정이 없으면 관리자는 /admin.php
-    else { showErr(data.error || '로그인에 실패했습니다.'); btn.disabled = false; btn.textContent = '로그인'; }
+    // 오류도 200 + ok:false 로 온다. 본문이 JSON 이 아니면(서버 오류 페이지 등) 일반 문구
+    const data = await r.json().catch(() => null);
+    if (data && data.ok) { location.href = (!HAS_REDIRECT && data.redirect) ? data.redirect : REDIRECT; }   // redirect 지정이 없으면 관리자는 /admin.php
+    else { showErr((data && data.error) || '로그인에 실패했습니다.'); btn.disabled = false; btn.textContent = '로그인'; }
   } catch { showErr('네트워크 오류가 발생했습니다.'); btn.disabled = false; btn.textContent = '로그인'; }
 }
 function showErr(msg) {

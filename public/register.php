@@ -98,13 +98,14 @@ async function register() {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({name, company_name: company, phone, email, password})
     });
-    const data = await r.json();
-    if (data.ok) {
+    // 오류도 200 + ok:false 로 온다. 본문이 JSON 이 아니면(서버 오류 페이지 등) 일반 문구
+    const data = await r.json().catch(() => null);
+    if (data && data.ok) {
       document.getElementById('ok-msg').style.display = 'block';
       btn.style.display = 'none';
       setTimeout(() => { location.href = '/login.php'; }, 1800);
     } else {
-      showErr(data.error || '가입에 실패했습니다.');
+      showErr((data && data.error) || '가입에 실패했습니다.');
       btn.disabled = false; btn.textContent = '가입하기';
     }
   } catch {

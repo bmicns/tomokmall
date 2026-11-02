@@ -10,6 +10,9 @@ declare(strict_types=1);
  * 관리자: 응답 redirect='/admin.php'(role=admin) → 화면이 기업회원 메인 대신 관리자 페이지로 이동
  *         admin_only=true(관리자 로그인 화면)면 admin 이 아닌 계정은 세션을 만들지 않고 거절
  *         (이 거절은 HTTP 200 + ok:false — 닷홈이 4xx 응답 본문을 바꿔 문구가 사라지는 문제 회피)
+ * 오류 응답: 입력·인증 실패(이메일 또는 비밀번호 불일치)도 HTTP 200 + {"ok":false,"error":…}
+ *           (닷홈 Apache 가 4xx 본문을 HTML 오류 페이지로 바꿔 JSON 문구가 사라짐 — quote.php 와 같은 방식)
+ *           405(메서드)·503(DB 연결 실패)은 상태 코드 유지
  */
 
 require __DIR__ . '/../../../app/bootstrap.php';
@@ -31,12 +34,10 @@ $adminOnly = ($body['admin_only'] ?? false) === true;
 $authError = ['ok' => false, 'error' => '이메일 또는 비밀번호가 올바르지 않습니다.'];
 
 if (!filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($email) > 160) {
-    http_response_code(401);
     echo json_encode($authError);
     exit;
 }
 if ($password === '' || mb_strlen($password) > 100) {
-    http_response_code(401);
     echo json_encode($authError);
     exit;
 }
@@ -60,7 +61,6 @@ $user = $stmt->fetch();
 // password_verify — 타이밍 공격 방지를 위해 user 없어도 실행
 $hash = $user ? (string) $user['password_hash'] : '$2y$10$invalid_hash_for_timing_';
 if (!$user || !password_verify($password, $hash)) {
-    http_response_code(401);
     echo json_encode($authError);
     exit;
 }
