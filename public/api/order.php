@@ -96,6 +96,11 @@ if (empty($cartItems)) {
 
 // ─── 재고 확인 + 주문 생성 트랜잭션 ─────────────────────────────────────────
 $pdo = db();
+if (!$pdo) {   // DB 연결 실패 시 빈 500 대신 JSON 오류(cart.php 와 같은 503)
+    http_response_code(503);
+    echo json_encode(['ok' => false, 'error' => '서버 오류가 발생했습니다.']);
+    exit;
+}
 try {
     $pdo->beginTransaction();
 
