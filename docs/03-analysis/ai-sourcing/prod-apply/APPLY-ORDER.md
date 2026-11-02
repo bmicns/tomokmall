@@ -55,7 +55,7 @@ SELECT COUNT(*) AS cols FROM information_schema.COLUMNS
 | 3-2 | `10_register_inactive.sql` | **[승인] 데이터** | 66행 추가, 전부 비활성(다시 실행 시 0행) |
 | 3-3 | `30_post_check_readonly.sql` | [읽기] | 각 줄 주석의 기대값. 20 전이므로 verified_active 0, 마지막 줄(검토자) 0행 |
 | 3-4 | (선택) README (ii) V25·V26 공식 사이트 확인 | — | 확인되면 다시 생성(활성화 대상 22건) |
-| 3-5 | 사용자 PC: `php scripts/legal-sources/build_prod_sql.php --reviewer='실제 검토자' --reviewed-on=YYYY-MM-DD` → `20_activate_ready.sql` 내용 검토(20건, V21·V22 없음) → 실행 | **[승인] 데이터** | "20행 영향". 이 파일은 커밋하지 않음(.gitignore) |
+| 3-5 | 사용자 PC: `php scripts/legal-sources/build_prod_sql.php --reviewer='실제 검토자' --reviewed-on=YYYY-MM-DD --out=backup/legal-stage1` → `backup/legal-stage1/20_activate_ready.sql` 내용 검토(20건, V21·V22 없음) → 실행 | **[승인] 데이터** | "20행 영향". 저장소 밖(`backup/`, .gitignore)에 생성 — 저장소 10·30·90 파일을 다시 쓰지 않음 |
 | 3-6 | `30_post_check_readonly.sql` | [읽기] | verified_active 20 · v21_v22_active 0 · public_road_active 0 · source_type: kcs 4 · kds 5 · ks 20 · law 37(활성 20) · internal = 0단계 값 · 검토자 1행 n=20 |
 
 상담 확인(3-2 뒤에는 **변화 없음**이 정상 — 전부 비활성. 3-5 뒤):
@@ -71,5 +71,5 @@ SELECT COUNT(*) AS cols FROM information_schema.COLUMNS
 
 ## 4. 코드 배포와의 관계
 
-- 이 DB 변경에는 **코드 배포가 필요 없다**: 운영 코드(`02a98c2`, 2026-10-30 배포)는 칸·테이블이 없으면 기존대로, 생기면 법령 근거(장소 범위 포함)와 제조사 자료(material_info)를 쓴다 — 리허설에서 단계마다 확인.
+- 이 DB 변경은 코드 배포 없이도 동작한다: 운영 코드(`02a98c2`, 2026-10-30 배포)는 칸·테이블이 없으면 기존대로, 생기면 법령 근거(장소 범위 포함)와 제조사 자료(material_info)를 쓴다 — 리허설에서 단계마다 확인. **다만 권장 순서는 AI 상담 코드 5개 먼저**(제품별 묶음·조건 문장·근거 구분 개선) — 1단계 실행표: [STAGE1-RUNBOOK.md](STAGE1-RUNBOOK.md).
 - 최신 코드의 효과 — material_info **basics**(KS 표준 번호·이름 + 토목몰 등록 상품 규격), 상담 화면 이름 정리, 근거 종류(공식 기준·제조사 자료·저희 권장) 구분 프롬프트 — 는 **코드 배포 후**에 나타난다(별도 승인, `docs/DEPLOYMENT.md`). DB 반영과 코드 배포는 어느 순서든 된다.
