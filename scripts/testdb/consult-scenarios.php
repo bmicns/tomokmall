@@ -172,7 +172,7 @@ if (isset($opt['material'])) {
             $needMat && $avail && !$srcs => '확인 필요(승인 자료가 있는데 material_info 미사용)',
             $srcs && !$cited => '확인 필요(제조사 자료 출처 표시 없음)',
             $askedMat && !$srcs && !preg_match('/일반적인\s*(설명|특징|내용|정보|차이|기준)|일반\s*설명|자료[^.\n]{0,10}없|확보되지|확인되지/u', $text) => '확인 필요(참고 자료가 없는데 일반 설명이라고 밝히지 않음)',
-            !$srcs && $askedMat && ($inv = array_values(array_filter(['하천', '호수', '농업', '농경지', '농수로', '지하차도', '운동장', '퇴적물', '청소가'], static fn($w) => str_contains($flat, $w) && !str_contains($used . ' ' . implode(' ', $basicNames), $w)))) => '확인 필요(제조사 자료가 없는데 자료에 없는 용도·장점 설명: ' . implode(', ', $inv) . ')',
+            !$srcs && $askedMat && ($inv = array_values(array_filter(['하천', '호수', '농업', '농경지', '농수로', '지하차도', '운동장', '퇴적물', '청소가', '개방형', '벤치 기능', '측구'], static fn($w) => str_contains($flat, $w) && !str_contains($used . ' ' . implode(' ', $basicNames), $w)))) => '확인 필요(제조사 자료가 없는데 자료에 없는 용도·장점 설명: ' . implode(', ', $inv) . ')',
             (bool) preg_match(RAG_EFFECT_CLAIM_RE, $flat, $em) => '확인 필요(근거 없는 효과·성능 표현: ' . $em[0] . ')',
             (bool) preg_match('/직접\s*검색|검색해\s*(보셔야|보세요|보시기)/u', $text) => '확인 필요(고객에게 추가 검색을 하라고 함)',
             $askedMat && !$srcs && $basicNames && !$usedBasics => '확인 필요(제조사 자료가 없는데 확인된 기본 정보(국가표준·등록 규격)를 쓰지 않음)',

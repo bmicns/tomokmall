@@ -102,6 +102,14 @@ try {
     $md = $runCs([$say($c['core2'][0]), $call('search_products', ['queries' => ['인터로킹 블록', '보차도블록'], 'area_m2' => 30, 'spec_mm' => 80, 'spec_strict' => true], 1), $say($c['core2'][1])],
         '--core --only=public_sidewalk --skip-product-check');
     ok("공공 보도 2턴째 '강도 우수' → 확인 필요(근거 없는 효과)", str_contains($md, '확인 필요(근거 없는 효과·성능 표현: 강도 우수'));
+
+    echo "[4차 실행(06:07·06:08) 실제 답변 재생]\n";
+    $d = json_decode((string) file_get_contents(__DIR__ . '/fixtures/gpt4o-20261102d-answers.json'), true);
+    $md = $runCs([$say('일반 설명입니다.'), $say('일반 설명입니다.'), $say('일반 설명입니다.'),
+        $call('material_info', ['topic' => '벤치플룸관'], 4), $call('material_info', ['topic' => 'U형 수로관'], 5), $say(str_replace('제조사 자료에 따르면 확인된 설명이 없지만', '제조사 자료는 없지만', $d['mat4']))], '--material');
+    ok("자재 4번: '제조사 자료에 따르면' 문구를 빼도 '벤치 기능을 더한 구조'·'U형은 개방형'·'측구 배수' 같은 이름 짐작 설명이 확인 필요로 잡힘", (bool) preg_match('/자동 점검: 확인 필요\(제조사 자료가 없는데 자료에 없는 용도·장점 설명: [^)]*(개방형|벤치 기능)/u', $sec($md, 4)));
+    $none = json_decode(tool_material_info(['topic' => '벤치플룸관 U형 수로관']), true);
+    ok('자료 없는 비교 질문 답 순서(제조사 자료 없음 → 표준·등록 규격 → 차이 자료 없음 → 상품 찾기)와 이름 짐작 금지 안내', str_contains((string) $none['note'], '이 순서로만') && str_contains((string) $none['note'], '벤치 기능을 더한 구조'));
 } finally {
     proc_terminate($srv);
     $pdo->exec("DELETE FROM external_products WHERE source_key = 'test_replay'");
