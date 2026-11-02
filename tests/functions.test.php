@@ -504,5 +504,8 @@ ok('기본 정보 출처: 답에 쓴 표준 번호·상품 이름만', rag_basic
     === ['standards' => [['ref' => 'KS F 4010', 'name' => '플룸', 'url' => '']], 'products' => [['name' => '벤치플륨관(벤치2종)', 'count' => 6]]]);
 ok('기본 정보 출처: 답에 없으면 빈 목록', rag_basic_sources_used('일반 설명입니다.', [['standards' => [['ref' => 'KS F 4010']], 'products' => []]]) === ['standards' => [], 'products' => []]);
 
+ok('직전 추천표: 최저 동률이면 같은 금액 제품도 알리라는 줄', str_contains(rag_recent_cards_prompt([['id' => 1, 'name' => 'A', 'spec' => '', 'price' => 100, 'qty' => 2, 'unit' => '㎡'], ['id' => 2, 'name' => 'B', 'spec' => '', 'price' => 100, 'qty' => 2, 'unit' => '㎡']]), '같은 금액의 다른 제품')
+    && !str_contains(rag_recent_cards_prompt([['id' => 1, 'name' => 'A', 'spec' => '', 'price' => 100, 'qty' => 2, 'unit' => '㎡'], ['id' => 2, 'name' => 'B', 'spec' => '', 'price' => 120, 'qty' => 2, 'unit' => '㎡']]), '같은 금액의 다른 제품'));
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

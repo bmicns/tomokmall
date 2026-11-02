@@ -252,8 +252,12 @@ function ai_material_basics(string $topic): array
     }
     $items = [];
     $acc = '/몰드|거푸집|집게|크램프|운반구/u';   // 부속·시공 도구는 주제가 그것을 말할 때만
+    $topicType = ext_product_type(str_replace(['플룸', '플럼', '블럭'], ['플륨', '플륨', '블록'], $topic));
     foreach ($groups as $name => $specs) {
         if (preg_match($acc, $name) && !preg_match($acc, $topic)) { continue; }
+        // 주제가 자재 종류를 말하면 다른 종류 상품은 빼기(실제 GPT-4o: 'U형 수로관' 에 포장 블록 '인터로킹U형블럭' 이 'U형' 낱말로 섞여 수로관처럼 설명됨)
+        $nameType = ext_product_type(str_replace(['플룸', '플럼', '블럭'], ['플륨', '플륨', '블록'], $name));
+        if ($topicType !== '' && $nameType !== '' && $nameType !== $topicType) { continue; }
         $items[] = [$name, ['name' => $name, 'count' => count($specs), 'specs' => array_slice(array_values(array_unique($specs)), 0, 3)]];
     }
     $out['products'] = array_slice(ai_material_pick($items, $topic), 0, 5);

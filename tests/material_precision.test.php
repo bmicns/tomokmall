@@ -63,6 +63,8 @@ try {
     $none = json_decode(tool_material_info(['topic' => '벤치플룸관 U형 수로관']), true);
     ok('⑤ 자료 없음 안내: 용도·설치 장소 일반 상식 금지 + 국가표준 대상 종류로만 + 규격 숫자 풀어 쓰기 금지', str_contains((string) $none['note'], '일반 상식으로도 채우지 마세요')
         && (!isset($none['basics_note']) || (str_contains($none['basics_note'], '대상 종류') && str_contains($none['basics_note'], '풀어 쓰지 않는다'))));
+    $u = array_column(ai_material_basics('U형 수로관')['products'], 'name');
+    ok("⑥ 'U형 수로관' 기본 정보에 포장 블록 '인터로킹U형블럭' 이 섞이지 않음(2차 실제 4번)", !in_array('인터로킹U형블럭', $u, true) && (bool) array_filter($u, static fn($n) => str_contains($n, '플륨')));
 } finally {
     $pdo->exec("DELETE FROM external_products WHERE source_key = 'test_prec'");
 }

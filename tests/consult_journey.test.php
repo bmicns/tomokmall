@@ -48,7 +48,7 @@ $search = $call('search_products', ['query' => '인터로킹 블록', 'spec_mm' 
 try {
     $sec = $run([$say('차가 지나가는 곳이면 블록이 깨지지 않게 두꺼운 제품이 필요합니다. 저희 권장 기준은 80mm(80T) 이상입니다. 개인 마당인가요, 도로인가요? 면적도 알려 주세요.'),
                  $search, $say('원하시는 제품을 선택해 주세요.'),
-                 $call('add_to_cart', ['product_id' => $pid, 'quantity' => 20], 3), $say('견적요청하기 버튼을 눌러 신청해 주세요.')]);
+                 $call('add_to_cart', ['product_id' => $pid, 'quantity' => 20], 3), $say('가장 저렴한 제품을 담았습니다. 같은 금액의 다른 인터로킹 블록도 있습니다. 견적요청하기 버튼을 눌러 신청해 주세요.')]);
     ok('정상 흐름: 80T 비교표·필요 수량·견적 담기 → 통과', str_contains($sec, '자동 점검 통과') && str_contains($sec, '(80mm)'));
     // 3턴째(담기) 요청의 시스템 프롬프트에 2턴째 화면에 보인 추천표가 실제 상품 ID·현재가·권장 수량과 함께 들어감 — 대화 기록엔 표가 글로 없음
     $sys3 = (string) (json_decode((string) @file_get_contents("{$tmp}/req_7.json"), true)['messages'][0]['content'] ?? '');
@@ -60,7 +60,7 @@ try {
     $sec = $run([$say('저희 권장 기준은 80mm 이상입니다. 면적을 알려 주세요.'), $search, $say('원하시는 제품을 선택해 주세요.'), $say('견적에 담으시려면 견적추가를 눌러 주세요.')]);
     ok('3턴째 add_to_cart 안 함 → 실패', str_contains($sec, '실패(마지막 턴에서 견적 담기(add_to_cart)를 하지 않음)'));
     $sec = $run([$say('법정 기준상 차량이 다니면 80mm 이상이어야 합니다.'), $search, $say('원하시는 제품을 선택해 주세요.'),
-                 $call('add_to_cart', ['product_id' => $pid, 'quantity' => 20], 4), $say('견적요청하기 버튼을 눌러 신청해 주세요.')]);
+                 $call('add_to_cart', ['product_id' => $pid, 'quantity' => 20], 4), $say('가장 저렴한 제품을 담았습니다. 같은 금액의 다른 인터로킹 블록도 있습니다. 견적요청하기 버튼을 눌러 신청해 주세요.')]);
     ok('저희 권장 80T 를 법정 기준처럼 말함 → 확인 필요', str_contains($sec, '확인 필요(저희 권장 80T 를 법정 기준처럼 말함)'));
 } finally {
     proc_terminate($srv);

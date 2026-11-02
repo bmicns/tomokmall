@@ -77,6 +77,19 @@ try {
     ]), '--core --only=private --skip-product-check');
     ok('비교표 없이 종류를 되물은 흐름 → 확인 필요(이전: 통과)', str_contains($sec($md, 2), '확인 필요(면적까지 받은 턴에 비교표 없이 되물음'));
     ok('결과 머리말: 핵심 4개', str_contains($md, '핵심 4개'));
+
+    echo "[2차 실행(05:35·05:36) 실제 답변 재생]\n";
+    $b = json_decode((string) file_get_contents(__DIR__ . '/fixtures/gpt4o-20261102b-answers.json'), true);
+    $md = $runCs([$say($b['core2'][0]), $call('search_products', ['queries' => ['인터로킹 블록'], 'area_m2' => 30, 'spec_mm' => 80, 'spec_strict' => true], 1), $say($b['core2'][1])],
+        '--core --only=public_sidewalk --skip-product-check');
+    ok("공공 보도 2턴째 '저희 권장 기준에 부합' (공식 보도 지침 80mm 를 사내 기준처럼) → 확인 필요(이전: 통과)", str_contains($md, "공공 보도의 80mm 공식 기준(보도 지침)을 '저희 권장 기준'으로 말함"));
+    $md = $runCs(array_merge($prior, [$say($b['core4'][0]),
+        $call('search_products', ['queries' => ['인터로킹 블록', '인조화강블록', '점토블럭'], 'area_m2' => 20, 'spec_mm' => 80, 'spec_strict' => true], 2), $say($b['core4'][1]),
+        $call('add_to_cart', ['product_id' => $pid, 'quantity' => 20], 3), $say($b['core4'][2])]), '--core --only=private --skip-product-check');
+    ok('초보 흐름: 비교표 뒤 담기(이전 문제 해결) — 동률 상품을 알리지 않은 담기 답 → 확인 필요', str_contains($sec($md, 2), '확인 필요(최저가 동률 상품이 여럿인데 담을 때 같은 금액 제품을 알리지 않음)'));
+    $md = $runCs([$say('일반 설명입니다.'), $say('일반 설명입니다.'), $say('일반 설명입니다.'), $say('일반 설명입니다.'), $say('일반 설명입니다.'), $say('일반 설명입니다.'),
+        $say('차가 다니면 두께 80mm 이상 블록을 쓰세요.'), $call('material_info', ['topic' => '벤치플룸관'], 8), $say($b['mat8'])], '--material');
+    ok("자재 8번 '제조사 자료는 현재 없습니다' 는 자료 없음을 밝힌 것 → 통과(이전: 확인 필요 오판)", str_contains($sec($md, 8), '자동 점검: 통과'));
 } finally {
     proc_terminate($srv);
     $pdo->exec("DELETE FROM external_products WHERE source_key = 'test_replay'");
