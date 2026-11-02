@@ -1068,6 +1068,35 @@ function rag_guard_unverified_ks(string $text, string $known): array
     return ['text' => rtrim($text) . "\n\n※ 답변의 " . implode(', ', $unknown) . ' 은(는) 확인된 자료에 없는 표준 번호입니다. 정확한 규격·인증은 제조사 자료로 확인해 주세요.', 'unknown' => $unknown];
 }
 
+/**
+ * 답에 실제로 쓴 기본 정보만 고르기 (순수 함수) — 국가표준은 번호(띄어쓰기 무시)가, 등록 상품은 이름이 답에 있을 때만.
+ * @param list<array{standards:list<array>, products:list<array>}> $basicsList material_info 결과의 basics 들
+ * @return array{standards:list<array>, products:list<array>}
+ */
+function rag_basic_sources_used(string $text, array $basicsList): array
+{
+    $flat = strtoupper((string) preg_replace('/\s+/u', '', $text));
+    $out = ['standards' => [], 'products' => []];
+    $seen = [];
+    foreach ($basicsList as $b) {
+        foreach ($b['standards'] ?? [] as $st) {
+            $k = strtoupper((string) preg_replace('/\s+/u', '', (string) ($st['ref'] ?? '')));
+            if ($k !== '' && !isset($seen[$k]) && str_contains($flat, $k)) {
+                $seen[$k] = true;
+                $out['standards'][] = ['ref' => (string) $st['ref'], 'name' => (string) ($st['name'] ?? ''), 'url' => (string) ($st['url'] ?? '')];
+            }
+        }
+        foreach ($b['products'] ?? [] as $p) {
+            $k = strtoupper((string) preg_replace('/\s+/u', '', (string) ($p['name'] ?? '')));
+            if ($k !== '' && !isset($seen[$k]) && str_contains($flat, $k)) {
+                $seen[$k] = true;
+                $out['products'][] = ['name' => (string) $p['name'], 'count' => (int) ($p['count'] ?? 0)];
+            }
+        }
+    }
+    return $out;
+}
+
 /** 도구 결과 요약 (순수 함수) — 시험 결과 문서에 남겨 실제 GPT 답과 도구가 준 근거를 바로 대조하기 위함 */
 function rag_tool_summary(string $name, array $d): string
 {
@@ -1142,6 +1171,7 @@ function rag_process(array $messages, string $sid): array
     $answered     = false;   // 도구 없이 끝난(최종 답을 받은) 응답이 있었는지
     $promised     = '';      // 검색 약속 문장(강제 검색 재요청 때 버림 — 도구가 안 불리면 되살림)
     $toolLog      = [];      // 부른 도구 이름·인자·결과 요약(시험 결과 기록용 — chat.php 는 화면에 보내지 않음)
+    $basicsSeen   = [];      // material_info 가 준 확인된 기본 정보(국가표준·등록 상품) — 답에 실제로 쓴 것만 출처 카드로
     $known        = $system . ' ' . implode(' ', array_map(static fn($m) => (string) ($m['content'] ?? ''), $messages));   // 답에 나올 수 있는 확인된 글(KS 번호 대조용)
 
     for ($iter = 0; $iter < $maxIter; $iter++) {
@@ -1206,6 +1236,7 @@ function rag_process(array $messages, string $sid): array
             $toolData = json_decode($output, true) ?? [];
             $toolLog[] = ['name' => (string) ($tc['function']['name'] ?? ''), 'input' => $input, 'summary' => rag_tool_summary((string) ($tc['function']['name'] ?? ''), $toolData)];
             $known   .= ' ' . $output;
+            if (($tc['function']['name'] ?? '') === 'material_info' && !empty($toolData['basics'])) { $basicsSeen[] = $toolData['basics']; }
 
             foreach ($toolData['_sse'] ?? [] as $sseEvent) {
                 $events[] = $sseEvent;
@@ -1238,6 +1269,10 @@ function rag_process(array $messages, string $sid): array
     $responseText = rag_strip_dangling_choice($cit['text'], $events);
     if ($cit['sources']) {
         $events[] = ['type' => 'legal_sources', 'sources' => $cit['sources']];
+    }
+    $basicSrc = rag_basic_sources_used($responseText, $basicsSeen);
+    if ($basicSrc['standards'] || $basicSrc['products']) {
+        $events[] = ['type' => 'basic_sources'] + $basicSrc;
     }
     // 확인된 자료(프롬프트·도구 결과·고객 발화)에 없는 KS 번호 → 답 끝에 확인 필요 안내(본문은 고치지 않음)
     $ks = rag_guard_unverified_ks($responseText, $known);

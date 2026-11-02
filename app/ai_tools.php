@@ -217,7 +217,7 @@ function ai_material_basics(string $topic): array
     if (!ai_material_words($topic) || !$pdo) { return $out; }
     if (function_exists('rag_documents_has_source_columns') && rag_documents_has_source_columns()) {
         try {
-            $rows = $pdo->query("SELECT source_ref, title, tags, applies_to FROM rag_documents
+            $rows = $pdo->query("SELECT source_ref, title, tags, applies_to, source_url FROM rag_documents
                                  WHERE source_type = 'ks' AND verify_level IN ('metadata_confirmed', 'original_verified', 'api_text_verified') AND legal_status <> 'repealed'
                                  ORDER BY source_ref")->fetchAll(PDO::FETCH_ASSOC);
         } catch (\Throwable $e) {
@@ -226,7 +226,7 @@ function ai_material_basics(string $topic): array
         $items = [];
         foreach ($rows as $r) {
             $name = trim((string) preg_replace('/^\[KS\]\s*|\s*\(KS[^)]*\)\s*$/u', '', (string) $r['title']));
-            $s = ['ref' => (string) $r['source_ref'], 'name' => $name, 'basis' => '국가표준 목록(표준 번호·이름 확인, 본문 수치 미확인)'];
+            $s = ['ref' => (string) $r['source_ref'], 'name' => $name, 'basis' => '국가표준 목록(표준 번호·이름 확인, 본문 수치 미확인)', 'url' => (string) ($r['source_url'] ?? '')];
             if (str_contains((string) $r['applies_to'], '사용자 확인')) {   // e나라표준인증 상세 페이지를 사람이 확인한 적용 범위만
                 $s['scope'] = trim((string) preg_replace('/\s*\([^)]*사용자 확인[^)]*\)\s*$/u', '', (string) $r['applies_to']));
             }

@@ -498,5 +498,9 @@ ok('부속 번호(KS M 3500-1)도 본 번호로 대조', rag_guard_unverified_ks
 ok('도구 요약: 검색 결과 수·수량·금액', str_contains(rag_tool_summary('search_products', ['products' => [['name' => '인터로킹', 'spec' => '규격: 200*100*80T | 단위: m 2', 'suggested_qty' => 20, 'est_cost' => 300000]], 'cost_summary' => ['x']]), '상품 1건(인터로킹 200*100*80T ×20 ≈300,000원)'));
 ok('도구 요약: 자재 자료 출처·국가표준', rag_tool_summary('material_info', ['facts' => [['maker' => 'A산업']], 'basics' => ['standards' => [['ref' => 'KS F 4010']], 'products' => [[], []]]]) === '제조사 문장 1개(A산업) · 국가표준 KS F 4010 · 등록 상품 2종');
 
+ok('기본 정보 출처: 답에 쓴 표준 번호·상품 이름만', rag_basic_sources_used('KS F4010 대상이며 벤치플륨관(벤치2종) 규격이 있습니다.', [['standards' => [['ref' => 'KS F 4010', 'name' => '플룸'], ['ref' => 'KS F 4016', 'name' => 'U형']], 'products' => [['name' => '벤치플륨관(벤치2종)', 'count' => 6], ['name' => '환경수로관', 'count' => 3]]]])
+    === ['standards' => [['ref' => 'KS F 4010', 'name' => '플룸', 'url' => '']], 'products' => [['name' => '벤치플륨관(벤치2종)', 'count' => 6]]]);
+ok('기본 정보 출처: 답에 없으면 빈 목록', rag_basic_sources_used('일반 설명입니다.', [['standards' => [['ref' => 'KS F 4010']], 'products' => []]]) === ['standards' => [], 'products' => []]);
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

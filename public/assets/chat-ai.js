@@ -318,6 +318,9 @@ function processEvent(event, content) {
     case 'material_sources':
       renderMaterialSources(event.sources, content);
       break;
+    case 'basic_sources':
+      renderBasicSources(event, content);
+      break;
   }
 }
 
@@ -341,6 +344,21 @@ function renderMaterialSources(sources, container) {
     return `<li>${escHtml(s.maker || '')}${url ? ` · <a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">원문 보기</a>` : ''}</li>`;
   }).join('');
   wrap.innerHTML = `<div class="legal-sources-title">참고 자료 출처 (제조사 공개 자료 · 판매 상품 아님)</div><ul>${items}</ul>`;
+  container.appendChild(wrap);
+}
+
+/** basic_sources 이벤트 → 답에 쓴 확인된 기본 정보(국가표준 번호·이름, 토목몰 등록 상품) — 제조사 자료·법령과 구분 */
+function renderBasicSources(ev, container) {
+  const st = (ev.standards || []).slice(0, 3);
+  const pr = (ev.products || []).slice(0, 5);
+  if (!st.length && !pr.length) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'legal-sources basic-sources';
+  const items = st.map(s => {
+    const url = /^https?:\/\//.test(s.url || '') ? s.url : '';
+    return `<li>${escHtml(s.ref || '')} ${escHtml(s.name || '')} · 국가표준 목록(표준 번호·이름 확인)${url ? ` · <a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">표준 정보</a>` : ''}</li>`;
+  }).concat(pr.map(p => `<li>${escHtml(p.name || '')} · 토목몰 등록 상품${p.count ? ' ' + (parseInt(p.count, 10) || 0) + '개 규격' : ''}</li>`)).join('');
+  wrap.innerHTML = `<div class="legal-sources-title">확인된 기본 정보 (국가표준 목록 · 토목몰 등록 상품)</div><ul>${items}</ul>`;
   container.appendChild(wrap);
 }
 
