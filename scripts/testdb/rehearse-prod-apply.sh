@@ -58,6 +58,8 @@ trap cleanup EXIT
 RESULTS="$TMP/results.tsv"; : > "$RESULTS"
 rec() { printf '%s\t%s\t%s\n' "$1" "$2" "${3:-}" >> "$RESULTS"; printf '  %s  %s  %s\n' "$1" "$2" "${3:-}"; }
 check() { if [ "$2" = "$3" ]; then rec PASS "$1" "$2"; else rec FAIL "$1" "$2 (기대 $3)"; fi; }
+# 줄바꿈(CRLF/LF)만 다른 것은 같은 파일로 본다 — Windows Git(core.autocrlf, .gitattributes '* text=auto')은 .sql 을 CRLF 로 꺼내고 생성기는 LF 로 씀(2026-11-02 사용자 PC FAIL 3 원인)
+same_text() { cmp -s <(tr -d '\r' < "$1") <(tr -d '\r' < "$2"); }
 q() { echo "$1" | sql -N "$REH" 2>&1; }
 # phpMyAdmin 처럼 파일 전체를 한 번에 실행(오류가 나면 거기서 멈춤). 연결 정렬은 phpMyAdmin 기본(utf8mb4_unicode_ci)
 apply() { local label="$1" file="$2" db="${3:-$REH}" out
@@ -122,7 +124,7 @@ fi
 FP="$(sed -nE 's/.*지문\(fingerprint\): `([0-9a-f]{64})`.*/\1/p' "$TMP/ext/export-report.md" 2>/dev/null)"
 check "제조사 내보내기: 보고서 지문 있음" "$([ ${#FP} = 64 ] && echo 1 || echo 0)" 1
 check "제조사 20 에 미승인·매칭·참고가 없음" "$(grep -cF -e '[리허설] 미승인' -e 'INSERT INTO external_product_matches' -e "'pending'" "$TMP/ext/20_insert_approved.sql")" 0
-cmp -s "$TMP/ext/10_create_tables.sql" "$ROOT_DIR/database/20261029_external_products.sql"; check "제조사 10 = database/20261029_external_products.sql" "$?" 0
+same_text "$TMP/ext/10_create_tables.sql" "$ROOT_DIR/database/20261029_external_products.sql"; check "제조사 10 = database/20261029_external_products.sql" "$?" 0
 for i in 1 2; do apply "제조사 10 적용 ($i회째)" "$TMP/ext/10_create_tables.sql"; done
 for i in 1 2; do apply "제조사 20 적용 ($i회째)" "$TMP/ext/20_insert_approved.sql"; done
 check "제조사 20 두 번 실행 후 행 수(중복 없음)" "$(q "SELECT COUNT(*) FROM external_products;")" "$EXPN"
@@ -141,7 +143,7 @@ if php "$ROOT_DIR/scripts/legal-sources/build_prod_sql.php" --reviewer="$REVIEWE
   rec PASS "법령 20 생성(임시 폴더, 검토자 '$REVIEWER' · $REVIEWED_ON)" "$(tail -1 "$TMP/legal.log")"
 else rec FAIL "법령 20 생성" "$(tail -1 "$TMP/legal.log")"; fi
 for f in 10_register_inactive.sql 30_post_check_readonly.sql 90_rollback.sql; do
-  cmp -s "$TMP/legal/$f" "$PA/$f"; check "저장소 $f = 생성기 출력(최신)" "$?" 0
+  same_text "$TMP/legal/$f" "$PA/$f"; check "저장소 $f = 생성기 출력(최신)" "$?" 0
 done
 check "법령 20: V21·V22 없음" "$(grep -cE '/\* V2[12] \*/|44 50 25' "$TMP/legal/20_activate_ready.sql")" 0
 check "법령 20: 활성화 대상 20건" "$(grep -cE '^  /\* V[0-9]+ \*/' "$TMP/legal/20_activate_ready.sql")" 20
