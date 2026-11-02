@@ -9,7 +9,8 @@ declare(strict_types=1);
  * 필요: .env.local 의 OPENAI_API_KEY, scripts/testdb/setup-local-test-db.sh 로 만든 로컬 테스트 DB(SQL 초안 01·02·06·07 적용).
  * 실행: DB_HOST=127.0.0.1 DB_NAME=tomokmall_test php scripts/testdb/consult-scenarios.php [--with-public-road] [--md=결과.md]
  *       --check-only : DB 사전 점검만 하고 OpenAI 는 호출하지 않음
- *       --core       : 핵심 3개(공공도로 차도 100mm·차량 진입 보도 80mm·사유지 80T)만, 면적 답변 턴을 붙여 추천 상품 두께까지 점검(비용 절감)
+ *       --core       : 핵심 4개(공공도로 차도 100mm·차량 진입 보도 80mm·사유지 80T·초보 고객 전체 흐름 '집 앞 보도블록 차 지나가도?' → 면적 → 견적 담기)만,
+ *                      면적 답변 턴을 붙여 추천 상품 두께·필요 수량·견적 담기까지 점검(비용 절감)
  *       --only=public_road,public_sidewalk : 기대 장소 판정이 이 값인 시나리오만 실행(재테스트 비용 절감)
  *       --skip-product-check : 상품 검색 환경 점검(MySQL 8.0 ngram)이 맞지 않아도 실행 — 상품 추천 점검은 '판정 불가'
  *       --material   : 자재 설명 질문 7개(그레이팅 차이·미끄럼·유모차, 수로관, 흄관 KS, 오염 방지 블록, 차량 마당 80T) — 제조사 자료 승인 전·후에
@@ -193,6 +194,9 @@ $core = [
     ['public_road', ['시청에서 발주한 도로 공사인데 차도에 블록 깔려면 두께 몇 mm 써야 해요?', '차도 면적은 50㎡ 정도예요. 인터로킹 블록으로 찾아 주세요'], '100mm 이상 안내 + KDS/KCS 44 50 25 출처, 80T 비권장, 100mm 제품만(없으면 적합 상품 없음 안내 — 80T·60T 대체 추천 금지, 설계도서 확인·별도 견적)', 100],
     ['public_sidewalk', ['가게 앞 인도를 차가 가로질러 들어오는데 인도 블록 두께는요?', '승용차만 들어오고 면적은 30㎡예요'], '보도 지침 구분 Ⅱ(4t 이하) 80mm 이상 + 출처, 80T 제품', 80],
     ['private', ['집 앞 마당에 차 두 대 주차할 건데 블록 두께 몇 T?', '마당은 6m × 5m 예요'], '기존 80T 안내, 공공도로 출처 없음, 80T 제품', 80],
+    // 초보 고객 전체 흐름(2026-11-02 목표 예시): 조건 이해 → 근거 구분(저희 권장 80T, 공공도로 출처 없음) → 면적별 수량·예상 비용 비교표 → 견적 담기
+    ['private', ['집 앞에 보도블록을 깔려고 하는데 차가 지나가도 괜찮나요?', '집 앞 마당이고 승용차만 다녀요. 가로 4m 세로 5m 정도예요', '그중에 제일 저렴한 걸로 견적에 담아 주세요'],
+        '80T 이상 안내를 저희 권장 기준으로(법정 의무처럼 말하지 않음), 80T 비교표(필요 수량·예상 자재비), 3턴째 add_to_cart 호출·견적요청하기 안내', 80, true],
 ];
 $scenarios = [
     ['public_road', ['시청에서 발주한 도로 공사인데 차도에 블록 깔려면 두께 몇 mm 써야 해요?'], '100mm 이상 안내 + KDS/KCS 44 50 25 출처, 80T 를 차도용으로 권하지 않음'],
@@ -221,6 +225,7 @@ try {
     foreach ($scenarios as $sc) {
         [$expect, $turns, $check] = $sc;
         $wantMm = $sc[3] ?? null;   // --core: 추천 상품이 맞아야 하는 두께
+        $wantCart = $sc[4] ?? false;   // 마지막 턴에서 견적 담기(add_to_cart)까지 이어져야 하는지
         $i++;
         $msgs = [];
         $res = ['ok' => false, 'text' => '', 'events' => []];
@@ -237,7 +242,7 @@ try {
                 $errors[] = (string) ($res['error'] ?? '알 수 없음');
             }
             $msgs[] = ['role' => 'assistant', 'content' => (string) ($res['text'] ?? '')];
-            $t = ['user' => $turn, 'text' => (string) ($res['text'] ?? ''), 'sources' => [], 'cards' => [], 'unavailable' => false];
+            $t = ['user' => $turn, 'text' => (string) ($res['text'] ?? ''), 'sources' => [], 'cards' => [], 'unavailable' => false, 'tools' => array_column($res['tools'] ?? [], 'name')];
             foreach ($res['events'] ?? [] as $e) {
                 $type = $e['type'] ?? '';
                 if ($type === 'legal_sources') {
@@ -258,6 +263,11 @@ try {
         $text = (string) $last['text'];
         $cards = $last['cards'];
         $unavailable = $last['unavailable'];
+        if ($wantCart) {   // 담기 턴에는 표가 없으므로 표가 나온 마지막 턴 기준
+            foreach (array_reverse($log) as $t) { if ($t['cards'] || $t['unavailable']) { $cards = $t['cards']; $unavailable = $t['unavailable']; break; } }
+        }
+        $cartOk = !$wantCart || in_array('add_to_cart', $last['tools'] ?? [], true);
+        $costShown = (bool) array_filter($cards, static fn($c) => ($c['suggested_qty'] ?? null) !== null);
         $wrongCards = $wantMm === null ? [] : array_values(array_filter($cards, static fn($c) => ai_block_thickness((string) ($c['spec'] ?? '')) !== $wantMm));
         $wantExists = $wantMm !== null && ai_paving_names_with_thickness($wantMm) !== [];   // 그 두께로 등록된 포장 블록이 있는지(DB 종류 무관)
         $cites44 = (bool) array_filter($sources, static fn($x) => str_contains($x, '44 50 25'));
@@ -277,6 +287,12 @@ try {
             $auto = "확인 필요(추천 상품도 '적합 상품 없음' 안내도 없음 — 마지막 턴에서 {$wantMm}mm 검색을 하지 않음)";
         } elseif (in_array($expect, ['private', 'unclear', 'none'], true) && $cites44) {
             $auto = '실패(공공도로 출처 인용)';
+        } elseif ($wantCart && !$cartOk) {
+            $auto = '실패(마지막 턴에서 견적 담기(add_to_cart)를 하지 않음)';
+        } elseif ($wantCart && !$costShown) {
+            $auto = '확인 필요(비교표에 면적 기준 필요 수량이 없음)';
+        } elseif ($wantCart && preg_match('/법(적|정)\s*(의무|기준)[^.\n]{0,20}80|80[^.\n]{0,20}법(적|정)/u', $allText)) {
+            $auto = '확인 필요(저희 권장 80T 를 법정 기준처럼 말함)';
         } else {
             $auto = match ($expect) {
                 'public_road'     => $cites44 && preg_match('/100\s*mm|100T|10\s*cm/u', $allText) ? '통과' : '확인 필요(KDS/KCS 44 50 25 인용·100mm 안내 원문 확인)',
