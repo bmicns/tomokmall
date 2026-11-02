@@ -22,7 +22,10 @@ ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 REH="${REHEARSAL_DB:-tomokmall_rehearsal_test}"
 SRC="${REHEARSAL_SRC_DB:-tomokmall_rehearsal_src_test}"
 MYSQL_CMD="${MYSQL_CMD:-mysql -h127.0.0.1 -uroot}"
-KEEP=0; [ "${1:-}" = "--keep" ] && KEEP=1
+KEEP=0; REAL=""
+for a in "$@"; do case "$a" in --keep) KEEP=1 ;; --real-export=*) REAL="${a#--real-export=}" ;; esac; done
+# --real-export=폴더: 사용자 PC 의 실제 이관 파일(export-approved.php 결과: 10·20·30·export-report.md)로 리허설 — 고정 자료 대신 실제 14행으로 운영 적용·상담 점검
+if [ -n "$REAL" ]; then for f in 10_create_tables.sql 20_insert_approved.sql 30_post_check_readonly.sql 90_rollback.sql export-report.md; do [ -f "$REAL/$f" ] || { echo "실제 이관 폴더에 $f 가 없습니다: $REAL" >&2; exit 2; }; done; fi
 REVIEWER="리허설 검토자"
 REVIEWED_ON="$(date +%Y-%m-%d)"
 PA="$ROOT_DIR/docs/03-analysis/ai-sourcing/prod-apply"
@@ -36,6 +39,7 @@ done
 case "$MYSQL_CMD" in *-h127.0.0.1*|*-hlocalhost*|*"-h 127.0.0.1"*|*"-h localhost"*) ;; *) echo "로컬 호스트(-h127.0.0.1/-hlocalhost)만 허용합니다." >&2; exit 2 ;; esac
 case "$MYSQL_CMD" in *-h127.0.0.1*|*"-h 127.0.0.1"*) DBH=127.0.0.1 ;; *) DBH=localhost ;; esac
 DBU="$(printf '%s' "$MYSQL_CMD" | sed -nE 's/.*-u ?([^ ]+).*/\1/p')"; DBU="${DBU:-root}"
+DBP="$(printf '%s' "$MYSQL_CMD" | sed -nE 's/.*-P ?([0-9]+).*/\1/p')"; [ -n "$DBP" ] && DBH="$DBH;port=$DBP"   # 사용자 PC MySQL 8.0(예: -P3308) — PHP 보조 스크립트도 같은 서버로
 
 if [ -z "${MYSQL_PWD+x}" ]; then
   if [ -t 0 ]; then read -rsp "로컬 DB 비밀번호(없으면 Enter): " MYSQL_PWD; echo; else MYSQL_PWD=""; fi
@@ -95,28 +99,36 @@ mkdir -p "$TMP/deployed"
 if git -C "$ROOT_DIR" archive "$DEPLOYED_COMMIT" app 2>/dev/null | tar -x -C "$TMP/deployed" 2>/dev/null && [ -f "$TMP/deployed/app/rag.php" ]; then
   DEP="$TMP/deployed"; probe probes --phase=before --code-root="$DEP" --code-label="$DEPLOYED_COMMIT"
 else rec SKIP "배포 코드($DEPLOYED_COMMIT) 점검" "이 저장소에 커밋이 없음(얕은 복제 등)"; fi
-depprobe() { [ -n "$DEP" ] && probe probes --phase="$1" --code-root="$DEP" --code-label="$DEPLOYED_COMMIT"; }
+depprobe() { [ -n "$DEP" ] && probe probes --phase="$1" --code-root="$DEP" --code-label="$DEPLOYED_COMMIT" ${REAL:+--real=1}; }
 
-echo "== 2. 제조사 자료 — 고정 승인 행 내보내기(원본 $SRC) → 10 → 20 → 30"
-sql "$SRC" < "$ROOT_DIR/database/20261029_external_products.sql" || exit 1
-helper "$SRC" ext-fixture > "$TMP/h.out" 2>&1; while IFS=$'\t' read -r s n d; do [ -n "$s" ] && rec "$s" "$n" "$d"; done < "$TMP/h.out"
-printf '%s' '{"sources":[{"key":"rehearsal_fix","domain":"rehearsal.example","permission":"facts_if_clear"}]}' > "$TMP/sources.json"
-if EXT_SOURCES_FILE="$TMP/sources.json" DB_HOST="$DBH" DB_NAME="$SRC" DB_USER="$DBU" DB_PASS="$MYSQL_PWD" \
-   php "$ROOT_DIR/scripts/external/export-approved.php" --out="$TMP/ext" --expect=3 > "$TMP/export.log" 2>&1; then
-  rec PASS "제조사 내보내기(export-approved.php --expect=3)" "$(grep -m1 '승인 행' "$TMP/ext/export-report.md" | sed 's/^- //')"
+if [ -n "$REAL" ]; then
+  echo "== 2. 제조사 자료 — 실제 이관 파일($REAL) → 10 → 20 → 30"
+  mkdir -p "$TMP/ext" && cp "$REAL"/10_create_tables.sql "$REAL"/20_insert_approved.sql "$REAL"/30_post_check_readonly.sql "$REAL"/90_rollback.sql "$REAL"/export-report.md "$TMP/ext/"
+  EXPN="$(sed -nE 's/.*이관 가능 ([0-9]+).*/\1/p' "$TMP/ext/export-report.md" | head -1)"
+  rec PASS "제조사 실제 이관 파일 사용" "$(grep -m1 '승인 행' "$TMP/ext/export-report.md" | sed 's/^- //')"
 else
-  rec FAIL "제조사 내보내기(export-approved.php --expect=3)" "$(tail -1 "$TMP/export.log")"
+echo "== 2. 제조사 자료 — 고정 승인 행 내보내기(원본 $SRC) → 10 → 20 → 30"
+  sql "$SRC" < "$ROOT_DIR/database/20261029_external_products.sql" || exit 1
+  helper "$SRC" ext-fixture > "$TMP/h.out" 2>&1; while IFS=$'\t' read -r s n d; do [ -n "$s" ] && rec "$s" "$n" "$d"; done < "$TMP/h.out"
+  printf '%s' '{"sources":[{"key":"rehearsal_fix","domain":"rehearsal.example","permission":"facts_if_clear"}]}' > "$TMP/sources.json"
+  if EXT_SOURCES_FILE="$TMP/sources.json" DB_HOST="$DBH" DB_NAME="$SRC" DB_USER="$DBU" DB_PASS="$MYSQL_PWD" \
+     php "$ROOT_DIR/scripts/external/export-approved.php" --out="$TMP/ext" --expect=3 > "$TMP/export.log" 2>&1; then
+    rec PASS "제조사 내보내기(export-approved.php --expect=3)" "$(grep -m1 '승인 행' "$TMP/ext/export-report.md" | sed 's/^- //')"
+  else
+    rec FAIL "제조사 내보내기(export-approved.php --expect=3)" "$(tail -1 "$TMP/export.log")"
+  fi
+  EXPN=3
 fi
 FP="$(sed -nE 's/.*지문\(fingerprint\): `([0-9a-f]{64})`.*/\1/p' "$TMP/ext/export-report.md" 2>/dev/null)"
 check "제조사 내보내기: 보고서 지문 있음" "$([ ${#FP} = 64 ] && echo 1 || echo 0)" 1
-check "제조사 내보내기: 20 에 미승인·매칭·참고가 없음" "$(grep -c -e '미승인' -e 'external_product_matches (' -e '15000' "$TMP/ext/20_insert_approved.sql")" 0
+check "제조사 20 에 미승인·매칭·참고가 없음" "$(grep -cF -e '[리허설] 미승인' -e 'INSERT INTO external_product_matches' -e "'pending'" "$TMP/ext/20_insert_approved.sql")" 0
 cmp -s "$TMP/ext/10_create_tables.sql" "$ROOT_DIR/database/20261029_external_products.sql"; check "제조사 10 = database/20261029_external_products.sql" "$?" 0
 for i in 1 2; do apply "제조사 10 적용 ($i회째)" "$TMP/ext/10_create_tables.sql"; done
 for i in 1 2; do apply "제조사 20 적용 ($i회째)" "$TMP/ext/20_insert_approved.sql"; done
-check "제조사 20 두 번 실행 후 행 수(중복 없음)" "$(q "SELECT COUNT(*) FROM external_products;")" 3
+check "제조사 20 두 번 실행 후 행 수(중복 없음)" "$(q "SELECT COUNT(*) FROM external_products;")" "$EXPN"
 apply "제조사 30 실행(읽기 전용)" "$TMP/ext/30_post_check_readonly.sql"
-probe ext-check --file="$TMP/ext/30_post_check_readonly.sql" --fp="$FP" --expect=3
-probe probes --phase=ext
+probe ext-check --file="$TMP/ext/30_post_check_readonly.sql" --fp="$FP" --expect="$EXPN"
+probe probes --phase=ext ${REAL:+--real=1}
 depprobe ext
 
 echo "== 3. 법령 근거 — 칸 추가 → 10 → 30 → 20 → 30"
@@ -138,12 +150,12 @@ check "법령 10: V21·V22 등록·비활성" "$(q "SELECT CONCAT(COUNT(*), '/',
 check "법령 10 두 번 실행 후 등록 행(중복 없음)·활성" "$(q "SELECT CONCAT(COUNT(*), '/', SUM(is_active)) FROM rag_documents WHERE author IN ('검증 조문(2-1단계)','AI 조사 초안(검색 기반)');")" 66/0
 apply "법령 30 실행(읽기 전용, 10 후)" "$PA/30_post_check_readonly.sql"
 probe legal-check --file="$PA/30_post_check_readonly.sql" --phase=registered --before="$TMP/before.json"
-probe probes --phase=registered
+probe probes --phase=registered ${REAL:+--real=1}
 depprobe registered
 for i in 1 2; do apply "법령 20 적용 ($i회째)" "$TMP/legal/20_activate_ready.sql"; done
 apply "법령 30 실행(읽기 전용, 20 후)" "$PA/30_post_check_readonly.sql"
 probe legal-check --file="$PA/30_post_check_readonly.sql" --phase=activated --before="$TMP/before.json" --reviewer="$REVIEWER" --reviewed-on="$REVIEWED_ON"
-probe probes --phase=activated
+probe probes --phase=activated ${REAL:+--real=1}
 depprobe activated
 
 echo "== 4. 되돌리기 — 법령 90 [A]·[B]·[C], 제조사 90 + 테이블 삭제"

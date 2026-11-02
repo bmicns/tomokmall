@@ -24,7 +24,8 @@ foreach (array_slice($argv, 2) as $a) {
 }
 $host = (string) getenv('DB_HOST');
 $name = (string) getenv('DB_NAME');
-if (!in_array($host, ['127.0.0.1', 'localhost'], true) || !preg_match('/_test$/', $name) || $name === 'tomokmall_test') {
+// 로컬 호스트만(포트 지정 '127.0.0.1;port=3308' 허용)
+if (!in_array((string) preg_replace('/;port=\d+$/', '', $host), ['127.0.0.1', 'localhost'], true) || !preg_match('/_test$/', $name) || $name === 'tomokmall_test') {
     fwrite(STDERR, "로컬(127.0.0.1/localhost) 리허설 전용 *_test DB 만 허용합니다(공용 tomokmall_test 제외). 현재 '{$host}' / '{$name}'\n");
     exit(2);
 }
@@ -254,6 +255,17 @@ case 'probes':
         out($n === 0, "{$L} V21·V22 비활성", "활성 {$n}");
     }
 
+    if (!empty($opt['real']) && $hasExt) {   // 실제 이관 14행: 승인 출처별 대표 질문이 제조사 원문·출처로 답해지는지, 이름에 가격·쪽 제목이 없는지
+        foreach (['스틸 그레이팅' => '가야스틸', '그레이팅 유모차 휠체어' => '가야스틸', '보도블록 오염' => '선로드', '흄관' => '동양'] as $topic => $maker) {
+            $r = json_decode(tool_material_info(['topic' => $topic]), true);
+            $fs = (array) ($r['facts'] ?? []);
+            $okMaker = $fs && !array_filter($fs, static fn($f) => !str_contains((string) $f['maker'], $maker));
+            $clean = !array_filter($fs, static fn($f) => preg_match('/PRODUCT|\d{1,3},\d{3}/u', (string) $f['product']));
+            $srcOk = (bool) ($r['_sse'][0]['sources'] ?? []) && ($deployed || !empty($r['by_product']));   // 배포 코드(02a98c2)에는 제품별 묶음이 없음(새 코드 배포 후 생김)
+            out($okMaker && $clean && $srcOk, "{$L} 실제 자료 '{$topic}'", count($fs) . "문장 · 출처 {$maker} · 제품별 묶음 " . count((array) ($r['by_product'] ?? [])) . ' · 이름 ' . implode('/', array_slice(array_unique(array_column($fs, 'product')), 0, 3)));
+        }
+        break;
+    }
     $mi = json_decode(tool_material_info(['topic' => '인터로킹 블록']), true);
     $facts = (array) ($mi['facts'] ?? []);
     $srcs = (array) ($mi['_sse'][0]['sources'] ?? []);

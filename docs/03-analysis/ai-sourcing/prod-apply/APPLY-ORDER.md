@@ -7,6 +7,17 @@
 
 로컬 리허설(운영과 같은 구조의 `*_test` DB, 운영 접속 없음): `bash scripts/testdb/rehearse-prod-apply.sh` — 아래 순서 그대로 적용(파일마다 2회 실행)·확인·상담 점검·되돌리기 후 적용 전과 같음까지 확인. 운영 배포 코드(`02a98c2`)로도 같은 점검. 2026-11-02 결과 **PASS 181 · FAIL 0**.
 
+## 0-1. 운영 적용 전 실제 14행 리허설 (사용자 PC, 운영 접속 없음)
+
+실제 이관 파일(`data/external/crawl/export/`)과 법령 SQL 을 사용자 PC 의 MySQL 8.0 테스트 서버(예: 3308)에 만든 운영 유사 DB 에 문서 순서대로 적용 → 사후 확인 → 상담 점검(실제 가야스틸·선로드·동양 자료가 출처와 함께 나오는지, 이름에 가격·'PRODUCT' 없음) → 되돌리기까지 한 번에. 끝나면 리허설 DB 는 지워진다.
+
+```bash
+MYSQL_CMD="/c/mysql8/bin/mysql.exe -h127.0.0.1 -P3308 -uroot" MYSQL_PWD= bash scripts/testdb/rehearse-prod-apply.sh --real-export=data/external/crawl/export
+```
+
+- 마지막 줄 `합계: PASS … · FAIL 0` 이면 운영 적용 준비 완료. FAIL 이 있으면 출력 그대로 공유.
+- 이 환경(클라우드)에서 같은 모양의 모의 이관 파일로 확인: PASS 192 · FAIL 0. 고정 자료 모드: PASS 181 · FAIL 0.
+
 ## 0. 사전 점검 [읽기]
 
 ```sql
