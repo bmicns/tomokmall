@@ -586,12 +586,15 @@ ok('이름 없는 상품 제외·javascript:·// 이미지 주소 차단', count
 echo "[상담 요청: 문자 업체 요청·응답 형식]\n";
 eq('솔라피 서명(HMAC-SHA256(date+salt, secret))', sms_solapi_auth_header('KEY', 'SECRET', '2026-11-03T00:00:00Z', 'abc'),
     'HMAC-SHA256 apiKey=KEY, date=2026-11-03T00:00:00Z, salt=abc, signature=' . hash_hmac('sha256', '2026-11-03T00:00:00Zabc', 'SECRET'));
-ok('솔라피 본문: 번호 숫자만·LMS 제목', sms_solapi_body('010-1234-5678', '02-123-4567', '내용', 'LMS', '비엠아이') === ['message' => ['to' => '01012345678', 'from' => '021234567', 'text' => '내용', 'type' => 'LMS', 'subject' => '비엠아이']]
-    && !isset(sms_solapi_body('01012345678', '021234567', '짧게', 'SMS', '비엠아이')['message']['subject']));
+ok('솔라피 본문(send-many/detail): 번호 숫자만·LMS 제목', sms_solapi_body('010-1234-5678', '02-123-4567', '내용', 'LMS', '비엠아이') === ['messages' => [['to' => '01012345678', 'from' => '021234567', 'text' => '내용', 'type' => 'LMS', 'subject' => '비엠아이']], 'allowDuplicates' => false]
+    && !isset(sms_solapi_body('01012345678', '021234567', '짧게', 'SMS', '비엠아이')['messages'][0]['subject']));
 $af = sms_aligo_fields('K', 'U', '010-1234-5678', '02-123-4567', '내용', 'SMS', '제목', true);
 ok('알리고 요청 값: SMS 는 제목 없음·시험 모드', $af === ['key' => 'K', 'user_id' => 'U', 'sender' => '021234567', 'receiver' => '01012345678', 'msg' => '내용', 'msg_type' => 'SMS', 'testmode_yn' => 'Y']);
-ok('솔라피 응답: 2000 성공 / 오류 메시지', sms_parse_response('solapi', 200, '{"statusCode":"2000","statusMessage":"정상 접수"}')['ok']
-    && sms_parse_response('solapi', 403, '{"errorCode":"SignatureDoesNotMatch","errorMessage":"서명 불일치"}') === ['ok' => false, 'error' => '서명 불일치', 'code' => 'SignatureDoesNotMatch']);
+ok('솔라피 응답: groupInfo + 실패 목록 없음 = 성공', sms_parse_response('solapi', 200, '{"groupInfo":{"count":{"total":1,"registeredFailed":0}},"failedMessageList":[]}')['ok']
+    && sms_parse_response('solapi', 200, '{"groupInfo":{"count":{"total":1}}}')['ok']);
+ok('솔라피 응답: 접수 거절(실패 목록) → 사유', sms_parse_response('solapi', 200, '{"groupInfo":{"count":{"total":1,"registeredFailed":1}},"failedMessageList":[{"to":"01012345678","statusCode":"1062","statusMessage":"발신번호 미등록"}]}') === ['ok' => false, 'error' => '발신번호 미등록', 'code' => '1062']);
+ok('솔라피 응답: 요청 오류(4xx errorCode) / 옛 형식(statusCode만)은 성공으로 보지 않음', sms_parse_response('solapi', 403, '{"errorCode":"SignatureDoesNotMatch","errorMessage":"서명 불일치"}') === ['ok' => false, 'error' => '서명 불일치', 'code' => 'SignatureDoesNotMatch']
+    && !sms_parse_response('solapi', 200, '{"statusCode":"2000"}')['ok']);
 ok('알리고 응답: result_code 1(숫자·문자) 성공 / 음수 실패', sms_parse_response('aligo', 200, '{"result_code":1,"message":"success"}')['ok'] && sms_parse_response('aligo', 200, '{"result_code":"1"}')['ok']
     && sms_parse_response('aligo', 200, '{"result_code":-101,"message":"인증오류"}') === ['ok' => false, 'error' => '인증오류', 'code' => '-101']);
 ok('JSON 아닌 응답 → 실패(HTTP 코드 안내)', sms_parse_response('solapi', 502, '<html>')['error'] === '발송 업체 응답 오류(HTTP 502)');

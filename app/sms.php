@@ -107,14 +107,17 @@ function sms_solapi_auth_header(string $apiKey, string $apiSecret, string $date,
     return 'HMAC-SHA256 apiKey=' . $apiKey . ', date=' . $date . ', salt=' . $salt . ', signature=' . $sig;
 }
 
-/** 솔라피 단건 발송 본문 (순수 함수) */
+/**
+ * 솔라피 발송 본문 (순수 함수) — POST /messages/v4/send-many/detail, 공식 SDK(solapi/solapi-php)와 같은 형식
+ * {"messages":[{to, from, text, type, subject?}], "allowDuplicates":false}
+ */
 function sms_solapi_body(string $to, string $from, string $text, string $type, string $subject): array
 {
     $msg = ['to' => sms_digits($to), 'from' => sms_digits($from), 'text' => $text, 'type' => $type];
     if ($type === 'LMS' && $subject !== '') {
         $msg['subject'] = mb_substr($subject, 0, 20);
     }
-    return ['message' => $msg];
+    return ['messages' => [$msg], 'allowDuplicates' => false];
 }
 
 /** 알리고 발송 요청 값 (순수 함수) */
@@ -145,12 +148,19 @@ function sms_parse_response(string $provider, int $http, string $raw): array
 {
     $d = json_decode($raw, true);
     if ($provider === 'solapi') {
-        // 정상 접수: HTTP 200 + statusCode 2000. 오류: 4xx + errorCode/errorMessage
-        $code = is_array($d) ? (string) ($d['statusCode'] ?? $d['errorCode'] ?? '') : '';
-        if ($http === 200 && $code === '2000') {
-            return ['ok' => true, 'error' => null, 'code' => $code];
+        // send-many/detail(공식 SDK 기준): 접수 성공 = HTTP 200 + failedMessageList 비어 있음(groupInfo 있음).
+        // 접수 거절된 메시지는 failedMessageList[].statusCode/statusMessage(발신번호 미등록 등).
+        // 요청 자체 오류: 4xx + errorCode/errorMessage(서명·키·잔액 등).
+        if ($http === 200 && is_array($d) && isset($d['groupInfo'])) {
+            $failed = is_array($d['failedMessageList'] ?? null) ? $d['failedMessageList'] : [];
+            if ($failed === []) {
+                return ['ok' => true, 'error' => null, 'code' => ''];
+            }
+            $f = is_array($failed[0]) ? $failed[0] : [];
+            return ['ok' => false, 'error' => (string) ($f['statusMessage'] ?? '') ?: '발송 접수 거절', 'code' => (string) ($f['statusCode'] ?? '')];
         }
-        $msg = is_array($d) ? (string) ($d['statusMessage'] ?? $d['errorMessage'] ?? '') : '';
+        $code = is_array($d) ? (string) ($d['errorCode'] ?? '') : '';
+        $msg  = is_array($d) ? (string) ($d['errorMessage'] ?? '') : '';
         return ['ok' => false, 'error' => $msg !== '' ? $msg : '발송 업체 응답 오류(HTTP ' . $http . ')', 'code' => $code];
     }
     if ($provider === 'aligo') {
@@ -191,7 +201,7 @@ function sms_send(string $to, string $text, string $subject = ''): array
     if ($cfg['provider'] === 'solapi') {
         $date = gmdate('Y-m-d\TH:i:s\Z');
         $salt = bin2hex(random_bytes(16));
-        $url  = $test ?? 'https://api.solapi.com/messages/v4/send';
+        $url  = $test ?? 'https://api.solapi.com/messages/v4/send-many/detail';
         $body = json_encode(sms_solapi_body($to, $from, $text, $type, $subject), JSON_UNESCAPED_UNICODE);
         $headers = [
             'Content-Type: application/json; charset=utf-8',

@@ -45,13 +45,14 @@ SMS_SENDER_NAME=비엠아이토목건축자재   # 선택(관리자 화면 표�
 SMS_TEST_MODE=             # aligo 만, Y 면 실제 발송 없이 접수 확인
 ```
 
-- 솔라피: `POST https://api.solapi.com/messages/v4/send`, HMAC-SHA256 인증, 성공 `statusCode 2000`.
+- **솔라피(확정, 2026-11-03)**: `POST https://api.solapi.com/messages/v4/send-many/detail`, 본문 `{"messages":[…]}`, HMAC-SHA256 인증 — 공식 PHP SDK(github.com/solapi/solapi-php)의 요청·인증·성공 판정(HTTP 200 + `failedMessageList` 비어 있음)과 맞춤. 접수 거절은 `failedMessageList[].statusMessage`, 요청 오류는 4xx `errorMessage` 를 처리 이력에 남김.
+- 접수 성공 = 솔라피가 받았다는 뜻. 이통사 실제 도착 결과는 솔라피 콘솔 발송 내역에서 확인(이 화면은 조회하지 않음).
 - 알리고: `POST https://apis.aligo.in/send/`, 성공 `result_code 1`. **발송 서버 IP 등록이 필요**(닷홈 서버 IP).
 - 발신번호는 사전 등록(번호 도용 방지 제도)이 끝나야 발송된다.
 
 ## 5. 검증(로컬, 2026-11-03)
 
-- `php -l` 전체 · `php tests/functions.test.php` 241/0 (문자 byte·종류, 번호, 입력 검증, 횟수 제한, 검색 조건, 대화 변환, 솔라피 서명·본문, 알리고 요청값, 응답 해석)
+- `php -l` 전체 · `php tests/functions.test.php` 243/0 (문자 byte·종류, 번호, 입력 검증, 횟수 제한, 검색 조건, 대화 변환, 솔라피 서명·본문, 알리고 요청값, 응답 해석)
 - 빈 로컬 `_test` DB + 새 테이블 + `[TEST]` 상담 기록·관리자 계정 + 로컬 솔라피 목업(서명 검증)으로 브라우저 시험: CTA(추천 2회 → 2개), 모달 검증·접기·접수·Esc, 목록 탭·검색·페이지, 상세 AI 내역·동의 펼치기, SMS/LMS 표시·발송·실패, 메모, 완료(파기)·버튼 잠금, 비로그인 302, 잘못된 토큰 거절
 - 실제 문자 업체 발송·운영 상품 데이터 화면은 확인하지 못함(키 없음 · 복제 DB 스냅샷 없음)
 
