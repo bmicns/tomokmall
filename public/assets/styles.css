@@ -2089,3 +2089,63 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .ut-related .pt-related-list li{min-width:0}
   .ut-related .pt-related-col:last-child{border-left:0;margin-left:0}
 }
+
+/* ── 모바일 공통 보강 (고객 화면, 640px 이하 — 기존 640 브레이크포인트 재사용) ─────────────
+   - 본문 좌우 여백: main(32px) + 페이지 래퍼(16~24px)가 겹쳐 글자 폭이 줄던 것을 16px 한 번으로
+   - iOS Safari: 글자 16px 미만 입력창은 누르면 화면이 확대됨 → 입력창 글자 16px
+   - 헤더: 아래로 스크롤하면 숨김(layout.php 스크립트가 .is-scroll-hidden 부여, 768px 이하·AI 상담 화면 제외)
+   - 메가 패널(데스크톱 hover 전용)은 모바일에서 쓰지 않음 — 대분류는 가로 스크롤 줄에서 바로 이동 */
+@media (max-width: 768px) {
+  .mega-panel, .mega-item.is-open .mega-panel { display: none; }
+  body:not(.mode-chat):not(.mode-corp) .site-header { transition: transform .22s ease; will-change: transform; }
+  body:not(.mode-chat):not(.mode-corp) .site-header.is-scroll-hidden { transform: translateY(-100%); box-shadow: none; }
+}
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  body:not(.mode-chat):not(.mode-corp) .site-header { transition: none; }
+}
+@media (max-width: 640px) {
+  main { padding: 0 16px; }
+  main > :is(.pd-wrap, .my-wrap, .est-wrap, .mp-wrap, .res-page) { padding-left: 0; padding-right: 0; }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]),
+  select, textarea { font-size: 16px; }
+
+  /* 대분류 줄: 52px → 44px(터치 높이 유지), 탭 글자 줄바꿈 없음 */
+  body:is(.mode-home, .mode-normal) { --gnb-bar-h: 44px; }
+  body:is(.mode-home, .mode-normal) .header-cats .mega-tab { display: inline-flex; align-items: center; min-height: 44px; white-space: nowrap; }
+  .header-cats .mega-tabs { scrollbar-width: none; }
+  .header-cats .mega-tabs::-webkit-scrollbar { display: none; }
+
+  /* 상품 목록: 필터 제목줄(접힘/펼침)을 터치하기 쉽게 + 펼침 표시 */
+  .fltbox > summary { min-height: 48px; font-size: 14px; }
+  .fltbox > summary::after { content: ""; width: 8px; height: 8px; margin: 0 4px 0 auto; border-right: 2px solid #8A96A3; border-bottom: 2px solid #8A96A3; transform: rotate(45deg) translateY(-2px); transition: transform .15s; }
+  .fltbox[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+  .fopt { min-height: 40px; font-size: 14px; }
+  .fopt input { width: 18px; height: 18px; }
+  .spec-scroll .fopt { padding: 0; }
+  .spec-scroll .fopt-lbl, .fgrp-scroll .fopt-lbl { font-size: 13px; }
+  .flt-apply { min-height: 48px; font-size: 15px; }
+  .flt-top a { display: inline-flex; align-items: center; min-height: 36px; padding: 0 4px; font-size: 13px; }
+  /* 상품 목록 툴바: [정렬] [목록검색 입력 | 검색] 한 줄, 높이 44px */
+  .pt-table-header { padding-top: 18px; }
+  .pt-table-title { font-size: 18px; }
+  .pt-head-right { gap: 8px; }
+  .pt-sort-form { flex: 0 0 auto; }
+  .pt-sort { height: 44px; padding: 0 8px; }
+  .pt-search-form { flex: 1 1 160px; min-width: 0; }
+  .pt-search-form input[type="text"] { flex: 1 1 auto; width: auto; min-width: 0; height: 44px; }
+  .pt-search-form button { flex: none; height: 44px; padding: 0 14px; }
+  .pt-page { min-width: 44px; height: 44px; }
+}
+@media (max-width: 640px) {
+  /* 상품 카드: 업체·단위·규격·중량·상차를 한 줄씩 쌓지 않고 이어서 표시(카드 높이 축소) —
+     기존 .pt-col-* inline-block 지정이 .product-table td{display:block}보다 우선순위가 낮아 적용되지 않던 것 */
+  .product-table td:is(.pt-col-vendor, .pt-col-unit, .pt-col-spec, .pt-col-weight, .pt-col-load, .pt-col-cost) { display: inline-block; margin-right: 12px; line-height: 1.6; }
+  .product-table td.pt-col-spec { display: block; margin-right: 0; overflow-wrap: anywhere; }
+  .product-table td.pt-col-price { margin-top: 4px; }
+}
+@media (max-width: 640px) {
+  /* 장바구니(cart.php) 표: 좁은 폭에서 '수량' 머리글·금액이 글자 단위로 줄바꿈되던 것 → 여백 축소, 숫자 열 한 줄 */
+  .cart-table th, .cart-table td { padding: 10px 8px; font-size: 14px; }
+  .cart-table :is(th, td):not(:first-child) { white-space: nowrap; text-align: right; }
+  .cart-table td:first-child { overflow-wrap: anywhere; }
+}

@@ -39,7 +39,7 @@ render_header('장바구니');
     <?php if (!$products): ?>
         <p class="empty">담긴 상품이 없습니다.</p>
     <?php else: ?>
-        <div class="table-wrap">
+        <div class="table-wrap cart-table">
             <table>
                 <thead>
                     <tr>
