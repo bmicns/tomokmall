@@ -29,7 +29,7 @@ function ok(string $name, bool $cond): void {
 $pdo = db();
 $tmp = sys_get_temp_dir() . '/crawl_test_' . getmypid();
 $base = 19000 + getmypid() % 500;
-$ports = ['a' => $base, 'b' => $base + 1, 'c' => $base + 2];
+$ports = ['a' => $base, 'b' => $base + 1, 'c' => $base + 2, 'd' => $base + 3];
 $site = static function (string $name, array $files) use ($tmp): string {
     $d = "{$tmp}/{$name}";
     foreach ($files as $f => $c) { @mkdir(dirname("{$d}/{$f}"), 0777, true); file_put_contents("{$d}/{$f}", $c); }
@@ -54,6 +54,18 @@ $site('a', [
 $site('b', ['index.html' => '<a href="/agreement.html">이용약관</a> <a href="/product/a.html">제품</a>', 'agreement.html' => '<p>본 사이트의 게시물을 자동화된 프로그램으로 수집하거나 무단으로 복제하는 행위를 금지합니다.</p>',
             'product/a.html' => $prod('인조화강블록', '<tr><td>B</td><td>200*200</td><td>60</td><td>1</td></tr>')]);
 $site('c', ['robots.txt' => "User-agent: *\nDisallow: /\n", 'index.html' => '<a href="/product/a.html">제품</a>', 'product/a.html' => $prod('인조화강블록', '<tr><td>C</td><td>200*200</td><td>60</td><td>1</td></tr>')]);
+// D: 그린파이프·고려콘크리트 유형 — 규격표 없이 설명 문장만 있는 제품 페이지(쪽 제목 'PRODUCT') + 쿠키를 심고 같은 주소로 302 를 보내는 페이지
+@mkdir("{$tmp}/d", 0777, true);
+file_put_contents("{$tmp}/d/router.php", '<?php file_put_contents(__DIR__ . "/access.log", $_SERVER["REQUEST_URI"] . "\n", FILE_APPEND);
+$p = parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH); header("Content-Type: text/html; charset=utf-8");
+if ($p === "/robots.txt") { http_response_code(404); return true; }
+if ($p === "/") { echo "<a href=\"/product/pe.html\">제품</a> <a href=\"/product/flume.html\">제품 2</a>"; return true; }
+if ($p === "/product/pe.html") { echo "<html><h2>PRODUCT</h2><h3>[테스트] PE 이중벽관</h3><p>[테스트] 이중벽관은 하수 배수용으로 사용합니다. 안쪽 면이 매끄러워 물 흐름이 좋습니다.</p></html>"; return true; }
+if ($p === "/product/flume.html") {
+    if (($_COOKIE["chk"] ?? "") !== "1") { setcookie("chk", "1", 0, "/"); header("Location: /product/flume.html", true, 302); return true; }
+    echo "<html><h2>[테스트] 벤치플륨관</h2><p>[테스트] 벤치플륨관은 농업용 배수로에 사용합니다.</p><table><tr><th>품명</th><th>규격</th></tr><tr><td>[테스트]2종</td><td>300*200*2000</td></tr></table></html>"; return true;
+}
+http_response_code(404); return true;');
 $srv = [];
 foreach ($ports as $k => $port) {
     $srv[] = proc_open([PHP_BINARY, '-S', "127.0.0.1:{$port}", "{$tmp}/{$k}/router.php"], [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes, "{$tmp}/{$k}");
@@ -63,6 +75,7 @@ $reg = json_decode((string) file_get_contents(__DIR__ . '/../data/external/sourc
 $reg['sources'] = array_merge(array_filter($reg['sources'], static fn($s) => in_array($s['key'], ['ktomok', 'tomok114'], true)), [
     ['key' => 'test_site_a', 'name' => '[테스트]제조A', 'domain' => "127.0.0.1:{$ports['a']}", 'permission' => 'facts_if_clear', 'basis' => '테스트', 'conditions' => ['테스트'], 'seeds' => ["http://127.0.0.1:{$ports['a']}/product/list.html"], 'crawl_priority' => 1],
     ['key' => 'test_site_b', 'name' => '[테스트]제조B', 'domain' => "127.0.0.1:{$ports['b']}", 'permission' => 'facts_if_clear', 'basis' => '테스트', 'conditions' => ['테스트'], 'seeds' => [], 'crawl_priority' => 2],
+    ['key' => 'test_site_d', 'name' => '[테스트]제조D', 'domain' => "127.0.0.1:{$ports['d']}", 'permission' => 'facts_if_clear', 'basis' => '테스트', 'conditions' => ['테스트'], 'seeds' => [], 'crawl_priority' => 4],
     ['key' => 'test_site_c', 'name' => '[테스트]제조C', 'domain' => "127.0.0.1:{$ports['c']}", 'permission' => 'facts_if_clear', 'basis' => '테스트', 'conditions' => ['테스트'], 'seeds' => [], 'crawl_priority' => 3],
 ]);
 $reg['sources'] = array_values($reg['sources']);
@@ -93,13 +106,28 @@ try {
     $before = json_decode(tool_material_info(['topic' => '인조화강블록']), true);
     ok('승인 전: material_info 에 이 자료 없음', !str_contains(json_encode($before, JSON_UNESCAPED_UNICODE), '[테스트]'));
     exec("{$env} " . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/../scripts/external/approve-crawled.php') . ' --approve=test_site_a 2>&1', $o2, $c2);   // 제조사 수집분은 문장 단위 검토 후 승인
-    $info = json_decode(tool_material_info(['topic' => '물이 잘 빠지는 투수 블록']), true);
+    $info = json_decode(tool_material_info(['topic' => '인조화강블록']), true);
+    $perm = array_column(json_decode(tool_material_info(['topic' => '물이 잘 빠지는 투수 블록']), true)['facts'] ?? [], 'text');
+    ok("조건 질문(투수·물빠짐)은 그 조건을 말하는 문장만 — 인증·주의 문장은 빠짐", $perm !== [] && !array_filter($perm, static fn($x) => !preg_match('/투수|물빠짐|빗물/u', $x)));
     $kinds = array_unique(array_column($info['facts'] ?? [], 'kind'));
     ok('승인 후: 원문 문장(특징·용도·주의·인증)과 출처 URL', $c2 === 0 && in_array('특징', $kinds, true) && in_array('주의', $kinds, true) && in_array('인증', $kinds, true)
         && str_contains(json_encode($info, JSON_UNESCAPED_UNICODE), '빗물이 블록 사이로 스며들어') && str_contains((string) ($info['facts'][0]['source_url'] ?? ''), '127.0.0.1'));
     ok('상담 화면 출처 카드 이벤트, 가격 없음, 판매 상품 아님 안내', ($info['_sse'][0]['type'] ?? '') === 'material_sources' && !preg_match('/99,999|88,888/', json_encode($info))
         && str_contains((string) $info['note'], '판매 상품·가격이 아님'));
     ok('관계없는 주제는 빈 목록(지어내지 않음)', (json_decode(tool_material_info(['topic' => 'PE 이중벽관']), true)['facts'] ?? null) === []);
+
+    echo "[설명만 있는 제품 페이지·쿠키 리디렉션 (그린파이프·고려콘크리트 유형)]\n";
+    $d = $pdo->query("SELECT name, product_type, attrs_json, review_status FROM external_products WHERE source_key = 'test_site_d' ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+    $dn = array_column($d, 'name');
+    ok("규격표 없는 페이지: 쪽 제목 'PRODUCT' 대신 소제목(PE 이중벽관)으로 저장, 원문 문장 포함", in_array('[테스트] PE 이중벽관', $dn, true)
+        && str_contains(json_encode($d, JSON_UNESCAPED_UNICODE), '하수 배수용으로') && !in_array('PRODUCT', $dn, true));
+    ok('쿠키를 심고 302 로 되돌려 보내는 페이지도 수집(벤치플륨관 규격표 행)', (bool) array_filter($dn, static fn($n) => str_contains($n, '벤치플륨관')));
+    exec("{$env} " . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/../scripts/external/approve-crawled.php') . ' --only=test_site_d 2>&1', $o3);
+    $cand = (string) @file_get_contents("{$tmp}/out/approval-candidates.md");
+    ok('승인 후보 보고서에 새 출처 문장(자동 승인 없음)', str_contains($cand, '하수 배수용으로') && !array_filter($d, static fn($r) => $r['review_status'] !== 'pending'));
+    exec("{$env} " . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/../scripts/external/approve-crawled.php') . ' --approve=test_site_d 2>&1');
+    $pe = json_decode(tool_material_info(['topic' => 'PE 이중벽관']), true);
+    ok('승인 후: PE 이중벽관 질문에 제조사 원문·출처(설명만 있던 페이지)', str_contains(json_encode($pe['facts'] ?? [], JSON_UNESCAPED_UNICODE), '하수 배수용으로') && ($pe['_sse'][0]['type'] ?? '') === 'material_sources');
     ok('products 건수·판매가 합계 그대로', $prodBefore === $pdo->query('SELECT COUNT(*), SUM(price_b2c) FROM products')->fetch(PDO::FETCH_NUM));
 } finally {
     foreach ($srv as $p) { proc_terminate($p); }

@@ -296,7 +296,7 @@ function ext_selection_guide(array $productRow, array $knowledge = []): array
     $paving = in_array($n['product_type'], ['인조화강블록', '점토블록', '인터로킹블록', '보차도블록', '보도블록', '잔디블록'], true);
     if ($paving && $n['thickness_mm'] !== null) {
         $g[] = match (true) {
-            $n['thickness_mm'] >= 80 => "두께 {$n['thickness_mm']}mm — 차량이 올라가는 곳 두께 기준(사내 80mm 이상) 충족",
+            $n['thickness_mm'] >= 80 => "두께 {$n['thickness_mm']}mm — 차량이 올라가는 곳 저희 권장 기준(80mm 이상) 충족",
             $n['thickness_mm'] >= 60 => "두께 {$n['thickness_mm']}mm — 사람만 다니는 곳용(차량이 올라가면 80mm 이상)",
             default => "두께 {$n['thickness_mm']}mm",
         };
@@ -501,6 +501,19 @@ function ext_read_json(string $file, bool $scrape): array
 }
 
 /**
+ * 상담·이관에 쓸 행 이름 (순수 함수) — 수집 때 쪽 제목·표 칸이 섞여 생긴 'PRODUCT 21,500'(영문 쪽 제목 + 가격) 같은 이름을 정리.
+ * 가격 모양 숫자(21,500·12,000원)와 영문 일반 제목(PRODUCT·PRODUCTS·ITEM)만 뺀다. 남는 글이 없으면 제품 종류 이름. 글자를 새로 만들지 않는다.
+ */
+function ext_display_name(string $name, string $type = ''): string
+{
+    // 치수(2,000*2,000·1,200mm)는 그대로: 앞뒤에 *·x·×·mm·T 가 붙은 숫자는 가격으로 보지 않음
+    $n = (string) preg_replace('/(?<![\d.*x×])(?<![*x×]\s)\d{1,3}(?:,\d{3})+(?:\s*원)?(?![\d.])(?!\s*[*x×]|\s*(?:mm|㎜|T|t)\b)|(?<![\d,])\d+\s*원(?![가-힣])/u', ' ', $name);
+    $n = (string) preg_replace('/\b(PRODUCTS?|ITEMS?|GOODS)\b/iu', ' ', $n);
+    $n = trim((string) preg_replace('/\s+/u', ' ', $n), " \t-·|/");
+    return $n !== '' ? $n : $type;
+}
+
+/**
  * 원문 문장이 설명하는 제품(순수 함수) — 문장 앞 '제품 이름 + 은/는'(예: '안전 중하중 그레이팅은 …'), 없으면 $fallback(행 이름).
  * 한 주제에 여러 제품 문장이 섞여 오면 GPT 가 다른 제품 특징을 옮겨 말하므로(안전 중하중의 작은 바퀴 → 중하중 전체) 문장마다 대상을 밝혀 준다.
  */
@@ -510,16 +523,42 @@ function ext_fact_subject(string $t, string $fallback): string
 }
 
 /**
+ * 주제의 사용 조건 낱말 → 그 조건을 직접 말하는 표현 목록 (순수 함수). 조건이 없으면 [].
+ * 예: '그레이팅 미끄럼' → ['미끄럼','미끄러'], '인도 덮개 유모차 휠체어' → ['유모차','휠체어','바퀴']
+ */
+function ext_condition_words(string $topic): array
+{
+    $map = [
+        '미끄' => ['미끄럼', '미끄러'], '유모차' => ['유모차', '휠체어', '바퀴'], '휠체어' => ['유모차', '휠체어', '바퀴'], '바퀴' => ['유모차', '휠체어', '바퀴'],
+        '오염' => ['오염', 'Self-Cleaning', '친수'], '물빠짐' => ['투수', '물빠짐', '빗물', '배수'], '투수' => ['투수', '물빠짐', '빗물'],
+        '소음' => ['소음', '덜컹'], '막힘' => ['막힘', '오물', '낙엽', '꽁초'], '부식' => ['부식', '녹', '도금', '아연'],
+    ];
+    $out = [];
+    foreach ($map as $k => $ws) {
+        if (mb_stripos($topic, $k) !== false) { $out = array_merge($out, $ws); }
+    }
+    return array_values(array_unique($out));
+}
+
+/**
  * 상담용 자재 참고 자료 — 사람이 승인한(review_status='approved') 외부 자료의 원문 문장만, 출처와 함께.
  * 주제(예: '인터로킹 블록', '투수블록')의 종류·단어로 찾아 종류별(용도·특징·주의·인증·강도) 최대 3문장. 가격·판매 여부는 넣지 않는다.
  * 테이블이 없거나 승인 자료가 없으면 빈 목록(상담은 기존처럼 일반 설명만).
  */
 function ext_material_info(string $topic): array
 {
-    $none = ['topic' => $topic, 'facts' => [], 'sources' => [], 'note' => '승인된 참고 자료가 없습니다. 답 첫머리에 제조사 참고 자료가 없어 일반적인 설명이라고 밝히고, 수치 없이 확실한 일반 설명만 하세요. 확실하지 않은 제품의 구조·관경·용도는 지어내지 말고 정확한 사양은 제조사 자료 확인이 필요하다고 안내하세요. 상품·가격은 search_products 결과(토목몰)로만 안내하고, 답에 도구 이름은 쓰지 마세요.'];
+    $none = ['topic' => $topic, 'facts' => [], 'sources' => [], 'note' => '승인된 제조사 참고 자료가 없습니다. 답 첫머리에 제조사 자료가 없다고 밝히세요. basics 가 있으면 그 사실(국가표준 번호·이름, 토목몰 등록 상품 이름·규격·중량·단위)로만 설명하세요. '
+        . 'basics 에 없는 구조·관경·용도·설치 장소·장단점·제품끼리의 차이는 일반 상식으로도 채우지 마세요(예: \'하천·농업용 배수에 쓴다\', \'청소가 쉽다\' 같은 설명 금지). '
+        . '그 대신 정확한 용도·차이는 제조사 자료 확인이 필요하다고 안내하고, 등록 규격으로 상품을 찾아 드릴 수 있다고 하세요. \'제조사 자료에 따르면\'이라는 말은 쓰지 마세요(자료가 없음). '
+        . '두 제품의 차이·비교 질문이면 이 순서로만 답하세요: ① 제조사 자료가 없다 ② 제품별 국가표준 이름·번호와 토목몰 등록 규격을 나란히 ③ \'구조·용도의 차이는 확인된 자료가 없어 말씀드리기 어렵다\' ④ 규격으로 상품을 찾아 드릴 수 있다. '
+        . '이름에서 기능을 짐작해 말하지 마세요(예: \'벤치 기능을 더한 구조\', \'U형은 개방형\', \'농경지·측구 배수용\' 금지). 상품·가격은 search_products 결과(토목몰)로만 안내하고, 답에 도구 이름은 쓰지 마세요.'];
     if (trim($topic) === '' || !ext_tables_ready()) { return $none; }
-    $type = ext_product_type($topic);
-    $words = array_values(array_filter(preg_split('/[\s,·]+/u', (string) preg_replace('/블럭/u', '블록', $topic)) ?: [], static fn($w) => mb_strlen($w) >= 2 && !preg_match('/^(차이|종류|어떤|무엇|추천|좋은|제품|자재)$/u', $w)));
+    $topicN = str_replace(['플룸', '플럼', '블럭'], ['플륨', '플륨', '블록'], $topic);   // '벤치플룸관' 이 수로관 종류로 안 잡혀 다른 종류(그레이팅) 문장이 섞이던 문제(실제 GPT-4o 2026-11-02 8번)
+    $type = ext_product_type($topicN);
+    // 질문 일반어('규격'·'사용'·'용도' 등)는 찾는 낱말에서 뺀다 — '벤치플룸관 규격' 의 '규격' 이 그레이팅 문장과 겹쳐 섞이던 문제
+    $words = array_values(array_filter(preg_split('/[\s,·]+/u', $topicN) ?: [], static fn($w) => mb_strlen($w) >= 2
+        && !preg_match('/^(차이|종류|어떤|무엇|추천|좋은|제품|자재|규격|크기|사용|용도|설명|특징|시공|가격|장점|단점|방법|일반|관련|정보)$/u', $w)));
+    $conds = ext_condition_words($topicN);   // 사용 조건 낱말(미끄럼·유모차·오염 등) — 있으면 그 조건을 직접 말하는 문장만
     $st = db()->query("SELECT id, name, maker, product_type, attrs_json, source_url, source_key, fetched_at FROM external_products WHERE review_status = 'approved' AND attrs_json LIKE '%\"facts\"%' LIMIT 2000");
     $scored = [];
     foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
@@ -547,19 +586,24 @@ function ext_material_info(string $topic): array
         }
     }
     usort($cand, static fn($x, $y) => [$y[0], $y[1], $x[2]] <=> [$x[0], $x[1], $y[2]]);
+    if ($conds) {   // 조건 질문: 그 조건을 직접 말하는 문장만(실제 GPT-4o 3번 — 크로스 바 '지지' 문장을 미끄럼 방지 설명으로 바꿔 말함)
+        $rel = array_values(array_filter($cand, static fn($c) => (bool) array_filter($conds, static fn($w) => mb_stripos($c[5], $w) !== false)));
+        if ($rel) { $cand = $rel; }
+    }
     $facts = $seen = $sources = [];
     $per = [];
     foreach ($cand as [, , , $k, $label, $t, $r, $a]) {
         if (isset($seen[$t]) || ($per[$k] ?? 0) >= 3) { continue; }
         $seen[$t] = true;
         $per[$k] = ($per[$k] ?? 0) + 1;
-        $facts[] = ['kind' => $label, 'text' => $t, 'about' => ext_fact_subject($t, (string) $r['name']), 'maker' => (string) $r['maker'], 'product' => (string) $r['name'], 'source_url' => (string) $r['source_url'], 'fetched_at' => substr((string) $r['fetched_at'], 0, 10)];
+        $shown = ext_display_name((string) $r['name'], (string) $r['product_type']);   // 'PRODUCT 21,500' 같은 이름의 가격·쪽 제목은 상담에 넘기지 않음
+        $facts[] = ['kind' => $label, 'text' => $t, 'about' => ext_fact_subject($t, $shown), 'maker' => (string) $r['maker'], 'product' => $shown, 'source_url' => (string) $r['source_url'], 'fetched_at' => substr((string) $r['fetched_at'], 0, 10)];
         $sources[$r['source_url'] ?: $r['source_key']] = ['maker' => (string) ($r['maker'] ?: ($a['source_name'] ?? $r['source_key'])), 'url' => (string) $r['source_url']];
         if (count($facts) >= 12) { break; }
     }
     return ['topic' => $topic, 'facts' => $facts, 'sources' => array_values($sources),
             'note' => '제조사 공개 자료 원문(사람이 승인한 것만) — 판매 상품·가격이 아님. 출처끼리 다르면 단정하지 말고 둘 다 출처와 함께 전하세요. '
-                . '각 문장은 about(그 문장이 설명하는 제품)의 설명으로만 쓰고 다른 제품에 옮기지 마세요. about 이 고객이 물은 제품과 다르면 물은 제품의 설명에 섞지 말고 about 이름을 밝혀 따로 적으세요. '
+                . '원문에 없는 사용처·차량 종류(대형 차량·중장비 등)나 효과를 덧붙이지 마세요. 각 문장은 about(그 문장이 설명하는 제품)의 설명으로만 쓰고 다른 제품에 옮기지 마세요. about 이 고객이 물은 제품과 다르면 물은 제품의 설명에 섞지 말고 about 이름을 밝혀 따로 적으세요. '
                 . 'KS·인증은 그 제품의 표기로만 전하고 \'이 규격을 쓰면 된다\'고 권하지 마세요. '
                 . '토목몰 판매 상품이 궁금하면 찾아 드릴 수 있다고 안내하세요(답에 도구 이름은 쓰지 않고, 고객에게 직접 검색하라고 하지 않음).'];
 }

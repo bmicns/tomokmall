@@ -35,6 +35,8 @@ echo "[공공 보도 차량 출입부 → public_sidewalk]\n";
 foreach ([
     '가게 앞 인도를 차가 가로질러 들어오는데 인도 블록 두께는요?',
     '건물 앞 보도에 차량이 진입하는 구간 포장 블록 추천해 주세요',
+    '보도 위로 차량 출입하는 곳 인터로킹 블록 두께와 연석 높이',   // '보도 위' 띄어쓰기
+    '상가 앞 인도 쪽으로 차가 드나드는데 블록 몇 mm?',              // '인도 쪽' 띄어쓰기
 ] as $q) {
     ok("public_sidewalk: {$q}", $ctx($q) === 'public_sidewalk');
 }
@@ -86,11 +88,12 @@ ok('공공 보도: 4t 이하 범위·차도는 별도 기준(근거 없는 100mm
 $p = rag_road_context_prompt('unclear');
 ok('불명확: 근거 없는 100mm 수치 없음', !str_contains(rag_road_context_prompt('unclear'), '100mm'));
 ok('불명확: 단정 금지 + 장소 확인 질문', str_contains($p, "'충분하다'고 단정하기 전에") && str_contains($p, '개인 부지(마당·주차장·진입로)인가요, 도로(인도·차도) 공사인가요?'));
-ok('사유지·해당 없음: 추가 구역 없음(기존 흐름 그대로)', rag_road_context_prompt('private') === '' && rag_road_context_prompt('none') === '');
+ok("사유지: 80mm 이상은 '저희 권장 기준'으로(법적 의무처럼 말하지 않음), 공공도로 수치 없음 · 해당 없음: 추가 구역 없음", str_contains(rag_road_context_prompt('private'), "'저희 권장 기준'")
+    && str_contains(rag_road_context_prompt('private'), '법적 의무') && !preg_match('/100\s*mm|KDS\s*44/u', rag_road_context_prompt('private')) && rag_road_context_prompt('none') === '');
 $p = rag_road_context_prompt('public_road', false);
 ok('공공 범위 근거가 없을 때(비활성·운영 미적용): 수치·KDS 인용 없이 80T 단정 금지 + 설계도서 두께 확인', str_contains($p, "'충분하다'고 안내하지 않는다") && str_contains($p, '설계도서') && !str_contains($p, '100mm') && !str_contains($p, 'KDS'));
 ok('공공 보도도 근거 없으면 같은 안전 구역', rag_road_context_prompt('public_sidewalk', false) === $p);
-ok('불명확·사유지는 근거 유무와 무관', rag_road_context_prompt('unclear', false) === rag_road_context_prompt('unclear') && rag_road_context_prompt('private', false) === '');
+ok('불명확·사유지는 근거 유무와 무관', rag_road_context_prompt('unclear', false) === rag_road_context_prompt('unclear') && rag_road_context_prompt('private', false) === rag_road_context_prompt('private'));
 
 echo "[사내 80T 안내 문구 유지]\n";
 $src = (string) file_get_contents(__DIR__ . '/../app/rag.php');

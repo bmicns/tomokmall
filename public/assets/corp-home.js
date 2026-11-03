@@ -443,7 +443,8 @@
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ estimate_id: parseInt(b.getAttribute('data-load'), 10) })
     })
-      .then(function (r) { return r.json(); })
+      // 오류는 200 + ok:false + error 로 온다. JSON 이 아니면(서버 오류 페이지 등) 일반 문구
+      .then(function (r) { return r.json().catch(function () { return null; }); })
       .then(function (d) {
         if (!d || !d.ok) throw new Error((d && d.error) || '불러오기에 실패했습니다.');
         cartPage = 1;

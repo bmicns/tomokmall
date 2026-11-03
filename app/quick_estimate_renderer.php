@@ -151,15 +151,16 @@ render_header('즉시견적');
 </div>
 
 <script>
+// 오류는 200 + ok:false + error 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면(서버 오류 페이지 등) {ok:false}
 const API = {
   post: async (url, body) => {
     const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
-    return r.json();
+    return r.json().catch(() => ({ok:false}));
   },
-  get: async (url) => { const r = await fetch(url); return r.json(); },
+  get: async (url) => { const r = await fetch(url); return r.json().catch(() => ({ok:false})); },
   del: async (url, body) => {
     const r = await fetch(url, {method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
-    return r.json();
+    return r.json().catch(() => ({ok:false}));
   }
 };
 
@@ -169,6 +170,7 @@ async function quickItems(action, productId, qty) {
   if (qty != null) body.quantity = +qty;
   const d = await API.post('/api/estimate/quick-items.php', body);
   if (d.ok) renderItems(d.items, d.total);
+  else if (action !== 'get') alert(d.error || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.');
   return d;
 }
 
@@ -318,6 +320,7 @@ async function loadFavorites() {
 async function removeFav(pid) {
   const d = await API.del('/api/estimate/favorites.php', {product_id: pid});
   if (d.ok) loadFavorites();
+  else alert(d.error || '삭제에 실패했습니다.');
 }
 
 async function loadHistory() {

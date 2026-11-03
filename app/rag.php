@@ -697,7 +697,8 @@ function rag_road_context(array $messages): string
     // '발주'(자재 주문)·'시도'(시도하다)·'인도'(물건 인도)처럼 흔한 말과 겹치지 않게 좁게 잡는다
     $public   = preg_match('/도로\s*공사|도로\s*포장|차도\s*포장|관급|발주처|발주청|공공\s*발주|도로법|공공\s*도로|국도|지방도|광역시도|특별시도|(?:시도|군도|구도)\s*\d|도로관리청|시청|구청|군청|도청|지자체|교통량|aadt|차도용\s*블|차도에|차도\s*블/u', $t) === 1;
     $formal   = preg_match('/설계\s*도서|시방서|kds|kcs|입찰/u', $t) === 1; // 공사 서류 — 공공·민간 모두 있음(장소 확인 필요)
-    $sidewalk = preg_match('/(?:인도|보도)(?:에|를|가|위|쪽|\s*포장|\s*블|\s*진입|\s*턱|\s*횡단|\s*가로)|보행로/u', $t) === 1;
+    // '보도 위'·'인도 쪽'처럼 띄어 쓴 경우도 장소로 본다(조사 에·를·가는 붙여 쓸 때만)
+    $sidewalk = preg_match('/(?:인도|보도)(?:에|를|가|\s*위|\s*쪽|\s*포장|\s*블|\s*진입|\s*턱|\s*횡단|\s*가로)|보행로/u', $t) === 1;
     $private  = preg_match('/마당|집\s*앞|우리\s*집|주택|전원|사유지|개인|공장|창고|단지|아파트|빌라|상가\s*(?:안|내)|건물\s*안|캠핑|펜션|농가|축사|차고|주차장|진입로/u', $t) === 1;
     if ($public && !$private) {
         return 'public_road';
@@ -761,7 +762,11 @@ function rag_road_context_prompt(string $ctx, bool $hasScopedDocs = true): strin
         'public_sidewalk' => "\n\n=== 공공 보도의 차량 출입부 — 공식 기준 별도 안내 ===\n"
             . "- 고객 질문이 도로의 보도(인도)를 차량이 가로질러 출입하는 곳의 포장으로 보인다.\n"
             . "- 아래 공식 근거(보도 설치 및 관리 지침)가 있으면 그 범위(최대 적재량 4t 이하 차량이 보도를 가로질러 통행하는 보도)와 함께 [L번호]로 안내한다.\n"
-            . "- 4t 를 넘는 차량이 다니거나 차도 부분이면 공공도로 차도 기준이 따로 있으니 공사 성격을 먼저 확인한다(이 구역에 없는 수치는 말하지 않는다).",
+            . "- 4t 를 넘는 차량이 다니거나 차도 부분이면 공공도로 차도 기준이 따로 있으니 공사 성격을 먼저 확인한다(이 구역에 없는 수치는 말하지 않는다).\n"
+            . "- 이 경우 80mm 는 공식 기준(보도 지침)이다. 상품을 추천할 때도 '저희 권장 기준'이라고 하지 말고 '보도 지침 기준(80mm 이상)'이라고 말한다.",
+        'private' => "\n\n=== 개인 부지(마당·진입로·주차장) — 저희 권장 기준으로 안내 ===\n"
+            . "- 개인 부지 블록 두께는 저희가 확인한 공식 기준(법령·KDS)에 수치가 없다. 차량이 올라가는 곳의 '80mm 이상'은 '저희 권장 기준'이라고 밝혀 말하고, 법적 의무·반드시 지켜야 하는 기준처럼 말하지 않는다.\n"
+            . "- 공공도로 차도 기준(KDS·KCS)은 인용하지 않는다. '균열을 방지'·'오래 사용 보장'·'하중을 잘 견딘다' 같은 효과 설명을 붙이지 않는다(시공·지반 상태에 따라 다름).",
         'unclear' => "\n\n=== 차량 블록 시공 장소 확인 ===\n"
             . "- 차량이 올라가는 블록 시공이지만 장소가 분명하지 않다. 두께가 '충분하다'고 단정하기 전에 먼저 묻는다:\n"
             . "  '개인 부지(마당·주차장·진입로)인가요, 도로(인도·차도) 공사인가요? 발주처 설계도서나 시방서가 있나요?'\n"
@@ -893,7 +898,7 @@ function rag_curl_post(string $url, string $body, array $headers): string|false
  * rag_process() 가 이 결과를 그대로 OpenAI 에 보낸다. 프롬프트 검증(scripts/testdb/dump-prompts.php)·테스트에서도 같은 함수를 쓴다.
  * @return array{system:string, categoryKey:string, ragDocs:array, legalDocs:array, roadCtx:string, scopes:array}
  */
-function rag_build_prompt(array $messages): array
+function rag_build_prompt(array $messages, array $recentCards = []): array
 {
     // Stage 2: 카테고리 자동 감지 + DB 가이드 로드
     $categoryKey = rag_detect_category($messages);
@@ -924,6 +929,12 @@ function rag_build_prompt(array $messages): array
         . "- 선택지를 비교한 뒤 면적·길이가 확인되면 search_products의 queries로 종류별 제품을 한 표에 모아 보여준다.\n"
         . "  표에는 제품별 필요 수량과 예상 자재비(판매가 기준, 운반·시공비 별도)가 자동 계산되어 차이를 바로 비교할 수 있다.\n"
         . "\n"
+        . "=== 근거 구분 (출처 종류를 섞지 않는다) ===\n"
+        . "- 공식 기준: 아래 '공식 법령 근거'에 [L번호]로 들어온 법령·KDS·KCS 조항만. 기준 이름과 함께 말하고 [L번호]를 붙인다. 들어오지 않았으면 '공식 기준에 따르면'이라고 말하지 않는다.\n"
+        . "- 제조사 자료: material_info 의 원문 문장(facts)만, 'maker 자료에 따르면'으로. 국가표준·등록 규격: material_info 의 basics(표준 번호·이름, 토목몰 등록 상품 규격)만, 요구 수치를 덧붙이지 않는다.\n"
+        . "- 저희 권장 기준: [참조 문서](사내 기준)의 내용은 '저희 권장 기준'으로 말하고 법정 의무처럼 말하지 않는다.\n"
+        . "- 시공 조건 질문(예: '집 앞에 블록 깔면 차 지나가도 돼요?')은 ① 조건을 쉬운 말로 정리 ② 위 근거를 종류별로 한두 문장씩 ③ 필요한 확인(면적 등)을 물어 비교표(필요 수량·예상 자재비)로 이어 간다.\n"
+        . "\n"
         . "=== 배송·납기 안내 ===\n"
         . "고객이 배송·납기·배달·운송·언제 받냐 등을 물어보면 반드시 아래 문구만 출력하세요.\n"
         . "「배송 일정은 견적 요청 후 담당자가 직접 확인하여 연락드립니다. 견적요청하기 버튼을 눌러 신청해 주세요.」\n"
@@ -936,6 +947,7 @@ function rag_build_prompt(array $messages): array
         . "  허용: 고르는 기준을 쉬운 말 1~2문장(숫자 없이, 예: '물이 잘 고이는 곳이면 투수 제품이 좋습니다.') + 마지막 줄 '원하시는 제품을 선택해 주세요.'\n"
         . "  표의 상품마다 guide(두께·투수·재질 등 고르는 기준)가 함께 보인다. 고객 상황에 맞는 기준 하나를 골라 쉬운 말로 짚어 준다(guide 에 없는 성능·수치는 덧붙이지 않는다).\n"
         . "  추천 이유는 guide 의 기준으로 말하고, 주의할 점은 고객 조건과 맞지 않는 것만 짚는다(예: 차량이 올라가는데 60mm 제품).\n"
+        . "  효과·성능을 덧붙이지 않는다(예: '강도 우수'·'튼튼'·'견고'·'균열 방지'·'오래 사용 보장'·'불투수형은 비가 많이 오는 곳에 적합'). 투수·불투수는 guide 문구 그대로만 말한다.\n"
         . "  guide 의 '참고 자료(판매 상품 아님)' 줄은 공공데이터·제조사 자료로 확인한 정보다. 판매 상품이나 가격처럼 말하지 않고 출처와 함께 참고로만 언급한다.\n"
         . "  예외① 고객이 '어떤 게 더 저렴해?'처럼 가격 차이를 물으면 도구 결과 cost_summary 의 상품명·예상 금액·차이만 인용해 1~2문장으로 답한다(cost_summary 가 없으면 금액을 말하지 않는다).\n"
         . "  예외② '몇 개 필요해?'처럼 개수를 물으면 해당 상품 qty_basis(면적→장수 계산 근거)를 인용한다. ㎡ 단위 판매 제품은 ㎡ 로 주문하고 장수는 참고라고 덧붙인다.\n"
@@ -982,6 +994,7 @@ function rag_build_prompt(array $messages): array
         . "    80T 제품이 없는 종류는 표에서 빠지며, 도구의 note로 안내된다(다른 두께를 대신 권하지 않는다).\n"
         . "  검색어(query) 예: '인터로킹 블록', '인조화강블록', '점토블럭', '잔디블록', '경계석' (면적은 area_m2로, 설치장소는 넣지 말 것)\n"
         . "  종류 비교 예: queries ['인터로킹 블록', '인조화강블록', '점토블럭'], area_m2 20 → 종류별 필요 수량·예상 자재비가 한 표에 표시.\n"
+        . "  ★필수 ①②가 확인되면(예: 집 앞 마당·승용차·4m×5m) 블록 종류를 되묻지 말고 같은 턴에 위 queries 로 비교표를 바로 보여 준다(종류는 표를 보고 고르게).\n"
         . "\n"
         . "[기타 자재]\n"
         . "  필수 ① 용도·설치 환경 ② 필요 수량·규모\n"
@@ -1030,6 +1043,7 @@ function rag_build_prompt(array $messages): array
     $scopedHit = (bool) array_filter($legalDocs, static fn($d) => array_intersect(rag_legal_doc_scopes($d), $legalIn['scopes']));
     $system .= rag_road_context_prompt($roadCtx, $scopedHit);
     $system .= rag_legal_prompt_section($legalDocs);
+    $system .= rag_recent_cards_prompt($recentCards);   // 이 상담에서 고객 화면에 보인 직전 추천표(담기·비교 질문용) — 없으면 빈 문자열(기존과 같음)
 
     return [
         'system'      => $system,
@@ -1039,6 +1053,163 @@ function rag_build_prompt(array $messages): array
         'roadCtx'     => $roadCtx,
         'scopes'      => $legalIn['scopes'],
     ];
+}
+
+/**
+ * 이 상담(session_key)에서 마지막으로 고객 화면에 보인 상품 추천표 — chat_logs.events_json 의 최근 product_cards, 판매가·판매 상태는 현재 기준.
+ * 다음 턴에 '제일 저렴한 걸로 담아 줘'·'두 번째 거 20㎡' 처럼 표를 가리키면 GPT 가 표의 실제 상품 ID 로 담게 한다(대화 기록에는 표가 글로 남지 않음).
+ * @return list<array{id:int,name:string,spec:string,price:?int,qty:?int,unit:string}>
+ */
+function rag_recent_cards(string $sid): array
+{
+    if ($sid === '' || !db()) { return []; }
+    try {
+        $st = db()->prepare("SELECT events_json FROM chat_logs WHERE session_key = ? AND events_json LIKE '%product_cards%' ORDER BY id DESC LIMIT 1");
+        $st->execute([$sid]);
+        $ev = json_decode((string) $st->fetchColumn(), true) ?: [];
+    } catch (\Throwable $e) {
+        return [];
+    }
+    $cards = [];
+    foreach ($ev as $e) {
+        if (($e['type'] ?? '') === 'product_cards') { $cards = array_merge($cards, (array) ($e['products'] ?? [])); }
+    }
+    $cards = array_slice($cards, 0, 12);
+    $current = rag_current_product_prices(array_column($cards, 'id'));
+    $out = [];
+    foreach ($cards as $c) {
+        $id = (int) ($c['id'] ?? 0);
+        if ($id <= 0) { continue; }
+        $now = $current[$id] ?? null;
+        $out[] = ['id' => $id, 'name' => (string) ($c['name'] ?? ''), 'spec' => (string) ($c['spec_label'] ?? '') ?: (string) ($c['spec'] ?? ''),
+                  'price' => $current === null ? null : ($now !== null && $now['price'] > 0 ? (int) $now['price'] : null),
+                  'qty' => isset($c['suggested_qty']) ? (int) $c['suggested_qty'] : null, 'unit' => (string) ($c['unit'] ?? '')];
+    }
+    return $out;
+}
+
+/** 직전 추천표 프롬프트 구역 (순수 함수) — 표 순서·ID·현재 판매가·권장 수량·예상 자재비(현재가 × 권장 수량)와 가장 저렴한 상품 표시 */
+function rag_recent_cards_prompt(array $cards): string
+{
+    if (!$cards) { return ''; }
+    $priced = array_filter($cards, static fn($c) => $c['price'] !== null && $c['qty'] !== null);
+    $min = $priced ? min(array_map(static fn($c) => $c['price'] * $c['qty'], $priced)) : null;
+    $lines = [];
+    foreach (array_values($cards) as $i => $c) {
+        $est = ($c['price'] !== null && $c['qty'] !== null) ? $c['price'] * $c['qty'] : null;
+        $lines[] = ($i + 1) . ". [id {$c['id']}] {$c['name']}" . ($c['spec'] !== '' ? " {$c['spec']}" : '')
+            . ' · 판매가 ' . ($c['price'] !== null ? number_format($c['price']) . '원' . ($c['unit'] !== '' ? "/{$c['unit']}" : '') : '문의·판매 중지(담기 불가)')
+            . ($c['qty'] !== null ? " · 권장 수량 {$c['qty']}" : '') . ($est !== null ? ' · 예상 자재비 ' . number_format($est) . '원' . ($est === $min ? ' (가장 저렴)' : '') : '');
+    }
+    return "\n\n=== 직전 추천표 (이 상담에서 고객 화면에 보인 상품 · 현재 판매가 기준) ===\n" . implode("\n", $lines)
+        . "\n- 고객이 표의 상품을 가리켜(예: '제일 저렴한 걸로', '두 번째 거', '이걸로') 담아 달라고 하면 다시 검색하지 말고 이 표의 id 로 add_to_cart 를 호출한다(quantity 는 권장 수량, 고객이 말한 수량이 있으면 그 수량, 1~999).\n"
+        . "- 이 표에 없는 id 를 만들지 않는다. 판매가가 '문의·판매 중지'인 상품은 담지 말고 그 사실을 알린다. 조건(면적·두께 등)이 바뀌면 search_products 로 다시 찾는다."
+        . (substr_count(implode("\n", $lines), '(가장 저렴)') > 1 ? "\n- '(가장 저렴)'이 여러 개다(같은 금액). '제일 저렴한 것'을 담을 때는 표에서 먼저 나온 제품을 담고, 같은 금액의 다른 제품(이름)도 있다고 한 문장으로 알린다." : '');
+}
+
+/**
+ * 동률 최저가 안내 (순수 함수) — 담은 상품이 예상 자재비 최저 동률(2개 이상) 중 하나이고 답에 '같은 금액' 언급이 없으면 다른 동률 상품 이름을 알리는 한 줄.
+ * $turnCards: 이번 턴 검색 카드(cost_lowest 표시), $recent: 직전 추천표(rag_recent_cards — price·qty 로 예상 금액 계산). 해당 없으면 ''.
+ */
+function rag_tie_note(string $text, array $addedIds, array $turnCards, array $recent): string
+{
+    if (!$addedIds || preg_match('/같은\s*(예상\s*자재비|금액|가격)|동일한\s*(금액|가격)|가격이\s*같|금액이\s*같|자재비가\s*같/u', $text)) { return ''; }
+    $tied = [];
+    $low = array_values(array_filter($turnCards, static fn($c) => !empty($c['cost_lowest'])));
+    if (count($low) > 1) {
+        foreach ($low as $c) { $tied[(int) $c['id']] = (string) $c['name']; }
+    } else {
+        $est = [];
+        foreach ($recent as $c) { if ($c['price'] !== null && $c['qty'] !== null) { $est[(int) $c['id']] = [$c['price'] * $c['qty'], (string) $c['name']]; } }
+        if ($est) {
+            $min = min(array_column($est, 0));
+            foreach ($est as $id => [$v, $n]) { if ($v === $min) { $tied[$id] = $n; } }
+        }
+    }
+    if (count($tied) < 2) { return ''; }
+    foreach ($addedIds as $id) {
+        if (isset($tied[$id])) {
+            $others = array_values(array_unique(array_diff_key($tied, [$id => true])));
+            $others = array_values(array_diff($others, [$tied[$id]])) ?: $others;   // 같은 이름(색상만 다름)이면 이름 그대로
+            return "\n\n참고: 같은 예상 자재비의 " . implode(', ', $others) . '도 있습니다. 바꾸시려면 말씀해 주세요.';
+        }
+    }
+    return '';
+}
+
+/**
+ * 확인되지 않은 KS 번호·강도 수치 표시 (순수 함수) — 답에 나온 'KS F 4009'·'24MPa' 같은 번호·수치가 확인된 글($known: 프롬프트·도구 결과·고객 발화)에 없으면
+ * 본문은 그대로 두고 끝에 '확인된 자료에 없는 번호' 안내 1줄을 붙인다(GPT 가 비슷한 번호를 지어내는 경우 고객이 그대로 믿지 않게).
+ * @return array{text:string, unknown:list<string>}
+ */
+function rag_guard_unverified_ks(string $text, string $known): array
+{
+    $norm = static fn(string $x): string => strtoupper((string) preg_replace('/[\s\-]+/u', '', $x));
+    $k = $norm($known);
+    preg_match_all('/KS\s*([A-Z])\s*-?\s*(\d{4})(?:\s*-\s*(\d{1,2}))?/u', $text, $m, PREG_SET_ORDER);
+    $unknown = [];
+    foreach ($m as $x) {
+        $ref = "KS {$x[1]} {$x[2]}" . (isset($x[3]) && $x[3] !== '' ? "-{$x[3]}" : '');
+        if (!str_contains($k, $norm("KS{$x[1]}{$x[2]}"))) { $unknown[$ref] = true; }
+    }
+    // 강도 수치(24MPa·240kgf/㎠·N/㎟)도 같은 방식 — 제품 사양 수치를 일반 지식으로 지어내는 경우
+    preg_match_all('/(\d+(?:\.\d+)?)\s*(MPa|N\/㎟|N\/mm2|N\/mm²|kgf\/㎠|kgf\/cm2)/iu', $text, $m2, PREG_SET_ORDER);
+    foreach ($m2 as $x) {
+        if (!preg_match('/(?<![\d.])' . preg_quote($x[1], '/') . '\s*' . preg_quote($x[2], '/') . '/iu', $known)) { $unknown[$x[1] . $x[2]] = true; }
+    }
+    $unknown = array_keys($unknown);
+    if (!$unknown) { return ['text' => $text, 'unknown' => []]; }
+    return ['text' => rtrim($text) . "\n\n※ 답변의 " . implode(', ', $unknown) . ' 은(는) 확인된 자료에 없는 번호·수치입니다. 정확한 규격·인증·강도는 제조사 자료로 확인해 주세요.', 'unknown' => $unknown];
+}
+
+/**
+ * 답에 실제로 쓴 기본 정보만 고르기 (순수 함수) — 국가표준은 번호(띄어쓰기 무시)가, 등록 상품은 이름이 답에 있을 때만.
+ * @param list<array{standards:list<array>, products:list<array>}> $basicsList material_info 결과의 basics 들
+ * @return array{standards:list<array>, products:list<array>}
+ */
+function rag_basic_sources_used(string $text, array $basicsList): array
+{
+    $flat = strtoupper((string) preg_replace('/\s+/u', '', $text));
+    $out = ['standards' => [], 'products' => []];
+    $seen = [];
+    foreach ($basicsList as $b) {
+        foreach ($b['standards'] ?? [] as $st) {
+            $k = strtoupper((string) preg_replace('/\s+/u', '', (string) ($st['ref'] ?? '')));
+            if ($k !== '' && !isset($seen[$k]) && str_contains($flat, $k)) {
+                $seen[$k] = true;
+                $out['standards'][] = ['ref' => (string) $st['ref'], 'name' => (string) ($st['name'] ?? ''), 'url' => (string) ($st['url'] ?? '')];
+            }
+        }
+        foreach ($b['products'] ?? [] as $p) {
+            $k = strtoupper((string) preg_replace('/\s+/u', '', (string) ($p['name'] ?? '')));
+            if ($k !== '' && !isset($seen[$k]) && str_contains($flat, $k)) {
+                $seen[$k] = true;
+                $out['products'][] = ['name' => (string) $p['name'], 'count' => (int) ($p['count'] ?? 0)];
+            }
+        }
+    }
+    return $out;
+}
+
+/** 도구 결과 요약 (순수 함수) — 시험 결과 문서에 남겨 실제 GPT 답과 도구가 준 근거를 바로 대조하기 위함 */
+function rag_tool_summary(string $name, array $d): string
+{
+    if ($name === 'search_products') {
+        $cards = $d['products'] ?? [];
+        $cs = $d['cost_summary'] ?? null;
+        return '상품 ' . count($cards) . '건' . ($cards ? '(' . implode(', ', array_map(static fn($c) => trim(($c['name'] ?? '') . ' ' . (preg_match('/규격:\s*([^|]+)/u', (string) ($c['spec'] ?? ''), $mm) ? trim($mm[1]) : '')) . (isset($c['suggested_qty']) ? " ×{$c['suggested_qty']}" : '') . (isset($c['est_cost']) ? ' ≈' . number_format((int) $c['est_cost']) . '원' : ''), array_slice($cards, 0, 4))) . ')' : '')
+            . (!empty($d['note']) ? ' · note: ' . mb_substr((string) $d['note'], 0, 60) : '') . (!empty($d['alternatives']) ? ' · alternatives: ' . implode(', ', (array) $d['alternatives']) : '')
+            . ($cs ? ' · cost_summary 있음' : '');
+    }
+    if ($name === 'material_info') {
+        $b = $d['basics'] ?? ['standards' => [], 'products' => []];
+        return '제조사 문장 ' . count($d['facts'] ?? []) . '개' . (($d['facts'] ?? []) ? '(' . implode(', ', array_unique(array_column($d['facts'], 'maker'))) . ')' : '')
+            . ' · 국가표준 ' . (implode(', ', array_column($b['standards'] ?? [], 'ref')) ?: '없음') . ' · 등록 상품 ' . count($b['products'] ?? []) . '종';
+    }
+    if ($name === 'add_to_cart') {
+        return !empty($d['success']) || !empty($d['ok']) ? '담기 성공' : '담기 실패: ' . mb_substr((string) ($d['error'] ?? json_encode($d, JSON_UNESCAPED_UNICODE)), 0, 60);
+    }
+    return mb_substr(json_encode($d, JSON_UNESCAPED_UNICODE) ?: '', 0, 80);
 }
 
 /** 답변이 '제품을 찾아/검색해 드리겠다'는 약속으로 끝나는지 (순수 함수) — 도구 호출 없이 끝나면 손님이 결과 없이 기다리게 됨 */
@@ -1079,7 +1250,8 @@ function rag_process(array $messages, string $sid): array
     }
 
     // 프롬프트·근거 생성(rag_build_prompt) — 내용은 분리 전과 동일
-    $prompt      = rag_build_prompt($messages);
+    $recentCards = rag_recent_cards($sid);
+    $prompt      = rag_build_prompt($messages, $recentCards);
     $system      = $prompt['system'];
     $categoryKey = $prompt['categoryKey'];
     $legalDocs   = $prompt['legalDocs'];
@@ -1093,7 +1265,11 @@ function rag_process(array $messages, string $sid): array
     $chatUrl      = $config['openai']['chat_url'] ?? 'https://api.openai.com/v1/chat/completions';
     $answered     = false;   // 도구 없이 끝난(최종 답을 받은) 응답이 있었는지
     $promised     = '';      // 검색 약속 문장(강제 검색 재요청 때 버림 — 도구가 안 불리면 되살림)
-    $toolLog      = [];      // 부른 도구 이름·인자(시험 결과 기록용 — chat.php 는 화면에 보내지 않음)
+    $toolLog      = [];      // 부른 도구 이름·인자·결과 요약(시험 결과 기록용 — chat.php 는 화면에 보내지 않음)
+    $turnCards    = [];      // 이번 턴 검색 결과 카드(동률 최저가 안내용)
+    $preToolText  = '';      // 도구 호출과 함께 온 중간 글(최종 답이 없을 때만 사용)
+    $basicsSeen   = [];      // material_info 가 준 확인된 기본 정보(국가표준·등록 상품) — 답에 실제로 쓴 것만 출처 카드로
+    $known        = $system . ' ' . implode(' ', array_map(static fn($m) => (string) ($m['content'] ?? ''), $messages));   // 답에 나올 수 있는 확인된 글(KS 번호 대조용)
 
     for ($iter = 0; $iter < $maxIter; $iter++) {
         $body = json_encode([
@@ -1142,8 +1318,14 @@ function rag_process(array $messages, string $sid): array
             continue;
         }
 
+        // 도구 호출과 함께 온 글('찾아볼게요·잠시만요', 검색 전 추측성 종류 설명, '오류가 발생' 등)은 최종 답이 오면 버린다 — 손님에게는 도구 결과를 본 뒤의 답만.
+        // 최종 답이 끝내 비면 이 글을 대신 쓴다(빈 답변 방지).
         if ($content !== '' && $content !== null) {
-            $responseText .= ($responseText !== '' ? "\n" : '') . $content;
+            if ($noTool) {
+                $responseText .= ($responseText !== '' ? "\n" : '') . $content;
+            } else {
+                $preToolText .= ($preToolText !== '' ? "\n" : '') . $content;
+            }
         }
 
         if ($noTool) { $answered = true; break; }
@@ -1153,9 +1335,12 @@ function rag_process(array $messages, string $sid): array
 
         foreach ($toolCalls as $tc) {
             $input    = json_decode($tc['function']['arguments'] ?? '{}', true) ?? [];
-            $toolLog[] = ['name' => (string) ($tc['function']['name'] ?? ''), 'input' => $input];
             $output   = ai_tool_dispatch($tc['function']['name'] ?? '', $input, $sid);
             $toolData = json_decode($output, true) ?? [];
+            $toolLog[] = ['name' => (string) ($tc['function']['name'] ?? ''), 'input' => $input, 'summary' => rag_tool_summary((string) ($tc['function']['name'] ?? ''), $toolData)];
+            $known   .= ' ' . $output;
+            if (($tc['function']['name'] ?? '') === 'material_info' && !empty($toolData['basics'])) { $basicsSeen[] = $toolData['basics']; }
+            if (($tc['function']['name'] ?? '') === 'search_products') { $turnCards = array_merge($turnCards, (array) ($toolData['products'] ?? [])); }
 
             foreach ($toolData['_sse'] ?? [] as $sseEvent) {
                 $events[] = $sseEvent;
@@ -1178,17 +1363,30 @@ function rag_process(array $messages, string $sid): array
         $content = (string) ($final['choices'][0]['message']['content'] ?? '');
         if ($content !== '') {
             $responseText .= ($responseText !== '' ? "\n" : '') . $content;
-        } elseif ($responseText === '') {
+        } elseif ($responseText === '' && $preToolText === '') {
             return ['ok' => false, 'text' => '', 'events' => $events, 'tools' => $toolLog, 'error' => '답변을 만들지 못했습니다. 다시 시도해 주세요.'];
         }
     }
 
+    if (trim($responseText) === '' && $preToolText !== '') {
+        $responseText = $preToolText;
+    }
     // 실제로 인용한 법령 근거만 출처로 표시(지어낸 번호는 버리고 표시는 본문에서 제거)
     $cit = rag_extract_legal_citations($responseText, $legalDocs);
     $responseText = rag_strip_dangling_choice($cit['text'], $events);
     if ($cit['sources']) {
         $events[] = ['type' => 'legal_sources', 'sources' => $cit['sources']];
     }
+    // '제일 저렴한 것'을 담았는데 같은 금액 제품이 또 있으면 그 사실을 한 줄로(실제 GPT-4o 3차까지 안내 누락 — 프롬프트만으로는 일정하지 않음)
+    $added = array_map(static fn($t) => (int) ($t['input']['product_id'] ?? 0), array_values(array_filter($toolLog, static fn($t) => $t['name'] === 'add_to_cart')));
+    $responseText .= rag_tie_note($responseText, $added, $turnCards, $recentCards);
+    $basicSrc = rag_basic_sources_used($responseText, $basicsSeen);
+    if ($basicSrc['standards'] || $basicSrc['products']) {
+        $events[] = ['type' => 'basic_sources'] + $basicSrc;
+    }
+    // 확인된 자료(프롬프트·도구 결과·고객 발화)에 없는 KS 번호 → 답 끝에 확인 필요 안내(본문은 고치지 않음)
+    $ks = rag_guard_unverified_ks($responseText, $known);
+    $responseText = $ks['text'];
 
-    return ['ok' => true, 'text' => $responseText, 'events' => $events, 'category' => $categoryKey, 'tools' => $toolLog];
+    return ['ok' => true, 'text' => $responseText, 'events' => $events, 'category' => $categoryKey, 'tools' => $toolLog, 'unverified_ks' => $ks['unknown']];
 }

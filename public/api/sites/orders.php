@@ -7,6 +7,9 @@ declare(strict_types=1);
  *
  * 인증: 로그인 필요
  * 보안: sites.user_id, estimates.user_id 모두 현재 user_id 확인
+ * 오류 응답: 입력 검증 실패·본인 현장/견적 아님(접근 권한 없음)도 HTTP 200 + {"ok":false,"error":…}
+ *           (닷홈 Apache 가 4xx 본문을 HTML 오류 페이지로 바꿔 JSON 문구가 사라짐 — quote.php 와 같은 방식)
+ *           본인 확인 조건(user_id)은 그대로, 405(메서드)·503(DB 연결 실패)·401(require_login)은 상태 코드 유지
  */
 
 require __DIR__ . '/../../../app/bootstrap.php';
@@ -30,7 +33,6 @@ $method = $_SERVER['REQUEST_METHOD'];
 if ($method === 'GET') {
     $siteId = (int) ($_GET['site_id'] ?? 0);
     if ($siteId <= 0) {
-        http_response_code(400);
         echo json_encode(['ok' => false, 'error' => 'site_id가 유효하지 않습니다.']);
         exit;
     }
@@ -39,7 +41,6 @@ if ($method === 'GET') {
     $chk = $pdo->prepare('SELECT id FROM sites WHERE id = :sid AND user_id = :uid AND is_active = 1');
     $chk->execute(['sid' => $siteId, 'uid' => $uid]);
     if (!$chk->fetch()) {
-        http_response_code(403);
         echo json_encode(['ok' => false, 'error' => '접근 권한이 없습니다.']);
         exit;
     }
@@ -66,7 +67,6 @@ $siteId  = (int) ($body['site_id'] ?? 0);
 $estId   = (int) ($body['estimate_id'] ?? 0);
 
 if ($siteId <= 0 || $estId <= 0) {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => '입력값이 올바르지 않습니다.']);
     exit;
 }
@@ -75,7 +75,6 @@ if ($siteId <= 0 || $estId <= 0) {
 $chkSite = $pdo->prepare('SELECT id FROM sites WHERE id = :sid AND user_id = :uid AND is_active = 1');
 $chkSite->execute(['sid' => $siteId, 'uid' => $uid]);
 if (!$chkSite->fetch()) {
-    http_response_code(403);
     echo json_encode(['ok' => false, 'error' => '접근 권한이 없습니다.']);
     exit;
 }
@@ -83,7 +82,6 @@ if (!$chkSite->fetch()) {
 $chkEst = $pdo->prepare('SELECT id FROM estimates WHERE id = :eid AND user_id = :uid');
 $chkEst->execute(['eid' => $estId, 'uid' => $uid]);
 if (!$chkEst->fetch()) {
-    http_response_code(403);
     echo json_encode(['ok' => false, 'error' => '접근 권한이 없습니다.']);
     exit;
 }

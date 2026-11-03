@@ -13,6 +13,9 @@ declare(strict_types=1);
  *  5. PG 결제 URL 반환 (TODO: PG 선택 후 실제 연동)
  *
  * 인증: PHP 세션 기반 (향후 회원 연동 시 확장)
+ * 오류 응답: 입력 검증 실패(주문자·배송지·빈 장바구니)·재고 부족·상품 없음도 HTTP 200 + {"ok":false,"error":…}
+ *           (닷홈 Apache 가 4xx 본문을 HTML 오류 페이지로 바꿔 JSON 문구가 사라짐 — quote.php 와 같은 방식)
+ *           405(메서드)·500(주문 생성 오류)은 상태 코드 유지
  */
 
 require __DIR__ . '/../../app/bootstrap.php';
@@ -35,27 +38,22 @@ $phone        = trim((string) ($body['phone'] ?? ''));
 $email        = trim((string) ($body['email'] ?? ''));
 
 if ($customerName === '') {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => '주문자 성함을 입력해주세요.', 'field' => 'customer_name']);
     exit;
 }
 if ($phone === '') {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => '주문자 연락처를 입력해주세요.', 'field' => 'phone']);
     exit;
 }
 if (!preg_match('/^0\d{1,2}-?\d{3,4}-?\d{4}$/', $phone)) {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => '올바른 연락처 형식이 아닙니다. (예: 010-1234-5678)', 'field' => 'phone']);
     exit;
 }
 if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => '올바른 이메일 형식이 아닙니다.', 'field' => 'email']);
     exit;
 }
 if (strlen($email) > 160) {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => '이메일 주소가 너무 깁니다.', 'field' => 'email']);
     exit;
 }
@@ -71,22 +69,18 @@ $shipZipcode   = htmlspecialchars(substr(trim((string) ($shipping['zipcode']    
 $shipMemo      = htmlspecialchars(substr(trim((string) ($shipping['memo']           ?? '')), 0, 200), ENT_QUOTES, 'UTF-8');
 
 if ($shipRecipient === '') {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => '수령인 성함을 입력해주세요.', 'field' => 'recipient_name']);
     exit;
 }
 if ($shipPhone === '') {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => '수령인 연락처를 입력해주세요.', 'field' => 'phone']);
     exit;
 }
 if (!preg_match('/^0\d{1,2}-?\d{3,4}-?\d{4}$/', $shipPhone)) {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => '수령인 연락처 형식이 올바르지 않습니다. (예: 010-1234-5678)', 'field' => 'phone']);
     exit;
 }
 if ($shipAddr1 === '') {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => '배송 주소를 입력해주세요.', 'field' => 'address1']);
     exit;
 }
@@ -96,13 +90,17 @@ $cart      = cart_session_read();
 $cartItems = cart_fetch_items($cart);
 
 if (empty($cartItems)) {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => '장바구니가 비어있습니다.']);
     exit;
 }
 
 // ─── 재고 확인 + 주문 생성 트랜잭션 ─────────────────────────────────────────
 $pdo = db();
+if (!$pdo) {   // DB 연결 실패 시 빈 500 대신 JSON 오류(cart.php 와 같은 503)
+    http_response_code(503);
+    echo json_encode(['ok' => false, 'error' => '서버 오류가 발생했습니다.']);
+    exit;
+}
 try {
     $pdo->beginTransaction();
 
@@ -117,13 +115,11 @@ try {
 
         if (!$product) {
             $pdo->rollBack();
-            http_response_code(409);
             echo json_encode(['ok' => false, 'error' => '상품을 찾을 수 없습니다.', 'product_id' => $item['product_id']]);
             exit;
         }
         if ($product['stock_qty'] < $item['quantity']) {
             $pdo->rollBack();
-            http_response_code(409);
             echo json_encode(['ok' => false, 'error' => '재고가 부족합니다.', 'product_id' => $item['product_id']]);
             exit;
         }

@@ -40,9 +40,10 @@ async function saveProfile() {
     btn.disabled=true; btn.textContent='저장 중...'; msg.style.display='none';
     try {
         const r = await fetch('/api/mypage/profile.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,company_name:co,phone,address_zip:zip,address:addr,address_detail:addrDetail})});
-        const d = await r.json();
-        if (d.ok) showMsg(msg,'ok','저장되었습니다.');
-        else showMsg(msg,'err',d.error||'저장에 실패했습니다.');
+        // 오류도 200 + ok:false 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
+        const d = await r.json().catch(() => null);
+        if (d && d.ok) showMsg(msg,'ok','저장되었습니다.');
+        else showMsg(msg,'err',(d && d.error)||'저장에 실패했습니다.');
     } catch { showMsg(msg,'err','네트워크 오류가 발생했습니다.'); }
     btn.disabled=false; btn.textContent='저장하기';
 }
@@ -65,9 +66,10 @@ async function changePw() {
     const addrDetail = document.getElementById('p-addr-detail').value.trim();
     try {
         const r = await fetch('/api/mypage/profile.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,company_name:co,phone,address_zip:zip,address:addr,address_detail:addrDetail,current_password:cur,new_password:np})});
-        const d = await r.json();
-        if (d.ok) { showMsg(msg,'ok','비밀번호가 변경되었습니다.'); ['p-cur-pw','p-new-pw','p-new-pw2'].forEach(function(id){document.getElementById(id).value='';}); }
-        else showMsg(msg,'err',d.error||'변경에 실패했습니다.');
+        // 오류도 200 + ok:false 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
+        const d = await r.json().catch(() => null);
+        if (d && d.ok) { showMsg(msg,'ok','비밀번호가 변경되었습니다.'); ['p-cur-pw','p-new-pw','p-new-pw2'].forEach(function(id){document.getElementById(id).value='';}); }
+        else showMsg(msg,'err',(d && d.error)||'변경에 실패했습니다.');
     } catch { showMsg(msg,'err','네트워크 오류가 발생했습니다.'); }
     btn.disabled=false; btn.textContent='비밀번호 변경';
 }
@@ -112,7 +114,10 @@ function setFavTotal(n) {
 
 async function delFav(pid, fid) {
     try {
-        await fetch('/api/estimate/favorites.php',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:pid})});
+        const r = await fetch('/api/estimate/favorites.php',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({product_id:pid})});
+        // 오류도 200 + ok:false 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
+        const d = await r.json().catch(() => null);
+        if (!d || !d.ok) { alert((d && d.error) || '삭제에 실패했습니다.'); return; }
         const el = document.getElementById('fav-'+fid);
         if (el) el.remove();
         const left = document.querySelectorAll('#fav-list-wrap .fav-card').length;
@@ -187,9 +192,10 @@ async function saveSite() {
         const r = await fetch('/api/sites/index.php', {
             method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
         });
-        const d = await r.json();
-        if (d.ok) { closeSiteForm(); sitesLoaded = false; loadSites(); }
-        else showMsg(msg, 'err', d.error || '저장에 실패했습니다.');
+        // 오류도 200 + ok:false 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
+        const d = await r.json().catch(() => null);
+        if (d && d.ok) { closeSiteForm(); sitesLoaded = false; loadSites(); }
+        else showMsg(msg, 'err', (d && d.error) || '저장에 실패했습니다.');
     } catch { showMsg(msg, 'err', '네트워크 오류가 발생했습니다.'); }
     btn.disabled = false;
 }
@@ -200,9 +206,10 @@ async function deleteSite(id) {
         const r = await fetch('/api/sites/index.php', {
             method: 'DELETE', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id})
         });
-        const d = await r.json();
-        if (d.ok) { sitesLoaded = false; loadSites(); }
-        else alert(d.error || '삭제에 실패했습니다.');
+        // 오류도 200 + ok:false 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
+        const d = await r.json().catch(() => null);
+        if (d && d.ok) { sitesLoaded = false; loadSites(); }
+        else alert((d && d.error) || '삭제에 실패했습니다.');
     } catch { alert('네트워크 오류가 발생했습니다.'); }
 }
 
@@ -217,8 +224,9 @@ async function openSiteDetail(siteId, siteName) {
     ordWrap.innerHTML = '<div class="mp-empty">불러오는 중...</div>';
     try {
         const r = await fetch('/api/sites/orders.php?site_id=' + siteId);
-        const d = await r.json();
-        if (!d.ok) { ordWrap.innerHTML = '<div class="mp-empty">불러오기에 실패했습니다.</div>'; return; }
+        // 오류도 200 + ok:false 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
+        const d = await r.json().catch(() => null);
+        if (!d || !d.ok) { ordWrap.innerHTML = '<div class="mp-empty">' + esc((d && d.error) || '불러오기에 실패했습니다.') + '</div>'; return; }
         if (!d.orders.length) {
             ordWrap.innerHTML = '<div class="mp-empty">연결된 견적이 없습니다.</div>';
         } else {
@@ -268,11 +276,12 @@ async function linkOrder(siteId, estimateId, btn) {
             method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({site_id: siteId, estimate_id: estimateId})
         });
-        const d = await r.json();
-        if (d.ok) {
+        // 오류도 200 + ok:false 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
+        const d = await r.json().catch(() => null);
+        if (d && d.ok) {
             btn.className = 'site-link-btn linked'; btn.textContent = '연결됨';
             openSiteDetail(siteId, document.getElementById('site-detail-name').textContent);
-        } else { alert(d.error || '연결에 실패했습니다.'); btn.disabled = false; btn.textContent = '연결'; }
+        } else { alert((d && d.error) || '연결에 실패했습니다.'); btn.disabled = false; btn.textContent = '연결'; }
     } catch { alert('네트워크 오류가 발생했습니다.'); btn.disabled = false; btn.textContent = '연결'; }
 }
 
@@ -283,9 +292,10 @@ async function unlinkOrder(siteId, estimateId) {
             method: 'DELETE', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({site_id: siteId, estimate_id: estimateId})
         });
-        const d = await r.json();
-        if (d.ok) openSiteDetail(siteId, document.getElementById('site-detail-name').textContent);
-        else alert(d.error || '해제에 실패했습니다.');
+        // 오류도 200 + ok:false 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
+        const d = await r.json().catch(() => null);
+        if (d && d.ok) openSiteDetail(siteId, document.getElementById('site-detail-name').textContent);
+        else alert((d && d.error) || '해제에 실패했습니다.');
     } catch { alert('네트워크 오류가 발생했습니다.'); }
 }
 
@@ -300,9 +310,10 @@ async function reorder(estimateId) {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({estimate_id: estimateId})
         });
-        const d = await r.json();
-        if (d.ok) { location.href = '/estimate-quick.php'; }
-        else { alert(d.error || '재주문에 실패했습니다.'); btn.disabled = false; btn.textContent = orig; }
+        // 오류도 200 + ok:false 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
+        const d = await r.json().catch(() => null);
+        if (d && d.ok) { location.href = '/estimate-quick.php'; }
+        else { alert((d && d.error) || '재주문에 실패했습니다.'); btn.disabled = false; btn.textContent = orig; }
     } catch { alert('네트워크 오류가 발생했습니다.'); btn.disabled = false; btn.textContent = orig; }
 }
 

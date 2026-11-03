@@ -308,12 +308,13 @@ async function saveEstimate() {
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify(body),
     });
-    const data = await res.json();
-    if (data.ok) {
+    // 오류는 200 + ok:false + error 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
+    const data = await res.json().catch(() => null);
+    if (data && data.ok) {
         showToast('저장되었습니다.');
         recalcTotal();
     } else {
-        alert('저장 실패: ' + data.error);
+        alert('저장 실패: ' + ((data && data.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
     }
 }
 
@@ -325,12 +326,13 @@ async function sendEstimate() {
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ id: ESTIMATE_ID, action: 'send' }),
     });
-    const data = await res.json();
-    if (data.ok) {
+    // 오류는 200 + ok:false + error 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
+    const data = await res.json().catch(() => null);
+    if (data && data.ok) {
         showToast('견적서가 발송 처리되었습니다.');
         setTimeout(() => location.href = '/staff/index.php?tab=SENT', 1000);
     } else {
-        alert('오류: ' + data.error);
+        alert('오류: ' + ((data && data.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
     }
 }
 
@@ -342,12 +344,13 @@ async function changeStatus(action) {
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ id: ESTIMATE_ID, action }),
     });
-    const data = await res.json();
-    if (data.ok) {
+    // 오류는 200 + ok:false + error 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
+    const data = await res.json().catch(() => null);
+    if (data && data.ok) {
         showToast('처리되었습니다.');
         setTimeout(() => location.reload(), 800);
     } else {
-        alert('오류: ' + data.error);
+        alert('오류: ' + ((data && data.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
     }
 }
 

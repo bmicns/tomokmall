@@ -108,7 +108,14 @@ $cit = rag_extract_legal_citations('1칸은 2.5m×5.0m 이상입니다 [L7]. 참
 eq('표시 제거', $cit['text'], '1칸은 2.5m×5.0m 이상입니다. 참고 추가');
 eq('넣은 근거만·중복 없이', array_column($cit['sources'], 'id'), [7]);
 eq('표시 없으면 출처 없음', rag_extract_legal_citations('80T를 권해 드려요.', [$lawDoc])['sources'], []);
-eq('DB·출처 칸 없으면(운영 미적용) 법령 근거 검색 빈 배열', rag_search_legal_documents('주차 공간', 'pavement'), []);
+// DB 불필요 테스트지만 .env.local 로 로컬 DB(법령 칸 있음)에 붙은 PC 에서도 같은 결과가 나와야 함(2026-11-02 사용자 PC 배포 사전 점검 실패 원인)
+$legalHits = rag_search_legal_documents('주차 공간', 'pavement');
+if (!db() || !rag_documents_has_source_columns()) {
+    eq('DB·출처 칸 없으면(운영 미적용) 법령 근거 검색 빈 배열', $legalHits, []);
+} else {
+    ok('DB·출처 칸 있으면 검증·활성 공식 근거만(사내 문서·미검증 제외)', !array_filter($legalHits, static fn($d) => ($d['source_type'] ?? '') === 'internal'
+        || !in_array($d['verify_level'] ?? '', RAG_LEGAL_VERIFY_LEVELS, true)));
+}
 
 echo "[하이라이트 highlight_terms]\n";
 ok('검색어 <mark> 삽입', strpos(highlight_terms('측구수로관', ['측구']), '<mark') !== false);
@@ -468,9 +475,10 @@ ok('상품명·규격·이미지·근거·권장수량은 상담 당시 값 유�
 ok('견적 카드 등 다른 이벤트는 그대로', $ap[3][1] === $snap[3][1]);
 ok('원본(입력 배열)은 변경되지 않음', $snap[3][0]['products'][0]['price_b2c'] === 45000 && !isset($snap[3][0]['products'][0]['price_state']));
 $snapC = [1 => [['type' => 'product_cards', 'products' => [
-    ['id' => 1, 'spec' => '규격 A', 'price_b2c' => 1000, 'suggested_qty' => 10, 'est_cost' => 10000, 'cost_lowest' => true, 'cost_diff' => 0],
-    ['id' => 2, 'spec' => '규격 B', 'price_b2c' => 1200, 'suggested_qty' => 10, 'est_cost' => 12000, 'cost_lowest' => false, 'cost_diff' => 2000],
-    ['id' => 3, 'spec' => '규격 C', 'price_b2c' => 900, 'suggested_qty' => 10, 'est_cost' => 9000, 'cost_lowest' => false, 'cost_diff' => 0],
+    // 실제 추천표 카드(tool_search_products·chat_logs 복원)에는 항상 name 이 있다 — 테스트 자료도 같게(없으면 ai_cost_summary 최저·최고 이름에서 경고)
+    ['id' => 1, 'name' => '상품 A', 'spec' => '규격 A', 'price_b2c' => 1000, 'suggested_qty' => 10, 'est_cost' => 10000, 'cost_lowest' => true, 'cost_diff' => 0],
+    ['id' => 2, 'name' => '상품 B', 'spec' => '규격 B', 'price_b2c' => 1200, 'suggested_qty' => 10, 'est_cost' => 12000, 'cost_lowest' => false, 'cost_diff' => 2000],
+    ['id' => 3, 'name' => '상품 C', 'spec' => '규격 C', 'price_b2c' => 900, 'suggested_qty' => 10, 'est_cost' => 9000, 'cost_lowest' => false, 'cost_diff' => 0],
 ]]]];
 $apC = rag_apply_current_prices($snapC, [1 => ['price' => 1500, 'spec' => '규격 A'], 2 => ['price' => 1200, 'spec' => '규격 B']])[1][0]['products'];
 ok('복원: 예상 자재비는 현재가 × 권장 수량으로 다시 계산, 판매 중지 상품은 금액 지움, 최저 표시 다시',
@@ -478,6 +486,44 @@ ok('복원: 예상 자재비는 현재가 × 권장 수량으로 다시 계산, 
     && $apC[1]['cost_lowest'] === true && $apC[0]['cost_lowest'] === false && $apC[0]['cost_diff'] === 3000 && !isset($apC[2]['cost_diff']));
 $un = rag_apply_current_prices($snap, null);
 ok('조회 실패: 모두 가격 확인 불가, 과거 가격 숨김', array_unique(array_map(static fn($p) => $p['price_state'] . ':' . var_export($p['price_b2c'], true), $un[3][0]['products'])) === ['unknown:NULL']);
+
+echo "[상담: 자재 기본 정보(국가표준·등록 규격) 매칭]\n";
+ok('표기 통일: 플룸·블럭', ai_material_norm('벤치 플룸관 블럭') === '벤치플륨관블록');
+ok('주제 낱말: 일반어 제외', ai_material_words('벤치플룸관 차이 설명') === ['벤치플륨관']);
+ok('태그 조각이 주제에 포함되면 일치(벤치플륨 ↔ 벤치플룸관)', ai_material_match('철근 콘크리트 플룸 및 벤치 플룸,벤치플륨, 플륨형 수로관', '벤치플룸관') >= 1);
+ok('관계없는 이름은 0점', ai_material_match('PE이중벽관(KS)', '벤치플룸관') === 0);
+$picked = ai_material_pick([['인조화강블록(투수)', 'A'], ['인터로킹U형블럭', 'B'], ['점자블록', 'C']], '인터로킹 블록');
+ok("구체적 낱말(인터로킹)이 맞는 것만 — '블록'만 맞는 항목 제외", $picked === ['B']);
+ok('구체적 낱말이 없으면 넓은 낱말로', ai_material_pick([['콘크리트경계석', 'A'], ['PE관', 'B']], '경계석') === ['A']);
+ok('규격 요약: 운반비·설치비 칸 제외', ai_spec_brief('규격: 200*150*2000*35T | 중량: 90kg | 단위: 본 | 상차수량: 200본/25톤 | 운반비예상: 1,500원') === '규격: 200*150*2000*35T · 중량: 90kg · 단위: 본');
+
+echo "[상담: 확인 안 된 KS 번호 안내]\n";
+$g = rag_guard_unverified_ks('흄관은 KS F 4009 제품을 쓰시면 됩니다.', '참고 자료: 흄관 (B형) KS F 4403');
+ok('자료에 없는 번호 → 본문 그대로 + 끝에 확인 필요 안내', $g['unknown'] === ['KS F 4009'] && str_starts_with($g['text'], '흄관은 KS F 4009 제품을') && str_contains($g['text'], '확인된 자료에 없는 번호·수치'));
+ok('자료에 있는 번호(띄어쓰기 달라도) → 그대로', rag_guard_unverified_ks('KS F4403 표기 제품입니다.', 'KS F 4403')['text'] === 'KS F4403 표기 제품입니다.');
+ok('자료에 없는 강도 수치(MPa) → 안내, 자료에 있으면 그대로', rag_guard_unverified_ks('압축강도 24MPa 제품입니다.', '휨강도 5.0 MPa')['unknown'] === ['24MPa']
+    && rag_guard_unverified_ks('휨강도 5.0MPa 입니다.', '휨강도 5.0 MPa 이상')['unknown'] === []);
+ok('KS 번호 없음 → 그대로', rag_guard_unverified_ks('80mm 이상 블록을 쓰세요.', '')['unknown'] === []);
+ok('부속 번호(KS M 3500-1)도 본 번호로 대조', rag_guard_unverified_ks('KS M 3500-1 이중벽관', 'KS M 3500-1 배수')['unknown'] === []);
+ok('도구 요약: 검색 결과 수·수량·금액', str_contains(rag_tool_summary('search_products', ['products' => [['name' => '인터로킹', 'spec' => '규격: 200*100*80T | 단위: m 2', 'suggested_qty' => 20, 'est_cost' => 300000]], 'cost_summary' => ['x']]), '상품 1건(인터로킹 200*100*80T ×20 ≈300,000원)'));
+ok('도구 요약: 자재 자료 출처·국가표준', rag_tool_summary('material_info', ['facts' => [['maker' => 'A산업']], 'basics' => ['standards' => [['ref' => 'KS F 4010']], 'products' => [[], []]]]) === '제조사 문장 1개(A산업) · 국가표준 KS F 4010 · 등록 상품 2종');
+
+ok('기본 정보 출처: 답에 쓴 표준 번호·상품 이름만', rag_basic_sources_used('KS F4010 대상이며 벤치플륨관(벤치2종) 규격이 있습니다.', [['standards' => [['ref' => 'KS F 4010', 'name' => '플룸'], ['ref' => 'KS F 4016', 'name' => 'U형']], 'products' => [['name' => '벤치플륨관(벤치2종)', 'count' => 6], ['name' => '환경수로관', 'count' => 3]]]])
+    === ['standards' => [['ref' => 'KS F 4010', 'name' => '플룸', 'url' => '']], 'products' => [['name' => '벤치플륨관(벤치2종)', 'count' => 6]]]);
+ok('기본 정보 출처: 답에 없으면 빈 목록', rag_basic_sources_used('일반 설명입니다.', [['standards' => [['ref' => 'KS F 4010']], 'products' => []]]) === ['standards' => [], 'products' => []]);
+
+ok('직전 추천표: 최저 동률이면 같은 금액 제품도 알리라는 줄', str_contains(rag_recent_cards_prompt([['id' => 1, 'name' => 'A', 'spec' => '', 'price' => 100, 'qty' => 2, 'unit' => '㎡'], ['id' => 2, 'name' => 'B', 'spec' => '', 'price' => 100, 'qty' => 2, 'unit' => '㎡']]), '같은 금액의 다른 제품')
+    && !str_contains(rag_recent_cards_prompt([['id' => 1, 'name' => 'A', 'spec' => '', 'price' => 100, 'qty' => 2, 'unit' => '㎡'], ['id' => 2, 'name' => 'B', 'spec' => '', 'price' => 120, 'qty' => 2, 'unit' => '㎡']]), '같은 금액의 다른 제품'));
+
+$rc = [['id' => 402, 'name' => '인터로킹i2형블럭', 'spec' => '', 'price' => 9600, 'qty' => 20, 'unit' => '㎡'], ['id' => 396, 'name' => '인터로킹U형블럭', 'spec' => '', 'price' => 9600, 'qty' => 20, 'unit' => '㎡'],
+       ['id' => 416, 'name' => '인조화강블록(불투수)', 'spec' => '', 'price' => 11000, 'qty' => 20, 'unit' => '㎡']];
+ok('동률 최저가 담기 → 다른 동률 상품 이름 한 줄(직전 추천표 기준)', str_contains(rag_tie_note('인터로킹i2형블럭을 20㎡ 담았습니다.', [402], [], $rc), '인터로킹U형블럭도 있습니다')
+    && !str_contains(rag_tie_note('인터로킹i2형블럭을 20㎡ 담았습니다.', [402], [], $rc), '인조화강'));
+ok('동률 안내: 이미 같은 금액이라고 말했거나·동률 아닌 상품·이번 턴 카드 기준', rag_tie_note('같은 금액의 U형도 있습니다.', [402], [], $rc) === '' && rag_tie_note('담았습니다.', [416], [], $rc) === ''
+    && str_contains(rag_tie_note('담았습니다.', [7], [['id' => 7, 'name' => 'A', 'cost_lowest' => true], ['id' => 8, 'name' => 'B', 'cost_lowest' => true], ['id' => 9, 'name' => 'C', 'cost_lowest' => false]], []), 'B도 있습니다'));
+
+ok('자료 공백 이벤트: 제조사 자료 없을 때만, 연락처 모양 제거', ai_material_gap_event('벤치플룸관', false) === ['type' => 'material_gap', 'topic' => '벤치플룸관']
+    && ai_material_gap_event('그레이팅', true) === null && ai_material_gap_event('흄관 010-1234-5678', false)['topic'] === '흄관' && ai_material_gap_event('  ', false) === null);
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

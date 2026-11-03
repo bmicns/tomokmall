@@ -10,6 +10,9 @@ declare(strict_types=1);
  * 보안: 단가는 서버 DB 기준 결정 — 클라이언트 단가 신뢰 금지
  * 성능: 품목 조회 시 IN(...) 단일 쿼리로 N+1 방지
  * 세션 키: $_SESSION['quick_items'] = [product_id => quantity]
+ * 오류 응답: 입력 검증 실패(action·product_id·quantity·상품 없음)도 HTTP 200 + {"ok":false,"error":…}
+ *           (닷홈 Apache 가 4xx 본문을 HTML 오류 페이지로 바꿔 JSON 문구가 사라짐 — quote.php 와 같은 방식)
+ *           405(메서드)·503(DB 연결 실패)·401/403(require_corporate)은 상태 코드 유지
  */
 
 require __DIR__ . '/../../../app/bootstrap.php';
@@ -32,7 +35,6 @@ $quantity  = (int) ($body['quantity']  ?? 0);
 
 $allowedActions = ['add', 'update', 'remove', 'get', 'clear'];
 if (!in_array($action, $allowedActions, true)) {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => '유효하지 않은 action입니다.']);
     exit;
 }
@@ -56,7 +58,6 @@ if ($action === 'clear') {
     // 읽기 전용 — 세션 변경 없음
 } elseif ($action === 'remove') {
     if ($productId <= 0) {
-        http_response_code(400);
         echo json_encode(['ok' => false, 'error' => 'product_id가 유효하지 않습니다.']);
         exit;
     }
@@ -64,7 +65,6 @@ if ($action === 'clear') {
     $_SESSION['quick_items'] = $items;
 } elseif ($action === 'add' || $action === 'update') {
     if ($productId <= 0) {
-        http_response_code(400);
         echo json_encode(['ok' => false, 'error' => 'product_id가 유효하지 않습니다.']);
         exit;
     }
@@ -75,7 +75,6 @@ if ($action === 'clear') {
         $_SESSION['quick_items'] = $items;
     } else {
         if ($quantity < 1 || $quantity > 999) {
-            http_response_code(400);
             echo json_encode(['ok' => false, 'error' => 'quantity는 1~999 범위여야 합니다.']);
             exit;
         }
@@ -86,7 +85,6 @@ if ($action === 'clear') {
         );
         $pStmt->execute(['id' => $productId]);
         if (!$pStmt->fetch()) {
-            http_response_code(400);
             echo json_encode(['ok' => false, 'error' => '존재하지 않거나 판매 중단된 상품입니다.']);
             exit;
         }

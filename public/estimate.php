@@ -83,8 +83,33 @@ render_header('견적 요청');
 .form-card input,.form-card textarea{padding:10px 12px;border:1px solid var(--color-border);font-family:var(--font);font-size:13px;color:var(--color-text-primary);outline:none;background:#fff}
 .form-card input:focus,.form-card textarea:focus{border-color:var(--color-primary)}
 .form-2col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-2col>label{min-width:0}
+.form-card input:not([type=checkbox]):not([type=radio]),.form-card textarea{width:100%;box-sizing:border-box}
+@media (max-width:600px){
+  .form-2col{grid-template-columns:minmax(0,1fr)}
+  .delivery-row>div{flex-wrap:wrap;flex-shrink:1;width:100%}
+  .delivery-row input[type=date],.delivery-row input[type=time]{flex:1 1 140px;width:auto;min-width:0;height:44px}
+  .est-items td:nth-child(4),.est-items td:nth-child(5){white-space:nowrap}
+  /* 품목 표 → 품목마다 카드(제품명·삭제 / 규격 / 수량·단가·소계) — 360px 에서 가로 스크롤 없이 */
+  .est-items,.est-items tbody{display:block}
+  .est-items thead{display:none}
+  .est-items tr{display:grid;grid-template-columns:auto minmax(0,1fr) 44px;grid-template-areas:"name name rm" "spec spec spec" "qty price price" "sub sub sub";gap:6px 10px;padding:12px 0;border-bottom:1px solid var(--color-border)}
+  .est-items td{display:block;border:0;padding:0;min-width:0}
+  .est-items td:nth-child(1){grid-area:name;font-weight:600}
+  .est-items td:nth-child(2){grid-area:spec}
+  .est-items td:nth-child(3){grid-area:qty}
+  .est-items td:nth-child(4){grid-area:price;align-self:center}
+  .est-items td:nth-child(5){grid-area:sub;align-self:center;font-weight:600;text-align:right}
+  .est-items td:nth-child(6){grid-area:rm;text-align:right}
+  .est-items td:nth-child(4)::before{content:'단가 ';font-size:12px;color:var(--color-text-secondary);font-weight:400}
+  .est-items td:nth-child(5)::before{content:'소계 ';font-size:12px;color:var(--color-text-secondary);font-weight:400}
+  .est-items .qty-cell{justify-content:flex-start}
+  .est-items input.qty-input{width:64px;height:44px}
+  .est-items .remove-btn{min-width:44px;min-height:44px}
+}
 .delivery-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .delivery-row input[type=date],.delivery-row input[type=time]{color-scheme:light;border:1px solid var(--color-border);border-radius:0;padding:8px 10px;font-size:13px;font-family:var(--font)}
+.form-card .undecided-label{flex-direction:row;min-height:44px}   /* 'label' 공통 세로 배치가 체크박스 줄까지 세로로 만들던 문제 */
 .undecided-label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary);cursor:pointer;white-space:nowrap;font-weight:400}
 
 /* 인쇄 버튼 */

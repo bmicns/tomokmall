@@ -8,6 +8,9 @@ declare(strict_types=1);
  * 보안: estimates.user_id = 현재 user_id 확인 — 타인 견적서 접근 차단
  * 검증: estimate_id 양의 정수, 각 품목 is_active=1 재확인 (단종 상품 제외)
  * 성능: estimate_items JOIN products 단일 쿼리 — N+1 방지
+ * 오류 응답: 입력 검증 실패(estimate_id·재구매 가능 품목 없음)도 HTTP 200 + {"ok":false,"error":…}
+ *           (닷홈 Apache 가 4xx 본문을 HTML 오류 페이지로 바꿔 JSON 문구가 사라짐 — quote.php 와 같은 방식)
+ *           405(메서드)·503(DB 연결 실패)·401(require_login)은 상태 코드 유지
  */
 
 require __DIR__ . '/../../../app/bootstrap.php';
@@ -27,7 +30,6 @@ $body       = json_decode(file_get_contents('php://input'), true) ?? [];
 $estimateId = (int) ($body['estimate_id'] ?? 0);
 
 if ($estimateId <= 0) {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => 'estimate_id가 유효하지 않습니다.']);
     exit;
 }
@@ -45,7 +47,7 @@ $estStmt = $pdo->prepare(
 );
 $estStmt->execute(['eid' => $estimateId, 'uid' => $user['id']]);
 if (!$estStmt->fetch()) {
-    http_response_code(403);
+    // 본인 견적 아님 — 닷홈이 4xx 본문을 바꾸므로 200 + ok:false (확인 자체는 그대로)
     echo json_encode(['ok' => false, 'error' => '접근 권한이 없습니다.']);
     exit;
 }
@@ -63,7 +65,6 @@ $itemStmt->execute(['eid' => $estimateId]);
 $rows = $itemStmt->fetchAll();
 
 if (empty($rows)) {
-    http_response_code(400);
     echo json_encode(['ok' => false, 'error' => '재구매 가능한 품목이 없습니다.']);
     exit;
 }

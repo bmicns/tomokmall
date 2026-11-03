@@ -292,8 +292,9 @@ function clearVendorModal(){
 
 async function editVendor(id){
     const r = await fetch('/api/staff/vendors.php?id='+id);
-    const d = await r.json();
-    if(!d.ok) return;
+    // 오류는 200 + ok:false + error 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
+    const d = await r.json().catch(() => null);
+    if(!d || !d.ok){ alert('오류: '+((d && d.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.')); return; }
     const v = d.data;
     document.getElementById('vm-id').value      = v.id;
     document.getElementById('vm-name').value    = v.name;
@@ -325,9 +326,9 @@ async function saveVendor(){
     const r = await fetch('/api/staff/vendors.php', {
         method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
     });
-    const d = await r.json();
-    if(d.ok){ closeModal('vendor-modal'); location.reload(); }
-    else alert('오류: '+d.error);
+    const d = await r.json().catch(() => null);
+    if(d && d.ok){ closeModal('vendor-modal'); location.reload(); }
+    else alert('오류: '+((d && d.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
 }
 
 // ── 품목-업체 연결 ─────────────────────────────────────────────
@@ -348,6 +349,7 @@ async function openProductVendors(productId, productName){
     openModal('pv-modal');
 }
 
+function pvEsc(v){ return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 async function loadProductVendors(productId){
     const r = await fetch('/api/staff/vendors.php?product_id='+productId);
     const d = await r.json();
@@ -359,13 +361,13 @@ async function loadProductVendors(productId){
     list.innerHTML = d.data.map(pv => `
         <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f5f5">
             <div>
-                <span style="font-size:13px;font-weight:600">${pv.vendor_name}</span>
+                <span style="font-size:13px;font-weight:600">${pvEsc(pv.vendor_name)}</span>
                 ${pv.is_primary ? '<span style="margin-left:6px;font-size:10px;background:#003580;color:#fff;padding:1px 5px;border-radius:3px">주거래</span>' : ''}
                 <div style="font-size:11px;color:#888;margin-top:2px">
                     공급단가: ${parseInt(pv.supply_price||0).toLocaleString()}원 | 리드타임: ${pv.lead_days||0}일
                 </div>
             </div>
-            <button onclick="removeProductVendor(${pv.id})" style="background:#fce4ec;color:#c62828;border:none;border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer">삭제</button>
+            <button onclick="removeProductVendor(${parseInt(pv.id, 10)})" style="background:#fce4ec;color:#c62828;border:none;border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer">삭제</button>
         </div>
     `).join('');
 }
@@ -385,9 +387,9 @@ async function addProductVendor(){
     const r = await fetch('/api/staff/vendors.php', {
         method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
     });
-    const d = await r.json();
-    if(d.ok){ await loadProductVendors(productId); }
-    else alert('오류: '+d.error);
+    const d = await r.json().catch(() => null);
+    if(d && d.ok){ await loadProductVendors(productId); }
+    else alert('오류: '+((d && d.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
 }
 
 async function removeProductVendor(pvId){
@@ -396,10 +398,10 @@ async function removeProductVendor(pvId){
     const r = await fetch('/api/staff/vendors.php', {
         method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
     });
-    const d = await r.json();
+    const d = await r.json().catch(() => null);
     const pid = document.getElementById('pv-product-id').value;
-    if(d.ok) await loadProductVendors(parseInt(pid));
-    else alert('오류: '+d.error);
+    if(d && d.ok) await loadProductVendors(parseInt(pid));
+    else alert('오류: '+((d && d.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
 }
 </script>
 

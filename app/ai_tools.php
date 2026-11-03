@@ -128,12 +128,150 @@ function ai_tool_dispatch(string $toolName, array $input, string $sid): string
 /** 자재 참고 자료(승인된 제조사 공개 자료 원문 + 출처). 상담 화면에는 출처 목록 카드(material_sources) */
 function tool_material_info(array $input): string
 {
-    $info = ext_material_info(trim((string) ($input['topic'] ?? '')));
+    $topic = trim((string) ($input['topic'] ?? ''));
+    $info = ext_material_info($topic);
     if ($info['sources']) {
         $info['_sse'] = [['type' => 'material_sources', 'sources' => $info['sources']]];
     }
     unset($info['sources']);
+    // 승인 제조사 자료가 없는 질문 주제 기록(화면 표시 없음 — 상담 기록 chat_logs 에만 남아 다음 자료 확보 우선순위에 씀)
+    $gap = ai_material_gap_event($topic, (bool) $info['facts']);
+    if ($gap !== null) { $info['_sse'][] = $gap; }
+    if ($info['facts']) {   // 제품별로 묶어 준다 — 한 목록에 섞여 오면 GPT 가 다른 제품 문장을 옮겨 말함(실제 GPT-4o 1번: 안전 중하중의 '작은 바퀴'를 중하중에)
+        $by = [];
+        foreach ($info['facts'] as $f) {
+            $k = $f['about'] . '|' . $f['maker'];
+            $by[$k] ??= ['product' => $f['about'], 'maker' => $f['maker'], 'statements' => []];
+            $by[$k]['statements'][] = '[' . $f['kind'] . '] ' . $f['text'];
+        }
+        $info['by_product'] = array_values($by);
+        $info['note'] .= ' by_product 는 같은 문장을 제품별로 묶은 것이다. 답할 때도 제품별로 나눠 쓰고, 고객이 묻지 않은 제품(예: 안전 중하중 그레이팅)의 문장은 그 제품 이름을 밝혀 따로 한 줄로만 쓴다.';
+    }
+    // 확인된 기본 정보(국가표준 번호·이름, 토목몰 등록 규격) — 제조사 자료가 없을 때 일반 지식으로 사양을 지어내지 않게 실제 근거를 준다
+    $basics = ai_material_basics($topic);
+    if ($basics['standards'] || $basics['products']) {
+        $info['basics'] = $basics;
+        $info['basics_note'] = 'basics 는 확인된 사실만 담았다: standards = 국가표준 목록에서 확인한 표준 번호·이름(요구 수치·조항은 미확인 — 수치를 말하지 않음), '
+            . 'products = 토목몰에 등록된 상품 이름과 규격 표기 그대로. 제품 설명은 이 둘에서 바로 읽히는 것(종류 이름·등록 규격·중량·판매 단위)만 말한다. '
+            . '국가표준은 \'KS F 4010(철근 콘크리트 플룸 및 벤치 플룸) 표준의 대상 종류\'처럼만 말하고 \'이 표준에 따라 제조된다\'·\'이 번호 제품을 고르면 된다\'고 단정하지 않는다(개별 상품의 KS 인증 여부는 상품 표기·제조사 자료로 확인). '
+            . '규격은 표기 그대로(예: 200*150*2000*35T) 쓰고 각 숫자가 폭·높이·길이 중 무엇인지, 단위(cm·mm)를 풀어 쓰지 않는다. 구조(개거·폐쇄형 등)·성능·용도는 이름에 없으면 덧붙이지 않는다. 출처는 \'국가표준 목록\'·\'토목몰 등록 상품\'으로 밝힌다.';
+    }
     return json_encode($info, JSON_UNESCAPED_UNICODE);
+}
+
+/** 자료 공백 이벤트 (순수 함수) — 제조사 자료가 없을 때만 {type: material_gap, topic}. 주제는 60자까지, 전화번호·이메일 모양은 지움 */
+function ai_material_gap_event(string $topic, bool $hasFacts): ?array
+{
+    $t = trim((string) preg_replace('/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+|\d{2,4}[-.\s]?\d{3,4}[-.\s]?\d{4}/u', '', $topic));
+    return ($hasFacts || $t === '') ? null : ['type' => 'material_gap', 'topic' => mb_substr($t, 0, 60)];
+}
+
+/** 자재 이름 표기 통일 (순수 함수) — 블럭→블록, 플룸·플럼→플륨, 공백 제거 후 비교 */
+function ai_material_norm(string $s): string
+{
+    return mb_strtolower(str_replace([' ', '블럭', '플룸', '플럼'], ['', '블록', '플륨', '플륨'], $s));
+}
+
+/** 주제 낱말 (순수 함수) — 2글자 이상, 질문 일반어 제외, 표기 통일 */
+function ai_material_words(string $topic): array
+{
+    $ws = preg_split('/[\s,·\/]+/u', $topic) ?: [];
+    $ws = array_filter($ws, static fn($w) => mb_strlen($w) >= 2 && !preg_match('/^(차이|종류|어떤|무엇|추천|좋은|제품|자재|설명|용도|특징|규격|가격|사용|시공)$/u', $w));
+    return array_values(array_unique(array_map('ai_material_norm', $ws)));
+}
+
+/**
+ * 이름·태그와 주제의 일치 점수 (순수 함수) — 주제 낱말이 이름에 있거나, 이름·태그 조각(쉼표·괄호로 나눈 3글자 이상)이 주제에 있으면 하나당 1점.
+ * 예: 주제 '벤치플룸관' ↔ 태그 '벤치플륨'(표기 통일 후 주제에 포함) → 1점.
+ */
+function ai_material_match(string $nameAndTags, string $topic, bool $specificOnly = false): int
+{
+    $hay = ai_material_norm($nameAndTags);
+    $t = ai_material_norm($topic);
+    $words = ai_material_words($topic);
+    if ($specificOnly) { $words = array_values(array_diff($words, AI_MATERIAL_GENERIC)); }
+    $score = count(array_filter($words, static fn($w) => mb_strpos($hay, $w) !== false));
+    foreach (preg_split('/[,()（）]+/u', $hay) ?: [] as $piece) {
+        if (mb_strlen($piece) >= 3 && mb_strpos($t, $piece) !== false && !in_array($piece, $words, true)
+            && !($specificOnly && in_array($piece, AI_MATERIAL_GENERIC, true))) { $score++; }
+    }
+    return $score;
+}
+
+/** 종류만 나타내는 넓은 낱말 — 주제에 더 구체적인 낱말(벤치플륨관·인터로킹 등)이 있으면 이것만 맞는 항목은 뺀다 */
+const AI_MATERIAL_GENERIC = ['블록', '보도블록', '수로관', '관', '그레이팅', '맨홀', '경계석', '배수관', '하수관', '덮개', '포장'];
+
+/** 후보 중 구체적 낱말이 맞는 것이 있으면 그것만 (순수 함수). $items: [[이름·태그, 값], …] → 값 목록(점수 순) */
+function ai_material_pick(array $items, string $topic): array
+{
+    $hasSpecific = (bool) array_diff(ai_material_words($topic), AI_MATERIAL_GENERIC);
+    $scored = [];
+    foreach ($items as $i => [$hay, $val]) {
+        $all = ai_material_match($hay, $topic);
+        if ($all === 0) { continue; }
+        $spec = $hasSpecific ? ai_material_match($hay, $topic, true) : 0;
+        $scored[] = [$spec, $all, $i, $val];
+    }
+    if ($hasSpecific && array_filter($scored, static fn($x) => $x[0] > 0)) {
+        $scored = array_values(array_filter($scored, static fn($x) => $x[0] > 0));
+    }
+    usort($scored, static fn($a, $b) => [$b[0], $b[1], $a[2]] <=> [$a[0], $a[1], $b[2]]);
+    return array_map(static fn($x) => $x[3], $scored);
+}
+
+/** 규격 문자열에서 규격·중량·단위만 (순수 함수) — 운반비·설치비 예상 같은 부가 칸은 뺀다 */
+function ai_spec_brief(string $spec): string
+{
+    $keep = array_filter(array_map('trim', explode('|', $spec)), static fn($p) => preg_match('/^(규격|중량|단위)\s*:/u', $p) === 1);
+    return $keep ? implode(' · ', $keep) : mb_substr(trim($spec), 0, 60);
+}
+
+/**
+ * 자재 기본 정보 — 국가표준 번호·이름(rag_documents 의 KS 메타데이터 확인 행) + 토목몰 등록 상품 이름·규격(판매 중).
+ * 둘 다 저장된 사실만 돌려준다(설명문 생성 없음). 운영 DB 에 근거 칸이 없으면 standards 는 빈 배열.
+ * @return array{standards: list<array>, products: list<array>}
+ */
+function ai_material_basics(string $topic): array
+{
+    $out = ['standards' => [], 'products' => []];
+    $pdo = db();
+    if (!ai_material_words($topic) || !$pdo) { return $out; }
+    if (function_exists('rag_documents_has_source_columns') && rag_documents_has_source_columns()) {
+        try {
+            $rows = $pdo->query("SELECT source_ref, title, tags, applies_to, source_url FROM rag_documents
+                                 WHERE source_type = 'ks' AND verify_level IN ('metadata_confirmed', 'original_verified', 'api_text_verified') AND legal_status <> 'repealed'
+                                 ORDER BY source_ref")->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {
+            $rows = [];
+        }
+        $items = [];
+        foreach ($rows as $r) {
+            $name = trim((string) preg_replace('/^\[KS\]\s*|\s*\(KS[^)]*\)\s*$/u', '', (string) $r['title']));
+            $s = ['ref' => (string) $r['source_ref'], 'name' => $name, 'basis' => '국가표준 목록(표준 번호·이름 확인, 본문 수치 미확인)', 'url' => (string) ($r['source_url'] ?? '')];
+            if (str_contains((string) $r['applies_to'], '사용자 확인')) {   // e나라표준인증 상세 페이지를 사람이 확인한 적용 범위만
+                $s['scope'] = trim((string) preg_replace('/\s*\([^)]*사용자 확인[^)]*\)\s*$/u', '', (string) $r['applies_to']));
+            }
+            $items[] = [$name . ',' . $r['tags'], $s];
+        }
+        $out['standards'] = array_slice(ai_material_pick($items, $topic), 0, 3);
+    }
+    $st = $pdo->query('SELECT name, spec FROM products WHERE is_active = 1 ORDER BY id LIMIT 5000');
+    $groups = [];
+    foreach ($st ? $st->fetchAll(PDO::FETCH_ASSOC) : [] as $p) {
+        $groups[(string) $p['name']][] = ai_spec_brief((string) $p['spec']);
+    }
+    $items = [];
+    $acc = '/몰드|거푸집|집게|크램프|운반구/u';   // 부속·시공 도구는 주제가 그것을 말할 때만
+    $topicType = ext_product_type(str_replace(['플룸', '플럼', '블럭'], ['플륨', '플륨', '블록'], $topic));
+    foreach ($groups as $name => $specs) {
+        if (preg_match($acc, $name) && !preg_match($acc, $topic)) { continue; }
+        // 주제가 자재 종류를 말하면 다른 종류 상품은 빼기(실제 GPT-4o: 'U형 수로관' 에 포장 블록 '인터로킹U형블럭' 이 'U형' 낱말로 섞여 수로관처럼 설명됨)
+        $nameType = ext_product_type(str_replace(['플룸', '플럼', '블럭'], ['플륨', '플륨', '블록'], $name));
+        if ($topicType !== '' && $nameType !== '' && $nameType !== $topicType) { continue; }
+        $items[] = [$name, ['name' => $name, 'count' => count($specs), 'specs' => array_slice(array_values(array_unique($specs)), 0, 3)]];
+    }
+    $out['products'] = array_slice(ai_material_pick($items, $topic), 0, 5);
+    return $out;
 }
 
 /**
@@ -247,7 +385,8 @@ function tool_search_products(array $input): string
         return ai_search_compare(array_slice($multi, 0, 4), $input);
     }
 
-    $rawQuery = trim((string) ($input['query'] ?? ''));
+    // queries 를 1개만 보내고 query 를 비운 호출(실제 GPT-4o 2026-11-02 공공도로·공공 보도 시나리오) → 그 1개를 query 로(오류 응답 → '오류가 발생' 안내가 손님에게 보이던 문제)
+    $rawQuery = trim((string) ($input['query'] ?? '')) ?: ($multi[0] ?? '');
     if ($rawQuery === '') {
         return json_encode(['error' => 'query 파라미터가 필요합니다.']);
     }
@@ -559,8 +698,9 @@ function ai_cost_summary(array $cards): array
     }
     usort($priced, static fn($a, $b) => $a['est_cost'] <=> $b['est_cost']);
     [$lo, $hi] = [$priced[0], $priced[count($priced) - 1]];
+    $tied = array_values(array_filter($priced, static fn($p) => $p['est_cost'] === $lo['est_cost']));   // 최저 금액이 같은 제품이 여럿(실제 GPT-4o: 인터로킹 i2·U 192,000원 동률인데 하나만 '가장 저렴')
     foreach ($cards as &$c) {
-        $c['cost_lowest'] = ((int) $c['id'] === (int) $lo['id']);
+        $c['cost_lowest'] = ($c['est_cost'] ?? null) === $lo['est_cost'] && $lo['est_cost'] > 0;
         if (($c['est_cost'] ?? 0) > 0) {
             $c['cost_diff'] = $c['est_cost'] - $lo['est_cost'];   // 같은 조건 최저 예상 자재비와의 차이(원)
         }
@@ -571,7 +711,10 @@ function ai_cost_summary(array $cards): array
         'highest' => ['name' => $hi['name'], 'spec' => spec_size_label((string) $hi['spec']), 'est_cost' => $hi['est_cost']],
         'difference' => $hi['est_cost'] - $lo['est_cost'],
         'basis' => '같은 면적·길이 기준 판매가 자재비(운반·시공비 별도)',
-    ]];
+    ] + (count($tied) > 1 ? [
+        'lowest_tied' => array_map(static fn($t) => $t['name'] . ' ' . spec_size_label((string) $t['spec']), $tied),
+        'tie_note'    => '최저 예상 자재비가 같은 제품이 ' . count($tied) . '개입니다. 가장 저렴한 것을 말하거나 담을 때 같은 금액 제품이 여럿이라고 함께 알리고, 고객이 고르지 않았으면 표에서 먼저 나온 제품으로 하되 다른 제품도 같은 금액이라고 안내하세요.',
+    ] : [])];
 }
 
 /**

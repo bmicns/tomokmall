@@ -9,10 +9,11 @@ declare(strict_types=1);
  * 필요: .env.local 의 OPENAI_API_KEY, scripts/testdb/setup-local-test-db.sh 로 만든 로컬 테스트 DB(SQL 초안 01·02·06·07 적용).
  * 실행: DB_HOST=127.0.0.1 DB_NAME=tomokmall_test php scripts/testdb/consult-scenarios.php [--with-public-road] [--md=결과.md]
  *       --check-only : DB 사전 점검만 하고 OpenAI 는 호출하지 않음
- *       --core       : 핵심 3개(공공도로 차도 100mm·차량 진입 보도 80mm·사유지 80T)만, 면적 답변 턴을 붙여 추천 상품 두께까지 점검(비용 절감)
+ *       --core       : 핵심 4개(공공도로 차도 100mm·차량 진입 보도 80mm·사유지 80T·초보 고객 전체 흐름 '집 앞 보도블록 차 지나가도?' → 면적 → 견적 담기)만,
+ *                      면적 답변 턴을 붙여 추천 상품 두께·필요 수량·견적 담기까지 점검(비용 절감)
  *       --only=public_road,public_sidewalk : 기대 장소 판정이 이 값인 시나리오만 실행(재테스트 비용 절감)
  *       --skip-product-check : 상품 검색 환경 점검(MySQL 8.0 ngram)이 맞지 않아도 실행 — 상품 추천 점검은 '판정 불가'
- *       --material   : 자재 설명 질문 7개(그레이팅 차이·미끄럼·유모차, 수로관, 흄관 KS, 오염 방지 블록, 차량 마당 80T) — 제조사 자료 승인 전·후에
+ *       --material   : 자재 설명 질문 10개(벤치플룸관·경계석·PE 이중벽관 포함)(그레이팅 차이·미끄럼·유모차, 수로관, 흄관 KS, 오염 방지 블록, 차량 마당 80T) — 제조사 자료 승인 전·후에
  *                      각각 실행해(--md=material-before.md / material-after.md) 설명이 어떻게 달라지는지 비교. 근거 활성 상태·승인 상태는 바꾸지 않음
  *       결과 문서에는 턴마다 답변·인용 근거·상품 카드·'적합 상품 없음' 카드를 모두 남긴다.
  * 종료 코드: 0 실패 없음(확인 필요는 사람 검토), 1 실행 실패·판정 실패 있음, 2 설정·DB 구성 오류
@@ -35,6 +36,8 @@ $fail = static function (string $msg): never {
     fwrite(STDERR, "\n[사전 점검 실패] {$msg}\n");
     exit(2);
 };
+// 근거 없이 덧붙이는 효과·성능 표현(실제 GPT-4o 3차: '강도 우수'·'균열을 방지'·'오랜 사용을 보장'·불투수형 '비가 많이 오는 곳에 적합'·'중장비')
+const RAG_EFFECT_CLAIM_RE = '/강도\s*(가\s*)?우수|튼튼|견고|균열[^.\n]{0,12}(방지|막|없)|오랜\s*사용을\s*보장|수명을\s*보장|불투수[^.\n]{0,30}비가?\s*많이\s*오는|하중을\s*잘\s*견딜|중장비/u';
 $pdo = db();
 if (!$pdo) {
     $fail("DB 에 연결하지 못했습니다(DB_HOST={$config['db']['host']}, DB_NAME={$dbName}, DB_USER={$config['db']['user']}). "
@@ -106,6 +109,9 @@ if (isset($opt['material'])) {
         ['흄관', '흄관은 무슨 KS 규격 제품을 쓰면 돼요?', 'KS F 4403 은 제조사 제품 표기로 전달, B형 등 한 제조사 표기를 선택 기준으로 단정하지 않음, 자료에 없는 KS 번호 금지', null, '/B형[^.\n]{0,40}(사용하면|쓰면)\s*됩니다|KS\s*F\s*4403[^.\n]{0,30}(사용하는\s*것이\s*적합|(사용하|쓰|사용하시|쓰시)면\s*됩니다)/u', true, null],
         ['보도블록 오염', '보도블록 중에 오염이 덜 타는 제품도 있어요?', '제조사 설명(오염 방지 등)을 제조사 주장으로 전달 + 출처, 자료 없는 특성 추측 없음', null, null, true, null],
         ['인조화강블록', '차가 들어오는 집 마당에 인조화강블록 깔아도 되나요?', "차량이면 80mm(80T) 이상 유지, '어디에나 설치 가능' 같은 보류 문장 미사용(두께 질문이라 제조사 자료는 없어도 됨)", '/80\s*(mm|T|㎜)|8\s*cm/u', null, false, null],
+        ['벤치플룸관 U형 수로관', '벤치플룸관이 뭐예요? 어떤 규격이 있어요?', '제조사 자료 없음을 밝히고 국가표준 번호·이름(KS F 4010)·토목몰 등록 규격으로만 설명, 구조(폐쇄형 등)·용도 추측 없음', null, null, false, null],
+        ['경계석', '경계석은 어떤 종류가 있고 뭐가 달라요?', '제조사 자료 없음을 밝히고 국가표준(KS F 4006 콘크리트 경계 블록)·토목몰 등록 상품 이름·규격으로만, 강도·용도 추측 없음', null, null, false, null],
+        ['PE 이중벽관 유공관', 'PE 이중벽관이랑 유공관은 뭐가 달라요?', '등록 상품 이름(유공관 등)과 국가표준(KS M 3500-1) 범위로만, 자료에 없는 구조·용도 단정 없음', null, null, false, null],
     ];
     $banned = '/어디에나|가장 우수|중국산|보석같이/u';   // 승인에서 보류한 홍보·기준 충돌 문장
     $approved = $n("SELECT COUNT(*) FROM external_products WHERE review_status = 'approved'");
@@ -127,10 +133,19 @@ if (isset($opt['material'])) {
             if (($e['type'] ?? '') === 'product_cards') { foreach ($e['products'] ?? [] as $c) { $cards[] = $c['name']; } }
             if (($e['type'] ?? '') === 'legal_sources') { foreach ($e['sources'] as $x) { $legal[] = $x['name'] . ' ' . $x['ref']; } }
         }
-        $calls = array_map(static fn($t) => $t['name'] . '(' . json_encode($t['input'], JSON_UNESCAPED_UNICODE) . ')', $res['tools'] ?? []);
+        $calls = array_map(static fn($t) => $t['name'] . '(' . json_encode($t['input'], JSON_UNESCAPED_UNICODE) . ')' . (($t['summary'] ?? '') !== '' ? ' → ' . $t['summary'] : ''), $res['tools'] ?? []);
+        $basicNames = [];   // material_info 가 돌려준 확인된 기본 정보(국가표준 번호, 토목몰 등록 상품 이름)
         foreach ($res['tools'] ?? [] as $t) {
-            if ($t['name'] === 'material_info') { $used .= ' ' . implode(' ', array_column(ext_material_info((string) ($t['input']['topic'] ?? ''))['facts'], 'text')); }
+            if ($t['name'] !== 'material_info') { continue; }
+            $tp = (string) ($t['input']['topic'] ?? '');
+            $used .= ' ' . implode(' ', array_column(ext_material_info($tp)['facts'], 'text'));
+            $b = ai_material_basics($tp);
+            $used .= ' ' . implode(' ', array_column($b['standards'], 'ref'));
+            $basicNames = array_merge($basicNames, array_column($b['standards'], 'ref'), array_column($b['products'], 'name'));
         }
+        $nameCore = static fn(string $x): string => str_replace(' ', '', (string) preg_replace('/\([^)]*\)/u', '', $x));   // 'PE이중벽관1종(유공관)' → 'PE이중벽관1종' — 괄호 부분 없이 써도 사용으로 인정
+        $usedBasics = (bool) array_filter($basicNames, static fn($x) => $x !== '' && (str_contains($text, $x) || str_contains(str_replace(' ', '', $text), str_replace(' ', '', $x))
+            || ($nameCore($x) !== '' && mb_strlen($nameCore($x)) >= 4 && str_contains(str_replace(' ', '', $text), $nameCore($x)))));
         $used .= ' ' . implode(' ', $legal);
         $flat = str_replace(['*', '#'], '', $text);   // 굵게·제목 표시 제거 후 표현 점검
         $plain = (string) preg_replace('/\(주\)|㈜|주식회사|\s/u', '', $text);
@@ -140,7 +155,7 @@ if (isset($opt['material'])) {
         preg_match_all('/(\d+(?:\.\d+)?)\s*(톤|ton|kN)/u', $text, $tons);
         $badTon = array_values(array_filter($tons[0], static fn($x) => !str_contains($used, $x)));
         preg_match_all('/KS\s*[A-Z]\s*-?\s*(\d{4})/u', $text, $ks);
-        $badKs = array_values(array_filter($ks[1], static fn($x) => !preg_match('/KS\s*[A-Z]\s*-?\s*' . $x . '/u', $used)));
+        $badKs = array_values(array_unique(array_filter($ks[1], static fn($x) => !preg_match('/KS\s*[A-Z]\s*-?\s*' . $x . '/u', $used))));   // 답 끝 '확인 안 된 번호' 안내에 같은 번호가 다시 나와도 한 번만
         $auto = match (true) {
             empty($res['ok']) || trim($text) === '' => '실패(실행 오류·답변 없음)',
             (bool) preg_match($banned, $flat) => '실패(보류한 홍보·기준 충돌 표현 사용)',
@@ -151,10 +166,16 @@ if (isset($opt['material'])) {
             !$srcs && (bool) preg_match('/제조사\s*자료에\s*따르면/u', $text) => "실패(참고 자료가 없는데 '제조사 자료에 따르면' 표현)",
             (bool) $badTon => '실패(자료에 없는 하중 수치: ' . implode(', ', $badTon) . ')',
             (bool) $badKs => '실패(자료에 없는 KS 번호: KS F ' . implode(', ', $badKs) . ')',
+            !$srcs && (bool) preg_match('/폐쇄형|밀폐형/u', $flat) && !str_contains($used, '폐쇄') => '실패(자료에 없는 구조 설명: 폐쇄형)',
+            (bool) preg_match('/KS\s*[A-Z]\s*-?\s*\d{4}[^.\n]{0,25}(에\s*따라|에\s*맞게|기준으로)\s*(제조|생산|만들)|(번호|표준|규격)에\s*맞는\s*제품을\s*(선택|고르)|선택하는\s*것이\s*바람직/u', $flat, $km) => '실패(국가표준·KS 를 적합 단정 또는 선택 기준으로 권함: ' . $km[0] . ')',
+            (bool) preg_match('/(폭|높이|길이|두께)\s*\((cm|mm|m)\)/u', $flat) => '실패(등록 규격 숫자를 폭·높이·단위로 풀어 씀 — 표기 그대로 써야 함)',
             $needMat && $avail && !$srcs => '확인 필요(승인 자료가 있는데 material_info 미사용)',
             $srcs && !$cited => '확인 필요(제조사 자료 출처 표시 없음)',
-            $askedMat && !$srcs && !preg_match('/일반적인\s*(설명|특징|내용|정보|차이)|일반\s*설명|자료(가|는)?\s*없|확보되지|확인되지/u', $text) => '확인 필요(참고 자료가 없는데 일반 설명이라고 밝히지 않음)',
+            $askedMat && !$srcs && !preg_match('/일반적인\s*(설명|특징|내용|정보|차이|기준)|일반\s*설명|자료[^.\n]{0,10}없|확보되지|확인되지/u', $text) => '확인 필요(참고 자료가 없는데 일반 설명이라고 밝히지 않음)',
+            !$srcs && $askedMat && ($inv = array_values(array_filter(['하천', '호수', '농업', '농경지', '농수로', '지하차도', '운동장', '퇴적물', '청소가', '개방형', '벤치 기능', '측구'], static fn($w) => str_contains($flat, $w) && !str_contains($used . ' ' . implode(' ', $basicNames), $w)))) => '확인 필요(제조사 자료가 없는데 자료에 없는 용도·장점 설명: ' . implode(', ', $inv) . ')',
+            (bool) preg_match(RAG_EFFECT_CLAIM_RE, $flat, $em) => '확인 필요(근거 없는 효과·성능 표현: ' . $em[0] . ')',
             (bool) preg_match('/직접\s*검색|검색해\s*(보셔야|보세요|보시기)/u', $text) => '확인 필요(고객에게 추가 검색을 하라고 함)',
+            $askedMat && !$srcs && $basicNames && !$usedBasics => '확인 필요(제조사 자료가 없는데 확인된 기본 정보(국가표준·등록 규격)를 쓰지 않음)',
             $core !== null && $srcs && !preg_match($core, $text) => '확인 필요(승인 자료의 핵심 문장 미사용)',
             default => '통과',
         };
@@ -178,11 +199,14 @@ if (isset($opt['with-public-road'])) {
 }
 
 // [기대 장소 판정, 대화(고객 발화), 답변에서 확인할 점]
-// --core: 핵심 3개 + 면적 답변 턴(상품 검색 유도) — [기대, 대화, 확인할 점, 추천 상품 기대 두께(mm)]
+// --core: 핵심 4개(3 + 초보 고객 전체 흐름) + 면적 답변 턴(상품 검색 유도) — [기대, 대화, 확인할 점, 추천 상품 기대 두께(mm)]
 $core = [
     ['public_road', ['시청에서 발주한 도로 공사인데 차도에 블록 깔려면 두께 몇 mm 써야 해요?', '차도 면적은 50㎡ 정도예요. 인터로킹 블록으로 찾아 주세요'], '100mm 이상 안내 + KDS/KCS 44 50 25 출처, 80T 비권장, 100mm 제품만(없으면 적합 상품 없음 안내 — 80T·60T 대체 추천 금지, 설계도서 확인·별도 견적)', 100],
     ['public_sidewalk', ['가게 앞 인도를 차가 가로질러 들어오는데 인도 블록 두께는요?', '승용차만 들어오고 면적은 30㎡예요'], '보도 지침 구분 Ⅱ(4t 이하) 80mm 이상 + 출처, 80T 제품', 80],
     ['private', ['집 앞 마당에 차 두 대 주차할 건데 블록 두께 몇 T?', '마당은 6m × 5m 예요'], '기존 80T 안내, 공공도로 출처 없음, 80T 제품', 80],
+    // 초보 고객 전체 흐름(2026-11-02 목표 예시): 조건 이해 → 근거 구분(저희 권장 80T, 공공도로 출처 없음) → 면적별 수량·예상 비용 비교표 → 견적 담기
+    ['private', ['집 앞에 보도블록을 깔려고 하는데 차가 지나가도 괜찮나요?', '집 앞 마당이고 승용차만 다녀요. 가로 4m 세로 5m 정도예요', '그중에 제일 저렴한 걸로 견적에 담아 주세요'],
+        '80T 이상 안내를 저희 권장 기준으로(법정 의무처럼 말하지 않음), 80T 비교표(필요 수량·예상 자재비), 3턴째 add_to_cart 호출·견적요청하기 안내', 80, true],
 ];
 $scenarios = [
     ['public_road', ['시청에서 발주한 도로 공사인데 차도에 블록 깔려면 두께 몇 mm 써야 해요?'], '100mm 이상 안내 + KDS/KCS 44 50 25 출처, 80T 를 차도용으로 권하지 않음'],
@@ -202,15 +226,17 @@ if (isset($opt['only'])) {
     $scenarios = array_values(array_filter($scenarios, static fn($sc) => in_array($sc[0], $only, true)));
 }
 $productCheck = $searchOk;   // false 면 상품 추천 점검은 '판정 불가'
-$md = "# 실제 LLM 상담 시나리오 결과 (" . (isset($opt['core']) ? '핵심 3개, ' : '') . date('Y-m-d H:i') . ", 모델 " . ($config['openai']['model'] ?? '') . ", V21·V22 " . ($restore ? '실행 중 활성' : '현재 상태') . ")\n\n"
+$md = "# 실제 LLM 상담 시나리오 결과 (" . (isset($opt['core']) ? '핵심 ' . count($core) . '개, ' : '') . date('Y-m-d H:i') . ", 모델 " . ($config['openai']['model'] ?? '') . ", V21·V22 " . ($restore ? '실행 중 활성' : '현재 상태') . ")\n\n"
     . "- 연결: {$info['v']} · DB {$info['d']} · 검증 조문 {$clauses}건(활성 {$active})\n"
     . "- 상품 검색 환경: " . ($searchOk ? "운영과 같음('인터로킹 블록' 80T " . count($probe['products']) . '건)' : "운영과 다름('인터로킹 블록' 80T 0건 — 상품 추천 점검 판정 불가)") . "\n\n";
 $tally = ['통과' => 0, '확인 필요' => 0, '실패' => 0];   // '판정 불가'는 확인 필요로 센다
+$runSid = 'scenario-test-' . date('His') . '-';   // 실행마다 새 상담 키(이전 실행의 추천표가 섞이지 않게) — 끝나면 기록 삭제
 try {
     $i = 0;
     foreach ($scenarios as $sc) {
         [$expect, $turns, $check] = $sc;
         $wantMm = $sc[3] ?? null;   // --core: 추천 상품이 맞아야 하는 두께
+        $wantCart = $sc[4] ?? false;   // 마지막 턴에서 견적 담기(add_to_cart)까지 이어져야 하는지
         $i++;
         $msgs = [];
         $res = ['ok' => false, 'text' => '', 'events' => []];
@@ -219,7 +245,7 @@ try {
         foreach ($turns as $turn) {   // 턴마다 실제로 답을 받아 대화에 이어 붙임 — 한 턴이라도 실패하면 시나리오 실패
             $msgs[] = ['role' => 'user', 'content' => $turn];
             try {
-                $res = rag_process($msgs, 'scenario-test-' . $i);
+                $res = rag_process($msgs, $runSid . $i);
             } catch (\Throwable $e) {
                 $res = ['ok' => false, 'text' => '', 'events' => [], 'error' => get_class($e) . ': ' . $e->getMessage()];
             }
@@ -227,7 +253,12 @@ try {
                 $errors[] = (string) ($res['error'] ?? '알 수 없음');
             }
             $msgs[] = ['role' => 'assistant', 'content' => (string) ($res['text'] ?? '')];
-            $t = ['user' => $turn, 'text' => (string) ($res['text'] ?? ''), 'sources' => [], 'cards' => [], 'unavailable' => false];
+            if (!empty($res['ok'])) {   // 운영 chat.php 처럼 턴을 기록 → 다음 턴 프롬프트에 직전 추천표(담기·비교용)가 들어감
+                rag_log_chat($runSid . $i, $turn, (string) ($res['text'] ?? ''), $res['events'] ?? [], (string) ($res['category'] ?? ''));
+            }
+            $t = ['user' => $turn, 'text' => (string) ($res['text'] ?? ''), 'sources' => [], 'cards' => [], 'unavailable' => false, 'tools' => array_column($res['tools'] ?? [], 'name'),
+                  'calls' => array_map(static fn($c) => $c['name'] . '(' . json_encode($c['input'], JSON_UNESCAPED_UNICODE) . ')' . (($c['summary'] ?? '') !== '' ? ' → ' . $c['summary'] : ''), $res['tools'] ?? []),
+                  'unverified_ks' => $res['unverified_ks'] ?? []];
             foreach ($res['events'] ?? [] as $e) {
                 $type = $e['type'] ?? '';
                 if ($type === 'legal_sources') {
@@ -248,6 +279,12 @@ try {
         $text = (string) $last['text'];
         $cards = $last['cards'];
         $unavailable = $last['unavailable'];
+        if ($wantCart) {   // 담기 턴에는 표가 없으므로 표가 나온 마지막 턴 기준
+            foreach (array_reverse($log) as $t) { if ($t['cards'] || $t['unavailable']) { $cards = $t['cards']; $unavailable = $t['unavailable']; break; } }
+        }
+        $cartOk = !$wantCart || in_array('add_to_cart', $last['tools'] ?? [], true);
+        $tableBeforeCart = !$wantCart || (bool) array_filter(array_slice($log, 0, -1), static fn($t) => $t['cards'] !== []);   // 담기 전에 고객이 비교표를 봤는지(2026-11-02 실제: 2턴째 종류만 되물음)
+        $costShown = (bool) array_filter($cards, static fn($c) => ($c['suggested_qty'] ?? null) !== null);
         $wrongCards = $wantMm === null ? [] : array_values(array_filter($cards, static fn($c) => ai_block_thickness((string) ($c['spec'] ?? '')) !== $wantMm));
         $wantExists = $wantMm !== null && ai_paving_names_with_thickness($wantMm) !== [];   // 그 두께로 등록된 포장 블록이 있는지(DB 종류 무관)
         $cites44 = (bool) array_filter($sources, static fn($x) => str_contains($x, '44 50 25'));
@@ -267,6 +304,22 @@ try {
             $auto = "확인 필요(추천 상품도 '적합 상품 없음' 안내도 없음 — 마지막 턴에서 {$wantMm}mm 검색을 하지 않음)";
         } elseif (in_array($expect, ['private', 'unclear', 'none'], true) && $cites44) {
             $auto = '실패(공공도로 출처 인용)';
+        } elseif ($wantCart && !$cartOk) {
+            $auto = '실패(마지막 턴에서 견적 담기(add_to_cart)를 하지 않음)';
+        } elseif ($wantCart && !$tableBeforeCart) {
+            $auto = '확인 필요(면적까지 받은 턴에 비교표 없이 되물음 — 고객이 표를 보기 전에 담김)';
+        } elseif ($wantCart && !$costShown) {
+            $auto = '확인 필요(비교표에 면적 기준 필요 수량이 없음)';
+        } elseif ($wantCart && ($tie = array_filter($cards, static fn($c) => !empty($c['cost_lowest']))) && count($tie) > 1 && !preg_match('/같은\s*(예상\s*자재비|금액|가격)|동일한\s*(금액|가격)|가격이\s*같|금액이\s*같|자재비가\s*같/u', (string) $last['text'])) {
+            $auto = '확인 필요(최저가 동률 상품이 여럿인데 담을 때 같은 금액 제품을 알리지 않음)';
+        } elseif ($expect === 'public_sidewalk' && str_contains($allText, '저희 권장')) {
+            $auto = "확인 필요(공공 보도의 80mm 공식 기준(보도 지침)을 '저희 권장 기준'으로 말함)";
+        } elseif ($wantCart && preg_match('/법(적|정)\s*(의무|기준)[^.\n]{0,20}80|80[^.\n]{0,20}법(적|정)/u', $allText)) {
+            $auto = '확인 필요(저희 권장 80T 를 법정 기준처럼 말함)';
+        } elseif ($expect === 'private' && preg_match('/80\s*(mm|T|㎜)/u', $allText) && !str_contains($allText, '권장')) {
+            $auto = "확인 필요(사유지 80mm 를 '저희 권장 기준'으로 밝히지 않음)";
+        } elseif (preg_match(RAG_EFFECT_CLAIM_RE, $allText, $em)) {
+            $auto = '확인 필요(근거 없는 효과·성능 표현: ' . $em[0] . ')';
         } else {
             $auto = match ($expect) {
                 'public_road'     => $cites44 && preg_match('/100\s*mm|100T|10\s*cm/u', $allText) ? '통과' : '확인 필요(KDS/KCS 44 50 25 인용·100mm 안내 원문 확인)',
@@ -280,13 +333,16 @@ try {
         foreach ($log as $k => $t) {
             $md .= '### 턴 ' . ($k + 1) . "\n\n- 고객: {$t['user']}\n- 인용 근거: " . ($t['sources'] ? implode(' / ', $t['sources']) : '없음')
                 . "\n- 추천 상품: " . ($t['cards'] ? implode(', ', array_map(static fn($c) => $c['name'] . '(' . (ai_block_thickness((string) ($c['spec'] ?? '')) ?? '?') . 'mm)', $t['cards'])) : '없음')
-                . ($t['unavailable'] ? " · '현재 등록된 적합 상품 없음' 카드 표시" : '') . "\n\n```\n" . trim($t['text']) . "\n```\n\n";
+                . ($t['unavailable'] ? " · '현재 등록된 적합 상품 없음' 카드 표시" : '')
+                . "\n- 부른 도구: " . ($t['calls'] ? implode(' → ', $t['calls']) : '없음')
+                . ($t['unverified_ks'] ? "\n- 확인 안 된 KS 번호(답 끝 안내 붙임): " . implode(', ', $t['unverified_ks']) : '') . "\n\n```\n" . trim($t['text']) . "\n```\n\n";
         }
         if ($errors) {
             $md .= "> 오류: " . implode(' / ', array_unique($errors)) . "\n\n";
         }
     }
 } finally {
+    $pdo->prepare('DELETE FROM chat_logs WHERE session_key LIKE ?')->execute([$runSid . '%']);
     foreach ($restore as $r) {   // 중간에 오류가 나도 V21·V22 활성 상태를 원래대로
         $st = $pdo->prepare('UPDATE rag_documents SET is_active = ?, review_status = ? WHERE id = ?');
         $st->execute([(int) $r['is_active'], $r['review_status'], (int) $r['id']]);

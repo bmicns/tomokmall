@@ -264,6 +264,10 @@
    "key": "gayasteel",
    "name": "(주)가야스틸",
    "domain": "gayasteel.kr",
+   "aliases": [
+    "xn--2i0bw4q0yi42ecvqlc.kr"
+   ],
+   "alias_basis": "2026-10-29 사용자 PC 수집 때 gayasteel.kr 이 한글 도메인 스틸그레이팅.kr(xn--2i0bw4q0yi42ecvqlc.kr)로 이동 — 같은 제조사 사이트(2026-11-02 이관 검증 경고로 확인)",
    "kind": "제조사",
    "priority": 12,
    "permission": "facts_if_clear",

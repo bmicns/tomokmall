@@ -78,6 +78,18 @@ try {
     ok('강제 검색에도 도구·답이 없으면 버렸던 안내 문장을 돌려줌(빈 답변 아님)', $r6['ok'] === true && $r6['text'] === '80mm 블록을 찾아 드릴게요. 잠시만 기다려 주세요.' && count($q6) === 2);
     [$r7, $q7] = $run([$answer('차량이 올라가면 80mm 이상이 필요합니다. 면적을 알려 주시면 찾아 드리겠습니다.')]);
     ok('조건부 안내는 강제 검색하지 않고 그대로 답함', $r7['ok'] === true && str_contains($r7['text'], '면적을 알려 주시면') && count($q7) === 1);
+
+    echo "[도구와 함께 온 중간 글 — 2026-11-02 실제 GPT-4o: '검색해 볼게요'·'오류가 발생했습니다'·검색 전 추측성 종류 설명이 최종 답 앞에 붙음]\n";
+    $withText = static fn(string $t, string $name, string $args, int $i) => ['choices' => [['finish_reason' => 'tool_calls', 'message' => ['role' => 'assistant', 'content' => $t,
+        'tool_calls' => [['id' => "call_t{$i}", 'type' => 'function', 'function' => ['name' => $name, 'arguments' => $args]]]]]]];
+    [$r8] = $run([$withText('보차도 블록: 견고하며 오염에 강합니다. 잠시만 기다려 주세요.', 'search_products', '{"queries":["인터로킹 블록"],"spec_mm":80,"spec_strict":true,"area_m2":30}', 1),
+                  $answer('[테스트] 표의 80mm 제품 중에서 골라 주세요.')]);
+    ok('최종 답이 있으면 도구 호출과 함께 온 글은 버림(추측성 설명·기다림 안내가 손님에게 안 보임)', $r8['ok'] === true && $r8['text'] === '[테스트] 표의 80mm 제품 중에서 골라 주세요.');
+    $cards8 = array_values(array_filter($r8['events'] ?? [], static fn($e) => ($e['type'] ?? '') === 'product_cards'));
+    ok("queries 1개만(query 없이) 보낸 검색도 오류 없이 상품 표(실제 GPT-4o 가 보낸 형태)", $cards8 !== [] && count($cards8[0]['products'] ?? []) > 0
+        && !str_contains(json_encode($r8['tools'] ?? [], JSON_UNESCAPED_UNICODE), 'query 파라미터'));
+    [$r9] = $run([$withText('[테스트] 흄관 자료를 확인해 볼게요.', 'material_info', '{"topic":"[테스트]흄관"}', 2), $toolCall(3), $toolCall(4), $answer('')]);
+    ok('최종 답이 끝내 비면 중간 글을 대신 돌려줌(빈 답변 방지)', $r9['ok'] === true && $r9['text'] === '[테스트] 흄관 자료를 확인해 볼게요.');
 } finally {
     proc_terminate($srv);
     exec('rm -rf ' . escapeshellarg($tmp));

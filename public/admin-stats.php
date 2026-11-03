@@ -42,7 +42,7 @@ $monthlySt = db()->query(
 $monthly = $monthlySt->fetchAll();
 
 // ── 상태별 주문 분포 ──────────────────────────────────────────────
-$statusSt = db()->query(
+$statusSt = db()->prepare(
     "SELECT status, COUNT(*) AS cnt
      FROM orders
      WHERE created_at >= :d
@@ -66,7 +66,7 @@ $topProds->execute(['d' => $dateFrom]);
 $topProducts = $topProds->fetchAll();
 
 // ── 견적 상태별 분포 ─────────────────────────────────────────────
-$estSt = db()->query(
+$estSt = db()->prepare(
     "SELECT status, COUNT(*) AS cnt FROM estimates
      WHERE created_at >= :d GROUP BY status"
 );

@@ -132,10 +132,14 @@ try {
             break;
 
         default:
-            http_response_code(400);
             echo json_encode(['ok' => false, 'error' => '알 수 없는 action']);
     }
+} catch (\InvalidArgumentException $e) {
+    // 입력 검증 실패: HTTP 200 + ok:false (닷홈 Apache 가 4xx 본문을 HTML 오류 페이지로 바꿔 JSON 문구가 사라짐)
+    echo json_encode(['ok' => false, 'error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
 } catch (\Throwable $e) {
+    // 내부 오류 문구(SQL 등)는 화면에 보내지 않고 서버 로그에만 남긴다
+    error_log('[api/admin/products] ' . get_class($e) . ': ' . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['ok' => false, 'error' => $e->getMessage()]);
+    echo json_encode(['ok' => false, 'error' => '서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'], JSON_UNESCAPED_UNICODE);
 }

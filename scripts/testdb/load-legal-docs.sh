@@ -15,7 +15,7 @@ run() { docker exec -i -e MYSQL_PWD="$PASS" "$NAME" mysql -uroot --default-chara
 
 cols="$(echo "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='tomokmall_test' AND TABLE_NAME='rag_documents' AND COLUMN_NAME='source_type';" | run | tail -1)"
 if [ "$cols" = "0" ]; then
-  for f in 01_rag_documents_source_columns_DRAFT.sql 02_rag_documents_legal_candidates_DRAFT.sql 06_rag_documents_verified_clauses_DRAFT.sql 07_LOCAL_TEST_ONLY_activate_verified_clauses.sql; do
+  for f in 01_rag_documents_source_columns_DRAFT.sql 02_rag_documents_legal_candidates_DRAFT.sql 06_rag_documents_verified_clauses_DRAFT.sql 07_LOCAL_TEST_ONLY_activate_verified_clauses.sql 08_LOCAL_TEST_ONLY_activate_public_road_V21_V22.sql; do
     sed '/^DRAFT_STOP_/d' "$D/$f" | run
   done
 fi

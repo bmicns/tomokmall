@@ -8,6 +8,9 @@ declare(strict_types=1);
  *
  * 인증: 로그인 필요
  * 보안: 모든 쓰기 작업에서 sites.user_id = 현재 user_id 확인
+ * 오류 응답: 입력 검증 실패·본인 현장 아님(수정·삭제 불가)도 HTTP 200 + {"ok":false,"error":…}
+ *           (닷홈 Apache 가 4xx 본문을 HTML 오류 페이지로 바꿔 JSON 문구가 사라짐 — quote.php 와 같은 방식)
+ *           본인 확인 조건(user_id)은 그대로, 405(메서드)·503(DB 연결 실패)·401(require_login)은 상태 코드 유지
  */
 
 require __DIR__ . '/../../../app/bootstrap.php';
@@ -68,7 +71,6 @@ if ($method === 'POST') {
     $memo    = trim((string) ($body['memo'] ?? ''));
 
     if ($name === '' || mb_strlen($name) > 120) {
-        http_response_code(400);
         echo json_encode(['ok' => false, 'error' => '현장명을 입력해주세요. (최대 120자)']);
         exit;
     }
@@ -90,7 +92,6 @@ if ($method === 'PUT') {
     $memo    = trim((string) ($body['memo'] ?? ''));
 
     if ($id <= 0 || $name === '' || mb_strlen($name) > 120) {
-        http_response_code(400);
         echo json_encode(['ok' => false, 'error' => '입력값이 올바르지 않습니다.']);
         exit;
     }
@@ -102,7 +103,6 @@ if ($method === 'PUT') {
     $st->execute(['name' => $name, 'addr' => $address ?: null, 'memo' => $memo ?: null, 'id' => $id, 'uid' => $uid]);
 
     if ($st->rowCount() === 0) {
-        http_response_code(403);
         echo json_encode(['ok' => false, 'error' => '수정할 수 없습니다.']);
         exit;
     }
@@ -116,7 +116,6 @@ if ($method === 'DELETE') {
     $id = (int) ($body['id'] ?? 0);
 
     if ($id <= 0) {
-        http_response_code(400);
         echo json_encode(['ok' => false, 'error' => 'id가 유효하지 않습니다.']);
         exit;
     }
@@ -127,7 +126,6 @@ if ($method === 'DELETE') {
     $st->execute(['id' => $id, 'uid' => $uid]);
 
     if ($st->rowCount() === 0) {
-        http_response_code(403);
         echo json_encode(['ok' => false, 'error' => '삭제할 수 없습니다.']);
         exit;
     }

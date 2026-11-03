@@ -63,6 +63,7 @@ file_put_contents("{$tmp}/responses.json", json_encode([
     $say('흄관은 KS F 4009 제품을 쓰시면 됩니다.'),                                                                    // 5: 자료에 없는 KS 번호
     $tool('보도블록', 4), $tool('보도블록 오염', 5), $tool('블록 오염', 6), $say('[테스트]제조 자료에 따르면 표면 오염방지 처리 제품이 있습니다.'),   // 6: 도구만 3번 → 최종 답
     $say('차가 다니면 두께 80mm 이상 블록을 쓰세요.'),                                                                 // 7: 두께 질문, 제조사 자료 불필요
+    $tool('벤치플룸관 U형 수로관', 8), $say('제조사 자료는 없습니다. 일반적인 설명으로, 벤치플룸관은 폐쇄형 관입니다.'),   // 8: 자료에 없는 구조(폐쇄형)
 ], JSON_UNESCAPED_UNICODE));
 $srv = proc_open([PHP_BINARY, '-S', "127.0.0.1:{$port}", "{$tmp}/router.php"], [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes, $tmp);
 usleep(400000);
@@ -74,7 +75,7 @@ try {
     exec("OPENAI_API_KEY=test-not-a-key OPENAI_CHAT_URL=http://127.0.0.1:{$port}/v1/chat/completions " . escapeshellarg(PHP_BINARY) . ' '
         . escapeshellarg(__DIR__ . '/../scripts/testdb/consult-scenarios.php') . ' --material --md=' . escapeshellarg("{$tmp}/m.md") . ' 2>&1', $o, $code);
     $md = (string) @file_get_contents("{$tmp}/m.md");
-    $sec = static function (int $i) use (&$md): string { return preg_match('/## ' . $i . '\. (.*?)(?=\n## \d\. |\n합계)/su', $md, $m) ? $m[1] : ''; };
+    $sec = static function (int $i) use (&$md): string { return preg_match('/## ' . $i . '\. (.*?)(?=\n## \d+\. |\n합계)/su', $md, $m) ? $m[1] : ''; };
     ok('승인 자료 준비(가상 제조사 3행)', $approvedBefore === 3 && $md !== '');
     ok('1: 원문에 없는 하중 수치(5톤) → 실패', str_contains($sec(1), '자동 점검: 실패(자료에 없는 하중 수치: 5톤)'));
     ok('2: 제조사 이름으로 밝힌 출처는 인정, 핵심(작은 바퀴) 미사용 → 확인 필요', str_contains($sec(2), '자동 점검: 확인 필요(승인 자료의 핵심 문장 미사용)'));
@@ -83,12 +84,15 @@ try {
     ok('5: 자료에 없는 KS 번호 → 실패', str_contains($sec(5), '자동 점검: 실패(자료에 없는 KS 번호: KS F 4009)'));
     ok('6: 도구만 3번 불러도 빈 답변이 아니라 최종 답', !str_contains($sec(6), '실행 오류') && str_contains($sec(6), '표면 오염방지 처리 제품이 있습니다') && substr_count($sec(6), 'material_info(') === 3);
     ok('7: 두께 질문은 제조사 자료를 안 써도 통과(80mm 안내 확인)', str_contains($sec(7), '자동 점검: 통과') && (bool) preg_match("/승인 자료\\(주제 '인조화강블록'\\): [1-9]/u", $sec(7)));
-    ok('합계·종료 코드(실패 있음 → 1)', str_contains($md, '합계: 통과 3 · 확인 필요 2 · 실패 2') && $code === 1);
+    ok('8: 제조사 자료 없는 자재에 자료에 없는 구조(폐쇄형) → 실패', str_contains($sec(8), '자동 점검: 실패(자료에 없는 구조 설명: 폐쇄형)'));
+    // 9·10번(경계석·PE 이중벽관, 2026-11-02 추가)은 목업 마지막 응답(8번 '폐쇄형' 답)을 그대로 받아 실패로 셈
+    ok('합계·종료 코드(실패 있음 → 1)', str_contains($md, '합계: 통과 3 · 확인 필요 2 · 실패 5') && $code === 1);
     // 2회차: 원문 제품명을 넓은 종류로 바꿔 말함(1), 자료 없이 '제조사 자료에 따르면'(4)
     file_put_contents("{$tmp}/responses.json", json_encode([
         $tool('그레이팅', 11), $say('[테스트]제조 자료에 따르면 **중하중 그레이팅**은 유모차, 휠체어 바퀴가 빠지지 않습니다.'),
         $say('일반 설명입니다.'), $say('○○[테스트]제조 자료에 따르면 상부 면이 톱니 형상입니다.'), $say('제조사 자료에 따르면 벤치플룸관은 대형입니다.'), $say('일반 설명입니다.'), $say('일반 설명입니다.'),
         $say('차가 다니면 두께 80mm 이상 블록을 쓰세요.'),
+        $tool('벤치플룸관 U형 수로관', 12), $say('제조사 자료는 없지만, 국가표준 KS F 4010(철근 콘크리트 플룸 및 벤치 플룸) 대상 제품이고 토목몰에는 벤치플륨관(벤치2종) 규격이 등록되어 있습니다.'),
     ], JSON_UNESCAPED_UNICODE));
     @unlink("{$tmp}/n");
     exec("OPENAI_API_KEY=test-not-a-key OPENAI_CHAT_URL=http://127.0.0.1:{$port}/v1/chat/completions " . escapeshellarg(PHP_BINARY) . ' '
@@ -96,6 +100,7 @@ try {
     $md = (string) @file_get_contents("{$tmp}/m.md");
     ok("1(2회차): '안전 그레이팅' 설명을 '중하중 그레이팅' 전체로 바꿔 말함(굵게 표시 포함) → 실패", str_contains($sec(1), '자동 점검: 실패(원문 밖 확대 해석: 중하중 그레이팅은 유모차'));
     ok("4(2회차): 참고 자료 없이 '제조사 자료에 따르면' → 실패", str_contains($sec(4), "자동 점검: 실패(참고 자료가 없는데 '제조사 자료에 따르면' 표현)"));
+    ok('8(2회차): 자료 없음을 밝히고 국가표준·등록 규격으로 설명 → 통과', str_contains($sec(8), '자동 점검: 통과'));
     ok("3(2회차): 프롬프트 예시 자리표시 '○○'를 제조사 이름 대신 그대로 씀 → 실패", str_contains($sec(3), '자동 점검: 실패(자리표시 ○○ 를 제조사 이름 대신 그대로 씀)'));
     // 3·4회차: 'ㄷ형강 하부 보강 — 일반 중하중 그레이팅보다 더 무거운 차량'(특정 제품)을 중하중 그레이팅 전체 특징으로 말하면 실패, 원문 비교 대상을 밝히면 통과
     $rerun = static function (string $answer, array $five = [], array $six = []) use ($tmp, $port, $tool, $say): string {

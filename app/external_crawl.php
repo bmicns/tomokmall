@@ -22,10 +22,21 @@ function ext_page_title(string $html): string
         preg_match_all('#<' . $h . '[^>]*>(.*?)</' . $h . '>#isu', $html, $all);
         foreach ($all[1] as $inner) {
             $t = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($inner), ENT_QUOTES, 'UTF-8')));
-            if ($t !== '' && mb_strlen($t) <= 60 && !ext_is_nav_label($t)) { return $t; }
+            if ($t !== '' && mb_strlen($t) <= 60 && !ext_is_nav_label($t) && !preg_match('/^(PRODUCTS?|ITEMS?|GOODS|제품\s*(소개|안내|정보)?|상품\s*(소개|안내)?)$/iu', $t)) { return $t; }   // 영문·일반 쪽 제목(PRODUCT)은 제품명 아님
         }
     }
     return preg_match('#<title[^>]*>(.*?)</title>#isu', $html, $m) ? trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($m[1]), ENT_QUOTES, 'UTF-8'))) : '';
+}
+
+/** 본문 소제목(h1~h4·strong) 중 우리 취급 종류 이름이 들어간 첫 글 (순수 함수) — 없으면 '' */
+function ext_page_product_heading(string $html): string
+{
+    preg_match_all('#<(h[1-4]|strong|b)[^>]*>(.*?)</\1>#isu', $html, $all);
+    foreach ($all[2] as $inner) {
+        $t = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($inner), ENT_QUOTES, 'UTF-8')));
+        if ($t !== '' && mb_strlen($t) <= 40 && !ext_is_nav_label($t) && ext_product_type($t) !== '' && !preg_match('/[.!?]$|니다/u', $t)) { return $t; }
+    }
+    return '';
 }
 
 /** 원문 문장 분류: 용도·시공·특징·주의·인증·강도. 해당 없으면 '' */
@@ -107,6 +118,9 @@ function ext_page_records(string $html, string $url, string $maker): array
                           'maker' => $maker, 'category' => $title, 'note' => implode(' / ', $note), 'source_url' => $url, 'facts' => $facts];
         }
     }
+    if (!$records && $facts && ($title === '' || ext_product_type($title) === '')) {
+        $title = ext_page_product_heading($html) ?: $title;   // 제목(h1)이 회사명·메뉴여도 본문 소제목이 제품명이면 그 이름으로(설명 문장만 있는 제품 페이지)
+    }
     if (!$records && $title !== '' && ext_product_type($title) !== '' && $facts) {
         preg_match_all('/\d+(?:\.\d+)?\s*[*x×]\s*\d+(?:\.\d+)?(?:\s*[*x×]\s*\d+(?:\.\d+)?)?\s*(?:T|mm)?/u', strip_tags($html), $m);
         $records[] = ['name' => $title, 'spec' => implode(' / ', array_slice(array_unique($m[0]), 0, 6)), 'maker' => $maker, 'category' => $title,
@@ -152,7 +166,7 @@ function ext_record_issue(array $n): string
         $name === '' => '이름 없음',
         (bool) preg_match('/^(구분|품명|제품명|규격|합계|소계|비고|단위|번호|no\.?|순번|항목)$/iu', $name) => '머리글 행',
         mb_strlen($name) > 80 => '이름 비정상(긴 글)',
-        !preg_match('/\d/', (string) $n['spec_raw']) => '규격 숫자 없음',
+        !preg_match('/\d/', (string) $n['spec_raw']) && (empty($n['facts']) || $n['product_type'] === '') => '규격 숫자 없음',   // 규격 없이 설명 문장만 있는 제품 행은 유지(매칭에는 치수가 필요해 후보가 되지 않음)
         $n['product_type'] === '' => '취급 종류 아님',
         default => '',
     };

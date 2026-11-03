@@ -126,8 +126,9 @@ render_header('AI 자재 상담', 'chat');
   .est-item-qty-wrap { display: flex; align-items: center; gap: 4px; }
   .est-item-row  { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
   .est-item-qty-wrap { display: flex; align-items: center; gap: 4px; }
-  .est-item-qty {
-    width: 44px; padding: 3px 4px;
+  /* 전역 input[type=number](width:100%·padding)가 덮어써 수량칸이 넓어지던 문제(A-6) — 비교표와 같은 방식으로 선택자 구체화 */
+  .est-item-qty-wrap input.est-item-qty {
+    width: 56px; min-height: 32px; padding: 3px 4px;
     border: 1px solid var(--color-border);
     font-size: 12px; text-align: center;
     font-family: var(--font); background: #fff;
