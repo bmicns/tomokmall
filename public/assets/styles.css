@@ -2149,3 +2149,7 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .cart-table :is(th, td):not(:first-child) { white-space: nowrap; text-align: right; }
   .cart-table td:first-child { overflow-wrap: anywhere; }
 }
+@media (max-width: 640px) {
+  /* 회원가입 창: 공통 label{display:grid} 때문에 '(선택)·(8자 이상)' 표시가 이름표 아래 줄로 떨어지던 것 → 한 줄 */
+  .auth-modal-label { display: block; }
+}

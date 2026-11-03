@@ -117,6 +117,11 @@
   var products = [], filtered = [], prodPage = 1, fltDims = [], loadSeq = 0;
   var prodBody = $('ch-prod-body'), prodCount = $('ch-prod-count');
   var fltToggle = $('ch-flt-toggle'), fltBox = $('ch-flt'), fltGrid = $('ch-flt-grid');
+  // 모바일(640px 이하, corp-home.css 모바일 기준): 규격 필터를 접은 상태로 시작 → 상품 카드가 바로 보이게. 데스크톱은 기존처럼 펼침
+  if (window.matchMedia && window.matchMedia('(max-width: 640px)').matches) {
+    fltToggle.setAttribute('aria-expanded', 'false');
+    $('ch-flt-chevron').setAttribute('d', 'M6 9l6 6 6-6');
+  }
 
   // 규격 치수 분해: '200×150×2000×35T_국산' → dims ['200','150','2000','35T'], opt '국산'
   function parseSize(size) {

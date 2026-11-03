@@ -183,6 +183,9 @@ render_header($p['name']);
   /* 모바일: 1열 그리드가 내용(긴 규격·버튼) 폭만큼 넓어져 오른쪽이 잘리던 문제 → 열·정보 영역 최소 폭 0 */
   .pd-wrap{padding-top:20px;padding-bottom:48px}   /* 좌우 여백은 main(16px) 한 번만 — styles.css 모바일 공통 */
   .pd-title-row{margin-bottom:14px;gap:6px}
+  /* 위치 표시: 긴 분류·상품명이면 한 줄로 이어져 화면 밖으로 넘치던 것 → 줄바꿈 허용 */
+  .pd-breadcrumb{flex-wrap:wrap;flex-shrink:1;min-width:0;row-gap:2px;line-height:1.5}
+  .pd-breadcrumb > *{min-width:0;overflow-wrap:anywhere}
   .pd-body{grid-template-columns:minmax(0,1fr)}
   .pd-img-area{min-height:220px;padding:16px}
   .pd-img-area img{max-height:220px}
