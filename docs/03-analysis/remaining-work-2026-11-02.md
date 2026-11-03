@@ -16,7 +16,8 @@
 | ~~1~~ | ~~main 병합~~ | **완료 2026-11-03** `3d0bca1`·`94bde9a` | |
 | ~~2~~ | ~~2단계 배포(22개)~~ | **운영 반영 완료 2026-11-03** — 고객 화면 오류 문구·견적 요청 360px·배너·관리자 로그인 | 로그인 필요 화면(마이페이지·현장·재주문)은 사용자 확인 |
 | 3 | 1단계 후속(1개) — **후순위(2026-11-03 사용자 결정)** | `app/ai_tools.php` — 자료 공백 기록(material_gap). 배포 시 `scripts/deploy-files.sh check b5e9602 app/ai_tools.php` | 모니터링 SQL ③ 이 이 뒤부터 쌓임 |
-| 4 | **3단계 배포(14개)** | 관리자 통계 500, 관리자·직원 오류 문구·내부 오류 문장 차단, 업체 화면 XSS | |
+| 4 | **3단계 배포(14개)** | 관리자 통계 500, 관리자·직원 오류 문구·내부 오류 문장 차단, 업체 화면 XSS | **실행표 준비 완료** [`STAGE3-RUNBOOK.md`](ai-sourcing/prod-apply/STAGE3-RUNBOOK.md) — PHP 8.4·운영 조합 전/후 비교(2026-11-03). 선택: `app/bootstrap.php` E_STRICT 1줄 동반 |
+| 6 | 상담원 문의 기능 | DB 적용 완료(2026-11-03). 설정(솔라피 키)·코드 10개 | **보류(2026-11-03 사용자: 문자 발송 개발 중단)** — [`consult-request-RUNBOOK.md`](consult-request-RUNBOOK.md) |
 | 5 | 추가 운영 DB | V25·V26 활성화(공식 확인 후), 새 제조사 승인 자료 이관 | 각각 리허설 후 |
 
 ## 3. 사용자 확인·자료 (이 환경은 국내 사이트·OpenAI 접속 불가)
@@ -45,8 +46,8 @@
 |---|---|
 | A-2 견적 상태 정책(배송 내역 항상 빈 목록) | 정책 결정 필요 |
 | B-3 회원 가격 정책 불일치(정가 vs 회원가) | 후순위 유지(사용자 결정) |
-| A-8 저장소 SQL 정리 — `alter_estimates_v2.sql` 운영 실행 금지 표시, 운영에만 있는 `categories.discount_corporate`·`category_gallery` 스키마 문서화 | 미착수(문서 작업) |
-| A-10 PHP 8.4 실제 실행 확인 | 운영 1단계 정상 동작으로 부분 확인, 로컬은 8.3 |
+| A-8 저장소 SQL 정리 — `alter_estimates_v2.sql` 운영 실행 금지 표시, 운영에만 있는 `categories.discount_corporate`·`category_gallery` 스키마 문서화 | **완료(문서)** [`database-sql-notes-2026-11-03.md`](database-sql-notes-2026-11-03.md) — `category_gallery` 정의(SHOW CREATE TABLE)는 사용자 공유 시 추가 |
+| A-10 PHP 8.4 실제 실행 확인 | **완료(2026-11-03)** — php:8.4 컨테이너: 전체 문법·상담 통합 테스트 14종 통과, 주요 화면·관리자·직원 화면. 발견: `E_STRICT` 사용 중단 로그(요청마다) → `bootstrap.php` 수정(배포 대기) |
 | 2단계 범위 밖 4xx: `require_login`·`require_corporate` 의 401·403 | 화면이 상태 코드에 의존 — 그대로 유지(필요 시 별도) |
 | `tests/stock_filter.test.php` | 상품이 없는 빈 스키마 DB 에서만 실행(설계상) |
 
