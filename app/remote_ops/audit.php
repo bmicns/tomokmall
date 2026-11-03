@@ -64,6 +64,17 @@ function rops_log_finish(PDO $pdo, int $id, string $status, int $durationMs, arr
     ]);
 }
 
+/** 백업 총량 확인(압축 전 크기 합). 상한(REMOTE_OPS_STORAGE_MB)을 넘으면 거부 */
+function rops_storage_guard(PDO $pdo, int $incoming): void
+{
+    $cap = rops_settings()['storage_mb'] * 1048576;
+    $used = (int) $pdo->query('SELECT COALESCE(SUM(size_bytes), 0) FROM remote_ops_snapshots')->fetchColumn();
+    if ($used + $incoming > $cap) {
+        throw new RopsError('storage_full', '관리 테이블 백업 용량 상한(' . rops_settings()['storage_mb'] . 'MB)을 넘습니다. 오래된 백업 정리(매뉴얼 9장) 후 다시 요청하세요',
+            ['used_bytes' => $used, 'incoming_bytes' => $incoming]);
+    }
+}
+
 /**
  * 백업 저장. $content=null + $absent=true 는 '변경 전 파일 없음' 표시.
  * $shaOnly 를 주면 본문 없이 해시만 기록(배포 후 해시 등).

@@ -100,6 +100,17 @@ function rops_mask_row(array $row, string $table, bool $revealPii): array
     return $row;
 }
 
+/** 행 목록에서 인증정보 컬럼 제거(백업·스냅샷 저장용 — 비밀번호 해시를 관리 테이블에 남기지 않음) */
+function rops_strip_secrets(array $rows): array
+{
+    foreach ($rows as $i => $r) {
+        foreach (array_keys($r) as $k) {
+            if (rops_is_secret_column((string) $k)) { unset($rows[$i][$k]); }
+        }
+    }
+    return $rows;
+}
+
 /** PK 목록 → WHERE 조각. 단일 PK: `id` IN (?,?), 복합 PK: (`a`,`b`) IN ((?,?),…) */
 function rops_pk_where(array $pk, array $keys, array &$params): string
 {
@@ -171,11 +182,11 @@ function rops_rows_diff(array $before, array $after, array $pk, string $table, b
     return $out;
 }
 
-/** 같은 테이블을 ON DELETE CASCADE 로 참조하는 자식 테이블 */
+/** 이 테이블 행을 지우면 함께 바뀌는 자식 테이블(ON DELETE CASCADE / SET NULL) */
 function rops_cascade_children(PDO $pdo, string $table): array
 {
     $st = $pdo->prepare("SELECT TABLE_NAME FROM information_schema.REFERENTIAL_CONSTRAINTS
-        WHERE CONSTRAINT_SCHEMA = DATABASE() AND REFERENCED_TABLE_NAME = ? AND DELETE_RULE = 'CASCADE'");
+        WHERE CONSTRAINT_SCHEMA = DATABASE() AND REFERENCED_TABLE_NAME = ? AND DELETE_RULE IN ('CASCADE', 'SET NULL')");
     $st->execute([$table]);
     return array_values(array_unique($st->fetchAll(PDO::FETCH_COLUMN)));
 }
@@ -231,7 +242,7 @@ function rops_db_query(PDO $pdo, array $p): array
     if (strlen($sql) > 20000) {
         throw new RopsError('bad_params', 'SQL 이 너무 깁니다(20,000자 이하)');
     }
-    if (($why = rops_sql_read_problem($sql)) !== null) {
+    if (($why = rops_sql_read_problem($sql, rops_secret_tables($pdo))) !== null) {
         throw new RopsError('sql_not_allowed', $why);
     }
     $sql = rops_sql_split($sql)[0];
@@ -419,7 +430,7 @@ function rops_scope_columns_check(array $s, array $meta, array $cols, bool $isIn
         if (!$isInsert && in_array($c, $meta['pk'], true)) {
             throw new RopsError('bad_params', "기본키({$c})는 수정할 수 없습니다");
         }
-        if (!$isInsert && is_array($allowed) && !in_array($c, $allowed, true)) {
+        if (is_array($allowed) && !in_array($c, $allowed, true)) {
             throw new RopsError('out_of_scope', "승인 범위에 없는 컬럼: {$c}");
         }
     }
@@ -457,7 +468,9 @@ function rops_db_structured(PDO $pdo, array $ctx, string $action, array $p): arr
                 throw new RopsError('bad_params', 'where 조건이 필요합니다(전체 행 변경은 지원하지 않음)');
             }
             $params = [];
-            $wsql = rops_where_compile($where, $meta['names'], $params);
+            // 인증정보 컬럼은 조건에도 못 씀(드라이런 반복으로 값을 알아내는 것 차단)
+            $whereCols = array_values(array_filter($meta['names'], static fn($c) => !rops_is_secret_column((string) $c)));
+            $wsql = rops_where_compile($where, $whereCols, $params);
             $st = $pdo->prepare('SELECT ' . implode(',', array_map('rops_qi', $meta['pk'])) . " FROM {$T} WHERE {$wsql} FOR UPDATE");
             $st->execute($params);
             $keys = array_map(static fn($r) => rops_key_of($r, $meta['pk']), $st->fetchAll());
@@ -472,12 +485,15 @@ function rops_db_structured(PDO $pdo, array $ctx, string $action, array $p): arr
                 rops_scope_columns_check($s, $meta, array_keys($set), false);
                 foreach ($keys as $k) { $sets[rops_key_str($k)] = $set; }
             } else {
+                if (in_array($table, rops_secret_tables($pdo), true)) {
+                    throw new RopsError('forbidden_table', "{$table} 는 인증정보 컬럼이 있어 원격 삭제를 지원하지 않습니다(비활성화 컬럼 수정 권장)");
+                }
                 $children = rops_cascade_children($pdo, $table);
                 if ($children !== [] && $keys !== []) {
                     if (empty($s['allow_cascade_delete'])) {
-                        throw new RopsError('cascade_not_approved', '삭제하면 연결된 행도 함께 지워집니다(ON DELETE CASCADE: ' . implode(', ', $children) . '). 되돌리기로 복구되지 않으므로 별도 승인이 필요합니다(비활성화 처리 권장).');
+                        throw new RopsError('cascade_not_approved', '삭제하면 연결된 행도 함께 지워지거나 바뀝니다(ON DELETE CASCADE/SET NULL: ' . implode(', ', $children) . '). 되돌리기로 복구되지 않으므로 별도 승인이 필요합니다(비활성화 처리 권장).');
                     }
-                    $warnings[] = 'CASCADE 로 함께 삭제되는 테이블: ' . implode(', ', $children) . ' (되돌리기 대상 아님)';
+                    $warnings[] = 'CASCADE/SET NULL 로 함께 바뀌는 테이블: ' . implode(', ', $children) . ' (되돌리기 대상 아님)';
                 }
             }
         } elseif ($action === 'batch') {
@@ -583,8 +599,8 @@ function rops_db_structured(PDO $pdo, array $ctx, string $action, array $p): arr
         $after = $action === 'delete' ? [] : rops_fetch_by_keys($pdo, $meta, $keys);
         $diff = rops_rows_diff($before, $after, $meta['pk'], $table, $reveal);
         $doc = ['table' => $table, 'pk' => $meta['pk'], 'action' => $action, 'keys' => $keys];
-        rops_snapshot_put($pdo, $ctx['log_id'], $g['id'], 'rows_before', $table, rops_json($doc + ['rows' => array_values($before)]));
-        rops_snapshot_put($pdo, $ctx['log_id'], $g['id'], 'rows_after', $table, rops_json($doc + ['rows' => array_values($after)]));
+        rops_snapshot_put($pdo, $ctx['log_id'], $g['id'], 'rows_before', $table, rops_json($doc + ['rows' => rops_strip_secrets(array_values($before))]));
+        rops_snapshot_put($pdo, $ctx['log_id'], $g['id'], 'rows_after', $table, rops_json($doc + ['rows' => rops_strip_secrets(array_values($after))]));
         rops_grant_use($pdo, $g, count($keys), false);
         if ($dry) {
             $pdo->rollBack();
@@ -700,6 +716,12 @@ function rops_db_revert(PDO $pdo, array $ctx, array $p): array
     $pdo->beginTransaction();
     try {
         $g = rops_grant_require($pdo, $grantRow['code'], 'db', 'scope', true);
+        // 되돌림 선점(행 잠금): 동시에 두 번 되돌리는 것 방지. 실패·드라이런이면 롤백으로 함께 취소됨
+        $claim = $pdo->prepare('UPDATE remote_ops_log SET reverted_by = ? WHERE id = ? AND reverted_by IS NULL');
+        $claim->execute([$ctx['log_id'], $opId]);
+        if ($claim->rowCount() !== 1) {
+            throw new RopsError('already_reverted', '이미 되돌렸거나 되돌리는 중인 작업입니다');
+        }
         $current = rops_fetch_by_keys($pdo, $meta, $docA['keys'], true);
         $conflicts = [];
         foreach ($docA['keys'] as $k) {
@@ -748,11 +770,8 @@ function rops_db_revert(PDO $pdo, array $ctx, array $p): array
         $now = rops_fetch_by_keys($pdo, $meta, $docA['keys']);
         $diff = rops_rows_diff($current, $now, $meta['pk'], $table, !empty($p['reveal_pii']));
         $doc = ['table' => $table, 'pk' => $meta['pk'], 'action' => 'revert', 'keys' => $docA['keys']];
-        rops_snapshot_put($pdo, $ctx['log_id'], $g['id'], 'rows_before', $table, rops_json($doc + ['rows' => array_values($current)]));
-        rops_snapshot_put($pdo, $ctx['log_id'], $g['id'], 'rows_after', $table, rops_json($doc + ['rows' => array_values($now)]));
-        if (!$dry) {
-            $pdo->prepare('UPDATE remote_ops_log SET reverted_by = ? WHERE id = ?')->execute([$ctx['log_id'], $opId]);
-        }
+        rops_snapshot_put($pdo, $ctx['log_id'], $g['id'], 'rows_before', $table, rops_json($doc + ['rows' => rops_strip_secrets(array_values($current))]));
+        rops_snapshot_put($pdo, $ctx['log_id'], $g['id'], 'rows_after', $table, rops_json($doc + ['rows' => rops_strip_secrets(array_values($now))]));
         $dry ? $pdo->rollBack() : $pdo->commit();
     } catch (\Throwable $e) {
         if ($pdo->inTransaction()) { $pdo->rollBack(); }
@@ -780,83 +799,106 @@ function rops_run_verify_queries(PDO $pdo, array $queries): array
     return $out;
 }
 
-/** SQL 계획 검사 + 관리 테이블 언급 금지 */
-function rops_sql_plan_checked(string $sql): array
+/** 인증정보 컬럼(이름 기준)이 있는 테이블 목록 */
+function rops_secret_tables(PDO $pdo): array
+{
+    static $cache = null;
+    if ($cache !== null) {
+        return $cache;
+    }
+    $out = [];
+    foreach ($pdo->query('SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE()')->fetchAll(PDO::FETCH_NUM) as [$t, $c]) {
+        if (rops_is_secret_column((string) $c)) { $out[(string) $t] = true; }
+    }
+    return $cache = array_keys($out);
+}
+
+/** 읽기 전용 트랜잭션 안에서 실행(MySQL 이 쓰기를 거부). 승인 전 '미리 보기'는 모두 이 안에서만 */
+function rops_readonly(PDO $pdo, callable $fn): mixed
+{
+    $pdo->exec('START TRANSACTION READ ONLY');
+    try {
+        try { $pdo->exec('SET SESSION max_execution_time = 15000'); } catch (\Throwable $e) { /* 권한 없으면 기본값 */ }
+        return $fn();
+    } finally {
+        try { $pdo->exec('ROLLBACK'); } catch (\Throwable $e) { }
+        try { $pdo->exec('SET SESSION max_execution_time = 0'); } catch (\Throwable $e) { }
+    }
+}
+
+/** DML 한 문장의 대상 행 수(실행하지 않고 셈). 셀 수 없으면 오류 */
+function rops_sql_estimate(PDO $pdo, array $s): int
+{
+    $q = rops_sql_count_query($s['sql']);
+    if ($q === null) {
+        throw new RopsError('sql_not_allowed', "{$s['no']}번 문장: 대상 행 수를 미리 셀 수 없는 형식입니다(한 테이블 UPDATE/DELETE, INSERT VALUES/SET/SELECT 만)");
+    }
+    if (isset($q['rows'])) {
+        return (int) $q['rows'];
+    }
+    try {
+        $st = $pdo->prepare($q['sql']);
+        $st->execute();
+        $n = (int) $st->fetchColumn();
+        $st->closeCursor();
+        return $n;
+    } catch (\PDOException $e) {
+        throw new RopsError('sql_error', "{$s['no']}번 문장 실패: " . rops_clean_message($e->getMessage()), ['statement' => $s['no']]);
+    }
+}
+
+/** SQL 파일 검사(형식·크기·인코딩·금지 문장). 문제가 있으면 sql_not_allowed */
+function rops_sql_plan_checked(PDO $pdo, string $sql, string $source = 'file'): array
 {
     if ($sql === '' || strlen($sql) > 4 * 1048576) {
         throw new RopsError('bad_params', 'SQL 은 1바이트~4MB');
     }
-    if (!mb_check_encoding($sql, 'UTF-8')) {
-        throw new RopsError('bad_params', 'SQL 파일은 UTF-8 이어야 합니다');
+    if (!mb_check_encoding($sql, 'UTF-8') || str_contains($sql, "\0")) {
+        throw new RopsError('bad_params', 'SQL 파일은 UTF-8 텍스트여야 합니다');
     }
-    $plan = rops_sql_plan($sql);
-    foreach (rops_sql_tokens($sql) as $t) {
-        if (in_array($t['t'], ['word', 'qident'], true) && stripos($t['v'], 'remote_ops_') === 0) {
-            $plan['problems'][] = '관리 API 테이블(remote_ops_*)은 SQL 파일로 다룰 수 없습니다';
-            break;
-        }
+    if ($source === 'file' && (strlen($sql) > 1048576 || substr_count($sql, "\n") > 2000)) {
+        throw new RopsError('bad_params', 'SQL 파일은 1MB·2,000줄 이하(승인 화면에서 전부 볼 수 있게). 큰 이관은 나눠서 요청하세요');
     }
+    $plan = rops_sql_plan($sql, rops_secret_tables($pdo));
     if ($plan['problems'] !== []) {
         throw new RopsError('sql_not_allowed', 'SQL 파일 검사 실패: ' . implode(' / ', $plan['problems']), ['problems' => $plan['problems']]);
     }
     return $plan;
 }
 
-/** DML 만 있는 계획을 트랜잭션 안에서 실행(호출자가 commit/rollback). → [문장별 결과, 합계, verify 전, verify 후] */
-function rops_sql_run_dml(PDO $pdo, array $plan): array
-{
-    $vb = rops_run_verify_queries($pdo, $plan['verify']);
-    $res = [];
-    $total = 0;
-    foreach ($plan['statements'] as $s) {
-        try {
-            $st = $pdo->prepare($s['sql']);
-            $st->execute();
-            $n = $s['type'] === 'select' ? count($st->fetchAll()) : $st->rowCount();
-            $st->closeCursor();
-        } catch (\PDOException $e) {
-            throw new RopsError('sql_error', "{$s['no']}번 문장 실패: " . rops_clean_message($e->getMessage()), ['statement' => $s['no'], 'results' => $res]);
-        }
-        if (in_array($s['type'], ['insert', 'update', 'delete', 'replace'], true)) {
-            $total += $n;
-        }
-        $res[] = ['no' => $s['no'], 'type' => $s['type'], 'tables' => $s['tables'], 'rows' => $n];
-    }
-    $va = rops_run_verify_queries($pdo, $plan['verify']);
-    return [$res, $total, $vb, $va];
-}
-
-/** db.stage_sql: SQL 파일 승인 요청(DML 은 롤백되는 트랜잭션으로 미리 실행해 영향 행 수·전후 비교를 승인 화면에 보여 줌) */
+/** db.stage_sql: SQL 파일 승인 요청. 승인 전에는 SQL 을 실행하지 않는다 — 대상 행 수는 COUNT 조회로(READ ONLY 트랜잭션) */
 function rops_db_stage_sql(PDO $pdo, array $p, ?string $sqlOverride = null, string $source = 'file'): array
 {
     $sql = $sqlOverride ?? (string) ($p['sql'] ?? '');
-    $plan = rops_sql_plan_checked($sql);
-    $preview = ['source' => $source, 'statements' => count($plan['statements']), 'warnings' => $plan['warnings'], 'has_ddl' => $plan['has_ddl'], 'tables' => $plan['tables']];
+    $plan = rops_sql_plan_checked($pdo, $sql, $source === 'file' ? 'file' : 'snapshot');
+    $preview = ['source' => $source, 'statements' => count($plan['statements']), 'warnings' => $plan['warnings'], 'has_ddl' => $plan['has_ddl'],
+        'tables' => $plan['tables'], 'hidden_chars' => rops_hidden_chars($sql)];
     $total = null;
-    if (!$plan['has_ddl']) {
-        $pdo->beginTransaction();
-        try {
-            [$res, $total, $vb, $va] = rops_sql_run_dml($pdo, $plan);
-            $preview['dry_run'] = ['results' => $res, 'total_rows' => $total, 'verify_before' => $vb, 'verify_after' => $va,
-                'note' => '롤백되는 트랜잭션에서 미리 실행한 결과(데이터는 바뀌지 않음, AUTO_INCREMENT 번호는 건너뛸 수 있음)'];
-        } finally {
-            if ($pdo->inTransaction()) { $pdo->rollBack(); }
-        }
-    } else {
-        $preview['dry_run'] = null;
-        $preview['note'] = 'DDL(구조 변경)이 있어 미리 실행할 수 없습니다. 실행 직전에 대상 테이블을 자동 백업합니다(ALTER/DROP/TRUNCATE/RENAME).';
-    }
     $deletes = 0;
-    foreach ($preview['dry_run']['results'] ?? [] as $r) { if ($r['type'] === 'delete') { $deletes += $r['rows']; } }
+    if (!$plan['has_ddl']) {
+        [$est, $vb] = rops_readonly($pdo, static function () use ($pdo, $plan): array {
+            $est = [];
+            foreach ($plan['statements'] as $s) {
+                $est[] = ['no' => $s['no'], 'type' => $s['type'], 'tables' => $s['tables'], 'target_rows' => rops_sql_estimate($pdo, $s)];
+            }
+            return [$est, rops_run_verify_queries($pdo, $plan['verify'])];
+        });
+        $total = array_sum(array_column($est, 'target_rows'));
+        foreach ($est as $e) { if ($e['type'] === 'delete') { $deletes += $e['target_rows']; } }
+        $preview += ['estimates' => $est, 'total_rows' => $total, 'verify_before' => $vb,
+            'note' => '승인 전에는 실행하지 않고 현재 데이터 기준 대상 행 수만 셌습니다(앞 문장의 영향은 반영 안 됨). 실행 때 문장마다 다시 세어 승인 행 수를 넘으면 전체 롤백합니다.'];
+    } else {
+        $preview['note'] = 'DDL(구조 변경) 파일: 미리 실행할 수 없습니다. 실행 직전에 대상 테이블을 자동 백업합니다(ALTER/DROP/TRUNCATE/RENAME).';
+    }
     $maxRows = isset($p['max_rows']) ? max(0, (int) $p['max_rows']) : ($total ?? 0);
+    if ($total !== null && $total > $maxRows) {
+        throw new RopsError('bad_params', "대상 {$total}행이 max_rows({$maxRows})보다 많습니다");
+    }
     $scope = [
         'sql_sha256' => hash('sha256', $sql), 'bytes' => strlen($sql), 'has_ddl' => $plan['has_ddl'], 'tables' => $plan['tables'],
-        'statements' => count($plan['statements']), 'max_rows_total' => $maxRows,
-        'needs_extra_confirm' => $plan['has_ddl'] || $plan['warnings'] !== [] || $deletes > ROPS_BULK_DELETE_ROWS,
+        'statements' => count($plan['statements']), 'max_rows_total' => $maxRows, 'source' => $source,
+        'needs_extra_confirm' => $plan['has_ddl'] || $plan['warnings'] !== [] || $deletes > ROPS_BULK_DELETE_ROWS || $preview['hidden_chars'] > 0,
     ];
-    if ($total !== null && $total > $maxRows) {
-        throw new RopsError('bad_params', "미리 실행 결과 {$total}행이 max_rows({$maxRows})보다 많습니다");
-    }
     $g = rops_grant_create($pdo, ['kind' => 'db', 'mode' => 'sql', 'title' => (string) ($p['title'] ?? ''), 'detail' => $p['detail'] ?? null,
         'scope' => $scope, 'payload' => $sql, 'preview' => $preview, 'ttl_minutes' => (int) ($p['ttl_minutes'] ?? 60), 'max_ops' => 1]);
     return ['result' => ['grant' => rops_grant_public($g), 'preview' => $preview, 'approve_url' => rops_approve_url($g['code'])],
@@ -868,30 +910,59 @@ function rops_approve_url(string $code): string
     return rops_settings()['base_url'] . '/admin-remote-ops.php?grant=' . rawurlencode($code);
 }
 
+/** 보이지 않는 문자(양방향 제어·폭 없는 문자) 개수 — 승인 화면에서 숨은 코드 경고용 */
+function rops_hidden_chars(string $s): int
+{
+    return (int) preg_match_all('/[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2060}-\x{2064}\x{2066}-\x{2069}\x{00AD}\x{FEFF}]/u', $s);
+}
+
 /** db.execute: 승인된 SQL 파일 실행 */
 function rops_db_execute(PDO $pdo, array $ctx, array $p): array
 {
     $code = (string) ($p['grant'] ?? '');
     $dry = !empty($p['dry_run']);
     $g0 = rops_grant_get($pdo, $code);
-    if ($g0 === null) {
-        throw new RopsError('grant_not_found', "승인을 찾을 수 없음: {$code}");
+    if ($g0 === null || $g0['kind'] !== 'db' || $g0['mode'] !== 'sql') {
+        throw new RopsError('grant_not_found', "SQL 실행 승인을 찾을 수 없음: {$code}");
     }
     $sql = (string) $g0['payload'];
     if (!hash_equals((string) ($g0['scope']['sql_sha256'] ?? ''), hash('sha256', $sql))) {
         throw new RopsError('grant_corrupt', '승인된 SQL 본문의 해시가 맞지 않습니다');
     }
-    $plan = rops_sql_plan_checked($sql);
+    $plan = rops_sql_plan_checked($pdo, $sql, ($g0['scope']['source'] ?? 'file') === 'file' ? 'file' : 'snapshot');
     $maxRows = (int) ($g0['scope']['max_rows_total'] ?? 0);
 
     if (!$plan['has_ddl']) {
         $pdo->beginTransaction();
         try {
             $g = rops_grant_require($pdo, $code, 'db', 'sql');
-            [$res, $total, $vb, $va] = rops_sql_run_dml($pdo, $plan);
-            if ($total > $maxRows) {
-                throw new RopsError('too_many_rows', "실행 결과 {$total}행 — 승인된 최대 {$maxRows}행 초과(롤백함)", ['results' => $res]);
+            $vb = rops_run_verify_queries($pdo, $plan['verify']);
+            $res = [];
+            $total = 0;
+            $changed = 0;
+            foreach ($plan['statements'] as $s) {
+                // 실행 직전 대상 행 수를 다시 세어 승인 범위 확인
+                $target = rops_sql_estimate($pdo, $s);
+                $total += $target;
+                if ($total > $maxRows) {
+                    throw new RopsError('too_many_rows', "{$s['no']}번 문장까지 대상 {$total}행 — 승인된 최대 {$maxRows}행 초과(전체 롤백)", ['results' => $res]);
+                }
+                try {
+                    $st = $pdo->prepare($s['sql']);
+                    $st->execute();
+                    $n = $st->rowCount();
+                    $st->closeCursor();
+                } catch (\PDOException $e) {
+                    throw new RopsError('sql_error', "{$s['no']}번 문장 실패: " . rops_clean_message($e->getMessage()), ['statement' => $s['no'], 'results' => $res]);
+                }
+                if (!$pdo->inTransaction()) {
+                    // 문장이 트랜잭션을 끝냈다면(있어선 안 됨) 즉시 멈춘다
+                    throw new RopsError('tx_broken', "{$s['no']}번 문장 뒤 트랜잭션이 끝났습니다 — 실행을 멈췄습니다. 이력·데이터를 확인하세요", ['results' => $res]);
+                }
+                $changed += $n;
+                $res[] = ['no' => $s['no'], 'type' => $s['type'], 'tables' => $s['tables'], 'target_rows' => $target, 'changed_rows' => $n];
             }
+            $va = rops_run_verify_queries($pdo, $plan['verify']);
             rops_snapshot_put($pdo, $ctx['log_id'], $g['id'], 'verify_before', 'sql', rops_json($vb));
             rops_snapshot_put($pdo, $ctx['log_id'], $g['id'], 'verify_after', 'sql', rops_json($va));
             rops_grant_use($pdo, $g, $total, true);
@@ -901,14 +972,14 @@ function rops_db_execute(PDO $pdo, array $ctx, array $p): array
             throw rops_wrap_pdo($e);
         }
         return ['result' => ['dry_run' => $dry, 'committed' => !$dry, 'transaction' => true, 'results' => $res, 'total_rows' => $total,
-            'verify_before' => $vb, 'verify_after' => $va],
-            'log' => ['grant_id' => $g['id'], 'target' => implode(',', $plan['tables']), 'affected_rows' => $total, 'status' => $dry ? 'dry_run' : 'ok']];
+            'changed_rows' => $changed, 'verify_before' => $vb, 'verify_after' => $va],
+            'log' => ['grant_id' => $g['id'], 'target' => implode(',', $plan['tables']), 'affected_rows' => $changed, 'status' => $dry ? 'dry_run' : 'ok']];
     }
 
     if ($dry) {
         throw new RopsError('ddl_no_dry_run', 'DDL 이 있는 SQL 은 미리 실행할 수 없습니다(승인 후 실제 실행만)');
     }
-    // DDL: 승인 사용 처리를 먼저 확정(중복 실행 방지) → 자동 백업 → 문장 순서대로(각 DDL 은 MySQL 이 즉시 커밋)
+    // DDL 파일(DML 없음 — 계획 검사에서 보장): 승인 사용 확정(중복 실행 방지) → 자동 백업 → 문장 순서대로(각 DDL 은 MySQL 이 즉시 커밋)
     $pdo->beginTransaction();
     try {
         $g = rops_grant_require($pdo, $code, 'db', 'sql');
@@ -929,23 +1000,20 @@ function rops_db_execute(PDO $pdo, array $ctx, array $p): array
         }
     }
     $res = [];
-    $total = 0;
     foreach ($plan['statements'] as $s) {
         try {
             $st = $pdo->prepare($s['sql']);
             $st->execute();
-            $n = $s['type'] === 'select' ? count($st->fetchAll()) : $st->rowCount();
             $st->closeCursor();
         } catch (\PDOException $e) {
             throw new RopsError('sql_error', "{$s['no']}번 문장 실패(앞 문장은 이미 반영됨): " . rops_clean_message($e->getMessage()),
                 ['statement' => $s['no'], 'results' => $res, 'backups' => $backups]);
         }
-        if (in_array($s['type'], ['insert', 'update', 'delete', 'replace'], true)) { $total += $n; }
-        $res[] = ['no' => $s['no'], 'type' => $s['type'], 'kw' => $s['kw'], 'tables' => $s['tables'], 'rows' => $n];
+        $res[] = ['no' => $s['no'], 'type' => $s['type'], 'kw' => $s['kw'], 'tables' => $s['tables']];
     }
-    return ['result' => ['dry_run' => false, 'committed' => true, 'transaction' => false, 'results' => $res, 'total_rows' => $total, 'backups' => $backups,
-        'note' => 'DDL 이 있어 문장마다 즉시 반영되었습니다. 복구는 backups 의 스냅샷으로 db.stage_restore 를 사용하세요.'],
-        'log' => ['grant_id' => $g['id'], 'target' => implode(',', $plan['tables']), 'affected_rows' => $total]];
+    return ['result' => ['dry_run' => false, 'committed' => true, 'transaction' => false, 'results' => $res, 'backups' => $backups,
+        'note' => 'DDL 이라 문장마다 즉시 반영되었습니다. 복구는 backups 의 스냅샷으로 db.stage_restore 를 사용하세요.'],
+        'log' => ['grant_id' => $g['id'], 'target' => implode(',', $plan['tables']), 'affected_rows' => 0]];
 }
 
 // ─────────────────────────────── 백업·복원 ───────────────────────────────
@@ -973,10 +1041,15 @@ function rops_table_dump_snapshot(PDO $pdo, ?int $logId, ?int $grantId, string $
     }
     $create = $pdo->query('SHOW CREATE TABLE ' . rops_qi($table))->fetch(PDO::FETCH_NUM)[1] ?? '';
     $T = rops_qi($table);
-    $cols = $meta['names'];
+    // 인증정보 컬럼은 백업하지 않음(복원 때도 기존 값 유지). 그 컬럼이 있는 테이블의 '삭제된 행'은 이 백업으로 되살릴 수 없음
+    $cols = array_values(array_filter($meta['names'], static fn($c) => !rops_is_secret_column((string) $c)));
+    $skipped = array_values(array_diff($meta['names'], $cols));
     $colList = implode(',', array_map('rops_qi', $cols));
     $upd = implode(', ', array_map(static fn($c) => rops_qi($c) . '=VALUES(' . rops_qi($c) . ')', array_diff($cols, $meta['pk'])));
     $out = "-- @table {$table}\n-- 원격 관리 API 자동 백업 " . date('Y-m-d H:i:s') . " — 복원: 행 값을 백업 시점으로 되돌림(이후 추가된 행은 남음, 구조 변경은 아래 CREATE 참고해 수동 복구)\n";
+    if ($skipped !== []) {
+        $out .= '-- 인증정보 컬럼 제외: ' . implode(', ', $skipped) . "\n";
+    }
     $out .= '-- ' . str_replace("\n", "\n-- ", $create) . "\n";
     $order = $meta['pk'] ? ' ORDER BY ' . implode(',', array_map('rops_qi', $meta['pk'])) : '';
     $rows = $pdo->query("SELECT * FROM {$T}{$order}");
@@ -998,8 +1071,9 @@ function rops_table_dump_snapshot(PDO $pdo, ?int $logId, ?int $grantId, string $
         }
     }
     $flush();
+    rops_storage_guard($pdo, strlen($out));
     $id = rops_snapshot_put($pdo, $logId, $grantId, 'table_dump', $table, $out);
-    return ['snapshot' => $id, 'table' => $table, 'rows' => $n, 'bytes' => strlen($out)];
+    return ['snapshot' => $id, 'table' => $table, 'rows' => $n, 'bytes' => strlen($out), 'skipped_secret_columns' => $skipped];
 }
 
 function rops_db_backup(PDO $pdo, array $ctx, array $p): array

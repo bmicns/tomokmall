@@ -56,6 +56,7 @@ function rops_admin_file_rows(PDO $pdo, array $g): array
         $binary = str_contains($new, "\0") || ($cur !== null && str_contains($cur, "\0"));
         $rows[] = ['path' => $f['path'], 'action' => $f['new_file'] ? '새 파일' : ($f['unchanged'] ? '변경 없음' : '교체'), 'size' => $f['size'],
             'server_same' => $curHash === $f['base_sha256'], 'error' => $err, 'binary' => $binary,
+            'sensitive' => !empty($f['sensitive']), 'hidden_chars' => (int) ($f['hidden_chars'] ?? 0),
             'diff' => $binary ? null : rops_line_diff($cur ?? '', $new)];
     }
     foreach ($g['scope']['delete'] ?? [] as $d) {
@@ -65,7 +66,8 @@ function rops_admin_file_rows(PDO $pdo, array $g): array
             $curHash = $r['is_file'] ? hash_file('sha256', $r['abs']) : null;
         } catch (\Throwable $e) {
         }
-        $rows[] = ['path' => $d['path'], 'action' => '삭제', 'size' => null, 'server_same' => $curHash === $d['base_sha256'], 'error' => null, 'binary' => false, 'diff' => null];
+        $rows[] = ['path' => $d['path'], 'action' => '삭제', 'size' => null, 'server_same' => $curHash === $d['base_sha256'], 'error' => null, 'binary' => false,
+            'sensitive' => !empty($d['sensitive']), 'hidden_chars' => 0, 'diff' => null];
     }
     return $rows;
 }
@@ -199,26 +201,31 @@ function rops_admin_card(PDO $pdo, array $g, string $csrf, bool $focus, array $L
             <?php elseif ($g['kind'] === 'db' && $g['mode'] === 'sql'):
                 $pv = $g['preview'] ?? [];
                 $lines = explode("\n", (string) $g['payload']);
+                $fromFile = ($s['source'] ?? 'file') === 'file';
+                $showLines = $fromFile ? $lines : array_slice($lines, 0, 200);
                 ?>
                 <dl class="rops-dl">
+                    <dt>출처</dt><dd><?= $fromFile ? 'Claude 가 보낸 SQL 파일(전체 표시)' : e('서버 백업에서 만든 복원 SQL (' . (string) ($s['source'] ?? '') . ')') ?></dd>
                     <dt>문장 수</dt><dd><?= (int) ($s['statements'] ?? 0) ?>개 · <?= number_format((int) ($s['bytes'] ?? 0)) ?>바이트 · 테이블 <?= e(implode(', ', $s['tables'] ?? [])) ?></dd>
                     <dt>구조 변경(DDL)</dt><dd class="<?= !empty($s['has_ddl']) ? 'rops-warn' : '' ?>"><?= !empty($s['has_ddl']) ? '있음 — 미리 실행 불가, 실행 전 대상 테이블 자동 백업, 되돌리기는 백업 복원' : '없음(한 트랜잭션, 실패 시 전체 롤백)' ?></dd>
-                    <dt>최대 변경 행</dt><dd><?= (int) ($s['max_rows_total'] ?? 0) ?>행(넘으면 롤백)</dd>
+                    <?php if (empty($s['has_ddl'])): ?><dt>최대 변경 행</dt><dd><?= (int) ($s['max_rows_total'] ?? 0) ?>행(실행 때 다시 세어 넘으면 전체 롤백)</dd><?php endif; ?>
                     <dt>SHA-256</dt><dd class="rops-mono"><?= e((string) ($s['sql_sha256'] ?? '')) ?></dd>
                 </dl>
+                <?php if (!empty($pv['hidden_chars'])): ?><p class="rops-warn">⚠ 보이지 않는 문자(양방향 제어·폭 없는 문자) <?= (int) $pv['hidden_chars'] ?>개가 들어 있습니다. 화면에 보이는 SQL 과 실제가 다를 수 있으니 거절을 권장합니다.</p><?php endif; ?>
                 <?php if (!empty($pv['warnings'])): ?><ul class="rops-warnlist"><?php foreach ($pv['warnings'] as $w): ?><li><?= e((string) $w) ?></li><?php endforeach; ?></ul><?php endif; ?>
-                <div class="rops-sub">실행할 SQL<?= count($lines) > 400 ? ' (앞 400줄 / 전체 ' . count($lines) . '줄)' : '' ?></div>
-                <pre class="rops-pre"><?= e(implode("\n", array_slice($lines, 0, 400))) ?></pre>
-                <?php if (!empty($pv['dry_run'])): ?>
-                    <div class="rops-sub">미리 실행 결과(롤백됨) — 합계 <?= (int) $pv['dry_run']['total_rows'] ?>행</div>
-                    <div class="rops-scroll"><table class="adm-table"><thead><tr><th>#</th><th>종류</th><th>테이블</th><th>영향 행</th></tr></thead><tbody>
-                    <?php foreach ($pv['dry_run']['results'] as $r): ?><tr><td><?= (int) $r['no'] ?></td><td><?= e((string) $r['type']) ?></td><td><?= e(implode(', ', $r['tables'])) ?></td><td><?= (int) $r['rows'] ?></td></tr><?php endforeach; ?>
+                <div class="rops-sub">실행할 SQL<?= count($showLines) < count($lines) ? ' (앞 ' . count($showLines) . '줄 / 전체 ' . count($lines) . '줄)' : ' (전체 ' . count($lines) . '줄)' ?></div>
+                <pre class="rops-pre rops-prewrap"><?= e(implode("\n", $showLines)) ?></pre>
+                <?php if (!empty($pv['estimates'])): ?>
+                    <div class="rops-sub">대상 행 수(승인 전이라 실행하지 않고 COUNT 로 셈) — 합계 <?= (int) $pv['total_rows'] ?>행</div>
+                    <div class="rops-scroll"><table class="adm-table"><thead><tr><th>#</th><th>종류</th><th>테이블</th><th>대상 행</th></tr></thead><tbody>
+                    <?php foreach ($pv['estimates'] as $r): ?><tr><td><?= (int) $r['no'] ?></td><td><?= e((string) $r['type']) ?></td><td><?= e(implode(', ', $r['tables'])) ?></td><td><?= (int) $r['target_rows'] ?></td></tr><?php endforeach; ?>
                     </tbody></table></div>
-                    <?php if (!empty($pv['dry_run']['verify_before'])): ?>
-                        <details class="rops-details"><summary>변경 전후 확인 조회(@verify)</summary>
-                            <pre class="rops-pre"><?= e(mb_substr(rops_admin_json(['전' => $pv['dry_run']['verify_before'], '후' => $pv['dry_run']['verify_after']]), 0, 20000)) ?></pre></details>
+                    <?php if (!empty($pv['verify_before'])): ?>
+                        <details class="rops-details"><summary>확인 조회(@verify) 현재값</summary>
+                            <pre class="rops-pre"><?= e(mb_substr(rops_admin_json($pv['verify_before']), 0, 20000)) ?></pre></details>
                     <?php endif; ?>
-                <?php elseif (!empty($pv['note'])): ?><p class="rops-warn"><?= e((string) $pv['note']) ?></p><?php endif; ?>
+                <?php endif; ?>
+                <?php if (!empty($pv['note'])): ?><p class="rops-meta"><?= e((string) $pv['note']) ?></p><?php endif; ?>
 
             <?php elseif ($g['kind'] === 'files'): ?>
                 <div class="rops-sub">배포 파일 — 서버 PHP <?= e((string) ($g['preview']['php_version'] ?? '')) ?> 문법 검사 통과</div>
@@ -232,6 +239,8 @@ function rops_admin_card(PDO $pdo, array $g, string $csrf, bool $focus, array $L
                                 <?php if ($fr['server_same']): ?><span class="rops-okc">요청 이후 서버 변동 없음</span><?php else: ?><span class="rops-warn">⚠ 요청 이후 서버 파일이 바뀜</span><?php endif; ?>
                             <?php endif; ?>
                         </div>
+                        <?php if ($fr['sensitive']): ?><div class="rops-warn">⚠ 인증·승인 화면·웹 서버 설정에 영향을 주는 파일입니다. 아래 차이를 꼭 확인하세요.</div><?php endif; ?>
+                        <?php if ($fr['hidden_chars'] > 0): ?><div class="rops-warn">⚠ 보이지 않는 문자 <?= (int) $fr['hidden_chars'] ?>개 — 화면과 실제 코드가 다를 수 있음(거절 권장)</div><?php endif; ?>
                         <?php if ($fr['error']): ?><div class="rops-warn"><?= e($fr['error']) ?></div><?php endif; ?>
                         <?php if ($fr['binary']): ?><div class="rops-meta">이진 파일(이미지 등) — 차이 표시 생략, <?= number_format((int) $fr['size']) ?>바이트</div>
                         <?php elseif ($fr['diff'] && ($fr['diff']['eol_only'] || $fr['diff']['identical'])): ?><div class="rops-meta"><?= $fr['diff']['identical'] ? '내용 같음' : '줄바꿈(CRLF/LF)만 다름' ?></div>
@@ -251,7 +260,7 @@ function rops_admin_card(PDO $pdo, array $g, string $csrf, bool $focus, array $L
                     <input class="rops-input" id="note-<?= e($g['code']) ?>" name="note" maxlength="250" placeholder="예: 10개 가격만 확인함">
                     <?php if (!empty($s['needs_extra_confirm'])): ?>
                         <label class="rops-check"><input type="checkbox" name="confirm_extra" value="1">
-                            <span>구조 변경(DDL)·대량 변경·CASCADE 삭제가 포함된 것을 확인했고, 백업·되돌리기 방법을 이해했습니다.</span></label>
+                            <span>구조 변경(DDL)·대량 변경·CASCADE 삭제·인증/승인 화면 관련 파일·보이지 않는 문자 등 위 경고를 확인했고, 백업·되돌리기 방법을 이해했습니다.</span></label>
                     <?php endif; ?>
                     <div class="rops-actions">
                         <button class="btn btn-primary rops-btn" type="submit" name="action" value="approve">승인 (<?= (int) $g['ttl_minutes'] ?>분 유효)</button>
@@ -290,7 +299,9 @@ render_admin_header('Claude 원격 작업 승인', 'remote-ops');
 .rops-dl dt{color:#666;font-weight:600}.rops-dl dd{word-break:break-all}
 .rops-sub{font-weight:700;color:#333;margin-top:6px}
 .rops-scroll{overflow-x:auto;border:1px solid #eee;border-radius:6px}
+.rops-prewrap{white-space:pre-wrap;word-break:break-all}
 .rops-pre{background:#0f172a;color:#e2e8f0;border-radius:6px;padding:12px;overflow:auto;max-height:480px;font-size:12px;line-height:1.5;white-space:pre}
+.rops-pre.rops-prewrap{white-space:pre-wrap;max-height:none}
 .rops-diff .rops-d-add{color:#86efac}.rops-diff .rops-d-del{color:#fca5a5}.rops-diff .rops-d-hunk{color:#93c5fd}
 .rops-mono{font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all}
 .rops-file{border:1px solid #eee;border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}

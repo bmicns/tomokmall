@@ -87,6 +87,8 @@ function rops_main(string $webroot): void
     ini_set('display_startup_errors', '0');
     error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
     $t0 = rops_now_ms();
+    // 연결이 끊겨도 진행 중인 배포·복구가 중간에 멈추지 않게
+    ignore_user_abort(true);
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
     header('X-Robots-Tag: noindex, nofollow');
@@ -197,7 +199,12 @@ function rops_main(string $webroot): void
     }
     $ctx = ['log_id' => $logId, 'ip' => rops_client_ip()];
     try {
-        $out = rops_dispatch($op, $pdo, $ctx, $params, $cfg, $dbError);
+        try {
+            $out = rops_dispatch($op, $pdo, $ctx, $params, $cfg, $dbError);
+        } catch (\InvalidArgumentException $e) {
+            // 입력 검사 실패(WHERE 조립·식별자 등) → 요청 오류로
+            throw new RopsError('bad_params', $e->getMessage());
+        }
         if ($logId !== null) {
             rops_log_finish($pdo, $logId, $out['log']['status'] ?? 'ok', rops_now_ms() - $t0, $out['log'] + ['result' => rops_result_summary($out['result'])]);
         }
@@ -312,6 +319,24 @@ function rops_grant_request_scope(PDO $pdo, array $p): array
     }
     $columns = $p['columns'] ?? null;
     $ids = $p['ids'] ?? null;
+    // columns·ids 는 {테이블: [...]} 형식이고 키는 tables 안에 있어야 함(오타로 '제한 없음'이 되는 것 방지)
+    foreach (['columns' => $columns, 'ids' => $ids] as $name => $m) {
+        if ($m === null) { continue; }
+        if (!is_array($m) || $m === [] || array_is_list($m)) {
+            throw new RopsError('bad_params', "{$name} 는 {테이블: [...]} 형식");
+        }
+        foreach ($m as $t => $list) {
+            if (!in_array((string) $t, $tables, true)) {
+                throw new RopsError('bad_params', "{$name} 의 테이블 '{$t}' 가 tables 목록에 없습니다");
+            }
+            if (!is_array($list) || $list === [] || !array_is_list($list)) {
+                throw new RopsError('bad_params', "{$name}.{$t} 는 값 목록");
+            }
+        }
+    }
+    if (in_array('delete', $actions, true) && array_intersect($tables, rops_secret_tables($pdo)) !== []) {
+        throw new RopsError('forbidden_table', '인증정보 컬럼이 있는 테이블(' . implode(', ', array_intersect($tables, rops_secret_tables($pdo))) . ')은 삭제 승인을 요청할 수 없습니다');
+    }
     $preview = ['tables' => []];
     foreach ($tables as $t) {
         rops_deny_ops_table($t);

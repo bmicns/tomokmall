@@ -219,11 +219,9 @@ function rops_sql_classify(string $stmt): array
             $r['type'] = 'show';
             return $r;
         case 'SET':
-            if (isset($tk[$i + 1]) && $tk[$i + 1]['t'] === 'var' && !str_starts_with($tk[$i + 1]['v'], '@@')) {
-                $r['type'] = 'set_var';
-                return $r;
-            }
-            $r['reason'] = 'SET 은 사용자 변수(@이름)만 허용';
+            // SET 은 전부 거부: 'SET @a=1, autocommit=0' 처럼 뒤쪽 대입으로 세션(autocommit·sql_mode)을 바꿔
+            // 롤백 예정 트랜잭션을 실제로 커밋시키는 우회가 가능하기 때문(보안 검토 2026-11-03)
+            $r['reason'] = 'SET 은 지원하지 않음(세션 설정 변경 차단)';
             return $r;
         case 'INSERT':
         case 'REPLACE':
@@ -350,10 +348,39 @@ function rops_sql_common_problem(array $tk): ?string
     return null;
 }
 
+/** SHOW 로 허용하는 형식(첫 단어 → 허용 둘째 단어 목록, null 이면 첫 단어만으로 허용). 그 밖은 거부(계정·인증 해시·프로세스 등) */
+const ROPS_SHOW_ALLOWED = [
+    'TABLES' => null, 'COLUMNS' => null, 'FIELDS' => null, 'INDEX' => null, 'INDEXES' => null, 'KEYS' => null,
+    'CREATE' => ['TABLE'], 'TABLE' => ['STATUS'], 'VARIABLES' => null, 'STATUS' => null, 'WARNINGS' => null, 'ERRORS' => null,
+    'COLLATION' => null, 'CHARACTER' => ['SET'], 'CHARSET' => null, 'ENGINES' => null, 'TRIGGERS' => null,
+];
+
+/** 관리 API 내부 테이블 중 조회도 막는 것(파일·테이블 백업 본문 — 개인정보·대량 데이터) */
+const ROPS_QUERY_BLOCKED_TABLES = ['remote_ops_snapshots'];
+
 /**
- * 조회 전용 SQL 검사(db.query). 통과하면 null, 아니면 이유.
+ * `*` 가 '모든 컬럼'으로 쓰였는지(곱셈·COUNT(*) 는 아님): 앞 토큰이 SELECT·DISTINCT·ALL·쉼표·점
  */
-function rops_sql_read_problem(string $sql): ?string
+function rops_sql_has_star_select(array $tk): bool
+{
+    foreach ($tk as $k => $t) {
+        if ($t['t'] !== 'punct' || $t['v'] !== '*' || $k === 0) {
+            continue;
+        }
+        $prev = $tk[$k - 1];
+        if (($prev['t'] === 'word' && in_array($prev['u'], ['SELECT', 'DISTINCT', 'ALL', 'DISTINCTROW', 'SQL_NO_CACHE', 'STRAIGHT_JOIN'], true))
+            || ($prev['t'] === 'punct' && in_array($prev['v'], [',', '.'], true))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * 조회 전용 SQL 검사(db.query·@verify). 통과하면 null, 아니면 이유.
+ * @param list<string> $secretTables 인증정보 컬럼이 있는 테이블(이 테이블을 쓰는 조회는 `*` 금지 — 별칭·UNION 으로 이름을 바꿔 가림을 피하는 것 차단)
+ */
+function rops_sql_read_problem(string $sql, array $secretTables = []): ?string
 {
     $stmts = rops_sql_split($sql);
     if (count($stmts) !== 1) {
@@ -366,11 +393,15 @@ function rops_sql_read_problem(string $sql): ?string
     $tk = rops_sql_tokens($stmts[0]);
     if (($p = rops_sql_common_problem($tk)) !== null) { return $p; }
     $secret = array_flip(ROPS_SECRET_COLUMNS);
+    $secretT = array_flip(array_map('strtolower', $secretTables));
+    $usesSecretTable = null;
     foreach ($tk as $k => $t) {
         if ($t['t'] === 'word' || $t['t'] === 'qident') {
             $low = strtolower($t['v']);
-            if (isset($secret[$low])) { return "인증정보 컬럼({$low})은 조회할 수 없음"; }
+            if (isset($secret[$low]) || ($t['t'] === 'qident' && rops_is_secret_column($low))) { return "인증정보 컬럼({$low})은 조회할 수 없음"; }
             if (in_array($low, ROPS_BLOCKED_SCHEMAS, true) && (($tk[$k + 1]['v'] ?? '') === '.')) { return "시스템 스키마({$low}) 조회 금지"; }
+            if (in_array($low, ROPS_QUERY_BLOCKED_TABLES, true)) { return "{$low} 는 조회할 수 없음(백업 본문)"; }
+            if (isset($secretT[$low])) { $usesSecretTable = $low; }
         }
         if ($t['t'] !== 'word') { continue; }
         // INSERT( · REPLACE( 는 문자열 함수라 허용, 그 외 위치의 DML 키워드는 거부
@@ -380,28 +411,41 @@ function rops_sql_read_problem(string $sql): ?string
             return "조회에 쓸 수 없는 키워드: {$t['u']}";
         }
         if ($t['u'] === 'FOR' && in_array($tk[$k + 1]['u'] ?? '', ['UPDATE', 'SHARE'], true)) { return 'FOR UPDATE/SHARE 잠금 금지'; }
-        if ($t['u'] === 'ANALYZE' && $c['kw'] === 'EXPLAIN') { return 'EXPLAIN ANALYZE 금지(실제 실행됨)'; }
+        if ($t['u'] === 'ANALYZE' && in_array($c['kw'], ['EXPLAIN', 'DESC', 'DESCRIBE'], true)) { return 'EXPLAIN/DESC ANALYZE 금지(실제 실행됨)'; }
+    }
+    if ($usesSecretTable !== null && rops_sql_has_star_select($tk)) {
+        return "{$usesSecretTable} 는 인증정보 컬럼이 있어 * 대신 필요한 컬럼 이름을 적어야 합니다";
     }
     if ($c['kw'] === 'SHOW') {
-        // SHOW 는 구조·상태 조회만. 계정·권한·바이너리 로그 등은 거부
-        $second = '';
-        foreach ($tk as $k => $t) { if ($k > 0 && $t['t'] === 'word') { $second = $t['u']; break; } }
-        if (in_array($second, ['GRANTS', 'PROCESSLIST', 'BINLOG', 'BINARY', 'MASTER', 'SLAVE', 'REPLICA', 'REPLICAS', 'RELAYLOG', 'ENGINE', 'PRIVILEGES', 'PROFILE', 'PROFILES'], true)) {
-            return "SHOW {$second} 금지";
+        // 허용 목록 방식: FULL·EXTENDED·GLOBAL·SESSION 은 건너뛰고 첫 단어로 판정
+        $words = [];
+        foreach ($tk as $k => $t) {
+            if ($k > 0 && $t['t'] === 'word' && !in_array($t['u'], ['FULL', 'EXTENDED', 'GLOBAL', 'SESSION'], true)) { $words[] = $t['u']; }
+            if (count($words) >= 2) { break; }
+        }
+        $first = $words[0] ?? '';
+        if (!array_key_exists($first, ROPS_SHOW_ALLOWED)) {
+            return "SHOW {$first} 는 허용하지 않음(TABLES·COLUMNS·INDEX·CREATE TABLE·TABLE STATUS·VARIABLES·STATUS 등만)";
+        }
+        $need = ROPS_SHOW_ALLOWED[$first];
+        if ($need !== null && !in_array($words[1] ?? '', $need, true)) {
+            return "SHOW {$first} " . ($words[1] ?? '') . ' 는 허용하지 않음';
         }
     }
     return null;
 }
 
 /**
- * SQL 파일 실행 계획(db.execute / 승인 요청). 실행하지 않고 분류만 한다.
+ * SQL 파일 실행 계획(db.stage_sql / db.execute). 실행하지 않고 분류만 한다.
+ * 허용: 한 테이블 INSERT·REPLACE·UPDATE·DELETE(DML 파일) 또는 TABLE·INDEX DDL(DDL 파일) — 둘을 한 파일에 섞지 않음
+ * @param list<string> $secretTables 인증정보 컬럼이 있는 테이블(@verify 검사용)
  * @return array{statements:list<array>,verify:list<string>,has_ddl:bool,problems:list<string>,warnings:list<string>,tables:list<string>}
  */
-function rops_sql_plan(string $sql): array
+function rops_sql_plan(string $sql, array $secretTables = []): array
 {
     $plan = ['statements' => [], 'verify' => [], 'has_ddl' => false, 'problems' => [], 'warnings' => [], 'tables' => []];
     foreach (rops_sql_verify_directives($sql) as $v) {
-        if (($p = rops_sql_read_problem($v)) !== null) {
+        if (($p = rops_sql_read_problem($v, $secretTables)) !== null) {
             $plan['problems'][] = "@verify 조회 오류: {$p}";
         } else {
             $plan['verify'][] = $v;
@@ -414,6 +458,21 @@ function rops_sql_plan(string $sql): array
     if (preg_match('/^\s*DELIMITER\b/im', $sql)) {
         $plan['problems'][] = 'DELIMITER(프로시저·트리거 정의)는 지원하지 않음';
     }
+    // 관리 테이블·인증정보 컬럼: 따옴표("…"·`…`) 안까지 포함해 이름이 나오면 거부
+    foreach (rops_sql_tokens($sql) as $t) {
+        if (!in_array($t['t'], ['word', 'qident', 'str'], true)) { continue; }
+        if (stripos($t['v'], 'remote_ops_') !== false) {
+            $plan['problems'][] = '관리 API 테이블(remote_ops_*)은 SQL 파일로 다룰 수 없습니다';
+            break;
+        }
+    }
+    foreach (rops_sql_tokens($sql) as $t) {
+        if (in_array($t['t'], ['word', 'qident'], true) && rops_is_secret_column($t['v'])) {
+            $plan['problems'][] = '인증정보 컬럼(' . strtolower($t['v']) . ')은 SQL 파일로 다룰 수 없습니다';
+            break;
+        }
+    }
+    $dml = 0;
     foreach ($stmts as $n => $s) {
         $c = rops_sql_classify($s);
         $no = $n + 1;
@@ -423,7 +482,9 @@ function rops_sql_plan(string $sql): array
         if ($c['type'] === 'denied') {
             $plan['problems'][] = "{$no}번 문장: " . ($c['reason'] ?? '허용하지 않는 문장');
         } elseif ($c['type'] === 'show') {
-            $plan['problems'][] = "{$no}번 문장: SHOW/DESCRIBE/EXPLAIN 은 SQL 파일 실행에 쓰지 않음(db query 사용)";
+            $plan['problems'][] = "{$no}번 문장: SHOW/DESCRIBE/EXPLAIN 은 SQL 파일에 쓰지 않음(db query 사용)";
+        } elseif ($c['type'] === 'select') {
+            $plan['problems'][] = "{$no}번 문장: SELECT 는 SQL 파일에 쓰지 않음(확인 조회는 -- @verify 줄로)";
         }
         if ($c['qualified']) {
             $plan['problems'][] = "{$no}번 문장: 다른 DB(스키마.테이블) 지정 금지";
@@ -431,9 +492,12 @@ function rops_sql_plan(string $sql): array
         if ($c['type'] === 'ddl') {
             $plan['has_ddl'] = true;
         }
+        if (in_array($c['type'], ['insert', 'update', 'delete', 'replace'], true)) {
+            $dml++;
+        }
         if (in_array($c['type'], ['update', 'delete'], true)) {
             if ($c['multi']) {
-                $plan['warnings'][] = "{$no}번 문장: 여러 테이블 {$c['kw']}";
+                $plan['problems'][] = "{$no}번 문장: 여러 테이블 {$c['kw']} 는 지원하지 않음(한 테이블 + WHERE … IN (SELECT …) 로)";
             }
             if (!$c['has_where']) {
                 $plan['warnings'][] = "{$no}번 문장: WHERE 없는 {$c['kw']} (테이블 전체 대상)";
@@ -444,7 +508,84 @@ function rops_sql_plan(string $sql): array
         }
         $plan['statements'][] = ['no' => $no, 'sql' => $s] + $c;
     }
+    if ($plan['has_ddl'] && $dml > 0) {
+        $plan['problems'][] = 'DDL(구조 변경)과 DML(데이터 변경)은 한 파일에 섞지 않음 — 나눠서 요청(DML 은 트랜잭션·행 수 확인, DDL 은 자동 백업)';
+    }
     return $plan;
+}
+
+/**
+ * DML 한 문장의 대상 행 수를 '실행하지 않고' 세는 방법.
+ *   UPDATE t … SET … [WHERE …]   → SELECT COUNT(*) FROM (SELECT 1 FROM t … [WHERE …]) c
+ *   DELETE FROM t [WHERE …]       → SELECT COUNT(*) FROM (SELECT 1 FROM t [WHERE …]) c
+ *   INSERT … VALUES (…),(…)       → 괄호 묶음 수 (PHP 에서 셈)
+ *   INSERT … SET …                → 1
+ *   INSERT … SELECT …             → SELECT COUNT(*) FROM (SELECT …) c
+ * 세는 쿼리는 호출자가 READ ONLY 트랜잭션에서 실행한다(MySQL 이 쓰기를 막음).
+ * @return array{sql?:string,rows?:int}|null  셀 수 없는 형식이면 null
+ */
+function rops_sql_count_query(string $stmt): ?array
+{
+    $c = rops_sql_classify($stmt);
+    $tk = rops_sql_tokens($stmt);
+    $depthAt = [];
+    $d = 0;
+    foreach ($tk as $k => $t) {
+        if ($t['t'] === 'punct' && $t['v'] === ')') { $d--; }
+        $depthAt[$k] = $d;
+        if ($t['t'] === 'punct' && $t['v'] === '(') { $d++; }
+    }
+    $find = static function (array $words, int $from) use ($tk, $depthAt): ?int {
+        for ($k = $from; isset($tk[$k]); $k++) {
+            if ($depthAt[$k] === 0 && $tk[$k]['t'] === 'word' && in_array($tk[$k]['u'], $words, true)) { return $k; }
+        }
+        return null;
+    };
+    $wrap = static fn(string $inner): array => ['sql' => 'SELECT COUNT(*) FROM (SELECT 1 FROM ' . $inner . ') AS rops_cnt'];
+    if ($c['multi']) {
+        return null;
+    }
+    if ($c['type'] === 'update') {
+        $k = 1;
+        while (in_array($tk[$k]['u'] ?? '', ['LOW_PRIORITY', 'IGNORE'], true)) { $k++; }
+        $set = $find(['SET'], $k);
+        if ($set === null || !isset($tk[$k])) { return null; }
+        $ref = trim(substr($stmt, $tk[$k]['p'], $tk[$set]['p'] - $tk[$k]['p']));
+        $tail = $find(['WHERE', 'ORDER', 'LIMIT'], $set + 1);
+        return $wrap($ref . ($tail !== null ? ' ' . substr($stmt, $tk[$tail]['p']) : ''));
+    }
+    if ($c['type'] === 'delete') {
+        $from = $find(['FROM'], 1);
+        if ($from === null || !isset($tk[$from + 1])) { return null; }
+        $tail = $find(['WHERE', 'ORDER', 'LIMIT'], $from + 1);
+        $ref = $tail !== null ? substr($stmt, $tk[$from + 1]['p'], $tk[$tail]['p'] - $tk[$from + 1]['p']) : substr($stmt, $tk[$from + 1]['p']);
+        return $wrap(trim($ref) . ($tail !== null ? ' ' . substr($stmt, $tk[$tail]['p']) : ''));
+    }
+    if (in_array($c['type'], ['insert', 'replace'], true)) {
+        $values = $find(['VALUES', 'VALUE'], 1);
+        $select = $find(['SELECT'], 1);
+        $setKw = $find(['SET'], 1);
+        if ($values !== null) {
+            $rows = 0;
+            for ($k = $values + 1; isset($tk[$k]); $k++) {
+                if ($depthAt[$k] === 0 && $tk[$k]['t'] === 'word' && in_array($tk[$k]['u'], ['ON', 'AS'], true)) { break; }
+                if ($depthAt[$k] === 0 && $tk[$k]['t'] === 'punct' && $tk[$k]['v'] === '(') { $rows++; }
+            }
+            return $rows > 0 ? ['rows' => $rows] : null;
+        }
+        if ($setKw !== null && ($select === null || $setKw < $select)) {
+            return ['rows' => 1];
+        }
+        if ($select !== null) {
+            $end = null;
+            for ($k = $select + 1; isset($tk[$k]); $k++) {
+                if ($depthAt[$k] === 0 && ($tk[$k]['u'] ?? '') === 'ON' && ($tk[$k + 1]['u'] ?? '') === 'DUPLICATE') { $end = $k; break; }
+            }
+            $inner = $end !== null ? substr($stmt, $tk[$select]['p'], $tk[$end]['p'] - $tk[$select]['p']) : substr($stmt, $tk[$select]['p']);
+            return ['sql' => 'SELECT COUNT(*) FROM (' . trim($inner) . ') AS rops_cnt'];
+        }
+    }
+    return null;
 }
 
 /** 식별자(테이블·컬럼) 이름 형식 검사 — 실제 존재 여부는 information_schema 로 따로 확인 */

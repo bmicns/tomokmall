@@ -46,6 +46,11 @@ function rops_grant_create(PDO $pdo, array $g): array
     if ($title === '' || mb_strlen($title) > 200) {
         throw new RopsError('bad_params', '승인 요청 제목(title)은 1~200자');
     }
+    // 승인 대기 요청이 쌓여 DB 를 채우지 않게(키만으로 만들 수 있는 것이라 상한을 둔다)
+    $pending = (int) $pdo->query("SELECT COUNT(*) FROM remote_ops_grants WHERE status = 'pending'")->fetchColumn();
+    if ($pending >= 10) {
+        throw new RopsError('too_many_pending', '승인 대기 요청이 10건 이상입니다. 관리자 화면에서 정리하거나 grant cancel 로 취소한 뒤 요청하세요');
+    }
     for ($try = 0; $try < 5; $try++) {
         $code = rops_grant_code();
         try {

@@ -63,8 +63,8 @@ Claude Code 웹 컨테이너                         닷홈 서버
 | `public/admin-remote-ops.php` | 관리자 승인 화면 |
 | `database/20261103_remote_ops.sql` | 관리 테이블 4개(추가형) |
 | `scripts/tomok`, `scripts/remote-ops/tomok.php` | CLI |
-| `tests/remote_ops.test.php` | 단위 테스트(130) |
-| `scripts/remote-ops/test-local.sh`, `integration.test.php` | 로컬 통합 테스트(132) |
+| `tests/remote_ops.test.php` | 단위 테스트(169) |
+| `scripts/remote-ops/test-local.sh`, `integration.test.php` | 로컬 통합 테스트(152) |
 
 ## 4. 인증·보안
 
@@ -106,9 +106,12 @@ POST 확인 → `REMOTE_OPS_ENABLED=1` → (선택) IP 허용 목록 → 봉투 
 
 ### 4-6. 보호 대상(서버에서 강제)
 - DB: `remote_ops_*` 관리 테이블 쓰기 금지(자기 승인 조작 차단), 인증정보 컬럼(`password_hash`, `*token*`, `*secret*`, `api_key` …) 조회 SQL 거부·결과 `[REDACTED]`·쓰기 거부, 개인정보 컬럼(이메일·전화·주소·고객명·users.name …) 결과 기본 `[PII]`(`--reveal-pii` 시에만 표시, 이력에 표시 여부 기록), 다른 DB·`mysql.`·`sys.`·`performance_schema.` 금지
-- 조회 SQL: 한 문장, SELECT/WITH…SELECT/SHOW/DESCRIBE/EXPLAIN 만, `INTO`·`FOR UPDATE`·`LOCK`·`SLEEP()`·`LOAD_FILE`·`EXPLAIN ANALYZE`·`SHOW GRANTS` 등 거부, `START TRANSACTION READ ONLY` 안에서 실행(쓰기는 MySQL 이 한 번 더 막음), 15초 제한, 최대 2,000행
-- SQL 파일: GRANT/USER/DATABASE/LOAD/CALL/LOCK/SET(사용자 변수 외)/트랜잭션 제어/PREPARE/프로시저·트리거·뷰/DELIMITER/INTO OUTFILE 금지. 실행 주석 `/*! … */` 안도 코드로 검사
-- 파일: `public/`·`app/`·`database/` 밖, 절대경로, `..`, 빈 경로 조각, 제어문자·역슬래시, 숨김 파일(`.env*`·`.git` 등, `.htaccess` 만 예외), 경로 중간·끝 **심볼릭 링크**, 루트 밖으로 풀리는 실제 경로 거부. 쓰기는 허용 확장자만(php·js·css·html·json·sql·txt·md·svg·이미지·글꼴 등), 크기 4MB(`REMOTE_OPS_MAX_FILE_BYTES`). **관리 API 자체 파일**(`app/remote_ops/**`, `public/api/remote-ops.php`, `public/admin-remote-ops.php`) 쓰기 금지, `public/uploads/**` 읽기·쓰기 금지
+- 연결 세션: `sql_mode` 에서 `ANSI_QUOTES`·`NO_BACKSLASH_ESCAPES` 를 빼고 `autocommit=1` 로 고정(검사기가 가정하는 문법과 MySQL 해석을 일치시킴). 실패하면 작업하지 않음
+- 조회 SQL: 한 문장, SELECT/WITH…SELECT/SHOW(허용 목록: TABLES·COLUMNS·INDEX·CREATE TABLE·TABLE STATUS·VARIABLES·STATUS 등)/DESCRIBE/EXPLAIN 만, `INTO`·`FOR UPDATE`·`LOCK`·`SLEEP()`·`LOAD_FILE`·`EXPLAIN/DESC ANALYZE` 거부, **인증정보 컬럼이 있는 테이블(users 등)은 `*` 금지(컬럼 이름 지정)** — UNION·CTE 열 이름으로 바꿔 가림을 피하는 것 차단, `remote_ops_snapshots`(백업 본문) 조회 금지, `START TRANSACTION READ ONLY` 안에서 실행(쓰기는 MySQL 이 한 번 더 막음), 15초 제한, 최대 2,000행
+- SQL 파일: **승인 전에는 실행하지 않는다**(대상 행 수는 같은 조건의 `COUNT` 를 READ ONLY 트랜잭션에서). 허용은 한 테이블 INSERT·REPLACE·UPDATE·DELETE 또는 TABLE·INDEX DDL 이고 **DDL 과 DML 은 한 파일에 섞지 않음**. SET(모든 형태)·SELECT 문장(확인은 `-- @verify`)·여러 테이블 UPDATE/DELETE·GRANT/USER/DATABASE/LOAD/CALL/LOCK/트랜잭션 제어/PREPARE/프로시저·트리거·뷰/DELIMITER/INTO OUTFILE 금지, `remote_ops_*`(따옴표 안 포함)·인증정보 컬럼 언급 금지. 실행 주석 `/*! … */` 안도 코드로 검사. 파일은 1MB·2,000줄 이하(승인 화면에 전부 표시)
+- 파일: `public/`·`app/`·`database/` 밖, 절대경로, `..`, 빈 경로 조각, 제어문자·역슬래시, 숨김 파일(`.env*`·`.git` 등, `.htaccess` 만 예외), 경로 중간·끝 **심볼릭 링크**, 루트 밖으로 풀리는 실제 경로 거부. 쓰기는 허용 확장자만(php·js·css·html·json·sql·txt·md·svg·이미지·글꼴 등), 경로 255바이트 이하, 크기 4MB(`REMOTE_OPS_MAX_FILE_BYTES`), 텍스트 파일은 NUL 없는 UTF-8 만(승인 화면에서 '이진 파일'로 숨겨지지 않게). `app/bootstrap.php`·`app/auth.php`·`app/admin_layout.php`·`app/config.php`·모든 `.htaccess` 는 승인 시 **추가 확인 필수**(승인 화면·인증을 바꿀 수 있음). 보이지 않는 문자(양방향 제어·폭 없는 문자)가 있으면 경고 + 추가 확인. **관리 API 자체 파일**(`app/remote_ops/**`, `public/api/remote-ops.php`, `public/admin-remote-ops.php`) 쓰기 금지, `public/uploads/**` 읽기·쓰기 금지
+- 저장 용량: 백업 총량 상한 `REMOTE_OPS_STORAGE_MB`(기본 200), 승인 대기 요청 최대 10건, 한 번에 맡기는 파일 합계 8MB
+- 백업·행 스냅샷에는 인증정보 컬럼을 저장하지 않음(인증정보 컬럼이 있는 테이블은 원격 삭제 불가 — 비활성화로)
 - 출력: 응답·이력에 키·서명·DB 비밀번호 없음(오류문구에서도 비밀번호 문자열 제거), 이력에는 파일 본문·행 데이터 대신 요약만
 
 ## 5. 작업 단위 승인(grant)
@@ -123,10 +126,10 @@ CLI: 되돌리기 ─▶ 원래 승인의 유효시간 + 24시간 안이면 같�
 | kind/mode | 요청 명령 | 승인 화면에 보이는 것 | 실행 명령 | 고정되는 것 |
 |---|---|---|---|---|
 | `db/scope` | `tomok db request` | 테이블·작업(수정/추가/삭제)·바꿀 컬럼·대상 PK(현재값 표)·1회/전체 최대 행 수 | `db update/batch/insert/delete` (여러 번, `--max-ops`) | 범위(테이블·컬럼·PK·행 수) |
-| `db/sql` | `tomok db stage-sql` | SQL 본문, SHA-256, DDL 여부, 경고(WHERE 없음 등), **롤백 트랜잭션으로 미리 실행한 문장별 영향 행 수·@verify 전후** | `db execute` (1회) | SQL 본문(해시), 최대 행 수 |
+| `db/sql` | `tomok db stage-sql` | SQL 본문 전체, SHA-256, DDL 여부, 경고(WHERE 없음 등), **실행하지 않고 COUNT 로 센 문장별 대상 행 수**, @verify 현재값 | `db execute` (1회) | SQL 본문(해시), 최대 행 수 |
 | `files/staged` | `tomok files stage` | 파일별 동작(교체·새 파일·삭제), **서버가 직접 계산한 현재 서버 파일과의 diff**, 요청 이후 서버 변동 여부, 서버 PHP 문법 검사 결과 | `files deploy` (1회) | 파일 내용(해시), 요청 시점 서버 파일 해시 |
 
-- **추가 확인(별도 승인 절차)**: DDL 포함, WHERE 없는 UPDATE/DELETE, 20행 초과 삭제, 대량 삭제·CASCADE 삭제 허용 요청이면 승인 화면에 확인란이 생기고 체크해야 승인된다.
+- **추가 확인(별도 승인 절차)**: DDL 포함, WHERE 없는 UPDATE/DELETE, 20행 초과 삭제, 대량 삭제·CASCADE 삭제 허용 요청, 인증·승인 화면 관련 파일·`.htaccess` 배포, 보이지 않는 문자 포함이면 승인 화면에 확인란이 생기고 체크해야 승인된다.
 - 유효시간 5~1,440분(기본 60), 승인 대기는 24시간 뒤 만료. 관리자 화면 '전체 회수'로 모든 원격 쓰기를 즉시 중지.
 - 파일 승인은 요청 이후 서버 파일이 바뀌면(FileZilla 로 누가 수정) 승인 버튼이 거부되고, 배포 시점에도 다시 확인한다.
 
@@ -147,12 +150,12 @@ CLI: 되돌리기 ─▶ 원래 승인의 유효시간 + 24시간 안이면 같�
 | `db.delete` | `grant`, `table`, `where`, `expect_rows?` | 20행 초과는 대량 삭제 승인, CASCADE 자식이 있으면 별도 승인 |
 | `db.verify` | `operation` | 현재값이 작업 직후 값과 같은지(SQL 실행은 @verify 재조회 비교) |
 | `db.revert` | `operation`, `dry_run?`, `force?` | 작업 뒤 다시 바뀐 행이 있으면 `revert_conflict`(force 로만 덮어씀) |
-| `db.stage_sql` | `sql`, `title`, `max_rows?`, `ttl_minutes?` | 검사 → DML 은 롤백 트랜잭션으로 미리 실행 → pending grant. 오류 SQL 은 승인 요청이 만들어지지 않음 |
-| `db.execute` | `grant`, `dry_run?` | DML: 한 트랜잭션, 승인 때보다 행이 많으면 롤백. DDL: 승인 소진 확정 → ALTER/DROP/TRUNCATE/RENAME 대상 테이블 자동 백업 → 문장 순서대로(MySQL 이 문장마다 커밋) |
+| `db.stage_sql` | `sql`, `title`, `max_rows?`, `ttl_minutes?` | 검사 → (실행 없이) 문장별 대상 행 수 COUNT + @verify 현재값(READ ONLY) → pending grant. 없는 테이블 등 오류가 있으면 승인 요청이 만들어지지 않음 |
+| `db.execute` | `grant`, `dry_run?` | DML: 한 트랜잭션, 문장마다 실행 직전 대상 행 수를 다시 세어 승인 최대를 넘으면 전체 롤백, 문장 뒤 트랜잭션이 끝나 있으면 즉시 중단. DDL: 승인 소진 확정 → ALTER/DROP/TRUNCATE/RENAME 대상 테이블 자동 백업 → 문장 순서대로(MySQL 이 문장마다 커밋) |
 | `db.backup` | `tables[]`(≤10) | 테이블 덤프(복원용 upsert SQL)를 관리 테이블에 저장(20MB 이하). 외부로 내려받지 않음(대량 추출 금지) |
 | `db.stage_restore` | `snapshot` | 백업 → 복원 SQL 승인 요청(행 값을 백업 시점으로, 이후 추가된 행은 남음) |
 
-SQL 파일 안 `-- @verify SELECT …` 줄은 실행 전후 같은 조회를 돌려 비교한다.
+SQL 파일 안 `-- @verify SELECT …` 줄은 실행 전후 같은 조회를 돌려 비교한다(조회 전용 검사 적용).
 
 ## 7. 파일 작업 명세
 
@@ -192,8 +195,27 @@ CLI 쪽 추가 기능: `files diff`(서버 ↔ 로컬 커밋 diff), `files stage
 ## 10. 알려진 한계
 
 - 조회 SQL 검사기는 완전한 SQL 파서가 아니다(애매하면 거부). 최종 방어는 MySQL `READ ONLY` 트랜잭션.
-- 개인정보 가림은 결과 컬럼 이름 기준(별칭으로 바꾼 개인정보 컬럼은 못 가린다). 인증정보 컬럼은 SQL 안에 이름이 나오면 거부.
+- 개인정보 가림은 결과 컬럼 이름 기준(별칭·UNION 으로 이름을 바꾼 개인정보 컬럼은 못 가린다 — 편의 기능). 인증정보 컬럼은 이름이 나오거나 해당 테이블에 `*` 를 쓰면 거부(강제).
+- 승인 전 대상 행 수는 현재 데이터 기준 COUNT 라 앞 문장의 영향이 반영되지 않는다(실행 때 문장마다 다시 셈).
+- 인증정보 컬럼이 있는 테이블의 백업에는 그 컬럼이 없어, 삭제된 행은 백업으로 되살릴 수 없다.
 - 서버 PHP 문법 검사는 구문만 본다(함수 중복 정의 등 실행 시 오류는 HTTP 확인으로).
 - DDL 은 MySQL 특성상 롤백되지 않는다 → 자동 백업 + 복원 승인으로 대응. 구조 자체(ALTER) 되돌리기는 백업의 CREATE TABLE 을 보고 수동.
 - 테이블 덤프·파일 백업은 운영 DB 용량을 쓴다(정리 SQL 은 매뉴얼).
 - 키를 가진 사람은 조회를 승인 없이 할 수 있다(CLAUDE.md 6장의 읽기 전용 허용 범위와 같음). 쓰기는 관리자 승인 필수.
+
+## 11. 보안 검토 반영 (2026-11-03, 독립 검토)
+
+| # | 심각도 | 발견 | 조치 |
+|---|---|---|---|
+| 1 | 치명 | 승인 전 `db.stage_sql` 의 '롤백 예정' 미리 실행이 `SET @a=1, autocommit=0` + `"remote_ops_grants"`(ANSI_QUOTES) 로 실제 커밋되어 자기 승인을 승인 상태로 바꿀 수 있었음(MySQL 8.0 에서 재현) | 승인 전 SQL 실행 폐지(COUNT 를 READ ONLY 트랜잭션에서), SET 전면 금지, 따옴표 안 `remote_ops_` 금지, 여러 테이블 DML 금지, 세션 sql_mode·autocommit 고정, 실행 중 트랜잭션 종료 감지 |
+| 2 | 높음 | `UNION`·CTE 열 이름으로 `password_hash` 를 가림 없이 조회, 테이블 덤프·행 스냅샷·@verify 로도 유출 가능 | 인증정보 테이블 `*` 금지, `remote_ops_snapshots` 조회 금지, 덤프·스냅샷에서 인증정보 컬럼 제외, SQL 파일의 인증정보 컬럼 언급 금지 |
+| 3 | 중간 | `SHOW CREATE USER`(DB 계정 해시)·`SHOW FULL PROCESSLIST`·`DESC ANALYZE` 통과 | SHOW 허용 목록 방식, DESC/DESCRIBE ANALYZE 금지 |
+| 4 | 중간 | 승인 요청의 columns/ids 테이블 오타가 '제한 없음'으로 적용 | columns/ids 는 `{tables 안의 테이블: 목록}` 만 허용 |
+| 5 | 중간 | NUL 바이트로 PHP 를 '이진 파일'로 보이게 해 승인 화면에서 숨김, SQL 400줄 자름 | 텍스트 파일 NUL·비UTF-8 거부, SQL 파일 전체 표시(2,000줄 제한), 보이지 않는 문자 경고 |
+| 6 | 중간 | DDL 파일 안 DML 은 행 수 확인·백업 없음 | DDL·DML 분리 강제 |
+| 7 | 낮음~중간 | 추가(insert)에 승인 컬럼 미적용, WHERE 에 인증정보 컬럼 사용 가능(드라이런 반복 추측) | 추가도 승인 컬럼만, WHERE 에서 인증정보 컬럼 제외 |
+| 8 | 낮음~중간 | 승인 화면이 의존하는 auth.php·bootstrap.php·admin_layout.php·.htaccess 배포 | 추가 확인 필수 + 경고 |
+| 9 | 낮음 | 255바이트 넘는 경로가 스냅샷 ref 에서 잘림 | 경로 255바이트 제한 |
+| 10 | 낮음 | 승인 없이 쌓을 수 있는 백업·요청으로 DB 용량 소모, 중단된 배포(running) 복구 불가 | 백업 총량 상한·대기 요청 10건 상한·요청 파일 합계 8MB, running 작업 복구 허용(--force), 되돌리기 선점(동시 실행 방지), `ignore_user_abort` |
+
+각 항목은 단위 테스트·통합 테스트(공격 SQL 을 실제 MySQL 8.0 에 보내 아무것도 커밋되지 않음을 확인)에 회귀 테스트로 들어 있다.

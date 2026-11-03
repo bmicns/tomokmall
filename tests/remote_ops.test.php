@@ -123,6 +123,42 @@ ok('계획: DDL 표시 + 금지 문장 문제', $plan['has_ddl'] && count($plan[
 ok('계획: SELECT INTO OUTFILE 문제', rops_sql_plan("SELECT * FROM products INTO OUTFILE '/tmp/a'")['problems'] !== []);
 ok('계획: DELIMITER 거부', rops_sql_plan("DELIMITER //\nCREATE PROCEDURE p() BEGIN END //")['problems'] !== []);
 
+echo "[보안 검토 회귀(2026-11-03)]\n";
+ok('SET @a=1, autocommit=0 → 거부(세션 변경 우회)', rops_sql_classify("SET @a=1, sql_mode='ANSI_QUOTES', autocommit=0")['type'] === 'denied');
+ok('SQL 파일: SET 문장 → 문제', rops_sql_plan("SET @a=1, autocommit=0;\nUPDATE products SET price_b2c=1 WHERE id=1;")['problems'] !== []);
+ok('SQL 파일: 따옴표 안 "remote_ops_grants" → 문제', rops_sql_plan("UPDATE products SET name = 'x' WHERE id IN (SELECT 1 FROM \"remote_ops_grants\");")['problems'] !== []);
+ok('SQL 파일: 여러 테이블 UPDATE → 문제(경고 아님)', rops_sql_plan("UPDATE products p, categories c SET p.name='x' WHERE p.category_id=c.id;")['problems'] !== []);
+ok('SQL 파일: DELETE t FROM … → 문제', rops_sql_plan("DELETE p FROM products p JOIN categories c ON c.id=p.category_id WHERE c.id=1;")['problems'] !== []);
+ok('SQL 파일: DDL+DML 섞임 → 문제', rops_sql_plan("ALTER TABLE products ADD COLUMN z INT;\nUPDATE products SET z=1 WHERE id=1;")['problems'] !== []);
+ok('SQL 파일: 인증정보 컬럼 언급 → 문제', rops_sql_plan("UPDATE products SET name = (SELECT password_hash FROM users LIMIT 1) WHERE id=1;")['problems'] !== []);
+ok('SQL 파일: SELECT 문장 → 문제(@verify 사용)', rops_sql_plan("SELECT 1;")['problems'] !== []);
+ok('SQL 파일: 한 테이블 UPDATE·INSERT 는 통과', rops_sql_plan("UPDATE products SET price_b2b = 1 WHERE id IN (SELECT id FROM products WHERE brand = 'x');\nINSERT INTO categories (name, slug) VALUES ('a','b');")['problems'] === []);
+$st = ['users'];
+ok('UNION 으로 * 이름 바꾸기 → 거부', rops_sql_read_problem('SELECT 1,2,3,4 FROM DUAL WHERE FALSE UNION ALL SELECT * FROM users', $st) !== null);
+ok('SELECT * FROM users → 거부(컬럼 지정)', rops_sql_read_problem('SELECT * FROM users', $st) !== null);
+ok('SELECT u.* → 거부', rops_sql_read_problem('SELECT u.* FROM users u', $st) !== null);
+ok('CTE 열 이름 바꾸기 → 거부', rops_sql_read_problem('WITH t(a,b,c,d,e,f,g,h,i,j,k) AS (SELECT * FROM users) SELECT * FROM t', $st) !== null);
+ok('users 컬럼 지정·COUNT(*)·곱셈은 허용', rops_sql_read_problem('SELECT id, role, COUNT(*), 2*3 FROM users GROUP BY id, role', $st) === null);
+ok('SELECT * FROM products 는 허용(인증정보 없음)', rops_sql_read_problem('SELECT * FROM products', $st) === null);
+ok('remote_ops_snapshots 조회 거부', rops_sql_read_problem('SELECT HEX(body) FROM remote_ops_snapshots') !== null);
+foreach (['SHOW CREATE USER CURRENT_USER()', 'SHOW FULL PROCESSLIST', 'DESC ANALYZE SELECT 1', 'DESCRIBE ANALYZE SELECT 1', 'SHOW DATABASES', 'SHOW CREATE PROCEDURE p'] as $q) {
+    ok("거부: {$q}", rops_sql_read_problem($q) !== null);
+}
+foreach (['SHOW TABLES', 'SHOW FULL COLUMNS FROM products', 'SHOW CREATE TABLE products', 'SHOW INDEX FROM products', 'SHOW TABLE STATUS', "SHOW VARIABLES LIKE 'sql_mode'", 'SHOW CHARACTER SET'] as $q) {
+    ok("허용: {$q}", rops_sql_read_problem($q) === null);
+}
+echo "[대상 행 수 세기 rops_sql_count_query]\n";
+ok('UPDATE → COUNT 하위 조회', rops_sql_count_query("UPDATE products SET price_b2b = 1 WHERE brand = 'a;b' ORDER BY id LIMIT 3") === ['sql' => "SELECT COUNT(*) FROM (SELECT 1 FROM products WHERE brand = 'a;b' ORDER BY id LIMIT 3) AS rops_cnt"]);
+ok('UPDATE 별칭·SET 안 하위 조회', rops_sql_count_query("UPDATE products p SET p.name = (SELECT 'x' WHERE 1) WHERE p.id = 1") === ['sql' => 'SELECT COUNT(*) FROM (SELECT 1 FROM products p WHERE p.id = 1) AS rops_cnt']);
+ok('WHERE 없는 UPDATE → 전체', rops_sql_count_query('UPDATE products SET stock_qty = 0') === ['sql' => 'SELECT COUNT(*) FROM (SELECT 1 FROM products) AS rops_cnt']);
+ok('DELETE', rops_sql_count_query('DELETE FROM categories WHERE id > 10') === ['sql' => 'SELECT COUNT(*) FROM (SELECT 1 FROM categories WHERE id > 10) AS rops_cnt']);
+ok('INSERT VALUES 3묶음', rops_sql_count_query("INSERT INTO t (a, b) VALUES (1, '(x)'), (2, 'y'), (3, 'z') ON DUPLICATE KEY UPDATE b = VALUES(b)") === ['rows' => 3]);
+ok('INSERT SET → 1', rops_sql_count_query("INSERT INTO t SET a = 1") === ['rows' => 1]);
+ok('INSERT SELECT → COUNT', rops_sql_count_query("INSERT INTO t (a) SELECT id FROM products WHERE brand = 'x'") === ['sql' => "SELECT COUNT(*) FROM (SELECT id FROM products WHERE brand = 'x') AS rops_cnt"]);
+ok('여러 테이블 → 셀 수 없음(null)', rops_sql_count_query('UPDATE a, b SET a.x = 1 WHERE a.id = b.id') === null);
+ok('경로 256바이트 거부', rops_path_problem('public/' . str_repeat('a', 249) . '.php') !== null && rops_path_problem('public/' . str_repeat('a', 240) . '.php') === null);
+ok('민감 파일 판정', rops_path_sensitive('app/auth.php') && rops_path_sensitive('public/api/.htaccess') && !rops_path_sensitive('app/pricing.php'));
+
 echo "[WHERE 조립 rops_where_compile]\n";
 $cols = ['id', 'name', 'brand', 'price_b2b'];
 $p = [];

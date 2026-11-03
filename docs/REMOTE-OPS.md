@@ -43,7 +43,7 @@ $k | Set-Clipboard; Remove-Variable k, b
 - 선택 설정(필요할 때만 같은 파일에 추가):
   - `REMOTE_OPS_SCOPES=probe,db.read,files.read` → 조회만 허용(쓰기 범위 제거)
   - `REMOTE_OPS_ALLOWED_IPS=…` → IP 제한(Claude 출구 IP 는 바뀔 수 있어 권장하지 않음)
-  - `REMOTE_OPS_MAX_FILE_BYTES=4194304`(파일 1개 최대), `REMOTE_OPS_CLOCK_SKEW=300`(요청 수명 초)
+  - `REMOTE_OPS_MAX_FILE_BYTES=4194304`(파일 1개 최대), `REMOTE_OPS_CLOCK_SKEW=300`(요청 수명 초), `REMOTE_OPS_STORAGE_MB=200`(관리 테이블 백업 총량 상한)
 
 ### 3-2. Claude Code 환경변수 (클립보드의 키)
 
@@ -166,7 +166,9 @@ scripts/tomok files restore --operation 456
 ```bash
 scripts/tomok db stage-sql --file database/20261110_example.sql --title "예시 이관"
 ```
-→ DML 은 롤백 트랜잭션으로 미리 실행한 영향 행 수가 승인 화면에 표시. DDL 이 있으면 '추가 확인'을 체크해야 승인되고, 실행 직전 대상 테이블이 자동 백업된다.
+→ 승인 전에는 **실행하지 않고** 같은 조건의 COUNT 로 센 문장별 대상 행 수가 승인 화면에 표시된다(실행 때 다시 세어 넘으면 전체 롤백). DDL 파일은 '추가 확인'을 체크해야 승인되고, 실행 직전 대상 테이블이 자동 백업된다.
+
+SQL 파일 규칙: 한 테이블 INSERT·REPLACE·UPDATE·DELETE(여러 테이블은 `WHERE … IN (SELECT …)` 로), **DDL 과 DML 은 따로 요청**, `SET`·`SELECT` 문장 금지(확인은 `-- @verify`), 관리 테이블·인증정보 컬럼 언급 금지, 1MB·2,000줄 이하.
 ```bash
 scripts/tomok db execute --grant G261103-ZZZZZ
 ```
@@ -203,8 +205,9 @@ scripts/tomok db execute --grant G261103-ZZZZZ
 |---|---|---|
 | PHP 문법 | `find public app scripts/remote-ops -name "*.php" -print0 \| xargs -0 -n1 php -l` | 오류 0 (PHP 8.3.6, 새 파일은 PHP 8.4.27 컨테이너에서도) |
 | 기존 단위 테스트 | `php tests/functions.test.php` | 210 통과 / 0 실패 |
-| 새 단위 테스트 | `php tests/remote_ops.test.php` | 130 통과 / 0 실패 (8.3.6·8.4.27, 8.4 에서 Deprecated 경고 없음) |
-| 통합 테스트 | `bash scripts/remote-ops/test-local.sh` (Docker MySQL 8.0 + 사이트 사본 + PHP 내장 서버, `[TEST]` 가상 데이터) | 132 통과 / 0 실패 — 서버 PHP 8.3.6, 그리고 `ROPS_SERVER_IMAGE`(php:8.4-cli + pdo_mysql)로 8.4.27 에서도 132/132 |
+| 새 단위 테스트 | `php tests/remote_ops.test.php` | 169 통과 / 0 실패 (8.3.6·8.4.27, 8.4 에서 Deprecated 경고 없음) |
+| 통합 테스트 | `bash scripts/remote-ops/test-local.sh` (Docker MySQL 8.0 + 사이트 사본 + PHP 내장 서버, `[TEST]` 가상 데이터) | 152 통과 / 0 실패 — 서버 PHP 8.3.6, 그리고 `ROPS_SERVER_IMAGE`(php:8.4-cli + pdo_mysql)로 8.4.27 에서도 152/152 |
+| 독립 보안 검토 | 별도 검토(코드 + MySQL 8.0 재현) | 치명 1·높음 1·중간 4·낮음 4건 발견 → 모두 수정, 회귀 테스트 추가(설계 문서 11장) |
 | 승인 화면 | Playwright 1280·820·375px | 가로 스크롤 없음, 버튼·입력 44px. 375px 에서는 이 화면만 메뉴를 위쪽 가로 메뉴로 바꿈 |
 
 통합 테스트 주요 항목: 인증 실패(다른 키·키 ID·시각 1시간 전·암호문 변조·GET·평문 요청), **같은 요청 재전송 거부**, 범위 제한 키, 사용 중지 설정 / probe 쓰기 시험 / 조회 SQL 의 UPDATE·인증정보 컬럼·잘못된 SQL 거부, 개인정보 가림 / 승인 전 쓰기 거부, CSRF 틀린 승인 거부, 범위 밖 컬럼·행·테이블 거부, 드라이런, 전후 diff, verify, **일괄 수정 중 예상값 불일치 시 전체 롤백**, 누적 행 수 초과, 되돌리기 충돌·성공·중복 방지, CASCADE 삭제 거부, 관리 테이블 쓰기 거부, 회수·만료 / **SQL 파일 2번 문장 실패 시 1번까지 롤백**, 승인 때보다 영향 행이 많으면 롤백, DDL 추가 확인·자동 백업·백업 복원 / 경로 차단(`.env`·`..`·절대경로·`.git`·업로드 폴더), 심볼릭 링크 차단 / 배포(교체·새 파일·삭제)·HTTP 확인·복구, **요청 뒤 서버 파일이 바뀌면 승인·배포 중단**, **배포 중간 실패 시 앞 파일 자동 원복**, 서버 측 PHP 문법 검사, 이력에 키·비밀번호·본문 없음.
@@ -228,6 +231,7 @@ bash scripts/remote-ops/test-local.sh
 | 관리 API 와 사이트가 같은 DB 계정 사용 | 계정 권한 이상은 막을 수 없음 | 무료 호스팅은 계정 추가가 어려움. 서버 코드에서 범위·승인·관리 테이블 보호로 통제 |
 | 승인에 관리자 로그인이 필요 | 채팅 승인보다 한 단계 많음 | 의도된 설계(승인이 '약속'이 아니라 서버에서 강제됨). 채팅만으로 승인하는 방식이 필요하면 별도 검토(보안 약화) |
 | 클라우드 세션은 매번 새 컨테이너 | 로컬에 남는 것 없음 | 이력·백업은 모두 서버 관리 테이블에. 키는 환경변수로 매 세션 자동 주입 |
+| 인증정보 컬럼(users.password_hash 등) | 원격으로 조회·수정·삭제·백업하지 않음 | 회원 삭제는 비활성화(`is_active=0`)로, 비밀번호 관련 작업은 사이트 기능·phpMyAdmin |
 
 백업·이력 정리 예(운영 DB 데이터 삭제 — 승인 후 phpMyAdmin 에서, 먼저 `SELECT COUNT(*)` 로 확인):
 ```sql

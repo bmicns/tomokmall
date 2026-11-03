@@ -17,14 +17,18 @@ const ROPS_WRITE_EXT = ['php', 'js', 'css', 'html', 'htm', 'json', 'sql', 'txt',
     'woff', 'woff2', 'ttf', 'otf', 'eot', 'csv', 'xml', 'map', 'webmanifest'];
 const ROPS_PROTECTED_PATHS = ['app/remote_ops', 'public/api/remote-ops.php', 'public/admin-remote-ops.php'];
 const ROPS_NO_WRITE_DIRS   = ['public/uploads'];
+// 승인 화면·인증·웹 서버 설정에 영향을 주는 파일: 배포는 가능하지만 승인 화면에서 추가 확인 필수
+const ROPS_SENSITIVE_PATHS = ['app/bootstrap.php', 'app/auth.php', 'app/admin_layout.php', 'app/config.php'];
+// 내용 검사(NUL·UTF-8)를 하는 텍스트 확장자
+const ROPS_TEXT_EXT        = ['php', 'js', 'css', 'html', 'htm', 'json', 'sql', 'txt', 'md', 'svg', 'csv', 'xml', 'map', 'webmanifest'];
 const ROPS_LIST_MAX        = 5000;
 const ROPS_MANIFEST_MAX    = 10000;
 
 /** 경로 형식 검사(파일시스템 접근 없음). 문제 있으면 이유, 없으면 null */
 function rops_path_problem(string $logical): ?string
 {
-    if ($logical === '' || strlen($logical) > 512) {
-        return '경로 길이 1~512';
+    if ($logical === '' || strlen($logical) > 255) {
+        return '경로 길이 1~255바이트';
     }
     if (preg_match('/[\x00-\x1F\x7F\\\\]/', $logical)) {
         return '경로에 제어문자·역슬래시 금지';
@@ -173,6 +177,17 @@ function rops_php_parse_problem(string $code): ?string
     } catch (\CompileError $e) {
         return $e->getMessage() . ' (줄 ' . $e->getLine() . ')';
     }
+}
+
+/** 승인 시 추가 확인이 필요한 파일인지 */
+function rops_path_sensitive(string $logical): bool
+{
+    return in_array($logical, ROPS_SENSITIVE_PATHS, true) || basename($logical) === '.htaccess';
+}
+
+function rops_is_text_path(string $logical): bool
+{
+    return basename($logical) === '.htaccess' || in_array(strtolower(pathinfo($logical, PATHINFO_EXTENSION)), ROPS_TEXT_EXT, true);
 }
 
 function rops_is_php(string $logical): bool
@@ -382,12 +397,17 @@ function rops_files_stage(PDO $pdo, array $p): array
         if (isset($f['sha256']) && !hash_equals((string) $f['sha256'], $sha)) {
             throw new RopsError('hash_mismatch', "{$path}: 전송 중 내용이 바뀌었습니다(sha256 불일치)");
         }
+        if (rops_is_text_path($path) && (str_contains($c, "\0") || !mb_check_encoding($c, 'UTF-8'))) {
+            // 승인 화면이 '이진 파일'로 보고 내용을 숨기는 일이 없게, 텍스트 파일은 NUL 없는 UTF-8 만
+            throw new RopsError('not_text', "{$path}: 텍스트 파일에 NUL 바이트 또는 UTF-8 이 아닌 내용이 있습니다");
+        }
         $lint = rops_is_php($path) ? rops_php_parse_problem($c) : null;
         if ($lint !== null) {
             throw new RopsError('php_syntax', "{$path}: 서버 PHP " . PHP_VERSION . " 문법 오류 — {$lint}");
         }
         $base = rops_current_hash($r);
-        $scopeFiles[] = ['path' => $path, 'sha256' => $sha, 'size' => strlen($c), 'base_sha256' => $base, 'new_file' => $base === null, 'unchanged' => $base === $sha];
+        $scopeFiles[] = ['path' => $path, 'sha256' => $sha, 'size' => strlen($c), 'base_sha256' => $base, 'new_file' => $base === null, 'unchanged' => $base === $sha,
+            'sensitive' => rops_path_sensitive($path), 'hidden_chars' => rops_is_text_path($path) ? rops_hidden_chars($c) : 0];
         $contents[$path] = $c;
     }
     $scopeDel = [];
@@ -400,12 +420,21 @@ function rops_files_stage(PDO $pdo, array $p): array
         }
         $r = rops_resolve($path);
         if (!$r['is_file']) { throw new RopsError('not_found', "삭제할 파일이 서버에 없습니다: {$path}"); }
-        $scopeDel[] = ['path' => $path, 'base_sha256' => rops_current_hash($r)];
+        $scopeDel[] = ['path' => $path, 'base_sha256' => rops_current_hash($r), 'sensitive' => rops_path_sensitive($path)];
+    }
+    $total = array_sum(array_map('strlen', $contents));
+    if ($total > 2 * $max) {
+        throw new RopsError('too_large', '한 번에 요청할 파일 합계는 ' . (2 * $max) . 'B 이하(나눠서 요청)');
+    }
+    rops_storage_guard($pdo, $total);
+    $needsConfirm = false;
+    foreach (array_merge($scopeFiles, $scopeDel) as $f) {
+        $needsConfirm = $needsConfirm || !empty($f['sensitive']) || !empty($f['hidden_chars']);
     }
     $pdo->beginTransaction();
     try {
         $g = rops_grant_create($pdo, ['kind' => 'files', 'mode' => 'staged', 'title' => (string) ($p['title'] ?? ''), 'detail' => $p['detail'] ?? null,
-            'scope' => ['files' => $scopeFiles, 'delete' => $scopeDel], 'ttl_minutes' => (int) ($p['ttl_minutes'] ?? 60), 'max_ops' => 1,
+            'scope' => ['files' => $scopeFiles, 'delete' => $scopeDel, 'needs_extra_confirm' => $needsConfirm], 'ttl_minutes' => (int) ($p['ttl_minutes'] ?? 60), 'max_ops' => 1,
             'preview' => ['php_version' => PHP_VERSION, 'files' => count($scopeFiles), 'delete' => count($scopeDel)]]);
         foreach ($contents as $path => $c) {
             rops_snapshot_put($pdo, null, $g['id'], 'file_staged', $path, $c);
@@ -550,8 +579,9 @@ function rops_files_restore(PDO $pdo, array $ctx, array $p): array
     $dry = !empty($p['dry_run']);
     $force = !empty($p['force']);
     $log = rops_log_get($pdo, $opId);
-    if ($log === null || !in_array($log['op'], ['files.deploy', 'files.restore'], true) || $log['status'] !== 'ok') {
-        throw new RopsError('not_revertible', '되돌릴 수 있는 파일 작업이 아닙니다(성공한 files.deploy/files.restore 만)');
+    // running = 배포 도중 끊긴 작업(시간 초과 등): 백업은 쓰기 전에 끝나 있으므로 복구 가능(배포 후 해시가 없어 --force 필요)
+    if ($log === null || !in_array($log['op'], ['files.deploy', 'files.restore'], true) || !in_array($log['status'], ['ok', 'running'], true)) {
+        throw new RopsError('not_revertible', '되돌릴 수 있는 파일 작업이 아닙니다(files.deploy/files.restore 성공 또는 도중 중단 건만)');
     }
     if ($log['reverted_by'] !== null) {
         throw new RopsError('already_reverted', "이미 되돌린 작업입니다(작업 {$log['reverted_by']})");
@@ -585,8 +615,18 @@ function rops_files_restore(PDO $pdo, array $ctx, array $p): array
         }
         return ['result' => ['dry_run' => true, 'files' => $check], 'log' => ['grant_id' => $g['id'], 'target' => "op:{$opId}", 'revert_of' => $opId, 'status' => 'dry_run']];
     }
-    $results = rops_apply_files($pdo, $ctx['log_id'], $g['id'], $items, $force);
-    $pdo->prepare('UPDATE remote_ops_log SET reverted_by = ? WHERE id = ?')->execute([$ctx['log_id'], $opId]);
+    // 되돌림 선점: 동시에 두 번 복구하는 것 방지. 적용이 실패하면 선점을 풀어 다시 시도할 수 있게
+    $claim = $pdo->prepare('UPDATE remote_ops_log SET reverted_by = ? WHERE id = ? AND reverted_by IS NULL');
+    $claim->execute([$ctx['log_id'], $opId]);
+    if ($claim->rowCount() !== 1) {
+        throw new RopsError('already_reverted', '이미 되돌렸거나 되돌리는 중인 작업입니다');
+    }
+    try {
+        $results = rops_apply_files($pdo, $ctx['log_id'], $g['id'], $items, $force);
+    } catch (\Throwable $e) {
+        $pdo->prepare('UPDATE remote_ops_log SET reverted_by = NULL WHERE id = ? AND reverted_by = ?')->execute([$opId, $ctx['log_id']]);
+        throw $e;
+    }
     return ['result' => ['dry_run' => false, 'restored_operation' => $opId, 'files' => $results, 'operation' => $ctx['log_id']],
         'log' => ['grant_id' => $g['id'], 'target' => implode(',', array_column($results, 'path')), 'affected_rows' => count($results), 'revert_of' => $opId]];
 }

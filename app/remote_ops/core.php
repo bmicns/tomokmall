@@ -88,6 +88,8 @@ function rops_settings(?string $webroot = null): array
         'require_enc'    => $get('REMOTE_OPS_REQUIRE_ENC', '1') !== '0',
         'skew'           => max(30, min(900, (int) $get('REMOTE_OPS_CLOCK_SKEW', '300'))),
         'max_file_bytes' => max(1024, min(16 * 1048576, (int) $get('REMOTE_OPS_MAX_FILE_BYTES', (string) (4 * 1048576)))),
+        // 관리 테이블 백업(스냅샷) 총량 상한(MB) — 무료 호스팅 DB 용량 보호. 넘으면 새 백업·배포 요청 거부
+        'storage_mb'     => max(10, min(2000, (int) $get('REMOTE_OPS_STORAGE_MB', '200'))),
         'allowed_ips'    => array_values(array_filter(array_map('trim', explode(',', $get('REMOTE_OPS_ALLOWED_IPS', ''))))),
         'base_url'       => rtrim($get('REMOTE_OPS_BASE_URL', 'https://tomokmall.dothome.co.kr'), '/'),
         'db' => [
@@ -122,6 +124,16 @@ function rops_pdo(): PDO
         $code = (int) ($e->errorInfo[1] ?? 0);
         error_log('[remote-ops] DB 접속 실패 (오류 ' . ($code ?: '?') . ')');
         throw new RopsError('db_unavailable', 'DB 접속 실패' . ($code ? " (MySQL 오류 {$code})" : ''));
+    }
+    try {
+        // SQL 검사기가 가정하는 문법으로 고정: "…" 는 문자열(ANSI_QUOTES 끔), \ 는 이스케이프(NO_BACKSLASH_ESCAPES 끔), 자동 커밋 켬
+        $mode = (string) $pdo->query('SELECT @@SESSION.sql_mode')->fetchColumn();
+        $keep = array_filter(explode(',', $mode), static fn($m) => $m !== '' && !in_array(strtoupper($m), ['ANSI_QUOTES', 'NO_BACKSLASH_ESCAPES', 'ANSI'], true));
+        $pdo->prepare('SET SESSION sql_mode = ?')->execute([implode(',', $keep)]);
+        $pdo->exec('SET SESSION autocommit = 1');
+    } catch (\Throwable $e) {
+        $pdo = null;
+        throw new RopsError('db_unavailable', 'DB 세션 설정(sql_mode) 실패 — 안전을 위해 작업하지 않습니다');
     }
     try {
         // 잠금 대기가 길어지지 않게(쓰기 작업 중 다른 요청과 충돌 시 10초 후 실패)
