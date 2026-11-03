@@ -713,6 +713,7 @@ render_header('AI 자재 상담', 'chat');
   </div>
 </aside>
 
+<?php if ($_isLoggedIn ?? false): // 상담원 연결 유도·문의 모달은 로그인 회원에게만 (비로그인은 모달이 없어 renderConsultCta 가 아무것도 그리지 않음) ?>
 <!-- ── 상담원 문의 요청 모달 (상품 추천표 아래 '상담원 문의 요청' 버튼 — consult-request.js) ── -->
 <div class="cm-overlay" id="consult-modal" hidden>
   <form class="cm" id="cm-form" role="dialog" aria-modal="true" aria-labelledby="cm-title" novalidate>
@@ -739,9 +740,9 @@ render_header('AI 자재 상담', 'chat');
         <input type="checkbox" id="cm-agree" required>
         <span>(필수) 개인정보 수집·이용에 동의합니다.</span>
       </label>
-      <button type="button" class="cm-more" id="cm-more" aria-expanded="true" aria-controls="cm-terms"><span class="cm-more-label">닫기</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <button type="button" class="cm-more" id="cm-more" aria-expanded="false" aria-controls="cm-terms"><span class="cm-more-label">자세히 보기</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
     </div>
-    <div class="cm-terms" id="cm-terms">
+    <div class="cm-terms" id="cm-terms" hidden>
       <h3>개인정보 수집 업체</h3>
       <ul><li>(주)비엠아이씨앤애스</li></ul>
       <h3>수집하는 개인정보의 항목</h3>
@@ -766,12 +767,15 @@ render_header('AI 자재 상담', 'chat');
     <div class="cm-btns"><button type="button" class="cm-btn" data-cm-close>확인</button></div>
   </div>
 </div>
+<?php endif; ?>
 
 <script>
 window.SID = '<?= e($_sid) ?>';
 </script>
 <script src="/assets/chat-ai.js?v=<?= time() ?>"></script>
+<?php if ($_isLoggedIn ?? false): ?>
 <script src="/assets/consult-request.js?v=<?= time() ?>"></script>
+<?php endif; ?>
 <script>
 <?php if ($_hasRestored): ?>
 // 복원한 이전 상담: 답변 문단 정리(formatChatText)·상품 추천표·견적 카드를 실시간 상담과 같은 렌더러로 표시

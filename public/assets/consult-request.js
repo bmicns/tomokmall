@@ -1,6 +1,6 @@
 /**
  * 상담원 연결 유도 · 문의 요청 모달 (AI 상담 화면)
- * 의존: window.SID (chat_renderer.php), #consult-modal 마크업 (chat_renderer.php)
+ * 의존: window.SID (chat_renderer.php), #consult-modal 마크업 (chat_renderer.php — 로그인 회원에게만 출력, 이 파일도 로그인 시에만 로드)
  * 호출: chat-ai.js processEvent('product_cards') → renderConsultCta(content)
  * 서버: POST /api/consult/request.php
  */
@@ -62,7 +62,7 @@ function renderConsultCta(container) {
     err.textContent = '';
     form.hidden = false;
     done.hidden = true;
-    setTerms(true);
+    setTerms(false);   // 개인정보 수집·이용 안내는 접힌 상태로 시작('자세히 보기'로 펼침)
     sync();
   };
 
