@@ -15,6 +15,7 @@ require __DIR__ . '/../app/favorites.php';
 require __DIR__ . '/../app/work_types.php';
 require __DIR__ . '/../app/corp_home.php';
 require_once __DIR__ . '/../app/rag.php';
+require_once __DIR__ . '/../app/consult.php';
 
 $pass = 0; $fail = 0;
 function ok(string $name, bool $cond): void {
@@ -524,6 +525,76 @@ ok('동률 안내: 이미 같은 금액이라고 말했거나·동률 아닌 상
 
 ok('자료 공백 이벤트: 제조사 자료 없을 때만, 연락처 모양 제거', ai_material_gap_event('벤치플룸관', false) === ['type' => 'material_gap', 'topic' => '벤치플룸관']
     && ai_material_gap_event('그레이팅', true) === null && ai_material_gap_event('흄관 010-1234-5678', false)['topic'] === '흄관' && ai_material_gap_event('  ', false) === null);
+
+echo "[상담 요청: 문자 길이·종류 sms_byte_length / sms_message_type]\n";
+ok('영문·숫자 1byte, 한글 2byte', sms_byte_length('ab1') === 3 && sms_byte_length('안녕') === 4 && sms_byte_length("가\nA") === 4);
+ok('CRLF 는 줄바꿈 1개로', sms_byte_length("a\r\nb") === 3);
+ok('한글 45자(90byte) → SMS, 46자 → LMS', sms_message_type(str_repeat('가', 45)) === 'SMS' && sms_message_type(str_repeat('가', 46)) === 'LMS');
+ok('2,000byte 까지 LMS, 넘으면 null, 빈 내용 null', sms_message_type(str_repeat('가', 1000)) === 'LMS' && sms_message_type(str_repeat('가', 1001)) === null && sms_message_type("  \n ") === null);
+
+echo "[상담 요청: 전화번호 sms_valid_phone / sms_format_phone]\n";
+ok('휴대폰·지역번호 형식', sms_valid_phone('010-1234-5678') && sms_valid_phone('01012345678') && sms_valid_phone('02-123-4567') && sms_valid_phone('031-1234-5678'));
+ok('잘못된 번호', !sms_valid_phone('1234') && !sms_valid_phone('10-1234-5678') && !sms_valid_phone('010-1234-56789'));
+eq('하이픈 정리 010', sms_format_phone('01012345678'), '010-1234-5678');
+eq('하이픈 정리 02', sms_format_phone('0212345678'), '02-1234-5678');
+eq('하이픈 정리 031(3자리 국번)', sms_format_phone('0311234567'), '031-123-4567');
+
+echo "[상담 요청: 입력 검증 consult_validate_request]\n";
+$okIn = ['name' => ' 홍  길동 ', 'tel' => '01012345678', 'message' => " 문의\r\n내용 ", 'agree' => true];
+[$e1, $c1] = consult_validate_request($okIn);
+ok('정상 → 오류 없음·이름 공백 정리·번호 하이픈·CRLF 정리', $e1 === null && $c1 === ['name' => '홍 길동', 'tel' => '010-1234-5678', 'message' => "문의\n내용"]);
+ok('이름 없음', consult_validate_request(['name' => ' '] + $okIn)[0] === '이름을 입력해 주세요.');
+ok('이름 31자', consult_validate_request(['name' => str_repeat('가', 31)] + $okIn)[0] !== null);
+ok('연락처 형식 오류(문자 섞임)', consult_validate_request(['tel' => '010-abcd-5678'] + $okIn)[0] !== null && consult_validate_request(['tel' => '123'] + $okIn)[0] !== null);
+ok('문의 내용 없음·501자', consult_validate_request(['message' => '  '] + $okIn)[0] !== null && consult_validate_request(['message' => str_repeat('가', 501)] + $okIn)[0] !== null);
+ok('500자는 통과', consult_validate_request(['message' => str_repeat('가', 500)] + $okIn)[0] === null);
+ok('동의 안 함·문자열 "true" 는 거절', consult_validate_request(['agree' => false] + $okIn)[0] !== null && consult_validate_request(['agree' => 'true'] + $okIn)[0] !== null);
+
+echo "[상담 요청: 접수 횟수 제한 consult_rate_allow]\n";
+$_SESSION['consult_req_at'] = [];
+ok('10분에 3건까지, 4번째 거절', consult_rate_allow(1000) && consult_rate_allow(1001) && consult_rate_allow(1002) && !consult_rate_allow(1003));
+ok('10분 지나면 다시 허용', consult_rate_allow(1000 + CONSULT_RATE_WINDOW + 1));
+$_SESSION['consult_req_at'] = [];
+
+echo "[상담 요청: 목록 검색 조건 consult_list_where]\n";
+[$w, $pp] = consult_list_where('pending', '');
+ok('상태만', $w === '1=1 AND status = :status' && $pp === ['status' => 'pending']);
+[$w, $pp] = consult_list_where('없는상태', '');
+ok('알 수 없는 상태는 무시', $w === '1=1' && $pp === []);
+[$w, $pp] = consult_list_where('', '010-1234');
+ok('연락처 검색은 하이픈 무시(숫자 3자리 이상)', str_contains($w, "REPLACE(tel, '-', '') LIKE :q3") && $pp['q3'] === '%0101234%' && $pp['q1'] === '%010-1234%');
+[$w, $pp] = consult_list_where('', '50%_');
+ok('LIKE 특수문자 이스케이프·짧은 숫자는 연락처 검색 안 함', $pp['q1'] === '%50\%\_%' && !isset($pp['q3']));
+
+echo "[상담 요청: AI 상담 내역 consult_chat_turns]\n";
+$turns = consult_chat_turns([
+    ['user_msg' => '집 앞 보도블록', 'assistant_txt' => '사람만 다니나요?', 'events_json' => null, 'created_at' => '2026-11-03 10:00:00'],
+    ['user_msg' => '5m x 4m', 'assistant_txt' => '', 'created_at' => '2026-11-03 10:01:00', 'events_json' => json_encode([
+        ['type' => 'product_cards', 'products' => [
+            ['id' => 402, 'name' => '인터로킹I2형블럭', 'spec' => '규격: 199*99*60T', 'spec_label' => '199×99×60T_회색', 'price_b2c' => 8500, 'unit' => '㎡', 'suggested_qty' => 20, 'est_cost' => 170000, 'image_url' => '/uploads/a.jpg'],
+            ['id' => 9, 'name' => 'X', 'image_url' => 'javascript:alert(1)'],
+            ['id' => 10, 'name' => 'Y', 'image_url' => '//evil.example/a.png'],
+            ['name' => ''],
+        ]],
+        ['type' => 'cart_update'],
+    ], JSON_UNESCAPED_UNICODE)],
+]);
+ok('턴 2개·텍스트 그대로', count($turns) === 2 && $turns[0]['user'] === '집 앞 보도블록' && $turns[0]['products'] === []);
+ok('추천표: 표시용 규격·가격·예상 자재비·이미지', $turns[1]['products'][0] === ['id' => 402, 'name' => '인터로킹I2형블럭', 'spec' => '199×99×60T_회색', 'price' => 8500, 'unit' => '㎡', 'qty' => 20, 'est_cost' => 170000, 'image' => '/uploads/a.jpg']);
+ok('이름 없는 상품 제외·javascript:·// 이미지 주소 차단', count($turns[1]['products']) === 3 && $turns[1]['products'][1]['image'] === '' && $turns[1]['products'][2]['image'] === '');
+
+echo "[상담 요청: 문자 업체 요청·응답 형식]\n";
+eq('솔라피 서명(HMAC-SHA256(date+salt, secret))', sms_solapi_auth_header('KEY', 'SECRET', '2026-11-03T00:00:00Z', 'abc'),
+    'HMAC-SHA256 apiKey=KEY, date=2026-11-03T00:00:00Z, salt=abc, signature=' . hash_hmac('sha256', '2026-11-03T00:00:00Zabc', 'SECRET'));
+ok('솔라피 본문: 번호 숫자만·LMS 제목', sms_solapi_body('010-1234-5678', '02-123-4567', '내용', 'LMS', '비엠아이') === ['message' => ['to' => '01012345678', 'from' => '021234567', 'text' => '내용', 'type' => 'LMS', 'subject' => '비엠아이']]
+    && !isset(sms_solapi_body('01012345678', '021234567', '짧게', 'SMS', '비엠아이')['message']['subject']));
+$af = sms_aligo_fields('K', 'U', '010-1234-5678', '02-123-4567', '내용', 'SMS', '제목', true);
+ok('알리고 요청 값: SMS 는 제목 없음·시험 모드', $af === ['key' => 'K', 'user_id' => 'U', 'sender' => '021234567', 'receiver' => '01012345678', 'msg' => '내용', 'msg_type' => 'SMS', 'testmode_yn' => 'Y']);
+ok('솔라피 응답: 2000 성공 / 오류 메시지', sms_parse_response('solapi', 200, '{"statusCode":"2000","statusMessage":"정상 접수"}')['ok']
+    && sms_parse_response('solapi', 403, '{"errorCode":"SignatureDoesNotMatch","errorMessage":"서명 불일치"}') === ['ok' => false, 'error' => '서명 불일치', 'code' => 'SignatureDoesNotMatch']);
+ok('알리고 응답: result_code 1(숫자·문자) 성공 / 음수 실패', sms_parse_response('aligo', 200, '{"result_code":1,"message":"success"}')['ok'] && sms_parse_response('aligo', 200, '{"result_code":"1"}')['ok']
+    && sms_parse_response('aligo', 200, '{"result_code":-101,"message":"인증오류"}') === ['ok' => false, 'error' => '인증오류', 'code' => '-101']);
+ok('JSON 아닌 응답 → 실패(HTTP 코드 안내)', sms_parse_response('solapi', 502, '<html>')['error'] === '발송 업체 응답 오류(HTTP 502)');
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);
