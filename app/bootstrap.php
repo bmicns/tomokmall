@@ -4,7 +4,8 @@ declare(strict_types=1);
 // 프로덕션: PHP 에러가 출력에 섞여 JSON 파싱을 깨지 않도록 억제
 ini_set('display_errors', '0');
 ini_set('display_startup_errors', '0');
-error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED & ~E_STRICT);
+// E_STRICT 는 PHP 8.0 부터 발생하지 않고 8.4 에서 상수 자체가 사용 중단(요청마다 Deprecated 로그) — 빼도 동작 같음
+error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
 
 // 세션 쿠키 보안: SameSite=Lax(교차사이트 POST=CSRF 차단) + HttpOnly(JS 접근 차단).
 // Secure는 HTTPS일 때만(현재 dothome는 http라 강제 시 세션 유실 → 자동 감지). SSL 적용되면 자동 보안.
