@@ -997,6 +997,16 @@ function spec_size_label(string $spec): string
     return (string) preg_replace('/(?<=\d)\s*[*xX]\s*(?=\d)/u', '×', parse_spec_field($spec)['spec']);
 }
 
+/**
+ * 화면 표시용 단위: 제곱미터 표기(m 2·m2·m²·㎡)를 ㎡ 로 통일. 그 밖의 단위(개·본·M 등)는 그대로.
+ * DB 값은 바꾸지 않는다(관리자 상품 수정 화면은 저장된 값을 그대로 보여 줌).
+ */
+function unit_display_label(string $unit): string
+{
+    $u = trim($unit);
+    return preg_match('/^(?:m\s*[2²]|㎡)$/iu', $u) ? '㎡' : $u;
+}
+
 function fetch_related_categories(int $categoryId, string $type): array
 {
     $stmt = db()->prepare(

@@ -22,6 +22,7 @@ $p = $st->fetch();
 if (!$p) { header('Location: /index.php'); exit; }
 
 $sp       = parse_spec_field($p['spec'] ?? '');
+$sp['unit'] = unit_display_label($sp['unit']);   // 표시용 단위(m 2 → ㎡)
 $loggedIn = !empty($_SESSION['user']);
 
 // 관심상품 등록 여부(상세 진입 시 버튼 초기 상태). 저장·중복 방지·50개 제한은 /api/estimate/favorites.php
