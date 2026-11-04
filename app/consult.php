@@ -4,12 +4,11 @@ declare(strict_types=1);
  * 상담원 문의 요청 (app/consult.php)
  *
  * 책임: 고객 문의 요청 검증·저장, 관리자 목록·상세 조회, 상태 변경(완료 시 이름·연락처 파기),
- *       문자 발송·메모 기록, 같은 상담 키의 AI 상담 내역(chat_logs) 전체 조회
- * 금지: 화면 출력, 문자 업체 직접 호출(app/sms.php), 개인정보를 로그에 남기기
+ *       메모 기록, 같은 상담 키의 AI 상담 내역(chat_logs) 전체 조회
+ * 금지: 화면 출력, 개인정보를 로그에 남기기
  * 테이블: consult_requests, consult_request_events (database/20261103_consult_requests.sql), 읽기만: chat_logs, ai_sessions, users
  */
 
-require_once __DIR__ . '/sms.php';
 
 /** 고객이 동의한 안내문 버전 — 고객 모달의 '개인정보 수집·이용' 문구를 바꾸면 함께 올린다 */
 const CONSULT_TERMS_VERSION = '2026-11-03';
@@ -18,6 +17,28 @@ const CONSULT_NAME_MAX      = 30;
 /** 같은 브라우저 세션에서 10분에 3건까지 */
 const CONSULT_RATE_WINDOW   = 600;
 const CONSULT_RATE_MAX      = 3;
+
+/** 전화번호 숫자만 (순수 함수) */
+function consult_phone_digits(string $tel): string
+{
+    return (string) preg_replace('/\D+/', '', $tel);
+}
+
+/** 국내 전화번호(휴대폰·지역번호) 형식인지 — 숫자 9~11자리, 0으로 시작 (순수 함수) */
+function consult_valid_phone(string $tel): bool
+{
+    return preg_match('/^0\d{8,10}$/', consult_phone_digits($tel)) === 1;
+}
+
+/** 표시용 하이픈 번호 (순수 함수) — 01012345678 → 010-1234-5678, 0212345678 → 02-1234-5678 */
+function consult_format_phone(string $tel): string
+{
+    $d = consult_phone_digits($tel);
+    if (preg_match('/^(02)(\d{3,4})(\d{4})$/', $d, $m) || preg_match('/^(0\d{2})(\d{3,4})(\d{4})$/', $d, $m)) {
+        return $m[1] . '-' . $m[2] . '-' . $m[3];
+    }
+    return $d;
+}
 
 /** 상태 키 → [표시명, 배지 class] */
 function consult_statuses(): array
@@ -38,7 +59,7 @@ function consult_validate_request(array $in): array
     $name = trim(preg_replace('/\s+/u', ' ', (string) ($in['name'] ?? '')) ?? '');
     $tel  = trim((string) ($in['tel'] ?? ''));
     $msg  = trim(str_replace("\r\n", "\n", (string) ($in['message'] ?? '')));
-    $clean = ['name' => $name, 'tel' => sms_format_phone($tel), 'message' => $msg];
+    $clean = ['name' => $name, 'tel' => consult_format_phone($tel), 'message' => $msg];
 
     if ($name === '') {
         return ['이름을 입력해 주세요.', $clean];
@@ -46,7 +67,7 @@ function consult_validate_request(array $in): array
     if (mb_strlen($name) > CONSULT_NAME_MAX) {
         return ['이름은 ' . CONSULT_NAME_MAX . '자 이내로 입력해 주세요.', $clean];
     }
-    if (!preg_match('/^[0-9\-\s]+$/', $tel) || !sms_valid_phone($tel)) {
+    if (!preg_match('/^[0-9\-\s]+$/', $tel) || !consult_valid_phone($tel)) {
         return ['연락처를 010-0000-0000 형식으로 입력해 주세요.', $clean];
     }
     if ($msg === '') {
@@ -134,7 +155,7 @@ function consult_list_where(string $status, string $q): array
         $cond = ['name LIKE :q1', 'message LIKE :q2'];
         $params['q1'] = $like;
         $params['q2'] = $like;
-        $digits = sms_digits($q);
+        $digits = consult_phone_digits($q);
         if (strlen($digits) >= 3) {
             $cond[] = 'REPLACE(tel, \'-\', \'\') LIKE :q3';
             $params['q3'] = '%' . $digits . '%';
@@ -233,26 +254,6 @@ function consult_set_status(PDO $pdo, int $id, string $status, ?int $adminId): ?
         consult_add_event($pdo, $id, 'status', $status, null, null, null, $adminId);
         $pdo->commit();
         return null;
-    } catch (\Throwable $e) {
-        $pdo->rollBack();
-        throw $e;
-    }
-}
-
-/** 문자 발송 기록 — 성공이고 '접수됨'이면 '발송됨'으로 바꾼다 */
-function consult_record_sms(PDO $pdo, int $id, string $text, ?string $smsType, bool $ok, ?string $error, ?int $adminId): void
-{
-    $pdo->beginTransaction();
-    try {
-        consult_add_event($pdo, $id, 'sms', null, $smsType, $ok ? 'ok' : 'fail', $ok ? $text : (string) $error, $adminId);
-        if ($ok) {
-            $st = $pdo->prepare('UPDATE consult_requests SET status = \'contact\' WHERE id = :id AND status = \'pending\'');
-            $st->execute(['id' => $id]);
-            if ($st->rowCount() > 0) {
-                consult_add_event($pdo, $id, 'status', 'contact', null, null, '문자 발송', $adminId);
-            }
-        }
-        $pdo->commit();
     } catch (\Throwable $e) {
         $pdo->rollBack();
         throw $e;

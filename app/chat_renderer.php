@@ -550,7 +550,7 @@ render_header('AI 자재 상담', 'chat');
   /* ── 채팅 페이지 푸터 여백 제거 ──────────────────────────── */
   .site-footer { margin-top: 0; }
 
-  /* ── 상담원 연결 유도 (상품 추천 시점마다 추천표 아래) — '상담원 연결 유도 (추천 시점)' 시안 ── */
+  /* ── 상담원 연결 유도 (상품 추천 시점마다 추천표 아래, 개인·기업회원만) — '상담원 연결 유도 (추천 시점)' 시안(카카오톡 채널) ── */
   .consult-cta { margin-top: 6px; padding: 16px 18px; border: 1px solid #DDDDDD; border-radius: 8px; background: #FFFFFF; }
   .consult-cta-head { display: flex; align-items: center; gap: 8px; }
   .consult-cta-head svg { flex-shrink: 0; }
@@ -562,53 +562,12 @@ render_header('AI 자재 상담', 'chat');
     border: 1px solid #004EA1; border-radius: 4px; background: #FFFFFF; color: #004EA1;
     font-size: 13.5px; font-weight: 500; font-family: var(--font); cursor: pointer; white-space: nowrap;
   }
-  .consult-cta-btn:hover { background: #EEF4FB; }
+  .consult-cta-btn svg { flex-shrink: 0; }
+  .consult-cta-btn:hover { background: #EEF4FB; color: #004EA1; }   /* 전역 button:hover(흰 글자) 덮어씀 */
   .consult-cta-btn:focus-visible { outline: 2px solid #004EA1; outline-offset: 2px; }
-
-  /* ── 상담원 문의 요청 모달 — '상담원 문의 요청 모달' 시안(운영 로그인 모달 .auth-modal 값 기준) ── */
-  body.cm-open { overflow: hidden; }
-  .cm-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; padding: 16px; }
-  .cm-overlay[hidden], .cm-overlay [hidden] { display: none !important; }
-  .cm { background: #FFFFFF; border: 1px solid #DDDDDD; width: 440px; max-width: 100%; max-height: calc(100dvh - 32px); overflow-y: auto; padding: 32px 28px 28px; position: relative; box-sizing: border-box; color: #222222; }
-  .cm-close { position: absolute; top: 12px; right: 14px; width: 32px; height: 32px; background: none; border: none; font-size: 22px; color: #777777; line-height: 1; padding: 0; font-family: inherit; cursor: pointer; }
-  .cm-title { font-size: 18px; font-weight: 700; margin: 0 0 4px; }
-  .cm-sub { font-size: 12px; color: #777777; margin: 0 0 20px; line-height: 1.6; }
-  .cm-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
-  .cm-label { display: block; font-size: 12px; font-weight: 400; color: #777777; }   /* 전역 label(display:grid) 덮어씀 — * 표시가 줄바꿈되지 않게 */
-  .cm-label em { font-style: normal; color: #C0392B; margin-left: 2px; }
-  .cm-input { border: 1px solid #DDDDDD; background: #EEEEEE; padding: 9px 11px; font-size: 13px; outline: none; width: 100%; box-sizing: border-box; font-family: var(--font); color: #222222; border-radius: 0; }
-  .cm-input:focus { border-color: #004EA1; background: #FFFFFF; }
-  .cm-input::placeholder { color: #AAAAAA; }
-  textarea.cm-input { height: 110px; resize: none; line-height: 1.6; }
-  .cm-count { align-self: flex-end; font-size: 11px; color: #999999; }
-  .cm-agree-row { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-top: 4px; }
-  .cm-agree { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 400; color: #222222; cursor: pointer; min-height: 44px; }
-  .cm-agree input { appearance: none; -webkit-appearance: none; width: 20px; height: 20px; margin: 0; flex-shrink: 0; border: 1.5px solid #555555; border-radius: 3px; background: #FFFFFF no-repeat center/14px 14px; cursor: pointer; }
-  .cm-agree input:checked { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23222222' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
-  .cm-agree input:focus-visible { outline: 2px solid #004EA1; outline-offset: 2px; }
-  .cm-more { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; min-height: 36px; margin-left: auto; padding: 0 4px; background: none; border: none; font-size: 13px; color: #666666; font-family: inherit; cursor: pointer; }
-  .cm-more svg { transition: transform .15s; }
-  .cm-more[aria-expanded="true"] svg { transform: rotate(180deg); }
-  .cm-terms { word-break: keep-all; margin: 4px 0 0; padding: 14px 16px; background: #F7F7F7; border: 1px solid #E5E5E5; font-size: 12px; line-height: 1.65; color: #444444; }
-  .cm-terms h3 { margin: 0 0 2px; font-size: 12.5px; font-weight: 500; color: #222222; }
-  .cm-terms ul { margin: 0 0 12px; padding: 0; list-style: none; }
-  .cm-terms ul:last-child { margin-bottom: 0; }
-  .cm-terms li { position: relative; padding-left: 10px; }
-  .cm-terms li::before { content: ""; position: absolute; left: 1px; top: .75em; width: 3px; height: 3px; border-radius: 50%; background: #777777; }
-  .cm-err { margin: 10px 0 0; font-size: 12px; color: #C0392B; line-height: 1.5; }
-  .cm-btns { display: flex; gap: 8px; margin-top: 14px; }
-  .cm-btn { flex: 1; height: 44px; border: none; font-size: 14px; font-weight: 600; font-family: var(--font); cursor: pointer; background: #004EA1; color: #FFFFFF; }
-  .cm-btn:disabled { background: #F7F7F7; color: #BBBBBB; cursor: not-allowed; }
-  .cm-cancel { flex: 0 0 96px; background: #FFFFFF; border: 1px solid #DDDDDD; color: #222222; font-weight: 500; }
-  .cm-done { text-align: center; padding: 40px 28px 28px; }
-  .cm-done .cm-title { margin-top: 12px; }
-  .cm-done .cm-sub { margin-bottom: 0; }
+  .consult-cta-hours { margin: 8px 0 0; font-size: 12px; color: #888888; text-align: center; }
   @media (max-width: 640px) {
     .consult-cta-btn { height: 44px; }
-    .cm { padding: 28px 20px 20px; }
-    .cm-input { font-size: 16px; }   /* iOS 입력 시 화면 확대 방지 */
-    .cm-close { width: 44px; height: 44px; top: 6px; right: 6px; }
-    .cm-more { min-height: 44px; }
   }
 </style>
 
@@ -713,67 +672,12 @@ render_header('AI 자재 상담', 'chat');
   </div>
 </aside>
 
-<?php if ($_isLoggedIn ?? false): // 상담원 연결 유도·문의 모달은 로그인 회원에게만 (비로그인은 모달이 없어 renderConsultCta 가 아무것도 그리지 않음) ?>
-<!-- ── 상담원 문의 요청 모달 (상품 추천표 아래 '상담원 문의 요청' 버튼 — consult-request.js) ── -->
-<div class="cm-overlay" id="consult-modal" hidden>
-  <form class="cm" id="cm-form" role="dialog" aria-modal="true" aria-labelledby="cm-title" novalidate>
-    <button type="button" class="cm-close" aria-label="닫기" data-cm-close>×</button>
-    <h2 class="cm-title" id="cm-title">상담원 문의 요청</h2>
-    <p class="cm-sub">남겨 주신 연락처로 상담원이 1:1로 연락드립니다.</p>
-
-    <div class="cm-field">
-      <label class="cm-label" for="cm-name">이름<em aria-hidden="true">*</em></label>
-      <input id="cm-name" class="cm-input" type="text" autocomplete="name" maxlength="30" placeholder="홍길동" value="<?= e((string) (current_user()['name'] ?? '')) ?>" required>
-    </div>
-    <div class="cm-field">
-      <label class="cm-label" for="cm-tel">연락처<em aria-hidden="true">*</em></label>
-      <input id="cm-tel" class="cm-input" type="tel" inputmode="numeric" autocomplete="tel" maxlength="13" placeholder="010-0000-0000" required>
-    </div>
-    <div class="cm-field">
-      <label class="cm-label" for="cm-msg">문의 내용<em aria-hidden="true">*</em></label>
-      <textarea id="cm-msg" class="cm-input" maxlength="500" placeholder="예: 마당 20㎡에 보도블록을 깔려고 하는데, 인터로킹과 점토블럭 중 어떤 게 맞을까요?" required></textarea>
-      <span class="cm-count" id="cm-count" aria-live="polite">0 / 500</span>
-    </div>
-
-    <div class="cm-agree-row">
-      <label class="cm-agree">
-        <input type="checkbox" id="cm-agree" required>
-        <span>(필수) 개인정보 수집·이용에 동의합니다.</span>
-      </label>
-      <button type="button" class="cm-more" id="cm-more" aria-expanded="false" aria-controls="cm-terms"><span class="cm-more-label">자세히 보기</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
-    </div>
-    <div class="cm-terms" id="cm-terms" hidden>
-      <h3>개인정보 수집 업체</h3>
-      <ul><li>(주)비엠아이씨앤애스</li></ul>
-      <h3>수집하는 개인정보의 항목</h3>
-      <ul><li>이름, 연락처, 문의 내용</li></ul>
-      <h3>개인정보의 수집·이용 목적</h3>
-      <ul><li>이름 : 서비스 이용에 대한 상담 진행을 위한 기본적인 대상자 정보</li><li>연락처 : 문의 사항에 대한 답변을 전달하기 위한 원활한 연락 수단 확보</li><li>문의 내용 : 요청하신 자재 상담 내용 파악 및 답변 준비</li></ul>
-      <h3>개인정보의 보유 및 이용기간</h3>
-      <ul><li>수집한 정보는 이번 1회 상담에만 사용하며, 홍보·마케팅 목적으로는 이용하지 않습니다.</li><li>원칙적으로 상담 완료 시 고객의 개인정보를 지체 없이 파기합니다.</li></ul>
-    </div>
-
-    <p class="cm-err" id="cm-err" role="alert" hidden></p>
-    <div class="cm-btns">
-      <button type="button" class="cm-btn cm-cancel" data-cm-close>취소</button>
-      <button type="submit" class="cm-btn" id="cm-send" disabled>문의 요청 보내기</button>
-    </div>
-  </form>
-
-  <div class="cm cm-done" id="cm-done-box" role="dialog" aria-modal="true" aria-labelledby="cm-done-title" hidden>
-    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#004EA1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M8 12.5l2.8 2.8L16.5 9.5"></path></svg>
-    <h2 class="cm-title" id="cm-done-title">문의가 접수됐어요</h2>
-    <p class="cm-sub"><b style="color:#222222" id="cm-done-tel"></b>(으)로 담당 상담원이 연락드립니다.<br>그동안 AI 상담은 계속 이용하실 수 있습니다.</p>
-    <div class="cm-btns"><button type="button" class="cm-btn" data-cm-close>확인</button></div>
-  </div>
-</div>
-<?php endif; ?>
 
 <script>
 window.SID = '<?= e($_sid) ?>';
 </script>
 <script src="/assets/chat-ai.js?v=<?= time() ?>"></script>
-<?php if ($_isLoggedIn ?? false): ?>
+<?php if (in_array(current_user()['role'] ?? '', ['customer', 'corporate'], true)): // 상담원 연결 유도는 로그인한 개인·기업회원에게만(비로그인·직원·관리자는 스크립트가 없어 표시 안 됨) ?>
 <script src="/assets/consult-request.js?v=<?= time() ?>"></script>
 <?php endif; ?>
 <script>

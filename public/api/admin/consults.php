@@ -4,7 +4,6 @@ declare(strict_types=1);
  * 관리자 상담 요청 처리 API (admin-consult.php 에서 호출)
  * POST JSON + 헤더 X-CSRF-Token
  *   { action:'set_status', id, status:'pending'|'contact'|'closed' }   closed = 이름·연락처 파기(되돌릴 수 없음)
- *   { action:'send_sms',   id, text }                                  SMS(90byte)/LMS(2,000byte) 발송 → 처리 이력 기록
  *   { action:'save_memo',  id, memo }
  * 응답: { ok:true } | { ok:false, error, logged? }
  */
@@ -55,22 +54,6 @@ try {
     if ($action === 'set_status') {
         $err = consult_set_status($pdo, $id, (string) ($body['status'] ?? ''), $adminId);
         $out($err === null ? 200 : 422, $err === null ? ['ok' => true] : ['ok' => false, 'error' => $err]);
-    }
-
-    if ($action === 'send_sms') {
-        $text = str_replace("\r\n", "\n", trim((string) ($body['text'] ?? '')));
-        if ($req['status'] === 'closed' || (string) $req['tel'] === '') {
-            $out(422, ['ok' => false, 'error' => '완료되어 연락처가 파기된 요청은 문자를 보낼 수 없습니다.']);
-        }
-        if (sms_message_type($text) === null) {
-            $out(422, ['ok' => false, 'error' => $text === '' ? '보낼 내용을 입력해 주세요.' : '내용이 2,000byte를 넘습니다.']);
-        }
-        if (!sms_config()['ready']) {
-            $out(422, ['ok' => false, 'error' => '문자 발송 설정이 아직 없습니다.']);
-        }
-        $r = sms_send((string) $req['tel'], $text, sms_config()['sender_name']);
-        consult_record_sms($pdo, $id, $text, $r['type'], $r['ok'], preg_replace('/^문자 발송 실패:\s*/u', '', (string) $r['error']), $adminId);
-        $out($r['ok'] ? 200 : 502, $r['ok'] ? ['ok' => true, 'type' => $r['type']] : ['ok' => false, 'error' => $r['error'], 'logged' => true]);
     }
 
     if ($action === 'save_memo') {

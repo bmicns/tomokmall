@@ -4,7 +4,7 @@ declare(strict_types=1);
  * 관리자 — 상담 요청 상세 ('상담 요청 — 관리자 상세' 시안)
  * GET ?id=N
  * 왼쪽: 요청 정보 · 문의 내용 · AI 상담 내역 전체(같은 상담 키의 chat_logs 전 턴 + 상품 추천표)
- * 오른쪽: 상태 변경 · 문자 답변(SMS/LMS) · 메모 · 처리 이력  → POST /api/admin/consults.php
+ * 오른쪽: 상태 변경 · 메모 · 처리 이력  → POST /api/admin/consults.php
  */
 require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/auth.php';
@@ -33,7 +33,6 @@ try {
 }
 
 $statuses = consult_statuses();
-$sms      = sms_config();
 $csrf     = consult_csrf_token();
 $fmtWon   = static fn(int $n): string => '₩' . number_format($n);
 
@@ -107,17 +106,10 @@ $reqAt   = (string) $req['created_at'];
 .cd-warn{margin-top:8px;padding:10px;border-radius:6px;background:#fce4ec;color:#c62828;font-size:12px;line-height:1.6}
 .cd-warn-btns{display:flex;gap:6px;margin-top:8px}
 .cd-warn-btns .btn{flex:1;height:34px}
-.cd-to{display:grid;grid-template-columns:72px minmax(0,1fr);gap:4px 0;margin:0 0 12px;font-size:12.5px;color:#555}
-.cd-to dd{margin:0;display:flex;gap:6px;flex-wrap:wrap}
-.cd-to b{color:#222}
 .cd-ta{width:100%;border:1px solid #e8eaed;border-radius:6px;padding:9px 10px;font-size:13px;line-height:1.6;font-family:inherit;resize:vertical;outline:none;color:#1a2035}
 .cd-ta:focus{border-color:#004EA1}
-.cd-bytes{display:flex;justify-content:space-between;margin-top:4px;font-size:11.5px;color:#888}
-.cd-bytes .over{color:#c62828}
 .cd-act{width:100%;height:40px;margin-top:10px}
 .cd-act:disabled{background:#f0f2f5 !important;color:#bbb !important;cursor:not-allowed}
-.cd-note{margin:0;font-size:12.5px;color:#999;line-height:1.6}
-.cd-note.warn{color:#8a6200;background:#FFFBEF;border:1px dashed #E6A817;border-radius:6px;padding:9px 12px;margin-bottom:12px}
 .cd-msgline{margin-top:8px;font-size:12px;line-height:1.5}
 .cd-msgline.err{color:#c62828}
 .cd-msgline.ok{color:#2e7d32}
@@ -236,8 +228,8 @@ $reqAt   = (string) $req['created_at'];
 
     <!-- 오른쪽: 처리 -->
     <div class="cd-col">
-      <section class="card" aria-labelledby="h-sms">
-        <div class="card-header"><h2 class="card-title" id="h-sms">문자 답변</h2></div>
+      <section class="card" aria-labelledby="h-status">
+        <div class="card-header"><h2 class="card-title" id="h-status">처리 상태</h2></div>
         <div class="cd-sec">
           <div class="cd-lbl" id="cd-status-lbl">상태</div>
           <div class="cd-status" role="radiogroup" aria-labelledby="cd-status-lbl">
@@ -246,33 +238,13 @@ $reqAt   = (string) $req['created_at'];
             <?php endforeach; ?>
           </div>
           <div class="cd-warn" id="cd-warn" role="alert" hidden>
-            완료하면 이름·연락처가 파기되어 다시 볼 수 없고 문자도 보낼 수 없습니다. 문의 내용과 처리 이력은 남습니다.
+            완료하면 이름·연락처가 파기되어 다시 볼 수 없습니다. 문의 내용과 처리 이력은 남습니다.
             <div class="cd-warn-btns">
               <button type="button" class="btn btn-secondary" style="background:#fff" id="cd-warn-cancel">취소</button>
               <button type="button" class="btn" style="background:#c62828;color:#fff" id="cd-warn-ok">완료 처리</button>
             </div>
           </div>
           <p class="cd-msgline err" id="cd-status-err" role="alert" hidden></p>
-        </div>
-        <div class="cd-sec">
-          <?php if ($closed): ?>
-          <p class="cd-note">완료되어 연락처가 파기된 요청은 문자를 보낼 수 없습니다.</p>
-          <?php else: ?>
-          <?php if (!$sms['ready']): ?>
-          <p class="cd-note warn">문자 발송 설정이 아직 없습니다. 서버 /app/.env 에 <?= e(implode(', ', $sms['missing'])) ?> 값을 넣어야 보낼 수 있습니다.</p>
-          <?php endif; ?>
-          <dl class="cd-to">
-            <dt>받는 사람</dt><dd><b><?= e((string) $req['name']) ?></b><span style="font-variant-numeric:tabular-nums"><?= e((string) $req['tel']) ?></span></dd>
-            <dt>보내는 사람</dt><dd><b><?= e($sms['sender_name']) ?></b><span style="font-variant-numeric:tabular-nums"><?= e($sms['sender'] !== '' ? $sms['sender'] : '발신번호 미설정') ?></span><?= $sms['test_mode'] ? '<span style="color:#8a6200">(시험 모드 — 실제 발송 안 됨)</span>' : '' ?></dd>
-          </dl>
-          <label for="cd-sms" class="cd-lbl">내용</label>
-          <textarea id="cd-sms" class="cd-ta" style="height:220px" placeholder="고객에게 보낼 답변을 입력하세요"></textarea>
-          <div class="cd-bytes"><span id="cd-sms-type">단문(SMS)</span><span id="cd-sms-bytes" style="font-variant-numeric:tabular-nums">0 / 90 byte</span></div>
-          <button type="button" class="btn btn-primary cd-act" id="cd-sms-send" disabled<?= $sms['ready'] ? '' : ' data-noconfig="1"' ?>>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:6px"><path d="M22 2L11 13"></path><path d="M22 2l-7 20-4-9-9-4 20-7z"></path></svg>문자 보내기
-          </button>
-          <p class="cd-msgline" id="cd-sms-msg" role="status" hidden></p>
-          <?php endif; ?>
         </div>
       </section>
 
@@ -294,10 +266,6 @@ $reqAt   = (string) $req['created_at'];
             $who = $ev['admin_name'] ? ' · ' . $ev['admin_name'] : '';
             if ($ev['type'] === 'created') {
                 [$title, $meta, $dot, $text] = ['접수됨', $at . ' · 고객 요청', $dotOf['pending'], ''];
-            } elseif ($ev['type'] === 'sms') {
-                $okSms = $ev['result'] === 'ok';
-                [$title, $meta, $dot, $text] = [$okSms ? '문자 발송' . ($ev['sms_type'] ? ' (' . $ev['sms_type'] . ')' : '') : '문자 발송 실패',
-                    $at . $who, $okSms ? '#004EA1' : '#c62828', (string) $ev['detail']];
             } else {
                 $s = isset($statuses[$ev['status']]) ? $ev['status'] : 'pending';
                 [$title, $meta, $dot, $text] = [$statuses[$s][0], $at . ' · ' . ($ev['detail'] ?: '상태 변경') . $who, $dotOf[$s], ''];
@@ -365,35 +333,6 @@ $reqAt   = (string) $req['created_at'];
   }));
   document.getElementById('cd-warn-cancel').addEventListener('click', () => { warn.hidden = true; mark(STATUS); });
   document.getElementById('cd-warn-ok').addEventListener('click', () => { warn.hidden = true; apply('closed'); });
-
-  // 문자: 한글 2byte·영문/숫자 1byte, 90byte까지 SMS, 넘으면 LMS(최대 2,000byte) — app/sms.php 와 같은 규칙
-  const ta = document.getElementById('cd-sms');
-  if (ta) {
-    const send = document.getElementById('cd-sms-send'), msg = document.getElementById('cd-sms-msg');
-    const typeEl = document.getElementById('cd-sms-type'), byteEl = document.getElementById('cd-sms-bytes');
-    const bytesOf = (s) => Array.from(s.replace(/\r\n/g, '\n')).reduce((n, ch) => n + (ch.charCodeAt(0) > 127 ? 2 : 1), 0);
-    let busy = false;
-    const sync = () => {
-      const b = bytesOf(ta.value), lms = b > 90, over = b > 2000;
-      typeEl.textContent = lms ? '장문(LMS)' : '단문(SMS)';
-      byteEl.textContent = b.toLocaleString('ko-KR') + ' / ' + (lms ? '2,000' : '90') + ' byte';
-      byteEl.classList.toggle('over', over);
-      send.disabled = busy || !!send.dataset.noconfig || ta.value.trim() === '' || over;
-    };
-    ta.addEventListener('input', sync);
-    sync();
-    send.addEventListener('click', async () => {
-      if (send.disabled) return;
-      if (!confirm(<?= json_encode((string) $req['name'] . '(' . (string) $req['tel'] . ')님께 문자를 보낼까요?', JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>)) return;
-      busy = true; sync(); show(msg, '보내는 중…', '');
-      const d = await call({ action: 'send_sms', text: ta.value });
-      busy = false;
-      if (d.ok) { show(msg, '보냈습니다.', 'ok'); setTimeout(() => location.reload(), 600); return; }
-      show(msg, d.error || '문자를 보내지 못했습니다.', 'err');
-      sync();
-      if (d.logged) setTimeout(() => location.reload(), 1800); // 실패도 처리 이력에 남김
-    });
-  }
 
   // 메모
   const memo = document.getElementById('cd-memo'), mSave = document.getElementById('cd-memo-save');

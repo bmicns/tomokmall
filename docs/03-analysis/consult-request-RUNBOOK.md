@@ -1,6 +1,6 @@
-# 운영 반영 실행표 — 상담원 문의 요청 · 관리자 상담 요청 · 문자 답변
+# 운영 반영 실행표 — 상담원 연결 유도 · 관리자 상담 요청
 
-> 상태: **1장 DB 적용 완료(2026-11-03, 사용자 실행)** · 문자 업체 **솔라피 확정** · 2장 설정·3장 코드는 실행 전(각 단계 사용자 승인 후 사용자 PC 에서 실행). 기능 설명: [consult-request-2026-11-03.md](consult-request-2026-11-03.md)
+> 상태: **1장 DB 적용 완료(2026-11-03, 사용자 실행)** · **2026-11-04 문자 발송 제거·카카오톡 채널 연결 유도로 교체(기능 없음)** → 코드 배포는 **보류**. 카카오톡 연결 기능·관리자 화면 방향이 정해지면 3장 파일 목록·4장 확인표를 다시 맞춘다.
 > 이 클라우드 환경은 FTP(21)·DB(3306) 접속이 막혀 있어 업로드·DB 반영은 사용자가 한다([DEPLOYMENT.md](../DEPLOYMENT.md) 6장).
 
 ## 0. 시작 전 (사용자)
@@ -8,7 +8,6 @@
 | 확인 | 내용 |
 |---|---|
 | main 병합 | 작업 브랜치 `claude/peaceful-feynman-wnhr78` → main (승인 후) — 배포는 main 에서 |
-| 문자 업체 | **솔라피 확정**. 콘솔에서 API Key·Secret 발급, **발신번호 사전 등록 완료**(등록 전엔 '발신번호 미등록'으로 접수 거절), 잔액(충전) 확인. API Key 에 IP 제한을 걸면 닷홈 서버 IP 를 허용 목록에 넣는다 |
 | 안내 문구 | 문의 모달의 '개인정보 수집 업체'(현재 `(주)비엠아이씨앤애스`)가 정확한 법인명인지 |
 
 ## 1. DB (phpMyAdmin, 코드보다 먼저)
@@ -21,24 +20,9 @@
 
 로컬 MySQL 8.0 에서 [1]~[3] 실행·재실행(멱등) 확인함. 되돌리기는 파일의 [4](쌓인 문의가 지워지므로 백업 후, 별도 승인).
 
-## 2. 문자 설정 (`/app/.env`)
-
-FileZilla 로 서버 `/app/.env` 를 내려받아 **기존 줄은 그대로 두고** 아래를 추가한 뒤 다시 올린다(값은 채팅·커밋 금지). 배포 스크립트는 `.env` 를 건드리지 않는다.
-
-```dotenv
-SMS_PROVIDER=solapi
-SMS_API_KEY=
-SMS_API_SECRET=
-SMS_SENDER=
-SMS_SENDER_NAME=비엠아이토목건축자재
-```
-
-`SMS_SENDER` 는 솔라피에 등록한 발신번호(하이픈 있어도 됨). 솔라피는 시험 모드가 없으므로 첫 시험은 본인 번호로 1건 보낸다(건당 요금).
-설정 전에도 화면은 동작하고, 관리자 상세에 '문자 발송 설정이 아직 없습니다' 안내가 나온다.
-
 ## 3. 코드 (사용자 PC, Git Bash)
 
-10개 파일 = 새 파일 7 + 수정 3. 운영 서버의 수정 3개(`chat_renderer.php`·`chat-ai.js` = 1단계 `b5e9602`, `admin_layout.php` = `02a98c2`)는 모두 `a1f0a6e` 와 같으므로 비교 기준은 **`a1f0a6e`**.
+9개 파일 = 새 파일 6 + 수정 3. 운영 서버의 수정 3개(`chat_renderer.php`·`chat-ai.js` = 1단계 `b5e9602`, `admin_layout.php` = `02a98c2`)는 모두 `a1f0a6e` 와 같으므로 비교 기준은 **`a1f0a6e`**.
 새 파일을 먼저, 그것을 부르는 화면(AI 상담·관리자 메뉴)을 나중에 올리도록 순서를 맞췄다.
 `scripts/deploy-files.sh` 는 이번에 **새 파일 지원**을 추가했다(check: 서버에 없음 확인 · upload: 폴더 생성 · rollback: 새 파일 삭제) — 로컬 FTP 서버로 check·upload·rollback·비밀번호 오류·'이미 있음' 중단을 시험함.
 
@@ -51,10 +35,10 @@ git pull origin main
 ```
 
 ```bash
-scripts/deploy-files.sh check a1f0a6e app/consult.php app/sms.php public/api/consult/request.php public/api/admin/consults.php public/admin-consults.php public/admin-consult.php public/assets/consult-request.js public/assets/chat-ai.js app/chat_renderer.php app/admin_layout.php
+scripts/deploy-files.sh check a1f0a6e app/consult.php public/api/consult/request.php public/api/admin/consults.php public/admin-consults.php public/admin-consult.php public/assets/consult-request.js public/assets/chat-ai.js app/chat_renderer.php app/admin_layout.php
 ```
 
-- 기대: 문법·단위 테스트 통과 → 수정 3개 백업 + **'동일'**, 새 파일 7개 **'서버에 없음 확인'** → `check 통과`.
+- 기대: 문법·단위 테스트 통과 → 수정 3개 백업 + **'동일'**, 새 파일 6개 **'서버에 없음 확인'** → `check 통과`.
 - '다름' 또는 '새 파일인데 서버에 이미 있음' 이 나오면 멈추고 결과 공유.
 
 ```bash
@@ -75,15 +59,12 @@ bash scripts/smoke.sh
 | 본인 번호로 접수 | '문의가 접수됐어요' |
 | 관리자 › 운영 › 상담 요청 | 목록에 접수 1건(접수됨), 검색·탭 |
 | 상세 | AI 상담 내역 전체·추천표·'상담원 문의 요청' 시점 |
-| 문자 보내기(본인 번호) | 휴대폰 수신, 상태 '발송됨', 처리 이력에 문자 내용 |
-| 실패 시 | 처리 이력 '문자 발송 실패' + 사유 → 사유 공유(발신번호 미등록·IP 미등록·키 오류 등) |
 | 완료 처리 | 확인 → 이름·연락처 '파기됨', 회원 정보는 그대로 |
 
 ## 5. 되돌리기
 
-- 코드: `scripts/deploy-files.sh rollback backup/<폴더>` — 수정 3개는 백업으로 복구, 새 파일 7개는 서버에서 삭제(빈 `/html/api/consult/` 폴더만 남음).
+- 코드: `scripts/deploy-files.sh rollback backup/<폴더>` — 수정 3개는 백업으로 복구, 새 파일 6개는 서버에서 삭제(빈 `/html/api/consult/` 폴더만 남음).
 - DB: 코드만 되돌리면 새 테이블은 쓰이지 않을 뿐 영향 없음. 삭제가 꼭 필요할 때만 [4].
-- `/app/.env` 의 SMS 줄은 남아 있어도 영향 없음.
 
 ## 6. 기록
 
