@@ -261,10 +261,17 @@ body.mode-corp .footer-inner { max-width: 1360px; padding: 28px 24px 32px; }
   /* 메뉴가 여러 줄로 감싸져 높아지므로 고정(sticky) 해제 → 본문 화면 확보 */
   body.mode-corp .site-header { height: auto; position: static; }
   body.mode-corp .header-inner { grid-template-columns: minmax(0, 1fr); row-gap: 12px; height: auto; padding: 14px 16px; }
-  body.mode-corp .header-nav { flex-wrap: wrap; justify-self: start; gap: 8px 12px; }
+  /* 메뉴 한 줄(검색·AI 상담·견적보기·마이페이지·로그아웃): 일반 화면 모바일 헤더와 같은 균등 배치 — 로그아웃만 다음 줄로 떨어지던 것 방지 */
+  body.mode-corp .header-nav { width: 100%; justify-self: stretch; flex-wrap: nowrap; gap: 4px; }
+  body.mode-corp .header-nav > .btn-header-search, body.mode-corp .header-nav > .btn-header-ai,
+  body.mode-corp .header-nav > .btn-header-est, body.mode-corp .header-nav > .nav-link {
+    flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; height: 40px; padding: 0 4px; font-size: 13px; white-space: nowrap;
+  }
+  /* 검색 줄: 헤더가 고정되지 않고(여러 줄) 높이가 --header-h(66px)보다 커서 메뉴 줄을 가리던 것 → 화면 맨 위에 띄움(X·바깥 누르면 닫힘) */
+  body.mode-corp .header-search-wrap, body.mode-corp .header-search-dim { top: 0; }
   body.mode-corp main { padding: 0 16px 48px; }
   body.mode-corp .footer-inner { padding: 24px 16px 28px; }
-  .ch-hero { padding: 32px 0 28px; }
+  .ch-hero { padding: 32px 0 28px; word-break: keep-all; }   /* 제목이 단어 중간(건/축자재)에서 줄바꿈되던 것 */
   .ch-hero-title { font-size: 34px; }
   .ch-hero-sub { font-size: 17px; }
   .ch-search button { padding: 0 16px; }
@@ -276,4 +283,32 @@ body.mode-corp .footer-inner { max-width: 1360px; padding: 28px 24px 32px; }
   .ch-sum-total { font-size: 22px; }
   /* 담은 품목: 좁은 화면에서는 사진을 숨겨 품목·규격 칸 확보 */
   .ch-cart-photo-h, .ch-cart-item .ch-thumb { display: none; }
+
+  /* 규격별 상품·단골품목 표 → 상품마다 카드(가로 스크롤 없이 [수량]·[담기]가 화면 안에)
+     [사진][품명·규격] / [사진][단위 · 단가] / (단골: [매입횟수 · 최근 매입일]) / [수량 ........ 담기] */
+  .ch .ch-table.ch-table--prod, .ch .ch-table.ch-table--fav { min-width: 0; }
+  .ch .ch-table:is(.ch-table--prod, .ch-table--fav) :is(thead, colgroup) { display: none; }
+  .ch .ch-table:is(.ch-table--prod, .ch-table--fav) tbody { display: block; }
+  .ch .ch-table:is(.ch-table--prod, .ch-table--fav) tr {
+    display: grid; grid-template-columns: 64px auto minmax(0, 1fr) auto; column-gap: 10px; row-gap: 2px; align-items: center;
+    padding: 12px 0; border-bottom: 1px solid var(--ch-row-line);
+  }
+  .ch .ch-table:is(.ch-table--prod, .ch-table--fav) td { display: block; min-width: 0; padding: 0; border: 0; text-align: left; font-size: 14px; }
+  .ch .ch-table:is(.ch-table--prod, .ch-table--fav) td.ch-empty { grid-column: 1 / -1; padding: 28px 8px; text-align: center; }
+  .ch .ch-table:is(.ch-table--prod, .ch-table--fav) .ch-thumb { width: 64px; height: 48px; }
+  .ch .ch-table:is(.ch-table--prod, .ch-table--fav) td:nth-child(1) { grid-column: 1; grid-row: 1 / span 2; align-self: start; }
+  .ch .ch-table:is(.ch-table--prod, .ch-table--fav) td:nth-child(2) { grid-column: 2 / -1; grid-row: 1; }
+  .ch .ch-table:is(.ch-table--prod, .ch-table--fav) .ch-name { white-space: normal; overflow-wrap: anywhere; }
+  .ch .ch-table:is(.ch-table--prod, .ch-table--fav) td:nth-child(3) { grid-column: 2; grid-row: 2; }
+  .ch .ch-table:is(.ch-table--prod, .ch-table--fav) td:nth-child(4) { grid-column: 3 / -1; grid-row: 2; font-weight: 600; }
+  .ch .ch-table.ch-table--prod td:nth-child(5), .ch .ch-table.ch-table--fav td:nth-child(7) { grid-column: 1 / 3; grid-row: 3; margin-top: 8px; }
+  .ch .ch-table.ch-table--prod td:nth-child(6), .ch .ch-table.ch-table--fav td:nth-child(8) { grid-column: 3 / -1; grid-row: 3; justify-self: end; margin-top: 8px; }
+  /* 단골품목: 매입횟수·최근 매입일은 이름표를 붙여 한 줄로 */
+  .ch .ch-table.ch-table--fav td:nth-child(5) { grid-column: 2; grid-row: 3; font-size: 12px; color: var(--ch-sub-text); }
+  .ch .ch-table.ch-table--fav td:nth-child(6) { grid-column: 3 / -1; grid-row: 3; font-size: 12px; color: var(--ch-sub-text); }
+  .ch .ch-table.ch-table--fav td:nth-child(5)::before { content: "매입 "; }
+  .ch .ch-table.ch-table--fav td:nth-child(6)::before { content: "최근 "; }
+  .ch .ch-table.ch-table--fav td:nth-child(7), .ch .ch-table.ch-table--fav td:nth-child(8) { grid-row: 4; }
+  .ch .ch-table:is(.ch-table--prod, .ch-table--fav) .ch-qty { width: 64px; }
+  .ch .ch-table:is(.ch-table--prod, .ch-table--fav) .ch-btn-add { width: 112px; }
 }

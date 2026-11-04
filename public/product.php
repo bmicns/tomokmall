@@ -180,6 +180,30 @@ render_header($p['name']);
   .gallery-thumbs{flex-direction:row;flex-wrap:wrap}
 }
 @media(max-width:640px){
+  /* 모바일: 1열 그리드가 내용(긴 규격·버튼) 폭만큼 넓어져 오른쪽이 잘리던 문제 → 열·정보 영역 최소 폭 0 */
+  .pd-wrap{padding-top:20px;padding-bottom:48px}   /* 좌우 여백은 main(16px) 한 번만 — styles.css 모바일 공통 */
+  .pd-title-row{margin-bottom:14px;gap:6px}
+  /* 위치 표시: 긴 분류·상품명이면 한 줄로 이어져 화면 밖으로 넘치던 것 → 줄바꿈 허용 */
+  .pd-breadcrumb{flex-wrap:wrap;flex-shrink:1;min-width:0;row-gap:2px;line-height:1.5}
+  .pd-breadcrumb > *{min-width:0;overflow-wrap:anywhere}
+  .pd-body{grid-template-columns:minmax(0,1fr)}
+  .pd-img-area{min-height:220px;padding:16px}
+  .pd-img-area img{max-height:220px}
+  .pd-info-area{min-width:0;padding:20px 16px}
+  .pd-product-name{font-size:21px}
+  .pd-fav-btn{min-width:0}
+  .pd-price-row{flex-wrap:wrap;row-gap:0}
+  .pd-spec-val{min-width:0;overflow-wrap:anywhere}
+  /* 견적에 넣기·견적 요청: 한 줄 2개(좁으면 글자 줄바꿈 없이 균등) */
+  .btn-pd-action{min-width:0;flex:1 1 0;padding:0 8px}
+  /* 하단 탭·다른 규격 */
+  .pd-tabs-wrap{margin-top:28px}
+  .pd-tab-btn{height:46px;font-size:14px}
+  .pd-tab-panel,.pd-tab-panel2{padding:20px 0}
+  .pd-others-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .gallery-main{min-height:220px}
+  .gallery-thumbs{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .gallery-thumb{height:72px}
   /* 견적 수량: 라벨·스테퍼·단위가 한 줄에 들어가도록 폭만 줄임(높이 44px 유지) */
   .pd-qty-row{gap:8px}
   .pd-qty-label{width:auto}

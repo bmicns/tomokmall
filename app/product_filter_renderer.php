@@ -155,6 +155,14 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
       </form>
     </details>
     <script>
+    // 모바일(760px 이하, 필터 제목줄이 보이는 폭): 필터를 접은 상태로 시작 → 상품 목록이 바로 보이게. 제목줄을 누르면 펼침.
+    // 데스크톱은 CSS가 제목줄을 숨기고 항상 펼쳐 둔다(open 유지). 적용된 필터는 목록 위 칩으로 표시된다.
+    (function () {
+        var box = document.currentScript && document.currentScript.previousElementSibling;
+        if (box && box.tagName === 'DETAILS' && window.matchMedia && window.matchMedia('(max-width: 760px)').matches) { box.open = false; }
+    })();
+    </script>
+    <script>
     // 선택 중(미적용) 상태 표시: 체크 상태가 적용된 상태(checked 속성)와 다르면 버튼 강조. 제출은 버튼으로만.
     (function () {
         var form = document.querySelector('form.flt-body');

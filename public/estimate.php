@@ -70,6 +70,7 @@ render_header('견적 요청');
   .est-freight-grid{grid-template-columns:auto minmax(0,1fr)}
   .est-freight-grid select{height:44px;font-size:14px}
   .est-freight-note,.est-final-note{text-align:left}
+  .est-final-note{padding-bottom:24px}   /* 안내문 바로 아래 '신청 정보' 제목이 붙어 보이던 간격 */
   .est-final-row{flex-wrap:wrap;gap:4px 16px}
   .est-total-row span:last-child,.est-vat-row span:last-child,.est-final-row span:last-child,.est-freight-val{white-space:nowrap}
   .est-vat-row small{display:block}

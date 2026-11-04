@@ -482,11 +482,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 메가메뉴 hover 딜레이 — 대각선 이동 시 패널이 바로 닫히는 문제 해결
+    // 모바일(768px 이하)은 패널을 쓰지 않는다(CSS로 숨김): 터치 시 mouseenter 로 패널이 열리면 iOS 에서 탭 한 번에 링크로 이동하지 않음
+    var megaMobile = window.matchMedia ? window.matchMedia('(max-width: 768px)') : { matches: false };
     var allItems = Array.from(document.querySelectorAll('.mega-item'));
     allItems.forEach(function(item) {
         var panel = item.querySelector('.mega-panel');
 
         function open() {
+            if (megaMobile.matches) return;
             // 다른 항목 닫기 (타이머 취소 포함)
             allItems.forEach(function(other) {
                 if (other !== item) {
@@ -510,6 +513,38 @@ document.addEventListener('DOMContentLoaded', () => {
             panel.addEventListener('mouseleave', startClose);
         }
     });
+
+    // 모바일(768px 이하): 아래로 스크롤하면 상단 헤더(로고·메뉴·대분류 2~3줄)를 숨겨 본문을 넓게, 위로 스크롤하면 다시 표시.
+    // 검색 줄·로그인 창이 열려 있으면 숨기지 않는다. AI 상담 화면(mode-chat)은 화면 고정 배치라 제외(CSS도 제외).
+    (function () {
+        var header = document.querySelector('.site-header');
+        if (!header || document.body.classList.contains('mode-chat') || !window.matchMedia) return;
+        var mq = window.matchMedia('(max-width: 768px)');
+        var lastY = window.scrollY, ticking = false;
+        function busy() {
+            var sw = document.getElementById('header-search-wrap');
+            return (sw && sw.classList.contains('open')) || document.querySelector('.auth-overlay.open');
+        }
+        function update() {
+            ticking = false;
+            var y = Math.max(0, window.scrollY), dy = y - lastY;
+            if (!mq.matches || busy() || y <= header.offsetHeight) {
+                header.classList.remove('is-scroll-hidden');
+            } else if (dy > 6) {
+                header.classList.add('is-scroll-hidden');
+            } else if (dy < -6) {
+                header.classList.remove('is-scroll-hidden');
+            } else {
+                return; // 작은 움직임은 기준점 유지
+            }
+            lastY = y;
+        }
+        window.addEventListener('scroll', function () {
+            if (!ticking) { ticking = true; window.requestAnimationFrame(update); }
+        }, { passive: true });
+        // 키보드로 헤더 안 링크에 초점이 가면 다시 표시
+        header.addEventListener('focusin', function () { header.classList.remove('is-scroll-hidden'); });
+    })();
 });
 </script>
 </body>
