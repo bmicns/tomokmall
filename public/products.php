@@ -388,6 +388,7 @@ render_header($pageTitle);
     if (!$demoMode) {
         foreach ($products as $i => $p) {
             $sp = parse_spec_field($p['spec'] ?? '');
+            $sp['unit'] = unit_display_label($sp['unit']);   // 표시용 단위(m 2 → ㎡)
             $parsedSpecs[$i] = $sp;
             if ($sp['unit'])   $hasUnit   = true;
             if ($sp['spec'])   $hasSpec   = true;

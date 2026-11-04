@@ -60,6 +60,11 @@ ok('점토블럭(개) 길이만 → 수량없음(null)', $q === null);
 eq('단위 라벨 m 2 → ㎡', ai_unit_label('규격: 220*110*60T | 단위: m 2'), '㎡');
 eq('단위 라벨 본',        ai_unit_label('규격: 400*400*2000 | 단위: 본'), '본');
 eq('단위 라벨 없음',      ai_unit_label('220*110*60T'), '');
+// 화면 표시용 단위: 제곱미터 표기 통일(㎡), 그 밖의 단위는 그대로
+eq('표시 단위 m 2 → ㎡',  unit_display_label('m 2'), '㎡');
+eq('표시 단위 m2·M2·m² → ㎡', [unit_display_label('m2'), unit_display_label('M2'), unit_display_label('m²'), unit_display_label(' ㎡ ')], ['㎡', '㎡', '㎡', '㎡']);
+eq('표시 단위 M(미터)·본·개·빈 값 그대로', [unit_display_label('M'), unit_display_label('본'), unit_display_label('개'), unit_display_label('')], ['M', '본', '개', '']);
+eq('표시 단위 m 2 이외 m 표기는 그대로', [unit_display_label('m'), unit_display_label('m3'), unit_display_label('m 2 이상')], ['m', 'm3', 'm 2 이상']);
 
 echo "[AI 검색 대표 규격·부속 제외 — 실제 수집 상품(data/ktomok/products.json)]\n";
 // 운영 DB 적재 형식과 같게 '규격: … | 단위: …'로 구성. 상품 순서는 수집 순서(관련도 동점 시 기존엔 id가 큰 변형이 대표가 됨)

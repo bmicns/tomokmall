@@ -102,7 +102,7 @@ function corp_home_regulars(PDO $pdo, int $userId): array
         'product_id' => (int) $r['product_id'],
         'name'       => (string) $r['name'],
         'size'       => spec_size_label((string) $r['spec']),
-        'unit'       => parse_spec_field((string) $r['spec'])['unit'],
+        'unit'       => unit_display_label(parse_spec_field((string) $r['spec'])['unit']),
         'price'      => corp_home_unit_price((int) $r['price_b2b'], (int) $r['price_b2c']),
         'quantity'   => max(1, (int) $r['quantity']),
         'image_url'  => (string) ($r['image_url'] ?? ''),
