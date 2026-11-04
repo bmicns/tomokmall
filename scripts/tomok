@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Claude 원격 관리 CLI 실행 래퍼 — 사용법: scripts/tomok help  (본체: scripts/remote-ops/tomok.php)
+set -euo pipefail
+exec php "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/remote-ops/tomok.php" "$@"
