@@ -297,7 +297,13 @@ ok('견적에 넣기는 공통 수량(pdQtyValue) 사용 + 계산기 수량과 �
     strpos($html, 'quantity: pdQtyValue()') !== false
     && strpos($html, "fr.addEventListener('input'") !== false && strpos($html, "input.addEventListener('input'") !== false
     && strpos($html, '.dispatchEvent(') === false
-    && strpos($html, '<input type="number" id="frQty" min="1" max="999" value="1" oninput="calcFreight()">') !== false);
+    && strpos($html, '<input type="number" id="frQty" min="1" max="999" value="1" oninput="updateFreightWeight()">') !== false);
+ok('계산기: 운임은 계산 버튼으로만 조회(지역 선택·수량 변경은 총중량만 갱신, 진입 시 자동 조회 없음)',
+    strpos($html, '<select id="frDest" onchange="updateFreightWeight()"') !== false
+    && strpos($html, '<button type="button" class="pd-freight-btn" onclick="calcFreight()">계산</button>') !== false
+    && substr_count($html, 'calcFreight()') === 1
+    && strpos($html, "window.updateFreightWeight()") !== false
+    && preg_match('/window\.updateFreightWeight=function\(\)\{(?:(?!window\.calcFreight).)*fetch\(/s', $html) !== 1);
 ok('견적에 넣기 위 다른 상품 썸네일 4개 영역 제거(메인 이미지 영역 유지)', strpos($html, 'pd-variant-thumb') === false
     && strpos($html, 'class="pd-img-area"') !== false);
 [$st] = $detail(999999999);

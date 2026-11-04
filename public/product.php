@@ -339,17 +339,17 @@ render_header($p['name']);
                 <div class="pd-freight-title">🚚 물량·운반비 계산기</div>
                 <div class="pd-freight-in">
                     <label for="frQty">수량</label>
-                    <input type="number" id="frQty" min="1" max="999" value="1" oninput="calcFreight()">
+                    <input type="number" id="frQty" min="1" max="999" value="1" oninput="updateFreightWeight()">
                     <span class="pd-freight-unit"><?= e($frUnit) ?></span>
                 </div>
                 <div class="pd-freight-dest">
-                    <select id="frDest" onchange="calcFreight()" aria-label="현장(도착) 지역">
+                    <select id="frDest" onchange="updateFreightWeight()" aria-label="현장(도착) 지역">
                         <option value="">지역 선택</option>
                         <?php foreach ($sidoList as $s): ?><option value="<?= e($s) ?>"><?= e($s) ?></option><?php endforeach; ?>
                     </select>
                     <button type="button" class="pd-freight-btn" onclick="calcFreight()">계산</button>
                 </div>
-                <div class="pd-freight-out" id="frOut">현장(도착) 지역을 선택하면 예상 운임을 계산합니다.</div>
+                <div class="pd-freight-out" id="frOut">현장(도착) 지역을 선택하고 계산 버튼을 누르면 예상 운임을 계산합니다.</div>
                 <p class="pd-freight-note">단위중량 <?= number_format($unitKg) ?>kg 기준. 운임은 <strong>화물 시세(부가세 별도·지게차 상하차·편도)</strong>로 산출한 <strong>예상치(참고용)</strong>이며, 실제 운반비는 상·하차 방식·거리·차량 수급에 따라 <a href="/estimate.php">견적요청</a> 시 확정됩니다.</p>
             </div>
             <script>
@@ -357,12 +357,22 @@ render_header($p['name']);
               var box=document.querySelector('.pd-freight'); if(!box) return;
               var pid=box.dataset.pid, uk=parseFloat(box.dataset.unitkg||'0');
               var out=document.getElementById('frOut'), ctrl=null;
-              window.calcFreight=function(){
+              function frInput(){
                 var q=Math.max(1, parseInt((document.getElementById('frQty').value||'1'),10));
-                var dest=document.getElementById('frDest').value;
                 var tot=uk*q;
                 var totStr = tot>=1000 ? (Math.round(tot/100)/10).toLocaleString()+'톤('+Math.round(tot).toLocaleString()+'kg)' : Math.round(tot).toLocaleString()+'kg';
-                if(!dest){ out.innerHTML='총중량 <strong>'+totStr+'</strong> · 현장 지역을 선택하면 예상 운임을 계산합니다.'; return; }
+                return {q:q, dest:document.getElementById('frDest').value, totStr:totStr};
+              }
+              // 수량·지역 변경: 총중량만 다시 표시(운임 조회 없음). 표시 중인 운임·진행 중인 조회는 지워 다른 조건의 운임이 남지 않게 함
+              window.updateFreightWeight=function(){
+                var v=frInput();
+                if(ctrl){ ctrl.abort(); ctrl=null; }
+                out.innerHTML='총중량 <strong>'+v.totStr+'</strong> · '+(v.dest ? '계산 버튼을 누르면 예상 운임을 계산합니다.' : '현장 지역을 선택하고 계산 버튼을 누르면 예상 운임을 계산합니다.');
+              };
+              // '계산' 버튼을 눌렀을 때만 예상 운임 조회
+              window.calcFreight=function(){
+                var v=frInput(), q=v.q, dest=v.dest, totStr=v.totStr;
+                if(!dest){ out.innerHTML='총중량 <strong>'+totStr+'</strong> · 현장(도착) 지역을 먼저 선택해 주세요.'; document.getElementById('frDest').focus(); return; }
                 out.textContent='총중량 '+totStr+' · 운임 계산 중…';
                 if(ctrl) ctrl.abort(); ctrl=new AbortController();
                 fetch('/api/freight.php?product_id='+encodeURIComponent(pid)+'&dest='+encodeURIComponent(dest)+'&qty='+q,{signal:ctrl.signal})
@@ -377,7 +387,7 @@ render_header($p['name']);
                   })
                   .catch(function(e){ if(e.name!=='AbortError') out.textContent='운임 계산 중 오류가 발생했습니다.'; });
               };
-              calcFreight();
+              updateFreightWeight();
             })();
             </script>
             <hr class="pd-divider">
@@ -537,13 +547,14 @@ function pdQtyValue() {
     const fr    = document.getElementById('frQty');   // 계산기는 단위중량이 있는 상품에만 있음
     if (!input || !minus || !plus) return;
     function recalc() {
-        if (fr && typeof window.calcFreight === 'function') window.calcFreight();   // 기존 계산 로직 그대로 재실행
+        // 수량이 바뀌면 계산기 총중량만 갱신(운임은 '계산' 버튼을 눌렀을 때만 조회)
+        if (fr && typeof window.updateFreightWeight === 'function') window.updateFreightWeight();
     }
     function buttons(v) {
         minus.disabled = v <= PD_QTY_MIN;
         plus.disabled  = v >= PD_QTY_MAX;
     }
-    // 확정 값 v 를 두 칸에 같이 표시. 계산기가 쓰던 수량(직전 칸 값을 보정한 값)이 바뀐 경우에만 운임 재계산
+    // 확정 값 v 를 두 칸에 같이 표시. 계산기가 쓰던 수량(직전 칸 값을 보정한 값)이 바뀐 경우에만 계산기 갱신
     // (값이 같은데 다시 계산하면 결과 영역 높이가 잠깐 바뀌어 바로 누른 '견적에 넣기' 클릭이 빗나갈 수 있음)
     function setAll(v) {
         const prevFr = fr ? pdQtyClamp(fr.value) : v;
@@ -567,7 +578,7 @@ function pdQtyValue() {
     input.addEventListener('input', function () { if (live(input, fr)) recalc(); });
     input.addEventListener('change', function () { setAll(pdQtyClamp(input.value)); });
     if (fr) {
-        // 계산기 칸의 운임 재계산은 기존 oninput="calcFreight()"가 먼저 처리. 999 초과로 값이 바뀐 경우만 다시 계산
+        // 계산기 칸의 총중량 갱신은 oninput="updateFreightWeight()"가 먼저 처리. 999 초과로 값이 바뀐 경우만 다시 갱신
         fr.addEventListener('input', function () {
             const before = fr.value;
             if (live(fr, input) && fr.value !== before) recalc();
