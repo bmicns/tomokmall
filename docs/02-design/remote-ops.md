@@ -93,7 +93,7 @@ Claude Code 웹 컨테이너                         닷홈 서버
 
 ### 4-4. 처리 순서와 거부 응답
 POST 확인 → `REMOTE_OPS_ENABLED=1` → (선택) IP 허용 목록 → 봉투 모양 → kid → 시각 → 서명 → 복호화 → 작업·범위(`REMOTE_OPS_SCOPES`) → DB 연결·nonce → 이력 시작 → 작업 → 이력 종료 → 응답.
-인증 전 실패는 서명 없는 `{"ok":false,"error":"auth_failed","reason":…}` (reason: `method` `disabled` `ip_denied` `bad_request` `unknown_key` `expired` `bad_signature` `decrypt_failed` `too_large`). 이력에 남기지 않음(무작위 접근으로 이력이 쌓이지 않게).
+승인 상태·목록·이력 보기(`grant.status`·`grant.list`·`log.list`·`log.get`)는 이력에 남기지 않는다(반복 확인으로 이력이 쌓이지 않게, 2026-11-04). 인증 전 실패는 서명 없는 `{"ok":false,"error":"auth_failed","reason":…}` (reason: `method` `disabled` `ip_denied` `bad_request` `unknown_key` `expired` `bad_signature` `decrypt_failed` `too_large`). 이력에 남기지 않음(무작위 접근으로 이력이 쌓이지 않게).
 
 ### 4-5. 작업별 권한(범위)
 | 범위 | 작업 |

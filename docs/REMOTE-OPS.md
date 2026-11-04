@@ -103,6 +103,16 @@ TOMOK_OPS_KEY_ID=k1
 - 올린 뒤 Claude 가 확인: `scripts/tomok files diff app/remote_ops/price_guard.php app/remote_ops/db_ops.php app/remote_ops/file_ops.php app/remote_ops/server.php public/admin-remote-ops.php` → 모두 `same` 또는 `eol_only`, 그리고 `scripts/tomok probe` 결과에 `db.price_protection` 이 보이면 적용된 것.
 - 재업로드 전까지 운영은 953e55e 버전(가격 차단 없음)이다. 그 사이 Claude 는 가격 관련 승인 요청을 만들지 않는다(CLAUDE.md 12장).
 
+### 3-6. 업데이트: 상태 확인 기록 끄기 (2026-11-04, FileZilla 재업로드 — 운영 배포 승인 필요)
+
+승인 상태·승인 목록·이력 보기(`grant status/list/wait`, `log list/get`)는 실행 이력(`remote_ops_log`)에 남기지 않는다(사용자 결정). 데이터·파일 조회와 모든 쓰기는 그대로 기록(되돌리기·복구가 이력·백업을 근거로 동작). **운영 DB 변경 없음.**
+
+| 로컬(저장소) | 서버 | 종류 |
+|---|---|---|
+| `app/remote_ops/server.php` | `/app/remote_ops/server.php` | 교체(1개) |
+
+올린 뒤 Claude 가 `scripts/tomok files diff app/remote_ops/server.php` 와 `scripts/tomok probe`(`api_version` 1.0.1)로 확인한다.
+
 ## 4. 운영 연동 테스트 절차 (설치 직후, Claude 가 실행)
 
 각 단계가 통과해야 다음으로 간다. 5단계부터는 운영 변경이므로 **승인 화면에서 승인한 테스트 범위만** 쓴다.
@@ -145,7 +155,7 @@ TOMOK_OPS_KEY_ID=k1
 | 대조 | 시험 전후 가격 데이터 지문(상품 1,341·카테고리 245·공급가 1,788·외부 참고가 14·견적/주문/결제 행 수) | 모두 같음 |
 | 참고 | search_logs 49→50행 | 시험 시작 전(15:41) 방문자 검색어 1건 — 시험 작업과 무관(이력상 모든 작업이 시험 행만 대상) |
 
-시험 중 발견: ① 관리자가 아닌 계정으로 로그인된 브라우저에서 `/admin.php`·`/admin-remote-ops.php` 를 열면 로그인 화면과 서로 이동을 반복함(ERR_TOO_MANY_REDIRECTS, 기존 login.php 동작 — 로그아웃 후 관리자 로그인으로 해결, 근본 수정은 제안 상태) ② CLI `grant wait` 의 15초 상태 확인도 이력에 1건씩 남아 이력이 많아짐(정리 대상 제안).
+시험 중 발견: ① 관리자가 아닌 계정으로 로그인된 브라우저에서 `/admin.php`·`/admin-remote-ops.php` 를 열면 로그인 화면과 서로 이동을 반복함(ERR_TOO_MANY_REDIRECTS, 기존 login.php 동작 — 로그아웃 후 관리자 로그인으로 해결). **login.php 수정은 사용자 결정으로 보류**(관리자가 아닌 계정으로 로그인하지 않음, 문제 시 재요청) ② CLI `grant wait` 의 15초 상태 확인도 이력에 1건씩 남아 이력이 많아짐 → 3-6장으로 기록하지 않게 변경(운영 반영은 재업로드 후).
 
 ## 5. 사용 예시
 
