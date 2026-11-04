@@ -587,6 +587,7 @@ echo "[8. 이력·승인 관리]\n";
 [$c, $j] = cli(['log', 'list', '--limit', '200']);
 $ops = $j['result']['operations'] ?? [];
 ok('실행 이력: 성공·거부·오류·드라이런 모두 기록', count(array_unique(array_column($ops, 'status'))) >= 4, array_count_values(array_column($ops, 'status')));
+ok('승인 상태·목록·이력 보기는 실행 이력에 남기지 않음', (int) q1("SELECT COUNT(*) FROM remote_ops_log WHERE op IN ('grant.status','grant.list','log.list','log.get')") === 0);
 ok('이력에 키·DB 비밀번호·파일 본문 없음', (int) q1('SELECT COUNT(*) FROM remote_ops_log WHERE request_json LIKE ? OR request_json LIKE ? OR result_json LIKE ?',
     ['%' . $KEYHEX . '%', '%' . getenv('ROPS_T_DB_PASS') . '%', '%ROPS-NEW-OK%']) === 0);
 [$c, $j] = cli(['log', 'get', (string) $OP_DEP]);

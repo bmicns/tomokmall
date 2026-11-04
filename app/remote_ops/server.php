@@ -20,7 +20,11 @@ require_once __DIR__ . '/db_ops.php';
 require_once __DIR__ . '/file_ops.php';
 require_once __DIR__ . '/diff.php';
 
-const ROPS_VERSION = '1.0.0';
+const ROPS_VERSION = '1.0.1';
+
+/** 실행 이력에 남기지 않는 작업(승인 상태·목록·이력 보기 — grant wait 의 반복 확인으로 이력이 쌓이지 않게, 사용자 결정 2026-11-04).
+ *  데이터·파일 조회와 모든 쓰기는 계속 기록한다(되돌리기·복구가 이력·백업을 근거로 동작). */
+const ROPS_NO_LOG_OPS = ['grant.status', 'grant.list', 'log.list', 'log.get'];
 
 /** 작업 목록: 이름 → [필요 범위(null=항상), DB 필요 여부] */
 function rops_ops(): array
@@ -188,7 +192,7 @@ function rops_main(string $webroot): void
     }
 
     $logId = null;
-    if ($installed) {
+    if ($installed && !in_array($op, ROPS_NO_LOG_OPS, true)) {
         try {
             $logId = rops_log_start($pdo, $op, $params, rops_client_ip());
         } catch (\Throwable $e) {
