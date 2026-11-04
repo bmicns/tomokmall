@@ -10,6 +10,9 @@
 #   scripts/deploy-files.sh rollback <백업폴더>           # 백업 파일로 서버 복구 + 검증
 #   예) scripts/deploy-files.sh check 41b36ed app/bootstrap.php public/products.php
 #
+# 새 파일(기준커밋에 없는 파일): check 는 서버에 그 파일이 '없음'을 확인하고(있으면 중단), upload 는 폴더를 만들며 올리고,
+#   rollback 은 그 파일을 서버에서 지운다(만든 폴더는 남음 — 빈 폴더라 동작에 영향 없음).
+#
 # 경로 규칙: public/X → /html/X, app/X → /app/X (그 외 경로는 거부)
 # 환경변수: FTP_PASS(없으면 .env.local → 그래도 없으면 입력 프롬프트), FTP_TLS=1(FTPS 강제),
 #           FTP_HOST·FTP_PORT·FTP_USER(기본: 운영 값, 로컬 테스트용 override)
@@ -65,6 +68,28 @@ ftp_put() { # $1=로컬파일 $2=원격경로
   ftp_curl -T "$1" "$(ftp_url "$2")" || die "업로드 실패: $2 (위 curl 오류 확인)"
 }
 
+# 새 파일용: 없는 폴더를 만들며 업로드
+ftp_put_new() { # $1=로컬파일 $2=원격경로
+  ftp_curl --ftp-create-dirs -T "$1" "$(ftp_url "$2")" || die "업로드 실패: $2 (위 curl 오류 확인)"
+}
+
+# 서버에 파일이 없는지: 없으면 0, 있으면 1, 접속 오류 등 판단 불가면 중단
+ftp_absent() { # $1=원격경로 $2=임시폴더
+  local tmp="$2/absent_check.part" rc=0
+  rm -f "${tmp}"
+  ftp_curl -o "${tmp}" "$(ftp_url "$1")" 2>/dev/null || rc=$?
+  rm -f "${tmp}"
+  case "${rc}" in
+    0)     return 1 ;;                       # 내려받힘 = 이미 있음
+    78|19|9) return 0 ;;                     # 파일 없음: curl 78 REMOTE_FILE_NOT_FOUND · 19 RETR 실패 · 9 폴더 없음(CWD 실패)
+    *)     die "서버 파일 확인 실패(curl ${rc}): $1 — 접속 상태를 확인하세요." ;;
+  esac
+}
+
+ftp_delete() { # $1=원격경로 (새 파일 되돌리기)
+  ftp_curl -o /dev/null -Q "DELE $1" "$(ftp_url "/")" || return 1
+}
+
 remote_path() { # 로컬 상대경로 → 서버 경로
   case "$1" in
     public/*) echo "/html/${1#public/}" ;;
@@ -77,10 +102,10 @@ remote_path() { # 로컬 상대경로 → 서버 경로
 read_manifest() { # $1=백업폴더
   [ -f "$1/manifest.txt" ] || die "manifest.txt 없음: $1 (check 단계를 먼저 실행)"
   [ -f "$1/CHECK_PASSED" ] || die "check 통과 기록 없음: $1 (서버 파일이 기준 버전과 달랐거나 check 미완료)"
-  FILES=(); REMOTES=()
-  while read -r l r; do
+  FILES=(); REMOTES=(); KINDS=()
+  while read -r l r k; do
     [ -n "${l}" ] || continue
-    FILES+=("${l}"); REMOTES+=("${r}")
+    FILES+=("${l}"); REMOTES+=("${r}"); KINDS+=("${k:-existing}")
   done < "$1/manifest.txt"
   [ "${#FILES[@]}" -gt 0 ] || die "manifest가 비어 있음"
 }
@@ -116,7 +141,9 @@ cmd_check() {
     [ -f "${f}" ] || die "로컬 파일 없음: ${f}"
     remote_path "${f}" >/dev/null
     git diff --quiet HEAD -- "${f}" || die "커밋되지 않은 변경이 있음: ${f}"
-    git cat-file -e "${base}:${f}" 2>/dev/null || die "기준커밋에 파일이 없음: ${base}:${f}"
+    if ! git cat-file -e "${base}:${f}" 2>/dev/null; then
+      echo "  · 새 파일(기준커밋에 없음): ${f} — 서버에 없어야 함"
+    fi
   done
   ok "파일 존재·커밋 상태 정상 (배포 커밋 $(git rev-parse --short HEAD))"
   if command -v php >/dev/null 2>&1; then
@@ -135,19 +162,29 @@ cmd_check() {
   : > "${dir}/manifest.txt"
 
   echo "== 2) 서버 파일 백업 (${dir}/server) =="
+  local new_found=0
   for f in "$@"; do
     local r; r="$(remote_path "${f}")"
     mkdir -p "${dir}/server/$(dirname "${f}")" "${dir}/base/$(dirname "${f}")"
+    if ! git cat-file -e "${base}:${f}" 2>/dev/null; then
+      ftp_absent "${r}" "${dir}" || { echo "  ✗ 새 파일인데 서버에 이미 있음: ${r}"; new_found=1; continue; }
+      echo "${f} ${r} new" >> "${dir}/manifest.txt"
+      ok "새 파일 — 서버에 없음 확인: ${r}"
+      continue
+    fi
     ftp_get "${r}" "${dir}/server/${f}"
     git show "${base}:${f}" > "${dir}/base/${f}"
     echo "${f} ${r}" >> "${dir}/manifest.txt"
     ok "백업 완료: ${r} ($(wc -c < "${dir}/server/${f}" | tr -d ' ') bytes)"
   done
+  [ "${new_found}" = 0 ] || die "새 파일이 서버에 이미 있습니다(누가 먼저 올렸는지 확인). 업로드하지 마세요."
 
   echo "== 3) 서버 파일 == Git 기준커밋(${base}) 비교 (줄바꿈 CRLF/LF 차이는 무시) =="
   local diff_found=0
   for f in "$@"; do
-    if cmp -s "${dir}/server/${f}" "${dir}/base/${f}"; then
+    if ! git cat-file -e "${base}:${f}" 2>/dev/null; then
+      ok "새 파일(비교 없음): ${f}"
+    elif cmp -s "${dir}/server/${f}" "${dir}/base/${f}"; then
       ok "동일: ${f}"
     elif same_ignoring_eol "${dir}/server/${f}" "${dir}/base/${f}"; then
       ok "동일(줄바꿈 CRLF/LF만 다름): ${f}"
@@ -181,18 +218,24 @@ cmd_upload() {
   local tmp; tmp="$(mktemp -d)"
   echo "== 1) 업로드 직전 재확인: 서버 파일이 백업 시점과 같은지 =="
   for i in "${!FILES[@]}"; do
+    if [ "${KINDS[$i]}" = "new" ]; then
+      ftp_absent "${REMOTES[$i]}" "${tmp}" || die "check 이후 서버에 ${REMOTES[$i]} 파일이 생겼습니다. 확인 후 check부터 다시 하세요."
+      ok "아직 없음(새 파일): ${REMOTES[$i]}"
+      continue
+    fi
     verify_remote "${REMOTES[$i]}" "${dir}/server/${FILES[$i]}" "${tmp}" \
       "백업(check) 이후 서버 ${REMOTES[$i]} 파일이 바뀌었습니다. 누가 수정했는지 확인 후 check부터 다시 하세요."
     ok "변동 없음: ${REMOTES[$i]}"
   done
 
   echo "업로드 대상 (커밋 $(git rev-parse --short HEAD)):"
-  for i in "${!FILES[@]}"; do echo "  ${FILES[$i]} → ${REMOTES[$i]}"; done
+  for i in "${!FILES[@]}"; do echo "  ${FILES[$i]} → ${REMOTES[$i]}$([ "${KINDS[$i]}" = new ] && echo '  (새 파일)')"; done
   confirm "배포"
 
   echo "== 2) 업로드 + 업로드 검증 (나열 순서대로) =="
   for i in "${!FILES[@]}"; do
-    if ! ( ftp_put "${FILES[$i]}" "${REMOTES[$i]}" && verify_remote "${REMOTES[$i]}" "${FILES[$i]}" "${tmp}" ); then
+    local put=ftp_put; [ "${KINDS[$i]}" = "new" ] && put=ftp_put_new
+    if ! ( "${put}" "${FILES[$i]}" "${REMOTES[$i]}" && verify_remote "${REMOTES[$i]}" "${FILES[$i]}" "${tmp}" ); then
       echo "⚠️  ${REMOTES[$i]} 업로드/검증 실패. 즉시 복구: scripts/deploy-files.sh rollback ${dir}" >&2
       exit 1
     fi
@@ -210,15 +253,26 @@ cmd_rollback() {
   read_manifest "${dir}"
   local i
   for i in "${!FILES[@]}"; do
+    [ "${KINDS[$i]}" = "new" ] && continue
     [ -s "${dir}/server/${FILES[$i]}" ] || die "백업 파일 없음: ${dir}/server/${FILES[$i]}"
   done
   load_credentials
-  echo "복구 대상 (백업 → 서버):"
-  for i in "${!FILES[@]}"; do echo "  ${dir}/server/${FILES[$i]} → ${REMOTES[$i]}"; done
+  echo "복구 대상 (백업 → 서버, 새 파일은 서버에서 삭제):"
+  for i in "${!FILES[@]}"; do
+    if [ "${KINDS[$i]}" = "new" ]; then echo "  삭제: ${REMOTES[$i]}  (새 파일)"; else echo "  ${dir}/server/${FILES[$i]} → ${REMOTES[$i]}"; fi
+  done
   confirm "복구"
   local tmp; tmp="$(mktemp -d)" fail=0
   # 하나가 실패해도 나머지는 계속 복구 시도(복구는 최대한 진행), 마지막에 결과 판정
   for i in "${!FILES[@]}"; do
+    if [ "${KINDS[$i]}" = "new" ]; then
+      if ftp_delete "${REMOTES[$i]}" && ftp_absent "${REMOTES[$i]}" "${tmp}"; then
+        ok "삭제·확인 완료(새 파일): ${REMOTES[$i]}"
+      else
+        echo "  ✗ 삭제 실패: ${REMOTES[$i]}" >&2; fail=1
+      fi
+      continue
+    fi
     if ( ftp_put "${dir}/server/${FILES[$i]}" "${REMOTES[$i]}" && verify_remote "${REMOTES[$i]}" "${dir}/server/${FILES[$i]}" "${tmp}" ); then
       ok "복구·검증 완료: ${REMOTES[$i]}"
     else

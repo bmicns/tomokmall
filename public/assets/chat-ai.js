@@ -301,6 +301,10 @@ function processEvent(event, content) {
   switch (event.type) {
     case 'product_cards':
       renderProductCards(event.products, content);
+      // 상품이 추천될 때마다 추천표 바로 아래 '상담원 연결 유도' (consult-request.js)
+      if (event.products && event.products.length && typeof renderConsultCta === 'function') {
+        renderConsultCta(content);
+      }
       break;
     case 'cart_update':
       refreshEstPanel();

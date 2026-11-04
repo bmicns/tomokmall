@@ -549,6 +549,26 @@ render_header('AI 자재 상담', 'chat');
 
   /* ── 채팅 페이지 푸터 여백 제거 ──────────────────────────── */
   .site-footer { margin-top: 0; }
+
+  /* ── 상담원 연결 유도 (상품 추천 시점마다 추천표 아래, 개인·기업회원만) — '상담원 연결 유도 (추천 시점)' 시안(카카오톡 채널) ── */
+  .consult-cta { margin-top: 6px; padding: 16px 18px; border: 1px solid #DDDDDD; border-radius: 8px; background: #FFFFFF; }
+  .consult-cta-head { display: flex; align-items: center; gap: 8px; }
+  .consult-cta-head svg { flex-shrink: 0; }
+  .consult-cta-title { font-size: 14.5px; font-weight: 600; color: #222222; }
+  .consult-cta-desc { margin: 6px 0 0; font-size: 13px; line-height: 1.6; color: #666666; }
+  .consult-cta-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    width: 100%; height: 40px; margin-top: 12px; padding: 0 12px;
+    border: 1px solid #004EA1; border-radius: 4px; background: #FFFFFF; color: #004EA1;
+    font-size: 13.5px; font-weight: 500; font-family: var(--font); cursor: pointer; white-space: nowrap;
+  }
+  .consult-cta-btn svg { flex-shrink: 0; }
+  .consult-cta-btn:hover { background: #EEF4FB; color: #004EA1; }   /* 전역 button:hover(흰 글자) 덮어씀 */
+  .consult-cta-btn:focus-visible { outline: 2px solid #004EA1; outline-offset: 2px; }
+  .consult-cta-hours { margin: 8px 0 0; font-size: 12px; color: #888888; text-align: center; }
+  @media (max-width: 640px) {
+    .consult-cta-btn { height: 44px; }
+  }
 </style>
 
 <div class="est-backdrop" id="est-backdrop" onclick="toggleEstPanel()"></div>
@@ -652,10 +672,14 @@ render_header('AI 자재 상담', 'chat');
   </div>
 </aside>
 
+
 <script>
 window.SID = '<?= e($_sid) ?>';
 </script>
 <script src="/assets/chat-ai.js?v=<?= time() ?>"></script>
+<?php if (in_array(current_user()['role'] ?? '', ['customer', 'corporate'], true)): // 상담원 연결 유도는 로그인한 개인·기업회원에게만(비로그인·직원·관리자는 스크립트가 없어 표시 안 됨) ?>
+<script src="/assets/consult-request.js?v=<?= time() ?>"></script>
+<?php endif; ?>
 <script>
 <?php if ($_hasRestored): ?>
 // 복원한 이전 상담: 답변 문단 정리(formatChatText)·상품 추천표·견적 카드를 실시간 상담과 같은 렌더러로 표시
