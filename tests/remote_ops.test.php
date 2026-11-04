@@ -9,6 +9,7 @@ error_reporting(E_ALL);
 require __DIR__ . '/../app/remote_ops/protocol.php';
 require __DIR__ . '/../app/remote_ops/core.php';
 require __DIR__ . '/../app/remote_ops/sql_guard.php';
+require __DIR__ . '/../app/remote_ops/price_guard.php';
 require __DIR__ . '/../app/remote_ops/file_ops.php';
 require __DIR__ . '/../app/remote_ops/diff.php';
 
@@ -157,7 +158,68 @@ ok('INSERT SET → 1', rops_sql_count_query("INSERT INTO t SET a = 1") === ['row
 ok('INSERT SELECT → COUNT', rops_sql_count_query("INSERT INTO t (a) SELECT id FROM products WHERE brand = 'x'") === ['sql' => "SELECT COUNT(*) FROM (SELECT id FROM products WHERE brand = 'x') AS rops_cnt"]);
 ok('여러 테이블 → 셀 수 없음(null)', rops_sql_count_query('UPDATE a, b SET a.x = 1 WHERE a.id = b.id') === null);
 ok('경로 256바이트 거부', rops_path_problem('public/' . str_repeat('a', 249) . '.php') !== null && rops_path_problem('public/' . str_repeat('a', 240) . '.php') === null);
-ok('민감 파일 판정', rops_path_sensitive('app/auth.php') && rops_path_sensitive('public/api/.htaccess') && !rops_path_sensitive('app/pricing.php'));
+ok('민감 파일 판정(가격 계산 pricing.php 포함)', rops_path_sensitive('app/auth.php') && rops_path_sensitive('public/api/.htaccess') && rops_path_sensitive('app/pricing.php') && !rops_path_sensitive('app/cart.php'));
+
+echo "[가격 데이터 보호 price_guard (정책 2026-11-04)]\n";
+// 운영 DB 실제 컬럼(2026-11-04 information_schema)
+foreach (['price_b2c', 'price_b2b', 'cost_price', 'discount_customer', 'discount_corporate', 'supply_price', 'shipping_fee', 'discount_amt',
+    'unit_price', 'adjusted_price', 'total_amount', 'amount', 'ref_price', 'price_basis', 'PRICE_B2B', 'margin_rate', 'vat'] as $c) {
+    ok("가격 컬럼: {$c}", rops_is_price_column($c));
+}
+foreach (['pg_payment_key', 'payload', 'stock_qty', 'category_id', 'name', 'is_active', 'brand', 'spec', 'weight_kg', 'pallet_cnt', 'feedback', 'rating'] as $c) {
+    ok("가격 아님: {$c}", !rops_is_price_column($c));
+}
+ok('가격 계산 입력값: products.category_id·categories.parent_id', rops_is_price_input_column('products', 'category_id') && rops_is_price_input_column('Categories', 'PARENT_ID')
+    && !rops_is_price_input_column('estimates', 'category_id'));
+$wt = rops_sql_write_targets("UPDATE products p SET p.name = CONCAT(p.name, ','), `stock_qty` = 3, p.price_b2b = (SELECT 1) WHERE p.id = 1");
+ok('대상 컬럼: UPDATE 별칭·백틱·하위 조회', $wt['table'] === 'products' && $wt['set'] === ['name', 'stock_qty', 'price_b2b']);
+$wt = rops_sql_write_targets("INSERT INTO products (category_id, name, price_b2c) VALUES (1, 'a,b', 100) ON DUPLICATE KEY UPDATE name = VALUES(name), cost_price = 1");
+ok('대상 컬럼: INSERT 목록·ODKU', $wt['insert_cols'] === ['category_id', 'name', 'price_b2c'] && $wt['odku'] === ['name', 'cost_price'] && !$wt['insert_all']);
+ok('대상 컬럼: INSERT … SET', rops_sql_write_targets("INSERT INTO categories SET name = 'x', discount_customer = 3")['insert_cols'] === ['name', 'discount_customer']);
+ok('대상 컬럼: 목록 없는 INSERT VALUES·SELECT', rops_sql_write_targets('INSERT INTO products VALUES (1)')['insert_all'] && rops_sql_write_targets('INSERT INTO products SELECT * FROM x')['insert_all']);
+ok('ALTER 덧붙이기만: ADD COLUMN·ADD INDEX·DROP INDEX', rops_sql_alter_is_additive('ALTER TABLE products ADD COLUMN memo2 TEXT NULL, ADD INDEX ix_m (name), DROP INDEX ix_old')
+    && rops_sql_alter_is_additive('ALTER TABLE products ADD (a INT, b INT)'));
+foreach (['ALTER TABLE products DROP COLUMN cost_price', 'ALTER TABLE products MODIFY price_b2b BIGINT', 'ALTER TABLE products CHANGE price_b2b p INT',
+    'ALTER TABLE products ALTER COLUMN price_b2b SET DEFAULT 1', 'ALTER TABLE products ADD CONSTRAINT fk FOREIGN KEY (x) REFERENCES y(id)',
+    'ALTER TABLE products RENAME TO p2', 'ALTER TABLE products ADD COLUMN z INT, DROP COLUMN price_b2c', 'ALTER TABLE products CONVERT TO CHARACTER SET utf8mb4'] as $q) {
+    ok("ALTER 거부: {$q}", !rops_sql_alter_is_additive($q));
+}
+$sch = ['price_tables' => ['products', 'categories', 'product_vendors'], 'cascade_price' => ['vendors' => ['product_vendors']], 'trigger_tables' => ['sites'], 'routines' => ['fn_reprice']];
+$pp = static fn(string $sql): array => rops_price_plan_problems(rops_sql_plan($sql), $sch);
+foreach ([
+    "UPDATE products SET price_b2b = price_b2b * 1.1 WHERE brand = 'x'" => '가격 UPDATE',
+    "UPDATE products SET name = 'a', cost_price = 0 WHERE id = 1" => '다른 컬럼과 함께 가격 UPDATE',
+    "UPDATE categories SET discount_corporate = 5 WHERE id = 3" => '마진율 UPDATE',
+    "UPDATE products SET category_id = 3 WHERE id = 1" => '상품 카테고리 이동(적용 마진율 바뀜)',
+    "UPDATE categories SET parent_id = 2 WHERE id = 9" => '카테고리 상위 변경(마진율 상속 바뀜)',
+    "INSERT INTO products (category_id, name, price_b2c) VALUES (1, 'n', 100)" => '새 행에 가격',
+    "INSERT INTO products VALUES (1, 2, 'x')" => '컬럼 목록 없는 INSERT',
+    "INSERT INTO categories (name, slug) VALUES ('a', 'b') ON DUPLICATE KEY UPDATE discount_customer = 0" => 'ODKU 로 가격',
+    "INSERT INTO categories (name, slug) VALUES ('a', 'b') ON DUPLICATE KEY UPDATE parent_id = 1" => 'ODKU 로 상위 변경',
+    "REPLACE INTO products (id, name) VALUES (1, 'x')" => 'REPLACE 가격 테이블',
+    "DELETE FROM products WHERE id = 1" => '가격 테이블 삭제',
+    "DELETE FROM vendors WHERE id = 1" => '삭제가 가격 테이블로 번짐',
+    "UPDATE sites SET name = 'x' WHERE id = 1" => '트리거 테이블',
+    "UPDATE search_logs SET cnt = fn_reprice(1) WHERE term = 'a'" => '저장 함수 호출',
+    "TRUNCATE TABLE product_vendors" => '가격 테이블 TRUNCATE',
+    "DROP TABLE categories" => '가격 테이블 DROP',
+    "RENAME TABLE products TO products_old" => '가격 테이블 RENAME',
+    "ALTER TABLE products DROP COLUMN cost_price" => '가격 컬럼 DROP',
+] as $sql => $label) {
+    ok("가격 보호 거부: {$label}", $pp($sql) !== []);
+}
+foreach ([
+    "UPDATE products SET name = 'a', stock_qty = 3, is_active = 0 WHERE price_b2c = 0" => '가격 외 컬럼 수정(가격은 조건으로만 읽음)',
+    "INSERT INTO products (category_id, name, brand) VALUES (1, 'n', 'b')" => '새 상품(가격 컬럼 없이 — 카테고리 지정은 새 행이라 허용)',
+    "INSERT INTO categories (parent_id, name, slug) VALUES (1, 'a', 'b') ON DUPLICATE KEY UPDATE name = VALUES(name)" => 'ODKU 로 이름만',
+    "DELETE FROM search_logs WHERE cnt < 2" => '가격 없는 테이블 삭제',
+    "ALTER TABLE products ADD COLUMN memo2 TEXT NULL" => '가격 테이블 ADD COLUMN',
+    "CREATE INDEX ix_n ON products (name)" => '가격 테이블 인덱스 추가',
+    "DROP INDEX ix_n ON products" => '가격 테이블 인덱스 삭제',
+    "ALTER TABLE vendors DROP COLUMN memo" => '가격 없는 테이블 구조 변경',
+] as $sql => $label) {
+    ok("가격 보호 통과: {$label}", $pp($sql) === []);
+}
 
 echo "[WHERE 조립 rops_where_compile]\n";
 $cols = ['id', 'name', 'brand', 'price_b2b'];

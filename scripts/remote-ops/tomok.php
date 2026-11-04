@@ -38,7 +38,7 @@ function tomok_usage(): string
     return <<<TXT
 tomok — Claude 원격 관리 CLI (결과는 JSON)
 
-  진단      tomok probe [--write-test]
+  진단      tomok probe [--write-test --grant G(승인된 파일 변경 승인)]
   DB 조회   tomok db tables [--exact]
             tomok db describe <테이블>
             tomok db query (--sql "SELECT …" | --file q.sql) [--param 값]… [--limit N] [--reveal-pii]
@@ -348,7 +348,7 @@ function tomok_main(array $argv): int
             tomok_out(['ok' => true, 'op' => 'keygen', 'result' => ['file' => realpath($out), 'kid' => $kid, 'note' => '키 값은 출력하지 않았습니다. 파일을 직접 열어 확인하세요.']]);
             return 0;
         case 'probe':
-            return tomok_run($opt, 'probe', ['write_test' => o($opt, 'write-test') === true]);
+            return tomok_run($opt, 'probe', array_filter(['write_test' => o($opt, 'write-test') === true, 'grant' => o($opt, 'grant')], static fn($v) => $v !== null));
         case 'http':
             return tomok_http(array_slice($pos, 1), $opt);
         case 'grant':

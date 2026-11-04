@@ -17,8 +17,8 @@ const ROPS_WRITE_EXT = ['php', 'js', 'css', 'html', 'htm', 'json', 'sql', 'txt',
     'woff', 'woff2', 'ttf', 'otf', 'eot', 'csv', 'xml', 'map', 'webmanifest'];
 const ROPS_PROTECTED_PATHS = ['app/remote_ops', 'public/api/remote-ops.php', 'public/admin-remote-ops.php'];
 const ROPS_NO_WRITE_DIRS   = ['public/uploads'];
-// 승인 화면·인증·웹 서버 설정에 영향을 주는 파일: 배포는 가능하지만 승인 화면에서 추가 확인 필수
-const ROPS_SENSITIVE_PATHS = ['app/bootstrap.php', 'app/auth.php', 'app/admin_layout.php', 'app/config.php'];
+// 승인 화면·인증·가격 계산(pricing.php)·웹 서버 설정에 영향을 주는 파일: 배포는 가능하지만 승인 화면에서 추가 확인 필수
+const ROPS_SENSITIVE_PATHS = ['app/bootstrap.php', 'app/auth.php', 'app/admin_layout.php', 'app/config.php', 'app/pricing.php'];
 // 내용 검사(NUL·UTF-8)를 하는 텍스트 확장자
 const ROPS_TEXT_EXT        = ['php', 'js', 'css', 'html', 'htm', 'json', 'sql', 'txt', 'md', 'svg', 'csv', 'xml', 'map', 'webmanifest'];
 const ROPS_LIST_MAX        = 5000;

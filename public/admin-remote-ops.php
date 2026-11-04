@@ -187,6 +187,8 @@ function rops_admin_card(PDO $pdo, array $g, string $csrf, bool $focus, array $L
                     <dt>작업</dt><dd><?= e(implode(', ', array_map(static fn($a) => $actionLabel[$a] ?? $a, $s['actions'] ?? []))) ?></dd>
                     <dt>바꿀 수 있는 컬럼</dt><dd><?= $s['columns'] ? e(rops_admin_json($s['columns'])) : '제한 없음(기본키·인증정보 컬럼 제외)' ?></dd>
                     <dt>대상 행(PK)</dt><dd><?= $s['ids'] ? e(implode(' / ', array_map(static fn($t, $ids) => $t . ': ' . count((array) $ids) . '행', array_keys($s['ids']), $s['ids']))) : '제한 없음(조건으로 지정)' ?></dd>
+                    <?php $locked = array_merge(...array_map(static fn($t) => array_map(static fn($c) => $t['table'] . '.' . $c, $t['price_locked_columns'] ?? []), $g['preview']['tables'] ?? [])); ?>
+                    <?php if ($locked): ?><dt>가격 보호(변경 불가)</dt><dd><?= e(implode(', ', $locked)) ?></dd><?php endif; ?>
                     <dt>최대 행 수</dt><dd>1회 <?= (int) ($s['max_rows_per_op'] ?? 0) ?>행 · 전체 <?= (int) ($s['max_rows_total'] ?? 0) ?>행 (사용 <?= (int) $g['used_rows'] ?>)</dd>
                     <?php if (!empty($s['allow_bulk_delete'])): ?><dt>대량 삭제</dt><dd class="rops-warn">허용 요청(<?= ROPS_BULK_DELETE_ROWS ?>행 초과 삭제)</dd><?php endif; ?>
                     <?php if (!empty($s['allow_cascade_delete'])): ?><dt>CASCADE 삭제</dt><dd class="rops-warn">허용 요청(연결된 행 함께 삭제 — 되돌리기 불가)</dd><?php endif; ?>
@@ -239,7 +241,7 @@ function rops_admin_card(PDO $pdo, array $g, string $csrf, bool $focus, array $L
                                 <?php if ($fr['server_same']): ?><span class="rops-okc">요청 이후 서버 변동 없음</span><?php else: ?><span class="rops-warn">⚠ 요청 이후 서버 파일이 바뀜</span><?php endif; ?>
                             <?php endif; ?>
                         </div>
-                        <?php if ($fr['sensitive']): ?><div class="rops-warn">⚠ 인증·승인 화면·웹 서버 설정에 영향을 주는 파일입니다. 아래 차이를 꼭 확인하세요.</div><?php endif; ?>
+                        <?php if ($fr['sensitive']): ?><div class="rops-warn">⚠ 인증·승인 화면·가격 계산·웹 서버 설정에 영향을 주는 파일입니다. 아래 차이를 꼭 확인하세요.</div><?php endif; ?>
                         <?php if ($fr['hidden_chars'] > 0): ?><div class="rops-warn">⚠ 보이지 않는 문자 <?= (int) $fr['hidden_chars'] ?>개 — 화면과 실제 코드가 다를 수 있음(거절 권장)</div><?php endif; ?>
                         <?php if ($fr['error']): ?><div class="rops-warn"><?= e($fr['error']) ?></div><?php endif; ?>
                         <?php if ($fr['binary']): ?><div class="rops-meta">이진 파일(이미지 등) — 차이 표시 생략, <?= number_format((int) $fr['size']) ?>바이트</div>
@@ -341,7 +343,8 @@ render_admin_header('Claude 원격 작업 승인', 'remote-ops');
 <div class="rops-wrap">
     <div class="page-heading" style="margin:0">Claude 원격 작업 승인</div>
     <p class="rops-intro">Claude 가 운영 DB·서버 파일을 바꾸려면 여기서 작업 단위로 승인해야 합니다. 승인한 범위·내용·유효시간 안에서만 실행되고, 모든 실행은 아래 이력에 남습니다.
-        DB 변경과 파일 변경은 서로 다른 승인입니다. 조회(SELECT·파일 목록)는 승인 없이 가능합니다.</p>
+        DB 변경과 파일 변경은 서로 다른 승인입니다. 조회(SELECT·파일 목록)는 승인 없이 가능합니다.
+        <strong>가격 관련 DB 데이터(판매가·기업가·매입가·원가·카테고리 마진율·견적/주문 금액 등)는 여기서 승인해도 서버가 변경을 막습니다.</strong></p>
     <?php if ($flash): ?><div class="rops-flash <?= $flash['ok'] ? 'ok' : 'err' ?>" role="status"><?= e((string) $flash['msg']) ?></div><?php endif; ?>
 
     <?php if (!$pdo): ?>

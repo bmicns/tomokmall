@@ -133,12 +133,13 @@ ok('사용 중지(REMOTE_OPS_ENABLED=0) → disabled', ($j['error']['data']['rea
 file_put_contents($cfgFile, $cfgOrig);
 
 echo "[2. 진단 probe]\n";
-[$c, $j] = cli(['probe', '--write-test']);
+[$c, $j] = cli(['probe']);
 $pr = $j['result'] ?? [];
-ok('probe 성공·PHP·DB·관리 테이블 4개', $c === 0 && ($pr['db']['connected'] ?? false) && count($pr['db']['ops_tables'] ?? []) === 4, $j);
-ok('쓰기 시험: 세 루트 모두 생성·읽기·이름변경·삭제', count(array_filter($pr['paths'] ?? [], static fn($p) => ($p['write_test']['delete'] ?? false) === true)) === 3, $pr['paths'] ?? null);
-ok('쓰기 시험 임시 파일 남지 않음', glob($SITE . '/public/.rops-probe-*') === [] && glob($SITE . '/app/.rops-probe-*') === []);
+ok('probe 성공·PHP·DB·관리 테이블 4개·가격 보호 테이블 표시', $c === 0 && ($pr['db']['connected'] ?? false) && count($pr['db']['ops_tables'] ?? []) === 4
+    && in_array('products', $pr['db']['price_protection']['price_tables'] ?? [], true), $j);
 ok('probe 결과에 키 없음', !str_contains(json_encode($j), $KEYHEX));
+[$c, $j] = cli(['probe', '--write-test']);
+ok('쓰기 시험(임시 파일)은 승인 없이 거부(서버 파일 변경)', ($j['error']['code'] ?? '') === 'grant_inactive' && glob($SITE . '/public/.rops-probe-*') === [], $j);
 
 echo "[3. DB 조회]\n";
 [$c, $j] = cli(['db', 'tables']);
@@ -175,89 +176,144 @@ ok('상품 검색 "대성산업 투수블록" → 1001~1003 + 업체명', array_
 ok('카테고리 검색 + 경로', ($j['result']['row_count'] ?? 0) >= 1 && isset($j['result']['rows'][0]['path']), $j);
 
 echo "[4. DB 범위 승인 + 구조화 쓰기]\n";
-[$c, $j] = cli(['db', 'request', '--title', '[TEST] 대성산업 투수블록 기업가 변경', '--tables', 'products', '--actions', 'update', '--columns', 'products.price_b2b',
+// 고정값(가상 데이터): stock_qty 1001=50, 1002=20, 1003=0, 1004=10, 1005=5 / price_b2b 1001=10000 … (가격은 아래에서 '안 바뀜'만 확인)
+// 시작 시점에 있던 행만 비교(테스트 중 새로 추가된 행은 '기존 가격 데이터'가 아니므로 제외)
+$P_MAX = (int) q1('SELECT MAX(id) FROM products');
+$C_MAX = (int) q1('SELECT MAX(id) FROM categories');
+$priceSnap = static fn(): string => (string) q1("SELECT GROUP_CONCAT(CONCAT_WS(':', id, price_b2c, price_b2b, cost_price, category_id) ORDER BY id) FROM products WHERE id <= {$P_MAX}")
+    . '|' . (string) q1("SELECT GROUP_CONCAT(CONCAT_WS(':', id, discount_customer, discount_corporate, COALESCE(parent_id, 0)) ORDER BY id) FROM categories WHERE id <= {$C_MAX}")
+    . '|' . (string) q1("SELECT GROUP_CONCAT(CONCAT_WS(':', product_id, vendor_id, supply_price) ORDER BY product_id, vendor_id) FROM product_vendors");
+$PRICES0 = $priceSnap();
+[$c, $j] = cli(['db', 'request', '--title', '[TEST] 대성산업 투수블록 재고 수정', '--tables', 'products', '--actions', 'update', '--columns', 'products.stock_qty',
     '--ids', 'products:1001,1002,1003', '--max-rows', '3', '--ttl', '30', '--detail', '테스트']);
 $G1 = $j['result']['grant']['code'] ?? '';
-ok('승인 요청 생성(pending) + 대상 행 미리보기 3행', $G1 !== '' && $j['result']['grant']['status'] === 'pending' && ($j['result']['preview']['tables'][0]['rows_found'] ?? 0) === 3, $j);
-[$c, $j] = cli(['db', 'update', '--grant', $G1, '--table', 'products', '--set', 'price_b2b=11000', '--where', 'id=1001']);
+ok('승인 요청 생성(pending) + 대상 행 미리보기 3행 + 가격 보호 컬럼 표시', $G1 !== '' && $j['result']['grant']['status'] === 'pending' && ($j['result']['preview']['tables'][0]['rows_found'] ?? 0) === 3
+    && in_array('price_b2b', $j['result']['preview']['tables'][0]['price_locked_columns'] ?? [], true) && in_array('category_id', $j['result']['preview']['tables'][0]['price_locked_columns'] ?? [], true), $j);
+[$c, $j] = cli(['db', 'update', '--grant', $G1, '--table', 'products', '--set', 'stock_qty=51', '--where', 'id=1001']);
 ok('승인 전 쓰기 → grant_pending 거부', ($j['error']['code'] ?? '') === 'grant_pending', $j);
-// 관리자 화면: 로그인 전/고객/관리자
+// 관리자 화면: 로그인 전/관리자
 $r = web('/admin-remote-ops.php');
 ok('비로그인 관리자 화면 → 로그인으로 이동(302)', $r['status'] === 302 && str_contains($r['headers'], 'login.php'));
 $r = web('/api/auth/login.php', null, json_encode(['email' => getenv('ROPS_T_ADMIN_EMAIL'), 'password' => getenv('ROPS_T_ADMIN_PW'), 'admin_only' => true]));
 ok('[TEST] 관리자 로그인', str_contains($r['body'], '"ok":true'), $r['body']);
 $page = web('/admin-remote-ops.php?grant=' . $G1)['body'];
-ok('승인 화면에 요청·대상 행 표시', str_contains($page, $G1) && str_contains($page, '[TEST] 투수블록 200x100') && str_contains($page, '승인 대기'));
+ok('승인 화면에 요청·대상 행·가격 보호 안내 표시', str_contains($page, $G1) && str_contains($page, '[TEST] 투수블록 200x100') && str_contains($page, '승인 대기')
+    && str_contains($page, '가격 보호(변경 불가)') && str_contains($page, '여기서 승인해도 서버가 변경을 막습니다'));
 web('/admin-remote-ops.php', ['csrf' => 'bad', 'code' => $G1, 'action' => 'approve']);
 ok('CSRF 토큰 틀리면 승인 안 됨', grant_status($G1) === 'pending');
 $msg = admin_decide($G1, 'approve');
 ok('관리자 승인 → approved', grant_status($G1) === 'approved' && str_starts_with($msg, 'ok:'), $msg);
 [$c, $j] = cli(['grant', 'status', $G1]);
 ok('grant status: approved·is_live', ($j['result']['grant']['status'] ?? '') === 'approved' && $j['result']['grant']['is_live'] === true, $j);
-[$c, $j] = cli(['db', 'update', '--grant', $G1, '--table', 'products', '--set', 'price_b2b=11000', '--where', 'id=1001', '--dry-run']);
-ok('드라이런: 변경 1행 미리보기', ($j['result']['dry_run'] ?? false) === true && ($j['result']['diff'][0]['columns']['price_b2b'] ?? null) === [10000, 11000], $j);
-ok('드라이런 후 실제 값 그대로(독립 SQL)', (int) q1('SELECT price_b2b FROM products WHERE id = 1001') === 10000);
+[$c, $j] = cli(['db', 'update', '--grant', $G1, '--table', 'products', '--set', 'stock_qty=51', '--where', 'id=1001', '--dry-run']);
+ok('드라이런: 변경 1행 미리보기', ($j['result']['dry_run'] ?? false) === true && ($j['result']['diff'][0]['columns']['stock_qty'] ?? null) === [50, 51], $j);
+ok('드라이런 후 실제 값 그대로(독립 SQL)', (int) q1('SELECT stock_qty FROM products WHERE id = 1001') === 50);
 [$c, $j] = cli(['db', 'update', '--grant', $G1, '--table', 'products', '--set', 'name=바꿈', '--where', 'id=1001']);
 ok('승인 범위 밖 컬럼(name) → out_of_scope', ($j['error']['code'] ?? '') === 'out_of_scope', $j);
-[$c, $j] = cli(['db', 'update', '--grant', $G1, '--table', 'products', '--set', 'price_b2b=1', '--where', 'id=1004']);
+[$c, $j] = cli(['db', 'update', '--grant', $G1, '--table', 'products', '--set', 'stock_qty=1', '--where', 'id=1004']);
 ok('승인 범위 밖 행(1004) → out_of_scope', ($j['error']['code'] ?? '') === 'out_of_scope', $j);
 [$c, $j] = cli(['db', 'update', '--grant', $G1, '--table', 'categories', '--set', 'name=x', '--where', 'id=1']);
 ok('승인 범위 밖 테이블 → out_of_scope', ($j['error']['code'] ?? '') === 'out_of_scope', $j);
-[$c, $j] = cli(['db', 'update', '--grant', $G1, '--table', 'products', '--set', 'price_b2b=11000', '--where', 'id=1001']);
+[$c, $j] = cli(['db', 'update', '--grant', $G1, '--table', 'products', '--set', 'stock_qty=51', '--where', 'id=1001']);
 $OP_UPD = (int) ($j['op_id'] ?? 0);
-ok('실제 수정 1행 + 전후 비교', $c === 0 && ($j['result']['changed_rows'] ?? 0) === 1 && ($j['result']['diff'][0]['columns']['price_b2b'] ?? null) === [10000, 11000], $j);
-ok('수정 반영(독립 SQL)', (int) q1('SELECT price_b2b FROM products WHERE id = 1001') === 11000);
+ok('실제 수정 1행 + 전후 비교', $c === 0 && ($j['result']['changed_rows'] ?? 0) === 1 && ($j['result']['diff'][0]['columns']['stock_qty'] ?? null) === [50, 51], $j);
+ok('수정 반영(독립 SQL)', (int) q1('SELECT stock_qty FROM products WHERE id = 1001') === 51);
 [$c, $j] = cli(['db', 'verify', '--operation', (string) $OP_UPD]);
 ok('db verify: 현재값 = 변경 후 값', ($j['result']['matches'] ?? false) === true, $j);
 // 일괄 수정(행마다 다른 값) + 예상값 불일치 → 전체 롤백
 file_put_contents($WORK . '/batch-bad.json', json_encode(['table' => 'products', 'rows' => [
-    ['key' => ['id' => 1002], 'set' => ['price_b2b' => 13500], 'expect' => ['price_b2b' => 13000]],
-    ['key' => ['id' => 1003], 'set' => ['price_b2b' => 14500], 'expect' => ['price_b2b' => 99999]],
+    ['key' => ['id' => 1002], 'set' => ['stock_qty' => 21], 'expect' => ['stock_qty' => 20]],
+    ['key' => ['id' => 1003], 'set' => ['stock_qty' => 1], 'expect' => ['stock_qty' => 99999]],
 ]]));
 [$c, $j] = cli(['db', 'batch', '--grant', $G1, '--file', $WORK . '/batch-bad.json']);
 ok('일괄 수정: 예상값 불일치 → expect_mismatch', ($j['error']['code'] ?? '') === 'expect_mismatch', $j);
-ok('일괄 수정 실패 시 앞 행도 반영 안 됨(트랜잭션 롤백)', (int) q1('SELECT price_b2b FROM products WHERE id = 1002') === 13000);
+ok('일괄 수정 실패 시 앞 행도 반영 안 됨(트랜잭션 롤백)', (int) q1('SELECT stock_qty FROM products WHERE id = 1002') === 20);
 file_put_contents($WORK . '/batch.json', json_encode(['table' => 'products', 'rows' => [
-    ['key' => ['id' => 1002], 'set' => ['price_b2b' => 13500], 'expect' => ['price_b2b' => 13000]],
-    ['key' => ['id' => 1003], 'set' => ['price_b2b' => 14500], 'expect' => ['price_b2b' => 14000]],
+    ['key' => ['id' => 1002], 'set' => ['stock_qty' => 21], 'expect' => ['stock_qty' => 20]],
+    ['key' => ['id' => 1003], 'set' => ['stock_qty' => 1], 'expect' => ['stock_qty' => 0]],
 ]]));
 [$c, $j] = cli(['db', 'batch', '--grant', $G1, '--file', $WORK . '/batch.json']);
 $OP_BATCH = (int) ($j['op_id'] ?? 0);
-ok('일괄 수정 2행(서로 다른 값)', ($j['result']['changed_rows'] ?? 0) === 2 && q1('SELECT GROUP_CONCAT(price_b2b ORDER BY id) FROM products WHERE id IN (1002,1003)') === '13500,14500', $j);
-[$c, $j] = cli(['db', 'update', '--grant', $G1, '--table', 'products', '--set', 'price_b2b=1', '--where', 'id=1001']);
+ok('일괄 수정 2행(서로 다른 값)', ($j['result']['changed_rows'] ?? 0) === 2 && q1('SELECT GROUP_CONCAT(stock_qty ORDER BY id) FROM products WHERE id IN (1002,1003)') === '21,1', $j);
+[$c, $j] = cli(['db', 'update', '--grant', $G1, '--table', 'products', '--set', 'stock_qty=1', '--where', 'id=1001']);
 ok('누적 최대 행 수(3) 초과 → too_many_rows', ($j['error']['code'] ?? '') === 'too_many_rows', $j);
 // 되돌리기
-$pdo->exec('UPDATE products SET price_b2b = 13600 WHERE id = 1002');
+$pdo->exec('UPDATE products SET stock_qty = 22 WHERE id = 1002');
 [$c, $j] = cli(['db', 'revert', '--operation', (string) $OP_BATCH]);
 ok('작업 뒤 값이 바뀐 행이 있으면 되돌리기 거부(revert_conflict)', ($j['error']['code'] ?? '') === 'revert_conflict', $j);
-$pdo->exec('UPDATE products SET price_b2b = 13500 WHERE id = 1002');
+$pdo->exec('UPDATE products SET stock_qty = 21 WHERE id = 1002');
 [$c, $j] = cli(['db', 'revert', '--operation', (string) $OP_BATCH]);
-ok('되돌리기 성공 → 원래 값(13000,14000)', $c === 0 && q1('SELECT GROUP_CONCAT(price_b2b ORDER BY id) FROM products WHERE id IN (1002,1003)') === '13000,14000', $j);
+ok('되돌리기 성공 → 원래 값(20,0)', $c === 0 && q1('SELECT GROUP_CONCAT(stock_qty ORDER BY id) FROM products WHERE id IN (1002,1003)') === '20,0', $j);
 [$c, $j] = cli(['db', 'revert', '--operation', (string) $OP_BATCH]);
 ok('같은 작업 두 번 되돌리기 거부', ($j['error']['code'] ?? '') === 'already_reverted', $j);
 [$c, $j] = cli(['db', 'revert', '--operation', (string) $OP_UPD]);
-ok('단건 수정 되돌리기 → 10000', $c === 0 && (int) q1('SELECT price_b2b FROM products WHERE id = 1001') === 10000, $j);
+ok('단건 수정 되돌리기 → 50', $c === 0 && (int) q1('SELECT stock_qty FROM products WHERE id = 1001') === 50, $j);
 
-// 삭제·추가 범위
-[$c, $j] = cli(['db', 'request', '--title', '[TEST] 삭제·추가', '--tables', 'products,categories', '--actions', 'delete,insert', '--max-rows', '5']);
+echo "[4-1. 가격 데이터 보호(승인해도 차단)]\n";
+foreach (['products.price_b2b', 'products.price_b2c', 'products.cost_price', 'products.category_id'] as $col) {
+    [$t, $cname] = explode('.', $col);
+    [$c, $j] = cli(['db', 'request', '--title', 'x', '--tables', $t, '--actions', 'update', '--columns', $col, '--max-rows', '1']);
+    ok("가격 컬럼 수정 승인 요청 자체 거부: {$col}", ($j['error']['code'] ?? '') === 'price_protected' && str_contains($j['error']['message'] ?? '', '사용자에게 보고'), $j);
+}
+[$c, $j] = cli(['db', 'request', '--title', 'x', '--tables', 'categories', '--actions', 'update', '--columns', 'categories.discount_corporate', '--max-rows', '1']);
+ok('카테고리 마진율 수정 요청 거부', ($j['error']['code'] ?? '') === 'price_protected', $j);
+[$c, $j] = cli(['db', 'request', '--title', 'x', '--tables', 'categories', '--actions', 'update', '--columns', 'categories.parent_id', '--max-rows', '1']);
+ok('카테고리 상위(마진 상속) 변경 요청 거부', ($j['error']['code'] ?? '') === 'price_protected', $j);
+foreach (['products', 'categories', 'product_vendors', 'vendors'] as $t) {
+    [$c, $j] = cli(['db', 'request', '--title', 'x', '--tables', $t, '--actions', 'delete', '--max-rows', '1']);
+    ok("삭제 요청 거부(가격 테이블·가격 테이블로 번짐): {$t}", ($j['error']['code'] ?? '') === 'price_protected', $j);
+}
+// 컬럼 제한 없는 승인을 받아도 실행 단계에서 가격 컬럼은 막힘
+[$c, $j] = cli(['db', 'request', '--title', '[TEST] 상품 정보(컬럼 제한 없음)', '--tables', 'products,categories', '--actions', 'update,insert', '--max-rows', '10']);
+$GP = $j['result']['grant']['code'] ?? '';
+admin_decide($GP, 'approve');
+foreach (['price_b2b=1', 'price_b2c=1', 'cost_price=1', 'category_id=3'] as $set) {
+    [$c, $j] = cli(['db', 'update', '--grant', $GP, '--table', 'products', '--set', $set, '--where', 'id=1001']);
+    ok("승인 범위 안이어도 가격 쓰기 차단: {$set}", ($j['error']['code'] ?? '') === 'price_protected', $j);
+}
+[$c, $j] = cli(['db', 'update', '--grant', $GP, '--table', 'products', '--set', 'name=[TEST] 이름바꿈', '--set', 'price_b2b=1', '--where', 'id=1001', '--dry-run']);
+ok('다른 컬럼과 함께 넣은 가격 변경도 차단(드라이런 포함)', ($j['error']['code'] ?? '') === 'price_protected', $j);
+[$c, $j] = cli(['db', 'update', '--grant', $GP, '--table', 'categories', '--set', 'discount_customer=9', '--where', 'id=2']);
+ok('마진율 쓰기 차단', ($j['error']['code'] ?? '') === 'price_protected', $j);
+file_put_contents($WORK . '/batch-price.json', json_encode(['table' => 'products', 'rows' => [
+    ['key' => ['id' => 1002], 'set' => ['stock_qty' => 21]], ['key' => ['id' => 1003], 'set' => ['price_b2b' => 1]]]]));
+[$c, $j] = cli(['db', 'batch', '--grant', $GP, '--file', $WORK . '/batch-price.json']);
+ok('일괄 수정 중 한 행에 가격 → 전체 차단(앞 행도 안 바뀜)', ($j['error']['code'] ?? '') === 'price_protected' && (int) q1('SELECT stock_qty FROM products WHERE id = 1002') === 20, $j);
+file_put_contents($WORK . '/p-ins.json', json_encode([['category_id' => 2, 'name' => '[TEST] 새 상품', 'price_b2c' => 5000]]));
+[$c, $j] = cli(['db', 'insert', '--grant', $GP, '--table', 'products', '--file', $WORK . '/p-ins.json']);
+ok('새 상품에 가격 넣기 차단', ($j['error']['code'] ?? '') === 'price_protected' && (int) q1("SELECT COUNT(*) FROM products WHERE name = '[TEST] 새 상품'") === 0, $j);
+file_put_contents($WORK . '/p-ins2.json', json_encode([['category_id' => 2, 'name' => '[TEST] 새 상품(가격 없음)', 'brand' => '[TEST]']]));
+[$c, $j] = cli(['db', 'insert', '--grant', $GP, '--table', 'products', '--file', $WORK . '/p-ins2.json']);
+$OP_PINS = (int) ($j['op_id'] ?? 0);
+ok('가격 없이 새 상품 추가는 허용(기본값 0 — 가격은 사람이 입력)', $c === 0 && (int) q1("SELECT price_b2b FROM products WHERE name = '[TEST] 새 상품(가격 없음)'") === 0, $j);
+[$c, $j] = cli(['db', 'revert', '--operation', (string) $OP_PINS]);
+ok('방금 추가한 행 되돌리기(삭제)는 허용', $c === 0 && (int) q1("SELECT COUNT(*) FROM products WHERE name = '[TEST] 새 상품(가격 없음)'") === 0, $j);
+$pdo->exec("CREATE TRIGGER rops_t_vendors BEFORE UPDATE ON vendors FOR EACH ROW SET NEW.memo = NEW.memo");
+[$c, $j] = cli(['db', 'request', '--title', 'x', '--tables', 'vendors', '--actions', 'update', '--max-rows', '1']);
+ok('트리거가 있는 테이블 쓰기 요청 거부(다른 데이터·가격이 함께 바뀔 수 있음)', ($j['error']['code'] ?? '') === 'price_protected' && str_contains($j['error']['message'] ?? '', '트리거'), $j);
+$pdo->exec('DROP TRIGGER rops_t_vendors');
+ok('가격 데이터 전체(상품 가격·카테고리·마진율·공급가) 변동 없음(독립 SQL)', $priceSnap() === $PRICES0);
+cli(['grant', 'cancel', $GP]);
+
+// 삭제·추가 범위(가격 없는 테이블)
+[$c, $j] = cli(['db', 'request', '--title', '[TEST] 삭제·추가', '--tables', 'search_logs', '--actions', 'delete,insert', '--max-rows', '5']);
 $G2 = $j['result']['grant']['code'] ?? '';
-ok('삭제·추가 승인 요청', $G2 !== '', $j);
+ok('삭제·추가 승인 요청(가격 없는 테이블)', $G2 !== '', $j);
 admin_decide($G2, 'approve');
-[$c, $j] = cli(['db', 'delete', '--grant', $G2, '--table', 'products', '--where', 'id=1004']);
-ok('CASCADE 자식이 있는 삭제 → cascade_not_approved', ($j['error']['code'] ?? '') === 'cascade_not_approved', $j);
-ok('삭제 거부 후 행 그대로', (int) q1('SELECT COUNT(*) FROM products WHERE id = 1004') === 1);
-file_put_contents($WORK . '/rows.json', json_encode([['parent_id' => 2, 'name' => '[TEST] 임시 카테고리', 'slug' => 'rops-test-cat', 'sort_order' => 99]]));
-[$c, $j] = cli(['db', 'insert', '--grant', $G2, '--table', 'categories', '--file', $WORK . '/rows.json']);
+file_put_contents($WORK . '/rows.json', json_encode([['term' => '[TEST] 임시 검색어', 'cnt' => 3]]));
+[$c, $j] = cli(['db', 'insert', '--grant', $G2, '--table', 'search_logs', '--file', $WORK . '/rows.json']);
 $OP_INS = (int) ($j['op_id'] ?? 0);
-$newCat = (int) ($j['result']['diff'][0]['key']['id'] ?? 0);
-ok('추가 1행 + 새 id', $c === 0 && $newCat > 0 && (int) q1('SELECT COUNT(*) FROM categories WHERE slug = ?', ['rops-test-cat']) === 1, $j);
-[$c, $j] = cli(['db', 'delete', '--grant', $G2, '--table', 'categories', '--where', 'id=' . $newCat, '--expect-rows', '2']);
-ok('expect-rows 불일치 → 삭제 안 함', ($j['error']['code'] ?? '') === 'row_count_mismatch' && (int) q1('SELECT COUNT(*) FROM categories WHERE id = ?', [$newCat]) === 1, $j);
+ok('추가 1행', $c === 0 && (int) q1('SELECT COUNT(*) FROM search_logs WHERE term = ?', ['[TEST] 임시 검색어']) === 1, $j);
+[$c, $j] = cli(['db', 'delete', '--grant', $G2, '--table', 'search_logs', '--where', 'term=[TEST] 임시 검색어', '--expect-rows', '2']);
+ok('expect-rows 불일치 → 삭제 안 함', ($j['error']['code'] ?? '') === 'row_count_mismatch' && (int) q1('SELECT COUNT(*) FROM search_logs WHERE term = ?', ['[TEST] 임시 검색어']) === 1, $j);
 [$c, $j] = cli(['db', 'revert', '--operation', (string) $OP_INS]);
-ok('추가 되돌리기 → 행 삭제', $c === 0 && (int) q1('SELECT COUNT(*) FROM categories WHERE slug = ?', ['rops-test-cat']) === 0, $j);
-[$c, $j] = cli(['db', 'update', '--grant', $G2, '--table', 'products', '--set', 'price_b2b=1', '--where', 'id=1001']);
-ok('삭제·추가 승인으로 수정 → out_of_scope', ($j['error']['code'] ?? '') === 'out_of_scope', $j);
-[$c, $j] = cli(['db', 'request', '--title', 'x', '--tables', 'products', '--actions', 'update', '--columns', 'Product.price_b2c', '--max-rows', '1']);
+ok('추가 되돌리기 → 행 삭제', $c === 0 && (int) q1('SELECT COUNT(*) FROM search_logs WHERE term = ?', ['[TEST] 임시 검색어']) === 0, $j);
+[$c, $j] = cli(['db', 'insert', '--grant', $G2, '--table', 'search_logs', '--file', $WORK . '/rows.json']);
+[$c, $j] = cli(['db', 'delete', '--grant', $G2, '--table', 'search_logs', '--where', 'term=[TEST] 임시 검색어', '--expect-rows', '1']);
+ok('가격 없는 테이블 삭제 1행', $c === 0 && (int) q1('SELECT COUNT(*) FROM search_logs WHERE term = ?', ['[TEST] 임시 검색어']) === 0, $j);
+[$c, $j] = cli(['db', 'update', '--grant', $G2, '--table', 'products', '--set', 'name=x', '--where', 'id=1001']);
+ok('삭제·추가 승인으로 다른 테이블 수정 → out_of_scope', ($j['error']['code'] ?? '') === 'out_of_scope', $j);
+[$c, $j] = cli(['db', 'request', '--title', 'x', '--tables', 'products', '--actions', 'update', '--columns', 'Product.stock_qty', '--max-rows', '1']);
 ok('[검토 #4] columns 테이블 오타 → bad_params(제한 없음 승인 방지)', ($j['error']['code'] ?? '') === 'bad_params', $j);
 [$c, $j] = cli(['db', 'request', '--title', 'x', '--tables', 'users', '--actions', 'delete', '--max-rows', '1']);
 ok('인증정보 테이블 삭제 승인 요청 → forbidden_table', ($j['error']['code'] ?? '') === 'forbidden_table', $j);
@@ -282,27 +338,47 @@ ok('[검토 #7] 추가도 승인 컬럼만(slug 범위 밖) → out_of_scope', (
 [$c, $j] = cli(['db', 'update', '--grant', $G1, '--table', 'remote_ops_grants', '--set', 'status=approved', '--where', 'id=1']);
 ok('관리 테이블(remote_ops_*) 쓰기 거부', ($j['error']['code'] ?? '') === 'forbidden_table', $j);
 admin_decide($G2, 'revoke');
-[$c, $j] = cli(['db', 'insert', '--grant', $G2, '--table', 'categories', '--file', $WORK . '/rows.json']);
+[$c, $j] = cli(['db', 'insert', '--grant', $G2, '--table', 'search_logs', '--file', $WORK . '/rows.json']);
 ok('회수한 승인 → grant_inactive', ($j['error']['code'] ?? '') === 'grant_inactive', $j);
 
 echo "[5. SQL 파일 승인·실행·롤백]\n";
-file_put_contents($WORK . '/bad.sql', "UPDATE products SET price_b2b = price_b2b + 100 WHERE id = 1005;\nUPDATE productz SET x = 1 WHERE id = 1;\n");
+file_put_contents($WORK . '/bad.sql', "UPDATE products SET stock_qty = stock_qty + 100 WHERE id = 1005;\nUPDATE productz SET x = 1 WHERE id = 1;\n");
 [$c, $j] = cli(['db', 'stage-sql', '--file', $WORK . '/bad.sql', '--title', '[TEST] 잘못된 SQL']);
-ok('잘못된 SQL(없는 테이블) → 미리 실행에서 sql_error, 승인 요청 안 만듦', ($j['error']['code'] ?? '') === 'sql_error' && str_contains($j['error']['message'], '2번 문장'), $j);
-ok('미리 실행은 롤백(1005 그대로)', (int) q1('SELECT price_b2b FROM products WHERE id = 1005') === 27000);
+ok('잘못된 SQL(없는 테이블) → 대상 행 세기에서 sql_error, 승인 요청 안 만듦', ($j['error']['code'] ?? '') === 'sql_error' && str_contains($j['error']['message'], '2번 문장'), $j);
+ok('승인 전에는 실행 안 됨(1005 재고 그대로)', (int) q1('SELECT stock_qty FROM products WHERE id = 1005') === 5);
 // [검토 #1] 승인 전 단계에서 SET autocommit 으로 '롤백 예정' 실행을 실제 커밋시키고 자기 승인을 승인 상태로 바꾸는 시도
 [$c, $j] = cli(['db', 'request', '--title', '[TEST] 공격 대상 대기 승인', '--tables', 'products', '--actions', 'update', '--max-rows', '1']);
 $GV = $j['result']['grant']['code'] ?? '';
-file_put_contents($WORK . '/attack.sql', "SET @a=1, sql_mode='ANSI_QUOTES', autocommit=0;\nUPDATE products SET price_b2c=1 WHERE id=1001;\n"
+file_put_contents($WORK . '/attack.sql', "SET @a=1, sql_mode='ANSI_QUOTES', autocommit=0;\nUPDATE products SET stock_qty=999 WHERE id=1001;\n"
     . "UPDATE products p, \"remote_ops_grants\" g SET g.status='approved', g.decided_at=NOW(), g.expires_at=NOW()+INTERVAL 1 DAY WHERE g.code='{$GV}' AND p.id=1001;\nSET @b=1, autocommit=1;\n");
 [$c, $j] = cli(['db', 'stage-sql', '--file', $WORK . '/attack.sql', '--title', '[TEST] 공격']);
 ok('[검토 #1] SET·여러 테이블·관리 테이블 SQL → sql_not_allowed', ($j['error']['code'] ?? '') === 'sql_not_allowed', $j);
-ok('[검토 #1] 상품 가격·대기 승인 그대로(아무것도 커밋 안 됨)', (int) q1('SELECT price_b2c FROM products WHERE id = 1001') === 12000 && grant_status($GV) === 'pending');
-file_put_contents($WORK . '/attack2.sql', "UPDATE products SET price_b2c = 1 WHERE id = 1001;\n");
+ok('[검토 #1] 재고·대기 승인 그대로(아무것도 커밋 안 됨)', (int) q1('SELECT stock_qty FROM products WHERE id = 1001') === 50 && grant_status($GV) === 'pending');
+file_put_contents($WORK . '/attack2.sql', "UPDATE products SET stock_qty = 999 WHERE id = 1001;\n");
 [$c, $j] = cli(['db', 'stage-sql', '--file', $WORK . '/attack2.sql', '--title', '[TEST] 승인 전 실행 여부']);
-ok('[검토 #1] 승인 요청만으로는 UPDATE 를 실행하지 않음(COUNT 로만 셈)', ($j['result']['preview']['total_rows'] ?? -1) === 1 && (int) q1('SELECT price_b2c FROM products WHERE id = 1001') === 12000, $j);
+ok('[검토 #1] 승인 요청만으로는 UPDATE 를 실행하지 않음(COUNT 로만 셈)', ($j['result']['preview']['total_rows'] ?? -1) === 1 && (int) q1('SELECT stock_qty FROM products WHERE id = 1001') === 50, $j);
 cli(['grant', 'cancel', $j['result']['grant']['code'] ?? '']);
 cli(['grant', 'cancel', $GV]);
+// 가격 보호(SQL 파일)
+foreach ([
+    "UPDATE products SET price_b2b = price_b2b * 1.1 WHERE brand = '[TEST]대성산업';" => '기업가 일괄 인상',
+    "UPDATE products SET name = name, cost_price = 0 WHERE id = 1001;" => '다른 컬럼과 함께 매입가',
+    "UPDATE products SET category_id = 3 WHERE id = 1001;" => '카테고리 이동(마진율 바뀜)',
+    "UPDATE categories SET discount_corporate = 30 WHERE id = 2;" => '기업 마진율',
+    "INSERT INTO products (category_id, name, price_b2c) VALUES (2, '[TEST] x', 100);" => '새 행에 가격',
+    "INSERT INTO categories (name, slug) VALUES ('[TEST] a', 'rops-x') ON DUPLICATE KEY UPDATE discount_customer = 0;" => 'ODKU 로 마진율',
+    "REPLACE INTO products (id, category_id, name) VALUES (1001, 2, 'x');" => 'REPLACE 로 기존 상품 다시 쓰기',
+    "DELETE FROM products WHERE id = 1004;" => '상품 삭제',
+    "DELETE FROM vendors WHERE id = 2;" => '업체 삭제(공급가 행이 CASCADE 로 사라짐)',
+    "ALTER TABLE products DROP COLUMN cost_price;" => '매입가 컬럼 삭제',
+    "ALTER TABLE products MODIFY price_b2b BIGINT UNSIGNED NOT NULL DEFAULT 0;" => '가격 컬럼 타입 변경',
+    "TRUNCATE TABLE product_vendors;" => '공급가 테이블 비우기',
+] as $sql => $label) {
+    file_put_contents($WORK . '/price.sql', $sql . "\n");
+    [$c, $j] = cli(['db', 'stage-sql', '--file', $WORK . '/price.sql', '--title', '[TEST] 가격']);
+    ok("SQL 파일 가격 보호 → price_protected: {$label}", ($j['error']['code'] ?? '') === 'price_protected', $j);
+}
+ok('SQL 파일 시도 후 가격 데이터 변동 없음(독립 SQL)', $priceSnap() === $PRICES0);
 file_put_contents($WORK . '/mix.sql', "ALTER TABLE products ADD COLUMN rops_mix INT NULL;\nUPDATE products SET stock_qty = 1 WHERE id = 1001;\n");
 [$c, $j] = cli(['db', 'stage-sql', '--file', $WORK . '/mix.sql', '--title', '[TEST] 섞임']);
 ok('[검토 #6] DDL+DML 한 파일 → sql_not_allowed', ($j['error']['code'] ?? '') === 'sql_not_allowed', $j);
@@ -312,13 +388,13 @@ ok('[검토 #2] SQL 파일의 password_hash 언급 → sql_not_allowed', ($j['er
 file_put_contents($WORK . '/deny.sql', "GRANT ALL ON *.* TO 'x'@'%';\n");
 [$c, $j] = cli(['db', 'stage-sql', '--file', $WORK . '/deny.sql', '--title', '[TEST] 금지 SQL']);
 ok('금지 문장(GRANT) → sql_not_allowed', ($j['error']['code'] ?? '') === 'sql_not_allowed', $j);
-file_put_contents($WORK . '/upd.sql', "-- @verify SELECT id, price_b2b FROM products WHERE id IN (1004, 1005) ORDER BY id\n"
-    . "UPDATE products SET price_b2b = price_b2b + 100 WHERE id = 1005;\nINSERT INTO categories (name, slug, sort_order) VALUES ('[TEST] SQL 카테고리', 'rops-sql-cat', 98);\n");
+file_put_contents($WORK . '/upd.sql', "-- @verify SELECT id, stock_qty FROM products WHERE id IN (1004, 1005) ORDER BY id\n"
+    . "UPDATE products SET stock_qty = stock_qty + 100 WHERE id = 1005 AND price_b2c > 0;\nINSERT INTO categories (name, slug, sort_order) VALUES ('[TEST] SQL 카테고리', 'rops-sql-cat', 98);\n");
 [$c, $j] = cli(['db', 'stage-sql', '--file', $WORK . '/upd.sql', '--title', '[TEST] SQL 파일 실행']);
 $G3 = $j['result']['grant']['code'] ?? '';
-ok('SQL 승인 요청 + 대상 행 수(합계 2행) + @verify 현재값', $G3 !== '' && ($j['result']['preview']['total_rows'] ?? 0) === 2
-    && ($j['result']['preview']['verify_before'][0]['rows'][1]['price_b2b'] ?? 0) === 27000, $j);
-ok('미리 실행 후 DB 그대로', (int) q1('SELECT price_b2b FROM products WHERE id = 1005') === 27000 && (int) q1("SELECT COUNT(*) FROM categories WHERE slug='rops-sql-cat'") === 0);
+ok('SQL 승인 요청(가격은 조건으로만 읽음) + 대상 행 수(합계 2행) + @verify 현재값', $G3 !== '' && ($j['result']['preview']['total_rows'] ?? 0) === 2
+    && ($j['result']['preview']['verify_before'][0]['rows'][1]['stock_qty'] ?? 0) === 5, $j);
+ok('승인 요청 후 DB 그대로', (int) q1('SELECT stock_qty FROM products WHERE id = 1005') === 5 && (int) q1("SELECT COUNT(*) FROM categories WHERE slug='rops-sql-cat'") === 0);
 $page = web('/admin-remote-ops.php?grant=' . $G3)['body'];
 ok('승인 화면에 SQL 본문(전체)·대상 행 수 표시', str_contains($page, 'rops-sql-cat') && str_contains($page, '대상 행 수') && str_contains($page, '(전체 '));
 [$c, $j] = cli(['db', 'execute', '--grant', $G3]);
@@ -327,14 +403,14 @@ admin_decide($G3, 'approve');
 $pdo->exec("INSERT INTO categories (name, slug, sort_order) VALUES ('[TEST] 선점', 'rops-sql-cat', 1)");
 [$c, $j] = cli(['db', 'execute', '--grant', $G3]);
 ok('실행 중 2번 문장 실패(중복 키) → sql_error', ($j['error']['code'] ?? '') === 'sql_error' && str_contains($j['error']['message'], '2번 문장'), $j);
-ok('실패 시 1번 문장도 롤백(1005 = 27000)', (int) q1('SELECT price_b2b FROM products WHERE id = 1005') === 27000);
+ok('실패 시 1번 문장도 롤백(1005 재고 = 5)', (int) q1('SELECT stock_qty FROM products WHERE id = 1005') === 5);
 ok('실패한 실행은 승인 소진 안 함(approved 유지)', grant_status($G3) === 'approved');
 $pdo->exec("DELETE FROM categories WHERE slug = 'rops-sql-cat'");
 [$c, $j] = cli(['db', 'execute', '--grant', $G3, '--dry-run']);
-ok('승인 후 드라이런: 2행, 커밋 안 함', ($j['result']['total_rows'] ?? 0) === 2 && $j['result']['committed'] === false && (int) q1('SELECT price_b2b FROM products WHERE id = 1005') === 27000, $j);
+ok('승인 후 드라이런: 2행, 커밋 안 함', ($j['result']['total_rows'] ?? 0) === 2 && $j['result']['committed'] === false && (int) q1('SELECT stock_qty FROM products WHERE id = 1005') === 5, $j);
 [$c, $j] = cli(['db', 'execute', '--grant', $G3]);
 $OP_SQL = (int) ($j['op_id'] ?? 0);
-ok('SQL 실행 성공(한 트랜잭션) + @verify 후 값', $c === 0 && ($j['result']['transaction'] ?? false) && (int) q1('SELECT price_b2b FROM products WHERE id = 1005') === 27100, $j);
+ok('SQL 실행 성공(한 트랜잭션) + @verify 후 값', $c === 0 && ($j['result']['transaction'] ?? false) && (int) q1('SELECT stock_qty FROM products WHERE id = 1005') === 105, $j);
 ok('1회용 승인 → used', grant_status($G3) === 'used');
 [$c, $j] = cli(['db', 'execute', '--grant', $G3]);
 ok('같은 승인 재실행 → grant_inactive', ($j['error']['code'] ?? '') === 'grant_inactive', $j);
@@ -349,28 +425,38 @@ $pdo->exec("UPDATE products SET brand = '[TEST]다른업체' WHERE id = 1003");
 [$c, $j] = cli(['db', 'execute', '--grant', $G4]);
 ok('승인 때보다 영향 행이 많음(3>2) → too_many_rows + 롤백', ($j['error']['code'] ?? '') === 'too_many_rows' && (int) q1('SELECT stock_qty FROM products WHERE id = 1004') === 10, $j);
 $pdo->exec("UPDATE products SET brand = '[TEST]대성산업' WHERE id = 1003");
-// DDL: 추가 확인 + 자동 백업 + 복원 요청
+// DDL: 가격 테이블은 덧붙이기만 + 추가 확인 + 자동 백업, 가격 테이블 백업 복원은 차단
 file_put_contents($WORK . '/ddl.sql', "ALTER TABLE products ADD COLUMN rops_test_col INT NULL;\n");
 [$c, $j] = cli(['db', 'stage-sql', '--file', $WORK . '/ddl.sql', '--title', '[TEST] DDL']);
 $G5 = $j['result']['grant']['code'] ?? '';
-ok('DDL 요청: 미리 실행 없음 + 추가 확인 필요', $G5 !== '' && ($j['result']['preview']['has_ddl'] ?? false) && $j['result']['grant']['scope']['needs_extra_confirm'] === true, $j);
+ok('가격 테이블 ADD COLUMN DDL 요청: 미리 실행 없음 + 추가 확인 필요', $G5 !== '' && ($j['result']['preview']['has_ddl'] ?? false) && $j['result']['grant']['scope']['needs_extra_confirm'] === true, $j);
 $msg = admin_decide($G5, 'approve', false);
 ok('추가 확인 체크 없이 승인 → 거부', grant_status($G5) === 'pending' && str_contains($msg, '확인란'), $msg);
 admin_decide($G5, 'approve', true);
 [$c, $j] = cli(['db', 'execute', '--grant', $G5]);
 $snap = (int) ($j['result']['backups']['products']['snapshot'] ?? 0);
 ok('DDL 실행 + 실행 전 products 자동 백업', $c === 0 && $snap > 0 && (int) q1("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME='products' AND COLUMN_NAME='rops_test_col'") === 1, $j);
-$pdo->exec('UPDATE products SET price_b2c = 1 WHERE id = 1001');
 [$c, $j] = cli(['db', 'stage-restore', '--snapshot', (string) $snap]);
+ok('가격 테이블(products) 백업 복원 요청 → price_protected(가격이 백업 시점으로 바뀌므로)', ($j['error']['code'] ?? '') === 'price_protected', $j);
+file_put_contents($WORK . '/ddl2.sql', "ALTER TABLE vendors ADD COLUMN rops_test_col INT NULL;\n");
+[$c, $j] = cli(['db', 'stage-sql', '--file', $WORK . '/ddl2.sql', '--title', '[TEST] DDL vendors']);
+$G5b = $j['result']['grant']['code'] ?? '';
+admin_decide($G5b, 'approve', true);
+[$c, $j] = cli(['db', 'execute', '--grant', $G5b]);
+$snapV = (int) ($j['result']['backups']['vendors']['snapshot'] ?? 0);
+ok('가격 없는 테이블 DDL + 자동 백업', $c === 0 && $snapV > 0, $j);
+$pdo->exec("UPDATE vendors SET name = '[TEST] 이름 바뀜' WHERE id = 2");
+[$c, $j] = cli(['db', 'stage-restore', '--snapshot', (string) $snapV]);
 $G6 = $j['result']['grant']['code'] ?? '';
-ok('백업 복원 요청: 대상 행 수(백업 행 5) 포함', $G6 !== '' && ($j['result']['preview']['total_rows'] ?? 0) === 5, $j);
+ok('백업 복원 요청: 대상 행 수(백업 행 2) 포함', $G6 !== '' && ($j['result']['preview']['total_rows'] ?? 0) === 2, $j);
 admin_decide($G6, 'approve', !empty($j['result']['grant']['scope']['needs_extra_confirm']));
 [$c, $j] = cli(['db', 'execute', '--grant', $G6]);
-ok('백업으로 복원 → price_b2c 12000', $c === 0 && (int) q1('SELECT price_b2c FROM products WHERE id = 1001') === 12000, $j);
+ok('백업으로 복원 → vendors.name 원래 값', $c === 0 && q1('SELECT name FROM vendors WHERE id = 2') === '[TEST]다른업체', $j);
 [$c, $j] = cli(['db', 'backup', '--tables', 'categories']);
-ok('db backup: categories 덤프', ($j['result']['backups'][0]['rows'] ?? 0) >= 6, $j);
+ok('db backup: categories 덤프(조회는 허용)', ($j['result']['backups'][0]['rows'] ?? 0) >= 6, $j);
 [$c, $j] = cli(['db', 'backup', '--tables', 'remote_ops_log']);
 ok('관리 테이블 백업 거부', ($j['error']['code'] ?? '') === 'forbidden_table', $j);
+ok('4·5장 전체 뒤에도 가격 데이터 변동 없음(독립 SQL)', $priceSnap() === $PRICES0);
 
 echo "[6. 파일 조회·경로 차단]\n";
 [$c, $j] = cli(['files', 'list', 'public/api']);
@@ -431,6 +517,10 @@ ok('승인 전 배포 → grant_pending', ($j['error']['code'] ?? '') === 'grant
 $page = web('/admin-remote-ops.php?grant=' . $G7)['body'];
 ok('승인 화면: 서버가 계산한 diff(+1) 표시', str_contains($page, 'public/quote.php') && str_contains($page, '[TEST] 원격 배포 확인용 주석') && str_contains($page, '요청 이후 서버 변동 없음'));
 admin_decide($G7, 'approve');
+[$c, $j] = cli(['probe', '--write-test', '--grant', $G7]);
+$pr = $j['result'] ?? [];
+ok('승인된 파일 승인으로 쓰기 시험: 세 루트 생성·읽기·이름변경·삭제(승인은 소진 안 함)', count(array_filter($pr['paths'] ?? [], static fn($p) => ($p['write_test']['delete'] ?? false) === true)) === 3
+    && grant_status($G7) === 'approved' && glob($SITE . '/public/.rops-probe-*') === [] && glob($SITE . '/app/.rops-probe-*') === [], $j);
 [$c, $j] = cli(['files', 'deploy', '--grant', $G7, '--dry-run']);
 ok('배포 드라이런: 변경 없음 확인', ($j['result']['dry_run'] ?? false) && file_get_contents($SITE . '/public/quote.php') === $quoteOrig, $j);
 [$c, $j] = cli(['files', 'deploy', '--grant', $G7, '--check', '/rops-new.php', '--marker', 'ROPS-NEW-OK']);
@@ -486,7 +576,7 @@ $GS = $res['result']['grant']['code'] ?? '';
 ok('[검토 #8] app/auth.php 배포 요청 → 추가 확인 필요 표시', ($res['result']['grant']['scope']['needs_extra_confirm'] ?? false) === true, $res);
 $msg = admin_decide($GS, 'approve', false);
 ok('[검토 #8] 추가 확인 없이 민감 파일 승인 → 거부', grant_status($GS) === 'pending' && str_contains($msg, '확인란'), $msg);
-ok('승인 화면에 민감 파일 경고 표시', str_contains(web('/admin-remote-ops.php?grant=' . $GS)['body'], '인증·승인 화면·웹 서버 설정에 영향'));
+ok('승인 화면에 민감 파일 경고 표시', str_contains(web('/admin-remote-ops.php?grant=' . $GS)['body'], '인증·승인 화면·가격 계산·웹 서버 설정에 영향'));
 cli(['grant', 'cancel', $GS]);
 $e = envelope('files.stage', ['title' => 'x', 'files' => [['path' => 'public/shell.phtml', 'content_b64' => base64_encode('x')]]]);
 ok('허용 안 된 확장자 거부', (open_res(raw_post(json_encode($e))['json'])['error']['code'] ?? '') === 'path_denied');
@@ -502,7 +592,7 @@ ok('이력에 키·DB 비밀번호·파일 본문 없음', (int) q1('SELECT COUN
 [$c, $j] = cli(['log', 'get', (string) $OP_DEP]);
 ok('log get: 스냅샷 목록(본문 제외)', count($j['result']['operation']['snapshots'] ?? []) >= 6 && !isset($j['result']['operation']['snapshots'][0]['content']), $j);
 $pdo->exec("UPDATE remote_ops_grants SET expires_at = NOW() - INTERVAL 1 MINUTE WHERE code = " . $pdo->quote($G1));
-[$c, $j] = cli(['db', 'update', '--grant', $G1, '--table', 'products', '--set', 'price_b2b=1', '--where', 'id=1001']);
+[$c, $j] = cli(['db', 'update', '--grant', $G1, '--table', 'products', '--set', 'stock_qty=1', '--where', 'id=1001']);
 ok('유효시간 지난 승인 → grant_inactive(만료 처리)', ($j['error']['code'] ?? '') === 'grant_inactive' && grant_status($G1) === 'expired', $j);
 [$c, $j] = cli(['db', 'request', '--title', '[TEST] 취소', '--tables', 'products', '--actions', 'update', '--max-rows', '1']);
 $G10 = $j['result']['grant']['code'] ?? '';

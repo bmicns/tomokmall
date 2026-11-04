@@ -55,6 +55,8 @@ CREATE USER IF NOT EXISTS '$DBUSER'@'%' IDENTIFIED BY '$DBPASS';
 ALTER USER '$DBUSER'@'%' IDENTIFIED BY '$DBPASS';
 GRANT ALL PRIVILEGES ON \`$DB\`.* TO '$DBUSER'@'%';
 FLUSH PRIVILEGES;
+-- 테스트 컨테이너 전용: 트리거 차단 시험용으로 테스트 계정이 트리거를 만들 수 있게(binary log 켜진 MySQL 8.0 기본값 회피)
+SET GLOBAL log_bin_trust_function_creators = 1;
 SQL
 load() { root_sql --force "$DB" < "$1" > /dev/null 2>"$WORK/load.err" || true; }
 for f in schema.sql add_users_auth.sql add_vendors.sql add_pricing.sql 20261103_remote_ops.sql; do load "$ROOT/database/$f"; done

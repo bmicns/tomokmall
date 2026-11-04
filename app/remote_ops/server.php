@@ -13,6 +13,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/protocol.php';
 require_once __DIR__ . '/core.php';
 require_once __DIR__ . '/sql_guard.php';
+require_once __DIR__ . '/price_guard.php';
 require_once __DIR__ . '/audit.php';
 require_once __DIR__ . '/grants.php';
 require_once __DIR__ . '/db_ops.php';
@@ -72,7 +73,7 @@ function rops_client_ip(): string
 
 function rops_error_status(string $code): string
 {
-    foreach (['grant_', 'out_of_scope', 'forbidden', 'path_denied', 'scope_denied', 'bulk_delete', 'cascade', 'too_many_rows'] as $p) {
+    foreach (['grant_', 'out_of_scope', 'forbidden', 'path_denied', 'scope_denied', 'bulk_delete', 'cascade', 'too_many_rows', 'price_protected'] as $p) {
         if (str_starts_with($code, $p)) {
             return 'denied';
         }
@@ -347,7 +348,18 @@ function rops_grant_request_scope(PDO $pdo, array $p): array
         if (is_array($columns) && isset($columns[$t])) {
             rops_scope_columns_check(['columns' => null], $meta, array_map('strval', (array) $columns[$t]), true);
         }
-        $info = ['table' => $t, 'pk' => $meta['pk'], 'cascade_children' => rops_cascade_children($pdo, $t)];
+        // 가격 보호: 승인 요청 단계에서 먼저 거부(승인해도 실행되지 않을 범위는 요청하지 않게)
+        rops_price_guard_structured($pdo, $t, 'request', []);
+        if (in_array('delete', $actions, true)) {
+            rops_price_guard_structured($pdo, $t, 'delete', []);
+        }
+        if (is_array($columns) && isset($columns[$t])) {
+            $reqCols = array_map('strval', (array) $columns[$t]);
+            if (in_array('update', $actions, true)) { rops_price_guard_structured($pdo, $t, 'update', $reqCols); }
+            if (in_array('insert', $actions, true)) { rops_price_guard_structured($pdo, $t, 'insert', $reqCols); }
+        }
+        $info = ['table' => $t, 'pk' => $meta['pk'], 'cascade_children' => rops_cascade_children($pdo, $t),
+            'price_locked_columns' => array_values(array_unique(array_merge(rops_price_schema($pdo)['price_columns'][$t] ?? [], rops_price_update_columns($t, $meta['names']))))];
         if (is_array($ids) && isset($ids[$t])) {
             $list = array_values((array) $ids[$t]);
             if (count($meta['pk']) !== 1 || $list === [] || count($list) > 5000) {
@@ -399,6 +411,13 @@ function rops_probe(?PDO $pdo, array $p, array $cfg, ?string $dbError): array
         'temp_dir' => sys_get_temp_dir(), 'temp_writable' => is_writable(sys_get_temp_dir()),
     ];
     $paths = [];
+    if (!empty($p['write_test'])) {
+        // 임시 파일을 만들었다 지우는 것도 서버 파일 변경 → 관리자 화면에서 승인된(유효한) 파일 변경 승인이 있어야 함(소진하지 않음)
+        $wg = ($pdo !== null && isset($p['grant'])) ? rops_grant_get($pdo, (string) $p['grant']) : null;
+        if ($wg === null || $wg['kind'] !== 'files' || !$wg['is_live']) {
+            throw new RopsError('grant_inactive', 'write_test 는 관리자 화면에서 승인된 유효한 파일 변경 승인 코드가 필요합니다(--grant)');
+        }
+    }
     foreach (['public', 'app', 'database'] as $k) {
         $abs = $cfg['roots'][$k] ?? null;
         $info = ['root' => $k, 'exists' => $abs !== null && is_dir($abs)];
@@ -444,6 +463,9 @@ function rops_probe(?PDO $pdo, array $p, array $cfg, ?string $dbError): array
         foreach ($pdo->query("SHOW VARIABLES WHERE Variable_name IN ('max_allowed_packet','sql_mode','time_zone','system_time_zone','lower_case_table_names','innodb_lock_wait_timeout')")->fetchAll(PDO::FETCH_NUM) as $v) {
             $db['vars'][$v[0]] = $v[1];
         }
+        $ps = rops_price_schema($pdo);
+        $db['price_protection'] = ['price_tables' => $ps['price_tables'], 'price_columns' => $ps['price_columns'], 'cascade_into_price' => $ps['cascade_price'],
+            'trigger_tables' => $ps['trigger_tables'], 'routines' => count($ps['routines']), 'input_columns' => ROPS_PRICE_INPUT_COLUMNS];
         $st = $pdo->query("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME LIKE 'remote\\_ops\\_%'");
         $db['ops_tables'] = $st->fetchAll(PDO::FETCH_COLUMN);
         try {

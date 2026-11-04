@@ -483,8 +483,10 @@ function rops_db_structured(PDO $pdo, array $ctx, string $action, array $p): arr
                     throw new RopsError('bad_params', 'set 은 {컬럼: 값} 형식');
                 }
                 rops_scope_columns_check($s, $meta, array_keys($set), false);
+                rops_price_guard_structured($pdo, $table, 'update', array_keys($set));
                 foreach ($keys as $k) { $sets[rops_key_str($k)] = $set; }
             } else {
+                rops_price_guard_structured($pdo, $table, 'delete', []);
                 if (in_array($table, rops_secret_tables($pdo), true)) {
                     throw new RopsError('forbidden_table', "{$table} 는 인증정보 컬럼이 있어 원격 삭제를 지원하지 않습니다(비활성화 컬럼 수정 권장)");
                 }
@@ -511,6 +513,7 @@ function rops_db_structured(PDO $pdo, array $ctx, string $action, array $p): arr
                     throw new RopsError('bad_params', "rows[{$i}].set 은 {컬럼: 값}");
                 }
                 rops_scope_columns_check($s, $meta, array_keys($set), false);
+                rops_price_guard_structured($pdo, $table, 'batch', array_keys($set));
                 $k = rops_key_of($key, $meta['pk']);
                 $ks = rops_key_str($k);
                 if (isset($sets[$ks])) {
@@ -581,6 +584,7 @@ function rops_db_structured(PDO $pdo, array $ctx, string $action, array $p): arr
                     throw new RopsError('bad_params', "rows[{$i}] 는 {컬럼: 값}");
                 }
                 rops_scope_columns_check($s, $meta, array_keys($row), true);
+                rops_price_guard_structured($pdo, $table, 'insert', array_keys($row));
                 $cols = array_keys($row);
                 $vals = [];
                 foreach ($row as $c => $v) { $vals[] = rops_bind_value($v, (string) $c); }
@@ -705,6 +709,10 @@ function rops_db_revert(PDO $pdo, array $ctx, array $p): array
     rops_deny_ops_table($table);
     $meta = rops_table_meta($pdo, $table);
     $T = rops_qi($table);
+    rops_price_guard_structured($pdo, $table, 'revert', []);
+    if ($log['op'] === 'db.delete' && rops_is_price_table($pdo, $table)) {
+        throw new RopsError('price_protected', "가격 컬럼이 있는 {$table} 에 지운 행을 다시 넣는 되돌리기" . ROPS_PRICE_REPORT);
+    }
     $grantRow = $log['grant_id'] !== null ? rops_grant_get_by_id($pdo, (int) $log['grant_id']) : null;
     if ($grantRow === null) {
         throw new RopsError('grant_not_found', '원래 승인을 찾을 수 없습니다');
@@ -736,6 +744,9 @@ function rops_db_revert(PDO $pdo, array $ctx, array $p): array
                 }
             }
         }
+        if ($conflicts !== [] && $force && rops_is_price_table($pdo, $table)) {
+            throw new RopsError('price_protected', "가격 컬럼이 있는 {$table} 는 충돌을 무시(force)하고 되돌리지 않습니다" . ROPS_PRICE_REPORT, ['conflicts' => $conflicts]);
+        }
         if ($conflicts !== [] && !$force) {
             throw new RopsError('revert_conflict', '작업 이후 값이 바뀐 행이 있어 되돌리지 않았습니다(덮어쓰려면 force)', ['conflicts' => $conflicts]);
         }
@@ -759,6 +770,9 @@ function rops_db_revert(PDO $pdo, array $ctx, array $p): array
                     if (!rops_val_eq($b[$col] ?? null, $v) && !in_array($col, $meta['pk'], true)) { $cols[] = $col; }
                 }
                 if ($cols === []) { continue; }
+                if ($bad = rops_price_update_columns($table, $cols)) {
+                    throw new RopsError('price_protected', '되돌리기가 가격 관련 컬럼(' . implode(', ', $bad) . ')을 바꾸게 됩니다' . ROPS_PRICE_REPORT);
+                }
                 $parts = [];
                 foreach ($cols as $col) { $parts[] = rops_qi($col) . ' = ?'; $params[] = $b[$col]; }
                 $w = rops_pk_where($meta['pk'], [$k], $params);
@@ -863,6 +877,8 @@ function rops_sql_plan_checked(PDO $pdo, string $sql, string $source = 'file'): 
     if ($plan['problems'] !== []) {
         throw new RopsError('sql_not_allowed', 'SQL 파일 검사 실패: ' . implode(' / ', $plan['problems']), ['problems' => $plan['problems']]);
     }
+    // 가격 보호(승인 요청 때와 실행 직전 모두 — 그 사이 구조가 바뀌어도 막히게)
+    rops_price_guard_plan($pdo, $plan);
     return $plan;
 }
 
@@ -1101,6 +1117,9 @@ function rops_db_stage_restore(PDO $pdo, array $p): array
     $st = $pdo->prepare('SELECT encoding, body, ref FROM remote_ops_snapshots WHERE id = ?');
     $st->execute([$id]);
     $r = $st->fetch();
+    if (rops_is_price_table($pdo, (string) $r['ref'])) {
+        throw new RopsError('price_protected', "가격 컬럼이 있는 {$r['ref']} 의 백업 복원(가격 값이 백업 시점으로 바뀜)" . ROPS_PRICE_REPORT);
+    }
     $sql = (string) rops_unpack($r['encoding'], $r['body']);
     $p['title'] = (string) ($p['title'] ?? '') !== '' ? $p['title'] : "테이블 복원: {$r['ref']} (백업 #{$id})";
     return rops_db_stage_sql($pdo, $p, $sql, "snapshot:{$id}");
