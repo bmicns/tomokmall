@@ -1,6 +1,7 @@
 # Claude 운영 서버 원격 관리 — 설계·API 명세
 
-> 작성 2026-11-03 · 대상: 닷홈 무료호스팅(Apache 2.4 / PHP 8.4 / MySQL 8.0) · 상태: **로컬 구현·테스트 완료, 운영 미설치**
+> 작성 2026-11-03 · 대상: 닷홈 무료호스팅(Apache 2.4 / PHP 8.4 / MySQL 8.0)
+> 상태: **운영 설치 2026-11-04**(커밋 953e55e 기준 파일 11개 + 관리 테이블 4개, 연결 확인 완료). 가격 데이터 보호(12장)는 코드 완료 — **운영 반영은 FileZilla 재업로드 필요**
 > 설치·사용 방법은 [`docs/REMOTE-OPS.md`](../REMOTE-OPS.md). 이 문서는 구조와 규약(명세)만 다룬다.
 
 ## 1. 목적과 원칙
@@ -11,6 +12,7 @@ phpMyAdmin(SQL 복사·실행)과 FileZilla(업로드·삭제)로 사람이 하�
 |---|---|
 | 임의 SQL 을 받는 공개 엔드포인트 금지 | 모든 요청은 서명(HMAC) 인증. 조회 SQL 은 검사기 + `READ ONLY` 트랜잭션, 쓰기 SQL 은 **관리자가 본문을 보고 승인한 파일만** 실행 |
 | 운영 DB 변경·서버 변경은 사용자 승인 | 쓰기 작업은 **작업 단위 승인(grant)** 이 있어야만 실행. 승인은 관리자 화면(관리자 세션 + CSRF)에서만 가능 — 키로는 승인 불가 |
+| 가격 데이터는 바꾸지 않음 | 기존 DB 가격 정보는 **승인을 받아도** 서버가 변경을 막음(12장, `price_guard.php`) |
 | DB 승인과 파일 승인 분리 | grant `kind` = `db` / `files`. 한쪽 승인으로 다른 쪽 작업 불가 |
 | 승인 후 문장마다 다시 묻지 않음 | 승인 범위(테이블·컬럼·대상 행·최대 행 수·유효시간·횟수) 안에서는 자동 진행 |
 | 되돌릴 수 있게 | 쓰기 전 자동 백업(행·파일·테이블), 되돌리기 명령, 실행 이력 |
@@ -55,6 +57,7 @@ Claude Code 웹 컨테이너                         닷홈 서버
 | `app/remote_ops/core.php` | 설정 파일 읽기, 전용 PDO, 오류 형식, 압축 |
 | `app/remote_ops/server.php` | 인증 → 재전송 차단 → 범위 → 이력 → 작업 → 응답. `probe`, `grant.request` |
 | `app/remote_ops/sql_guard.php` | SQL 토큰화·문장 분리·분류·조회 전용 검사·WHERE 조립(순수 함수) |
+| `app/remote_ops/price_guard.php` | 가격 데이터 보호: 가격 컬럼 판정, SQL 쓰기 대상 분석, 구조화 쓰기·SQL 파일·복원·되돌리기 차단(12장) |
 | `app/remote_ops/db_ops.php` | DB 조회·구조화 쓰기·SQL 파일·검증·되돌리기·백업 |
 | `app/remote_ops/file_ops.php` | 경로 검사·파일 조회·배포·복구 |
 | `app/remote_ops/grants.php` | 승인 생성·확인·사용·결정(관리자 화면 공용) |
@@ -63,8 +66,8 @@ Claude Code 웹 컨테이너                         닷홈 서버
 | `public/admin-remote-ops.php` | 관리자 승인 화면 |
 | `database/20261103_remote_ops.sql` | 관리 테이블 4개(추가형) |
 | `scripts/tomok`, `scripts/remote-ops/tomok.php` | CLI |
-| `tests/remote_ops.test.php` | 단위 테스트(169) |
-| `scripts/remote-ops/test-local.sh`, `integration.test.php` | 로컬 통합 테스트(152) |
+| `tests/remote_ops.test.php` | 단위 테스트(238) |
+| `scripts/remote-ops/test-local.sh`, `integration.test.php` | 로컬 통합 테스트(189) |
 
 ## 4. 인증·보안
 
@@ -110,6 +113,7 @@ POST 확인 → `REMOTE_OPS_ENABLED=1` → (선택) IP 허용 목록 → 봉투 
 - 조회 SQL: 한 문장, SELECT/WITH…SELECT/SHOW(허용 목록: TABLES·COLUMNS·INDEX·CREATE TABLE·TABLE STATUS·VARIABLES·STATUS 등)/DESCRIBE/EXPLAIN 만, `INTO`·`FOR UPDATE`·`LOCK`·`SLEEP()`·`LOAD_FILE`·`EXPLAIN/DESC ANALYZE` 거부, **인증정보 컬럼이 있는 테이블(users 등)은 `*` 금지(컬럼 이름 지정)** — UNION·CTE 열 이름으로 바꿔 가림을 피하는 것 차단, `remote_ops_snapshots`(백업 본문) 조회 금지, `START TRANSACTION READ ONLY` 안에서 실행(쓰기는 MySQL 이 한 번 더 막음), 15초 제한, 최대 2,000행
 - SQL 파일: **승인 전에는 실행하지 않는다**(대상 행 수는 같은 조건의 `COUNT` 를 READ ONLY 트랜잭션에서). 허용은 한 테이블 INSERT·REPLACE·UPDATE·DELETE 또는 TABLE·INDEX DDL 이고 **DDL 과 DML 은 한 파일에 섞지 않음**. SET(모든 형태)·SELECT 문장(확인은 `-- @verify`)·여러 테이블 UPDATE/DELETE·GRANT/USER/DATABASE/LOAD/CALL/LOCK/트랜잭션 제어/PREPARE/프로시저·트리거·뷰/DELIMITER/INTO OUTFILE 금지, `remote_ops_*`(따옴표 안 포함)·인증정보 컬럼 언급 금지. 실행 주석 `/*! … */` 안도 코드로 검사. 파일은 1MB·2,000줄 이하(승인 화면에 전부 표시)
 - 파일: `public/`·`app/`·`database/` 밖, 절대경로, `..`, 빈 경로 조각, 제어문자·역슬래시, 숨김 파일(`.env*`·`.git` 등, `.htaccess` 만 예외), 경로 중간·끝 **심볼릭 링크**, 루트 밖으로 풀리는 실제 경로 거부. 쓰기는 허용 확장자만(php·js·css·html·json·sql·txt·md·svg·이미지·글꼴 등), 경로 255바이트 이하, 크기 4MB(`REMOTE_OPS_MAX_FILE_BYTES`), 텍스트 파일은 NUL 없는 UTF-8 만(승인 화면에서 '이진 파일'로 숨겨지지 않게). `app/bootstrap.php`·`app/auth.php`·`app/admin_layout.php`·`app/config.php`·모든 `.htaccess` 는 승인 시 **추가 확인 필수**(승인 화면·인증을 바꿀 수 있음). 보이지 않는 문자(양방향 제어·폭 없는 문자)가 있으면 경고 + 추가 확인. **관리 API 자체 파일**(`app/remote_ops/**`, `public/api/remote-ops.php`, `public/admin-remote-ops.php`) 쓰기 금지, `public/uploads/**` 읽기·쓰기 금지
+- **가격 데이터(12장)**: 가격 컬럼 쓰기·가격 테이블 삭제·가격 계산 입력값 변경·가격 테이블 비가산 DDL·가격 테이블 복원을 승인과 무관하게 거부(`price_protected`)
 - 저장 용량: 백업 총량 상한 `REMOTE_OPS_STORAGE_MB`(기본 200), 승인 대기 요청 최대 10건, 한 번에 맡기는 파일 합계 8MB
 - 백업·행 스냅샷에는 인증정보 컬럼을 저장하지 않음(인증정보 컬럼이 있는 테이블은 원격 삭제 불가 — 비활성화로)
 - 출력: 응답·이력에 키·서명·DB 비밀번호 없음(오류문구에서도 비밀번호 문자열 제거), 이력에는 파일 본문·행 데이터 대신 요약만
@@ -190,6 +194,7 @@ CLI 쪽 추가 기능: `files diff`(서버 ↔ 로컬 커밋 diff), `files stage
 | `out_of_scope` `too_many_rows` `bulk_delete_not_approved` `cascade_not_approved` `forbidden_table` `forbidden_column` `path_denied` `scope_denied` | 승인·권한 범위 밖 |
 | `sql_not_allowed` `sql_error` `expect_mismatch` `row_count_mismatch` `revert_conflict` `already_reverted` | SQL 검사·실행·비교 |
 | `bad_path` `symlink` `outside_root` `server_changed` `php_syntax` `hash_mismatch` `apply_failed` `too_large` | 파일 |
+| `price_protected` | 가격 관련 기존 데이터를 바꾸는 요청(승인과 무관하게 거부, 아무것도 실행 안 함 → 사용자에게 보고) |
 | `replay` `encryption_required` `not_ready` `db_unavailable` `internal` | 통신·설치·내부 |
 
 ## 10. 알려진 한계
@@ -219,3 +224,28 @@ CLI 쪽 추가 기능: `files diff`(서버 ↔ 로컬 커밋 diff), `files stage
 | 10 | 낮음 | 승인 없이 쌓을 수 있는 백업·요청으로 DB 용량 소모, 중단된 배포(running) 복구 불가 | 백업 총량 상한·대기 요청 10건 상한·요청 파일 합계 8MB, running 작업 복구 허용(--force), 되돌리기 선점(동시 실행 방지), `ignore_user_abort` |
 
 각 항목은 단위 테스트·통합 테스트(공격 SQL 을 실제 MySQL 8.0 에 보내 아무것도 커밋되지 않음을 확인)에 회귀 테스트로 들어 있다.
+
+## 12. 운영 정책 (사용자 결정 2026-11-04)
+
+### 12-1. 관리자 승인 방식 유지
+`/admin-remote-ops.php` 승인 방식을 그대로 쓴다: 운영 DB 변경·운영 서버 파일 변경 모두 관리자 화면 승인 후 실행, DB 승인과 파일 승인은 별도(grant `kind`), 승인 범위 안에서는 반복 승인 없이 자동 실행(5장). 채팅 승인으로 대체하는 방식은 만들지 않는다.
+
+### 12-2. 가격 관련 기존 DB 데이터 변경 금지
+원격 관리 API 로는 기존 가격 정보를 **어떤 경로로도** 바꾸지 않는다. 관리자 승인을 받아도 유지된다. 조회·분석은 허용. 가격 계산 로직(`app/pricing.php`)은 바꾸지 않는다(이 기능은 차단만 추가).
+
+**가격 컬럼 판정**(`rops_is_price_column`, 이름 기준·대소문자 무시): 이름에 `price`·`cost` 포함, 또는 밑줄로 나눈 조각이 `price(s) cost(s) discount(s) margin(s) markup fee(s) amount(s) amt tax vat surcharge` 중 하나.
+운영 구조(2026-11-04 information_schema)에서 해당하는 컬럼: `products.price_b2c·price_b2b·cost_price`, `categories.discount_customer·discount_corporate`, `product_vendors.supply_price`, `estimates.shipping_fee·discount_amt`, `estimate_items.unit_price·adjusted_price`, `order_items.unit_price`, `orders.total_amount`, `payments.amount`, `external_products.ref_price·price_basis`. 앞으로 생기는 같은 이름 규칙의 컬럼도 자동 포함.
+**가격 계산 입력값**(기존 행에서 바꾸면 표시 가격이 달라짐): `products.category_id`(적용 마진율), `categories.parent_id`(마진율 상속).
+
+| 경로 | 차단 규칙 |
+|---|---|
+| `grant.request` | 바꿀 컬럼에 가격 컬럼·입력값 포함, 가격 테이블 삭제 요청, 삭제가 가격 테이블로 번지는(CASCADE/SET NULL) 요청, 트리거가 있는 테이블 → 요청 단계에서 거부. 승인 화면에 '가격 보호(변경 불가)' 컬럼 표시 |
+| `db.update` · `db.batch` | SET 에 가격 컬럼·입력값이 하나라도 있으면 요청 전체 거부(드라이런 포함, 일괄 수정은 한 행이라도 있으면 전체) |
+| `db.insert` | 새 행에도 가격 컬럼 값 넣기 거부(가격 없이 추가하면 DB 기본값 — 가격은 사람이 입력) |
+| `db.delete` | 가격 테이블 행 삭제, 가격 테이블로 번지는 삭제 거부 |
+| `db.stage_sql` · `db.execute` | 문장마다 쓰기 대상 분석(`rops_sql_write_targets`): UPDATE SET·ON DUPLICATE KEY UPDATE 의 가격 컬럼·입력값, INSERT 컬럼 목록의 가격 컬럼, 가격 테이블에 컬럼 목록 없는 INSERT·REPLACE·DELETE, 가격 테이블로 번지는 DELETE, 가격 테이블 DROP/TRUNCATE/RENAME, 가격 테이블 ALTER 중 ADD COLUMN·ADD/DROP INDEX 외, 트리거 테이블, 저장 함수 호출 → 승인 요청 때와 실행 직전 두 번 검사 |
+| `db.stage_restore` | 가격 테이블 백업 복원 거부(가격이 백업 시점으로 바뀜). 백업 자체(조회)는 허용 |
+| `db.revert` | 가격 컬럼을 되돌리게 되는 경우, 가격 테이블에 지운 행 다시 넣기, 가격 테이블에서 충돌 무시(force) 거부. 방금 추가한 행 되돌리기(삭제)는 허용 |
+
+거부 응답: `error.code = price_protected`, 메시지 끝에 "실행하지 않았으니 사용자에게 보고하세요". 이력(remote_ops_log)에는 `denied` 로 남는다.
+검증: 단위 테스트(가격 컬럼 판정·쓰기 대상 분석·ALTER 판정·SQL 계획 차단/통과 사례)와 통합 테스트(승인받은 범위에서도 가격 쓰기 거부, SQL 파일 12종 거부, 시도 전후 가격 데이터 전체를 독립 SQL 로 비교해 변동 없음).

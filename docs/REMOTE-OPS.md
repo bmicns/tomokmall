@@ -1,7 +1,9 @@
 # Claude 운영 서버 원격 관리 — 설치·설정·사용 매뉴얼
 
 > 설계·API 명세: [`docs/02-design/remote-ops.md`](02-design/remote-ops.md) · 운영 배포 기준: [`docs/DEPLOYMENT.md`](DEPLOYMENT.md)
-> **상태(2026-11-03)**: 로컬 구현·테스트 완료. **운영 서버에는 아직 설치하지 않았다**(설치 = 운영 배포 + 운영 DB 구조 변경 → 사용자 승인 필요).
+> **상태(2026-11-04)**: **운영 설치 완료**(사용자: 관리 테이블 4개 phpMyAdmin 실행, 파일 11개 + `/app/.env.remote-ops` FileZilla 업로드, 환경변수 `TOMOK_OPS_KEY`).
+> 연결 확인(4장 1·2단계) 통과, 설치 파일 = 커밋 953e55e(줄바꿈만 CRLF). **가격 데이터 보호 추가분(3-5장)은 FileZilla 재업로드 후 적용된다.**
+> 정책(CLAUDE.md 12장): ① 가격 관련 기존 DB 데이터는 승인을 받아도 변경하지 않음(서버 차단) ② 운영 DB·파일 변경은 관리자 화면 승인 후, DB·파일 승인은 별도, 승인 범위 안에서는 자동 실행.
 > 비밀번호·키 값은 이 문서·Git·채팅에 적지 않는다.
 
 ## 1. 무엇이 바뀌나
@@ -84,6 +86,23 @@ TOMOK_OPS_KEY_ID=k1
 - 전송 모드는 이진(Binary) 권장. 올린 뒤 FileZilla 에서 크기가 로컬과 같은지 확인.
 - 되돌리기(설치 취소): `/app/.env.remote-ops` 삭제(또는 `REMOTE_OPS_ENABLED=0`) → 즉시 전체 중지. 완전 제거는 1~11 삭제 + (선택) 테이블 DROP(마이그레이션 파일 상단 주석).
 
+### 3-5. 업데이트: 가격 데이터 보호 반영 (2026-11-04, FileZilla 재업로드 — 운영 배포 승인 필요)
+
+관리 API 는 자기 파일을 바꿀 수 없어서 사용자가 올린다. `main` 병합 승인 후 병합 커밋 기준으로 올린다. **운영 DB 변경은 없다.**
+
+| # | 로컬(저장소) | 서버 | 종류 |
+|---|---|---|---|
+| 1 | `app/remote_ops/price_guard.php` | `/app/remote_ops/price_guard.php` | **새 파일 — 먼저 올림** |
+| 2 | `app/remote_ops/db_ops.php` | `/app/remote_ops/db_ops.php` | 교체 |
+| 3 | `app/remote_ops/file_ops.php` | `/app/remote_ops/file_ops.php` | 교체 |
+| 4 | `app/remote_ops/server.php` | `/app/remote_ops/server.php` | 교체 — **마지막에 올림**(1번을 불러오므로) |
+| 5 | `public/admin-remote-ops.php` | `/html/admin-remote-ops.php` | 교체(가격 보호 안내 표시) |
+
+- 순서 1 → 2 → 3 → 5 → 4. 이 순서면 올리는 도중에 쓰기 요청이 와도 오류로 끝나고 실행되지 않는다(안전한 쪽으로 실패). 사이트 화면에는 영향 없음(사이트 코드는 이 파일들을 쓰지 않음).
+- 올리기 전 서버 파일을 내려받아 보관(되돌리기용, 기존 버전 = 커밋 953e55e).
+- 올린 뒤 Claude 가 확인: `scripts/tomok files diff app/remote_ops/price_guard.php app/remote_ops/db_ops.php app/remote_ops/file_ops.php app/remote_ops/server.php public/admin-remote-ops.php` → 모두 `same` 또는 `eol_only`, 그리고 `scripts/tomok probe` 결과에 `db.price_protection` 이 보이면 적용된 것.
+- 재업로드 전까지 운영은 953e55e 버전(가격 차단 없음)이다. 그 사이 Claude 는 가격 관련 승인 요청을 만들지 않는다(CLAUDE.md 12장).
+
 ## 4. 운영 연동 테스트 절차 (설치 직후, Claude 가 실행)
 
 각 단계가 통과해야 다음으로 간다. 5단계부터는 운영 변경이므로 **승인 화면에서 승인한 테스트 범위만** 쓴다.
@@ -92,7 +111,7 @@ TOMOK_OPS_KEY_ID=k1
 |---|---|---|---|
 | 1. 연결·인증 | `scripts/tomok probe` | `ok:true`, `db.connected:true`, `db.ops_tables` 4개, `php.extensions.aes_256_gcm:true` | `disabled`→12번 파일 확인 / `bad_signature`→두 키 값이 다름 / `expired`→`clock_skew_sec` 확인 / `JSON 이 아닌 응답 404`→10번 파일 위치 |
 | 2. 서버 환경 | 같은 결과의 `php`·`paths`·`db.privileges` | PHP 8.4, `open_basedir`, `disable_functions`, `post_max_size`, 각 루트 `writable`, DB 권한(CREATE·ALTER 여부) 기록 | 결과를 그대로 보고 |
-| 3. 쓰기 가능 범위 | `scripts/tomok probe --write-test` | `paths[].write_test` 의 create·read·rename·delete 모두 `true`(세 루트) — 임시 파일만 만들었다 바로 지움 | `false` 인 루트는 파일 배포 불가 → §9 대안 |
+| 3. 쓰기 가능 범위 | 2단계 결과의 `paths[].writable` 확인. 실제 쓰기는 7단계(승인된 배포)로 확인. 임시 파일 쓰기 시험은 `probe --write-test --grant <승인된 파일 승인>` 일 때만(서버 파일 변경이므로) | 세 루트 `writable:true` | `false` 인 루트는 파일 배포 불가 → §9 대안 |
 | 4. 조회 | `scripts/tomok db tables` · `scripts/tomok db search products 투수블록 --limit 5` · `scripts/tomok files manifest --roots public,app` | 테이블 목록, 검색 결과, 서버 파일 ↔ Git 비교(same/eol_only/differs/missing/extra 개수) | manifest 의 `differs` 는 서버가 Git 과 다른 파일 → 보고만(바꾸지 않음) |
 | 5. 승인 흐름(무해) | `scripts/tomok db request --title "[테스트] 승인 흐름 확인" --tables categories --actions update --columns categories.sort_order --ids categories:<한 개 id> --max-rows 1 --ttl 15` → 승인 화면에서 **승인** | 승인 화면에 요청·대상 행 표시, `scripts/tomok grant wait <코드>` → approved | 로그인·화면 오류 보고 |
 | 6. DB 쓰기·되돌리기 | 같은 승인으로 `db update … --set sort_order=<현재값> --dry-run` → (원하면) 실제 값 바꿈 → `db verify` → `db revert` | 드라이런 diff, verify `matches:true`, revert 후 원래 값 | 자동 롤백됨, 결과 보고 |
@@ -101,37 +120,57 @@ TOMOK_OPS_KEY_ID=k1
 
 > 7단계의 테스트 파일은 테스트 뒤 Git 에서도 지운다(커밋 1개 추가·되돌림). 원하지 않으면 7단계는 실제 첫 배포 때 함께 확인한다.
 
+**설치 확인 기록(2026-11-04, 1·2·4단계 — 읽기 전용)**
+
+| 항목 | 결과 |
+|---|---|
+| 연결·인증 | ✅ `probe` 성공(서명·암호화·응답 검증), HTTPS, 서버 시각 KST |
+| PHP | 8.4.27 (fpm-fcgi), memory_limit 256M, max_execution_time 300, post_max_size 256M, open_basedir 없음, opcache 켜짐(시각 확인 2초), `exec`·`proc_open` 등 9개 비활성(관리 API 는 쓰지 않음), openssl·AES-256-GCM·zlib·mbstring·pdo_mysql 있음 |
+| 쓰기 가능(`is_writable`) | `/html`·`/app`·`/database` 모두 쓰기 가능, 파일 소유자 = PHP 실행 계정(uid 4106). 실제 쓰기는 7단계에서 확인 |
+| DB | MySQL 8.0.46, 관리 테이블 4개 있음(마이그레이션 실행됨), 계정 권한 `tomokmall.*` 전체, sql_mode 기본(ANSI_QUOTES 없음), 트리거·저장 루틴·뷰 0개 |
+| 설치 파일 | 11개 모두 커밋 953e55e 와 같음(줄바꿈만 CRLF) |
+| 남은 단계 | 3-5장 재업로드 → 5~7단계(승인 화면에서 테스트 승인 필요) |
+
 ## 5. 사용 예시
 
 ### 5-1. "운영 DB에서 대성산업 투수블록을 검색하고 기업회원 가격을 수정한 뒤 실제 변경 결과를 확인해 줘"
 
+**가격 변경은 하지 않는다**(정책, CLAUDE.md 12장). Claude 는 검색·현재 가격 분석까지만 하고 보고한다.
+
 ```bash
 scripts/tomok db search products 대성산업 투수블록
 ```
-→ 상품 id·이름·`price_b2c`(판매가)·`price_b2b`·`cost_price`(매입가)·카테고리 마진율·업체명.
-**확인 필요**: 이 사이트의 '기업회원가'는 `app/pricing.php` 가 `cost_price × (100 + categories.discount_corporate)/100` 으로 계산해 보여 준다. `price_b2b` 컬럼을 바꿀지, 매입가·카테고리 마진율을 바꿀지, 새 값이 얼마인지 Claude 가 먼저 확인한다(추측해서 바꾸지 않음).
+→ 상품 id·이름·`price_b2c`(판매가)·`price_b2b`·`cost_price`(매입가)·카테고리 마진율·업체명을 보고하고, "가격 관련 데이터는 원격으로 변경하지 않는 정책이라 실행하지 않았다"고 알린다.
+(참고: 화면의 기업회원가는 `app/pricing.php` 가 `cost_price × (100 + categories.discount_corporate)/100` 으로 계산한다.)
+요청을 강행해도 서버가 막는다 — 승인 요청 단계에서 `price_protected`:
 
 ```bash
-scripts/tomok db request --title "대성산업 투수블록 3개 price_b2b 변경" --tables products --actions update --columns products.price_b2b --ids products:1001,1002,1003 --max-rows 3 --ttl 30
+scripts/tomok db request --title "가격 변경" --tables products --actions update --columns products.price_b2b --max-rows 3
 ```
-→ `approve_url` 을 사용자에게 안내 → 사용자가 관리자 화면에서 대상 행 표를 보고 **승인**.
+
+### 5-1b. 가격이 아닌 정보 수정 (예: "대성산업 투수블록 3개의 재고를 0으로 바꾸고 결과를 확인해 줘")
 
 ```bash
-scripts/tomok grant wait G261103-XXXXX
+scripts/tomok db request --title "대성산업 투수블록 3개 재고 0" --tables products --actions update --columns products.stock_qty --ids products:1001,1002,1003 --max-rows 3 --ttl 30
+```
+→ `approve_url` 을 사용자에게 안내 → 사용자가 관리자 화면에서 대상 행 표(가격 보호 컬럼 표시 포함)를 보고 **승인**.
+
+```bash
+scripts/tomok grant wait G261104-XXXXX
 ```
 ```bash
-scripts/tomok db batch --grant G261103-XXXXX --file changes.json --dry-run
+scripts/tomok db batch --grant G261104-XXXXX --file changes.json --dry-run
 ```
 ```bash
-scripts/tomok db batch --grant G261103-XXXXX --file changes.json
+scripts/tomok db batch --grant G261104-XXXXX --file changes.json
 ```
-`changes.json` 예: `{"table":"products","rows":[{"key":{"id":1001},"set":{"price_b2b":10500},"expect":{"price_b2b":10000}}]}` — `expect` 는 조회 때 값. 그 사이 누가 바꿨으면 전체 롤백.
+`changes.json` 예: `{"table":"products","rows":[{"key":{"id":1001},"set":{"stock_qty":0},"expect":{"stock_qty":50}}]}` — `expect` 는 조회 때 값. 그 사이 누가 바꿨으면 전체 롤백. `set` 에 가격 컬럼이 하나라도 있으면 전체 거부.
 
 ```bash
 scripts/tomok db verify --operation 123
 ```
 ```bash
-scripts/tomok db query --sql "SELECT id, name, price_b2b FROM products WHERE id IN (1001,1002,1003)"
+scripts/tomok db query --sql "SELECT id, name, stock_qty FROM products WHERE id IN (1001,1002,1003)"
 ```
 잘못 바꿨으면(승인 유효시간 + 24시간 안):
 ```bash
@@ -205,8 +244,8 @@ scripts/tomok db execute --grant G261103-ZZZZZ
 |---|---|---|
 | PHP 문법 | `find public app scripts/remote-ops -name "*.php" -print0 \| xargs -0 -n1 php -l` | 오류 0 (PHP 8.3.6, 새 파일은 PHP 8.4.27 컨테이너에서도) |
 | 기존 단위 테스트 | `php tests/functions.test.php` | 210 통과 / 0 실패 |
-| 새 단위 테스트 | `php tests/remote_ops.test.php` | 169 통과 / 0 실패 (8.3.6·8.4.27, 8.4 에서 Deprecated 경고 없음) |
-| 통합 테스트 | `bash scripts/remote-ops/test-local.sh` (Docker MySQL 8.0 + 사이트 사본 + PHP 내장 서버, `[TEST]` 가상 데이터) | 152 통과 / 0 실패 — 서버 PHP 8.3.6, 그리고 `ROPS_SERVER_IMAGE`(php:8.4-cli + pdo_mysql)로 8.4.27 에서도 152/152 |
+| 새 단위 테스트 | `php tests/remote_ops.test.php` | 238 통과 / 0 실패 (8.3.6·8.4.27, 8.4 에서 Deprecated 경고 없음) — 가격 보호 69개 포함 |
+| 통합 테스트 | `bash scripts/remote-ops/test-local.sh` (Docker MySQL 8.0 + 사이트 사본 + PHP 내장 서버, `[TEST]` 가상 데이터) | 189 통과 / 0 실패 — 서버 PHP 8.3.6·8.4.27 모두. 가격 보호: 승인 범위 안에서도 가격 쓰기·카테고리 이동·마진율·삭제·트리거 테이블 거부, SQL 파일 12종 거부, 시도 전후 가격 데이터 전체 독립 SQL 비교 변동 없음 |
 | 독립 보안 검토 | 별도 검토(코드 + MySQL 8.0 재현) | 치명 1·높음 1·중간 4·낮음 4건 발견 → 모두 수정, 회귀 테스트 추가(설계 문서 11장) |
 | 승인 화면 | Playwright 1280·820·375px | 가로 스크롤 없음, 버튼·입력 44px. 375px 에서는 이 화면만 메뉴를 위쪽 가로 메뉴로 바꿈 |
 
@@ -239,9 +278,8 @@ DELETE FROM remote_ops_snapshots WHERE created_at < NOW() - INTERVAL 90 DAY;
 DELETE FROM remote_ops_nonces WHERE expires_at < NOW();
 ```
 
-## 10. 규칙 문서 반영 제안 (아직 바꾸지 않음)
+## 10. 규칙 문서 반영 (2026-11-04 반영 완료)
 
-설치·연동 테스트가 끝나고 사용자가 원하면 다음을 별도 작업으로 반영한다.
-- `CLAUDE.md` 6·7·8장, `docs/DEPLOYMENT.md` 5·6장: "관리자 화면에서 승인한 원격 관리 API 승인(grant)도 해당 작업 1회의 명시적 승인으로 본다", "운영 DB 변경은 phpMyAdmin 직접 실행 또는 원격 관리 API(승인 범위 안)", "운영 파일 반영은 FileZilla/`deploy-files.sh` 또는 `tomok files deploy`"
-- 관리자 메뉴(`app/admin_layout.php`)에 '원격 작업 승인' 링크 추가(지금은 URL 로 접속)
-- 다른 관리자 화면도 휴대폰에서 메뉴가 화면을 가리는 문제(220px 고정)가 있음 — 공통 레이아웃 반응형 개선 별도 제안
+- `CLAUDE.md` 0장 12·13번, 3·6·8장, **12장(원격 관리 API 정책)**: 가격 데이터 변경 금지(승인과 무관), 관리자 화면 승인 방식, DB·파일 승인 분리, 승인 범위 안 자동 실행, 관리 API 코드 갱신 절차
+- `docs/DEPLOYMENT.md`: 원격 관리 API 경로 안내 추가
+- 아직 제안만: 관리자 메뉴(`app/admin_layout.php`)에 '원격 작업 승인' 링크 추가, 다른 관리자 화면의 휴대폰 메뉴(220px 고정) 반응형 개선
