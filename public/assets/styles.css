@@ -2153,3 +2153,7 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   /* 회원가입 창: 공통 label{display:grid} 때문에 '(선택)·(8자 이상)' 표시가 이름표 아래 줄로 떨어지던 것 → 한 줄 */
   .auth-modal-label { display: block; }
 }
+@media (max-width: 640px) {
+  /* 상품 카드: 값이 없는 칸(예: 중량 미등록 상품)은 '중량' 이름표만 남지 않게 숨김 */
+  .product-table td:is(.pt-col-unit, .pt-col-spec, .pt-col-weight, .pt-col-load):empty { display: none; }
+}

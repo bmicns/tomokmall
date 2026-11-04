@@ -529,6 +529,8 @@ render_header('AI 자재 상담', 'chat');
     .starters-arrows { display: none; }
     .hint-chip { min-height: 40px; }
     .input-row textarea { height: 48px; font-size: 16px; }
+    /* 견적서 패널: 띄어쓰기 없는 긴 품명·규격(예: 0.8*0.8*3.0_130T*130T_구)이 수량칸 밑으로 넘쳐 잘리던 것 → 줄바꿈 */
+    .est-item-name, .est-item-spec { overflow-wrap: anywhere; }
     .btn-send { width: 64px; height: 48px; }
   }
 
