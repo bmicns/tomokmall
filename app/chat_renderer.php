@@ -121,8 +121,9 @@ render_header('AI 자재 상담', 'chat');
   .est-item-info { flex: 1; min-width: 0; display: flex; gap: 6px; align-items: flex-start; }
   .est-item-info-left { flex: 1; min-width: 0; }
   .est-item-info-right { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-  .est-item-name { font-size: 18px; font-weight: 500; line-height: 1.4; }
-  .est-item-spec { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+  /* 띄어쓰기 없는 긴 품명·규격(예: 0.8*0.8*3.0_130T*130T_구)이 수량칸 밑으로 넘쳐 잘리지 않게 줄바꿈(전 화면 폭) */
+  .est-item-name { font-size: 18px; font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; }
+  .est-item-spec { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; overflow-wrap: anywhere; }
   .est-item-qty-wrap { display: flex; align-items: center; gap: 4px; }
   .est-item-row  { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
   .est-item-qty-wrap { display: flex; align-items: center; gap: 4px; }
@@ -529,8 +530,6 @@ render_header('AI 자재 상담', 'chat');
     .starters-arrows { display: none; }
     .hint-chip { min-height: 40px; }
     .input-row textarea { height: 48px; font-size: 16px; }
-    /* 견적서 패널: 띄어쓰기 없는 긴 품명·규격(예: 0.8*0.8*3.0_130T*130T_구)이 수량칸 밑으로 넘쳐 잘리던 것 → 줄바꿈 */
-    .est-item-name, .est-item-spec { overflow-wrap: anywhere; }
     .btn-send { width: 64px; height: 48px; }
   }
 
