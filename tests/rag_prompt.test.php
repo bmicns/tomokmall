@@ -25,7 +25,7 @@ declare(strict_types=1);
  *        2026-11-02 의도적 변경 반영(13, 실제 GPT-4o 핵심 4개 결과): [보도블록] 필수 ①② 확인되면 종류를 되묻지 말고 비교표 1줄(전 시나리오),
  *        사유지(s4·s5) 판정 구역 신설 — 80mm 이상은 '저희 권장 기준'으로, 법적 의무처럼 말하지 않음·공공도로 기준 인용 안 함(80T 문구 3개는 그대로).
  *        2026-11-02 의도적 변경 반영(14, 실제 GPT-4o 3차): 추천 이유에 효과·성능 덧붙이기 금지 1줄(전 시나리오), 사유지 구역 효과 설명 금지 표현 구체화(s4·s5).
- * 데이터: SQL 초안 01·02·06·07 을 적용한 테스트 DB(검증 조문 27건·활성 22건). 다르면 SKIP(기준값은 그 데이터 기준).
+ * 데이터: SQL 초안 01·02·06·07 을 적용한 테스트 DB(검증 조문 35건·활성 30건 — 2026-11-04 V28~V35 추가). 다르면 SKIP(기준값은 그 데이터 기준).
  * 프롬프트를 의도적으로 바꿨다면: php scripts/testdb/dump-prompts.php --out=… 로 확인 후 기준값을 갱신한다.
  * 실행: DB_HOST=127.0.0.1 DB_NAME=tomokmall_test DB_USER=… DB_PASS=… php tests/rag_prompt.test.php
  */
@@ -43,8 +43,8 @@ $pdo = db();
 $cnt = static fn(string $w): int => (int) $pdo->query("SELECT COUNT(*) FROM rag_documents WHERE {$w}")->fetchColumn();
 // 활성 22건(07) 또는 24건(08 — V21·V22 로컬 활성, 사용자 승인 2026-11-02). 'inactive' 기준값은 V21·V22 를 잠시 끄고 만든다(끝나면 원래 값)
 $activeNonRoad = $cnt("author = '검증 조문(2-1단계)' AND is_active = 1 AND (tags IS NULL OR tags NOT LIKE '@scope:public_road%')");
-if ($cnt("author = '검증 조문(2-1단계)'") !== 27 || $activeNonRoad !== 22) {
-    echo "SKIP: 기준값은 검증 조문 27건·(V21·V22 외) 활성 22건 데이터 기준입니다(SQL 초안 06·07 재적용 필요).\n";
+if ($cnt("author = '검증 조문(2-1단계)'") !== 35 || $activeNonRoad !== 30) {
+    echo "SKIP: 기준값은 검증 조문 35건·(V21·V22 외) 활성 30건 데이터 기준입니다(SQL 초안 06·07 재적용 필요).\n";
     exit(0);
 }
 

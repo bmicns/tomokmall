@@ -1,6 +1,6 @@
 {
     "_about": "2-1단계 병행 전략 — 39건을 국가법령정보 OPEN API 로 확보 가능한 것과 별도 수집이 필요한 것으로 분류. documents[].baseline 은 scripts/legal-sources/build_api_baseline.php 가 원문 미러에서 계산(조문 정규화 해시·공포번호·시행일). 동기화: scripts/legal-sources/law_api_sync.php. 어떤 결과도 자동 활성화하지 않는다.",
-    "updated": "2026-10-28",
+    "updated": "2026-11-04",
     "coverage_legend": {
         "law_text": "법령 조문 원문·공포번호·시행일·개정 이력을 API 로 수집·대조",
         "law_text+annex_link": "조문은 API, 별표는 제목·HWP/PDF 링크만 API(별표 내용은 파일 — 사람 확인)",
@@ -823,6 +823,417 @@
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
                 }
+            }
+        },
+        {
+            "key": "bldg_law",
+            "target": "law",
+            "name": "건축법",
+            "kind": "법률",
+            "candidates": [],
+            "clauses": [
+                "V28",
+                "V29"
+            ],
+            "watch_articles": [
+                "40",
+                "83"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/bldg_law.md",
+            "api_scope": "조문 원문 — 제40조(대지의 안전)·제83조(옹벽 등 공작물). 시행 예정 개정 2건 감시",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택)",
+                "number": "21065",
+                "promulgated": "2025-10-01",
+                "effective": "2025-10-01",
+                "mst": "276925",
+                "articles": {
+                    "40": "b6ae9fe6bb2d4a44",
+                    "83": "3c1268301888bd6c"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "status": "not_checked",
+                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=bldg_law 로 공식 API 대조 필요"
+            },
+            "pending": [
+                {
+                    "number": "21880",
+                    "effective": "2027-02-12",
+                    "note": "원문 미러 기준 제40조·제83조 해시가 현재 시행판과 같음(일부 조항은 시행일이 따로 있음 — 인용 조문 아님). 시행 후 새 판(감시 조문 동일) 예상"
+                },
+                {
+                    "number": "21901",
+                    "effective": "2027-09-09",
+                    "note": "원문 미러 기준 제40조·제83조 동일(빈 건축물 특별법 타법개정). 시행일 이후 재대조"
+                }
+            ]
+        },
+        {
+            "key": "bldg_decree",
+            "target": "law",
+            "name": "건축법 시행령",
+            "kind": "대통령령",
+            "candidates": [],
+            "clauses": [
+                "V29"
+            ],
+            "watch_articles": [
+                "118"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/bldg_decree.md",
+            "api_scope": "조문 원문 — 제118조(옹벽 등의 공작물에의 준용)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택)",
+                "number": "36746",
+                "promulgated": "2026-10-06",
+                "effective": "2026-10-06",
+                "mst": "290833",
+                "articles": {
+                    "118": "e2d6f83cfd07dcec"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "status": "not_checked",
+                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=bldg_decree 로 공식 API 대조 필요"
+            }
+        },
+        {
+            "key": "bldg_rule",
+            "target": "law",
+            "name": "건축법 시행규칙",
+            "kind": "국토교통부령",
+            "candidates": [],
+            "clauses": [
+                "V28"
+            ],
+            "watch_articles": [
+                "25"
+            ],
+            "watch_annexes": [
+                "옹벽에 관한 기술적 기준(제25조관련)"
+            ],
+            "mirror_file": "legalize/kr/bldg_rule.md",
+            "api_scope": "조문 원문 — 제25조(대지의 조성), 별표 6 제목·링크(별표 내용은 파일 — 사람 확인)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택)",
+                "number": "01567",
+                "promulgated": "2026-02-27",
+                "effective": "2026-02-27",
+                "mst": "283727",
+                "articles": {
+                    "25": "7ae86efbeac3eacb"
+                },
+                "annexes": {
+                    "옹벽에 관한 기술적 기준(제25조관련)": true
+                }
+            },
+            "api_check": {
+                "status": "not_checked",
+                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=bldg_rule 로 공식 API 대조 필요"
+            }
+        },
+        {
+            "key": "plan_law",
+            "target": "law",
+            "name": "국토의 계획 및 이용에 관한 법률",
+            "kind": "법률",
+            "candidates": [],
+            "clauses": [
+                "V30"
+            ],
+            "watch_articles": [
+                "56"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/plan_law.md",
+            "api_scope": "조문 원문 — 제56조(개발행위의 허가). 시행 예정 개정 3건 감시",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택)",
+                "number": "21585",
+                "promulgated": "2026-04-28",
+                "effective": "2026-05-17",
+                "mst": "285657",
+                "articles": {
+                    "56": "b37847c90fe2d14e"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "status": "not_checked",
+                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=plan_law 로 공식 API 대조 필요"
+            },
+            "pending": [
+                {
+                    "number": "21812",
+                    "effective": "2026-12-17",
+                    "note": "원문 미러 기준 제56조는 21626 의 제3항 문구 변경만 포함(인용하지 않는 항). 제1항·제4항 동일"
+                },
+                {
+                    "number": "21626",
+                    "effective": "2027-05-13",
+                    "note": "임도의 설치 및 관리에 관한 법률 타법개정 — 제56조제3항 법률명 변경(인용 안 함). 시행 후 감시 조문 해시가 바뀌므로 제1항·제4항 동일 확인 후 기준값 갱신"
+                },
+                {
+                    "number": "21796",
+                    "effective": "2027-06-17",
+                    "note": "원문 미러 기준 제56조 변경 없음. 시행일 이후 재대조"
+                }
+            ]
+        },
+        {
+            "key": "plan_decree",
+            "target": "law",
+            "name": "국토의 계획 및 이용에 관한 법률 시행령",
+            "kind": "대통령령",
+            "candidates": [],
+            "clauses": [
+                "V30"
+            ],
+            "watch_articles": [
+                "53"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/plan_decree.md",
+            "api_scope": "조문 원문 — 제53조(허가를 받지 아니하여도 되는 경미한 행위)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택)",
+                "number": "36656",
+                "promulgated": "2026-09-08",
+                "effective": "2026-09-08",
+                "mst": "289497",
+                "articles": {
+                    "53": "90abbd13f0aeb75b"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "status": "not_checked",
+                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=plan_decree 로 공식 API 대조 필요"
+            }
+        },
+        {
+            "key": "river_law",
+            "target": "law",
+            "name": "하천법",
+            "kind": "법률",
+            "candidates": [],
+            "clauses": [
+                "V31"
+            ],
+            "watch_articles": [
+                "33"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/river_law.md",
+            "api_scope": "조문 원문 — 제33조(하천의 점용허가 등)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택)",
+                "number": "21471",
+                "promulgated": "2026-03-17",
+                "effective": "2026-09-18",
+                "mst": "284435",
+                "articles": {
+                    "33": "0c1fc1792ee9c657"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "status": "not_checked",
+                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=river_law 로 공식 API 대조 필요"
+            }
+        },
+        {
+            "key": "sriver_law",
+            "target": "law",
+            "name": "소하천정비법",
+            "kind": "법률",
+            "candidates": [],
+            "clauses": [
+                "V32"
+            ],
+            "watch_articles": [
+                "14"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/sriver_law.md",
+            "api_scope": "조문 원문 — 제14조(소하천등의 점용 등). 시행 예정 개정 1건 감시",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택)",
+                "number": "21065",
+                "promulgated": "2025-10-01",
+                "effective": "2025-10-01",
+                "mst": "276319",
+                "articles": {
+                    "14": "6c0110533aec25a5"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "status": "not_checked",
+                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=sriver_law 로 공식 API 대조 필요"
+            },
+            "pending": [
+                {
+                    "number": "21733",
+                    "effective": "2026-12-03",
+                    "note": "원문 미러 기준 제14조 동일. 시행 후 새 판(감시 조문 동일) 예상"
+                }
+            ]
+        },
+        {
+            "key": "road_law",
+            "target": "law",
+            "name": "도로법",
+            "kind": "법률",
+            "candidates": [],
+            "clauses": [
+                "V33"
+            ],
+            "watch_articles": [
+                "52",
+                "61"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/road_law.md",
+            "api_scope": "조문 원문 — 제52조(도로와 다른 시설의 연결)·제61조(도로의 점용 허가). 시행 예정 개정 1건 감시",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택)",
+                "number": "21738",
+                "promulgated": "2026-06-02",
+                "effective": "2026-06-02",
+                "mst": "286547",
+                "articles": {
+                    "52": "0d8c46ebd63af26c",
+                    "61": "01e0a81d0cfade26"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "status": "not_checked",
+                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=road_law 로 공식 API 대조 필요"
+            },
+            "pending": [
+                {
+                    "number": "21965",
+                    "effective": "2027-03-23",
+                    "note": "원문 미러 기준 제52조·제61조 동일. 시행일 이후 재대조"
+                }
+            ]
+        },
+        {
+            "key": "road_decree",
+            "target": "law",
+            "name": "도로법 시행령",
+            "kind": "대통령령",
+            "candidates": [],
+            "clauses": [
+                "V33"
+            ],
+            "watch_articles": [
+                "49",
+                "55"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/road_decree.md",
+            "api_scope": "조문 원문 — 제49조(연결허가 대상 도로)·제55조(점용허가를 받을 수 있는 공작물 등)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택)",
+                "number": "36689",
+                "promulgated": "2026-09-15",
+                "effective": "2026-09-15",
+                "mst": "289661",
+                "articles": {
+                    "49": "0e35099b5c35ee95",
+                    "55": "330f4b0d7e19569a"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "status": "not_checked",
+                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=road_decree 로 공식 API 대조 필요"
+            }
+        },
+        {
+            "key": "ks_law",
+            "target": "law",
+            "name": "산업표준화법",
+            "kind": "법률",
+            "candidates": [],
+            "clauses": [
+                "V34"
+            ],
+            "watch_articles": [
+                "15",
+                "24"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/ks_law.md",
+            "api_scope": "조문 원문 — 제15조(제품의 인증)·제24조(한국산업표준의 준수). 시행 예정 개정 1건 감시",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택)",
+                "number": "21438",
+                "promulgated": "2026-03-10",
+                "effective": "2026-03-10",
+                "mst": "283931",
+                "articles": {
+                    "15": "fb0278e10bb7d9b2",
+                    "24": "c9a4af6c25093e74"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "status": "not_checked",
+                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=ks_law 로 공식 API 대조 필요"
+            },
+            "pending": [
+                {
+                    "number": "21925",
+                    "effective": "2027-03-16",
+                    "note": "제15조제1항 인증 대상자 문구 변경(인용하지 않는 항) — 시행 후 감시 조문 해시가 바뀌므로 제2항·제3항 동일 확인 후 기준값 갱신. 제24조 동일"
+                }
+            ]
+        },
+        {
+            "key": "road_safety",
+            "target": "admrul",
+            "name": "도로안전시설 설치 및 관리 지침",
+            "kind": "예규",
+            "candidates": [],
+            "clauses": [
+                "V35"
+            ],
+            "watch_articles": [],
+            "watch_annexes": [],
+            "mirror_file": "admrule/road_safety.md",
+            "api_scope": "발령번호·시행일 — 본문(편별 지침)은 API 본문 텍스트(조 단위 아님, 감시 조문 없음)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/admrule-kr (법제처 OPEN API 행정규칙 원문 미러, 2026-11-04 열람)",
+                "number": "465",
+                "promulgated": "2026-08-14",
+                "effective": "2026-08-14",
+                "mst": "2100000283726",
+                "articles": [],
+                "annexes": []
+            },
+            "api_check": {
+                "status": "not_checked",
+                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=road_safety 로 공식 API 대조 필요"
             }
         }
     ],

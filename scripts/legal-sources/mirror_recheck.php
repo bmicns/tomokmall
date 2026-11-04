@@ -37,6 +37,18 @@ const MIRROR_PATHS = [
     'kds61'         => ['admrule-kr', '기후에너지환경부/_본부/고시/하수도설계기준/본문.md'],
     'road_kds'      => ['admrule-kr', '국토교통부/_본부/고시/도로설계기준(KDS 44 00 00) 및 도로공사 표준시방서(KCS 44 00 00)/본문.md'],
     'landscape_kds' => ['admrule-kr', '국토교통부/_본부/고시/조경설계기준(KDS 34 00 00) 및 조경공사 표준시방서(KCS 34 00 00)/본문.md'],
+    // 2026-11-04 추가(V28~V35 — 옹벽·담장·성토·하천·도로 점용·KS 표시·과속방지턱)
+    'bldg_law'      => ['legalize-kr', 'kr/건축법/법률.md'],
+    'bldg_decree'   => ['legalize-kr', 'kr/건축법/시행령.md'],
+    'bldg_rule'     => ['legalize-kr', 'kr/건축법/시행규칙.md'],
+    'plan_law'      => ['legalize-kr', 'kr/국토의계획및이용에관한법률/법률.md'],
+    'plan_decree'   => ['legalize-kr', 'kr/국토의계획및이용에관한법률/시행령.md'],
+    'river_law'     => ['legalize-kr', 'kr/하천법/법률.md'],
+    'sriver_law'    => ['legalize-kr', 'kr/소하천정비법/법률.md'],
+    'road_law'      => ['legalize-kr', 'kr/도로법/법률.md'],
+    'road_decree'   => ['legalize-kr', 'kr/도로법/시행령.md'],
+    'ks_law'        => ['legalize-kr', 'kr/산업표준화법/법률.md'],
+    'road_safety'   => ['admrule-kr', '국토교통부/_본부/예규/도로안전시설 설치 및 관리 지침/본문.md'],
 ];
 /**
  * 시행 예정판 고정 커밋(미러는 커밋 날짜 = 공포일). 미러가 force-push 되면 해시가 바뀌므로 404 이면
