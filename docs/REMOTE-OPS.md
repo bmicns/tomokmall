@@ -167,6 +167,7 @@ TOMOK_OPS_KEY_ID=k1
 | 확인 | 서버 PHP 8.4 문법 재검사 통과, 메인·검색·상품 상세·장바구니·로그인·AI 상담 화면·견적 200(PHP 오류 없음), 검색 자동완성 JSON, 관리자·승인 화면 302(로그인 이동), 사이트 전체가 main 과 같음(다른 파일 0), 가격 데이터 지문 변동 없음 |
 | 서버에 안 올린 것 | `app/external_*.php`·`app/law_api.php`(로컬 스크립트 전용), `public/assets/fonts/README.md`, `database/*.sql` 보관본 |
 | 되돌리기 | `scripts/tomok files restore --operation 523`(승인 유효시간 + 24시간 안 — 2026-11-05 17:24 까지), 그 뒤에는 새 배포 요청으로 |
+| 사용자 확인 | AI 상담 실제 질문·응답 정상, 관리자 로그인 정상, 모바일 화면 정상(2026-11-04) |
 
 ## 5. 사용 예시
 
