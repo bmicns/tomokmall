@@ -56,6 +56,13 @@ render_header('요청된 견적');
 .est-card-meta{font-size:12px;color:var(--color-text-secondary);margin-top:2px;}
 .est-card-amount{font-size:14px;font-weight:700;color:var(--color-primary);flex-shrink:0;text-align:right;}
 .est-card-status{flex-shrink:0;}
+@media (max-width:640px){
+  /* 좁은 폭에서 '날짜 접수'가 두 줄로 나뉘던 것 — 날짜 줄은 줄바꿈 없이, 칸이 모자라면 금액·상태가 다음 줄로(마이페이지 이전주문 카드와 같은 규칙) */
+  .est-card{gap:6px 12px;padding:12px 14px;}
+  .est-card-id{width:auto;}
+  .est-card-info{flex:1 0 auto;}
+  .est-card-date{white-space:nowrap;}
+}
 .badge-req{background:#fff3cd;color:#856404;padding:3px 9px;font-size:11px;font-weight:600;}
 .badge-wip{background:#e8eaed;color:#555;padding:3px 9px;font-size:11px;font-weight:600;}
 .badge-sent{background:#d1e7dd;color:#0a6640;padding:3px 9px;font-size:11px;font-weight:600;}
