@@ -247,10 +247,11 @@ function estimate_display_totals(array $estimateIds): array
 }
 
 /**
- * 화면·AI 상담에서 금액을 부르는 이름 — 로그인 회원(개인·기업·직원 등)은 '회원가', 비회원은 '판매가'.
+ * AI 상담 금액 문구의 이름표 — 비회원 '판매가', 로그인 회원은 ''(이름을 붙이지 않음).
+ * 회원 금액은 회원 할인가로 계산하되 화면·AI 답변에 '회원가'라는 말을 쓰지 않는다(사용자 결정 2026-11-05).
  * display_unit_price 와 같은 등급 기준(price_tier).
  */
-function member_price_label(): string
+function price_basis_label(): string
 {
-    return price_tier() === 'guest' ? '판매가' : '회원가';
+    return price_tier() === 'guest' ? '판매가' : '';
 }

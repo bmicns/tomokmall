@@ -255,13 +255,14 @@ function renderProductCards(products, container) {
 
   // 예상 자재비 요약: 같은 면적·길이 기준으로 계산된 제품끼리 최저~최고 비교
   const costs = okCosts;
-  const basis = memberView ? '회원가' : '판매가';
+  // 금액 이름: 할인이 적용되면(회원) 이름을 붙이지 않는다('회원가' 표기 안 함 — 사용자 결정), 아니면 기존처럼 '판매가 기준'
+  const basis = memberView ? '' : '판매가 기준 · ';
   let summaryHtml = '';
   if (costs.length >= 2) {
     const min = Math.min(...costs), max = Math.max(...costs);
-    summaryHtml = `<div class="compare-summary">입력하신 면적·길이 기준 예상 자재비 <b>₩${fmt(min)}</b>${min !== max ? ` ~ <b>₩${fmt(max)}</b>` : ''}<span>${basis} 기준 · 운반비·시공비 별도 · 최종 금액은 견적 요청 후 회신으로 안내</span></div>`;
+    summaryHtml = `<div class="compare-summary">입력하신 면적·길이 기준 예상 자재비 <b>₩${fmt(min)}</b>${min !== max ? ` ~ <b>₩${fmt(max)}</b>` : ''}<span>${basis}운반비·시공비 별도 · 최종 금액은 견적 요청 후 회신으로 안내</span></div>`;
   } else if (costs.length === 1) {
-    summaryHtml = `<div class="compare-summary"><span>예상 금액은 ${basis} 기준 자재비입니다 · 운반비·시공비 별도 · 최종 금액은 견적 요청 후 회신으로 안내</span></div>`;
+    summaryHtml = `<div class="compare-summary"><span>예상 금액은 ${memberView ? '' : '판매가 기준 '}자재비입니다 · 운반비·시공비 별도 · 최종 금액은 견적 요청 후 회신으로 안내</span></div>`;
   }
 
   wrap.innerHTML = `${summaryHtml}

@@ -936,10 +936,10 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "- 자재 종류의 차이·특징·물빠짐·주의사항·KS(인증) 질문과, 사용 조건(유모차·휠체어·미끄럼·오염·차량 통행 등)에 맞는 자재를 고르는 질문에는 material_info 를 먼저 호출하고, 돌려준 원문 문장을 그 문장의 maker(제조사 이름)를 그대로 밝혀(예: maker 가 'A산업'이면 'A산업 자료에 따르면') 그 제조사 제품 설명으로 쉬운 말로 전한다(출처끼리 다르면 단정하지 않음, 공식 기준 수치는 [L번호] 근거만).\n"
         . "  원문 문장의 제품명(예: '안전 중하중 그레이팅')을 더 넓은 종류('중하중 그레이팅' 전체)로 바꿔 말하지 않는다. 원문에 없는 성능·용도·비교·수치(중장비 통과, 'n톤 이상', 다른 제품도 같다 등)를 덧붙이거나, 한 제조사의 제품 표기를 '이걸 쓰면 된다'는 일반 선택 기준으로 단정하지 않는다. KS·표준 번호는 [참조 문서]·material_info 원문에 있는 것만 쓴다. material_info 결과가 비어 있으면 '제조사 자료에 따르면'이라고 말하지 말고, 수치 없는 일반 설명임을 밝힌다.\n"
         . "- 선택지를 비교한 뒤 면적·길이가 확인되면 search_products의 queries로 종류별 제품을 한 표에 모아 보여준다.\n"
-        . "  표에는 제품별 필요 수량과 예상 자재비(" . member_price_label() . " 기준, 운반·시공비 별도)가 자동 계산되어 차이를 바로 비교할 수 있다.\n"
-        // 로그인 회원: 표·도구 금액이 회원 할인가 — 금액 이름을 '회원가'로, 판매가(price_b2c)는 말하지 않게(비회원 프롬프트는 기존 그대로)
-        . (member_price_label() === '회원가'
-            ? "- 이 고객은 로그인 회원이다. 표·도구 결과의 금액(price_member·예상 자재비·cost_summary·직전 추천표·장바구니)은 회원 할인가 기준이다. 금액을 말할 때는 '회원가'라고 하고 판매가(price_b2c)는 말하지 않는다.\n"
+        . "  표에는 제품별 필요 수량과 예상 자재비(" . (price_basis_label() !== '' ? price_basis_label() . ' 기준, ' : '') . "운반·시공비 별도)가 자동 계산되어 차이를 바로 비교할 수 있다.\n"
+        // 로그인 회원: 표·도구 금액이 할인 적용 금액 — 그 금액 그대로 말하되 '회원가'·'판매가' 같은 이름은 붙이지 않게(비회원 프롬프트는 기존 그대로)
+        . (price_basis_label() === ''
+            ? "- 이 고객은 로그인 회원이다. 표·도구 결과의 금액(price_member·예상 자재비·cost_summary·직전 추천표·장바구니)은 할인이 적용된 금액이다. 금액은 그 값 그대로 말하고 '회원가'·'판매가' 같은 가격 이름을 붙이지 않는다. 판매가(price_b2c)는 말하지 않는다.\n"
             : '')
         . "\n"
         . "=== 근거 구분 (출처 종류를 섞지 않는다) ===\n"
@@ -1056,7 +1056,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
     $scopedHit = (bool) array_filter($legalDocs, static fn($d) => array_intersect(rag_legal_doc_scopes($d), $legalIn['scopes']));
     $system .= rag_road_context_prompt($roadCtx, $scopedHit);
     $system .= rag_legal_prompt_section($legalDocs);
-    $system .= rag_recent_cards_prompt($recentCards, member_price_label());   // 이 상담에서 고객 화면에 보인 직전 추천표(담기·비교 질문용) — 없으면 빈 문자열(기존과 같음)
+    $system .= rag_recent_cards_prompt($recentCards, price_basis_label());   // 이 상담에서 고객 화면에 보인 직전 추천표(담기·비교 질문용) — 없으면 빈 문자열(기존과 같음)
 
     return [
         'system'      => $system,
@@ -1103,7 +1103,7 @@ function rag_recent_cards(string $sid): array
 }
 
 /** 직전 추천표 프롬프트 구역 (순수 함수) — 표 순서·ID·현재 단가·권장 수량·예상 자재비(현재가 × 권장 수량)와 가장 저렴한 상품 표시
- *  $priceLabel: 금액 이름(비회원 '판매가', 회원 '회원가' — member_price_label()) */
+ *  $priceLabel: 금액 이름(비회원 '판매가', 회원은 '' — 이름 없이 '단가'·'가격' — price_basis_label()) */
 function rag_recent_cards_prompt(array $cards, string $priceLabel = '판매가'): string
 {
     if (!$cards) { return ''; }
@@ -1113,12 +1113,12 @@ function rag_recent_cards_prompt(array $cards, string $priceLabel = '판매가')
     foreach (array_values($cards) as $i => $c) {
         $est = ($c['price'] !== null && $c['qty'] !== null) ? $c['price'] * $c['qty'] : null;
         $lines[] = ($i + 1) . ". [id {$c['id']}] {$c['name']}" . ($c['spec'] !== '' ? " {$c['spec']}" : '')
-            . ' · ' . $priceLabel . ' ' . ($c['price'] !== null ? number_format($c['price']) . '원' . ($c['unit'] !== '' ? "/{$c['unit']}" : '') : '문의·판매 중지(담기 불가)')
+            . ' · ' . ($priceLabel !== '' ? $priceLabel : '단가') . ' ' . ($c['price'] !== null ? number_format($c['price']) . '원' . ($c['unit'] !== '' ? "/{$c['unit']}" : '') : '문의·판매 중지(담기 불가)')
             . ($c['qty'] !== null ? " · 권장 수량 {$c['qty']}" : '') . ($est !== null ? ' · 예상 자재비 ' . number_format($est) . '원' . ($est === $min ? ' (가장 저렴)' : '') : '');
     }
-    return "\n\n=== 직전 추천표 (이 상담에서 고객 화면에 보인 상품 · 현재 {$priceLabel} 기준) ===\n" . implode("\n", $lines)
+    return "\n\n=== 직전 추천표 (이 상담에서 고객 화면에 보인 상품 · 현재 " . ($priceLabel !== '' ? $priceLabel : '가격') . " 기준) ===\n" . implode("\n", $lines)
         . "\n- 고객이 표의 상품을 가리켜(예: '제일 저렴한 걸로', '두 번째 거', '이걸로') 담아 달라고 하면 다시 검색하지 말고 이 표의 id 로 add_to_cart 를 호출한다(quantity 는 권장 수량, 고객이 말한 수량이 있으면 그 수량, 1~999).\n"
-        . "- 이 표에 없는 id 를 만들지 않는다. {$priceLabel}가 '문의·판매 중지'인 상품은 담지 말고 그 사실을 알린다. 조건(면적·두께 등)이 바뀌면 search_products 로 다시 찾는다."
+        . "- 이 표에 없는 id 를 만들지 않는다. " . ($priceLabel !== '' ? $priceLabel . '가' : '가격이') . " '문의·판매 중지'인 상품은 담지 말고 그 사실을 알린다. 조건(면적·두께 등)이 바뀌면 search_products 로 다시 찾는다."
         . (substr_count(implode("\n", $lines), '(가장 저렴)') > 1 ? "\n- '(가장 저렴)'이 여러 개다(같은 금액). '제일 저렴한 것'을 담을 때는 표에서 먼저 나온 제품을 담고, 같은 금액의 다른 제품(이름)도 있다고 한 문장으로 알린다." : '');
 }
 

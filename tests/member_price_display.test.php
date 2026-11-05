@@ -328,19 +328,19 @@ $g = $sr(null); $gm = $byName($g);
 ok('비회원 검색 결과: 상품1 est_cost 200,000(판매가 × 20) · 근거 \'판매가\'', (int) ($gm['[MOCK] 회원가 상품 1']['est_cost'] ?? -1) === 200000 && str_contains((string) ($g['cost_summary']['basis'] ?? ''), '판매가'));
 $c = $sr(['role' => 'customer', 'email' => 'mprice-cust@mock.test']); $cm = $byName($c);
 ok('개인회원 검색 결과: price_member 8,400 · est_cost 168,000 · price_b2c 10,000(참고값)', ($cm['[MOCK] 회원가 상품 1']['price_member'] ?? null) === 8400 && (int) ($cm['[MOCK] 회원가 상품 1']['est_cost'] ?? -1) === 168000 && ($cm['[MOCK] 회원가 상품 1']['price_b2c'] ?? null) === 10000);
-ok('개인회원 cost_summary: 최저 168,000(상품1) · 근거 \'회원가\'', (int) ($c['cost_summary']['lowest']['est_cost'] ?? -1) === 168000 && str_contains((string) ($c['cost_summary']['basis'] ?? ''), '회원가'));
+ok('개인회원 cost_summary: 최저 168,000(상품1) · 근거에 \'회원가\'·\'판매가\' 이름 없음', (int) ($c['cost_summary']['lowest']['est_cost'] ?? -1) === 168000 && ($c['cost_summary']['basis'] ?? '') === '같은 면적·길이 기준 자재비(운반·시공비 별도)');
 $k = $sr(['role' => 'corporate', 'email' => 'mprice-corp@mock.test']); $km = $byName($k);
 ok('기업회원 검색 결과: price_member 8,050 · est_cost 161,000', ($km['[MOCK] 회원가 상품 1']['price_member'] ?? null) === 8050 && (int) ($km['[MOCK] 회원가 상품 1']['est_cost'] ?? -1) === 161000);
 // 직전 추천표 프롬프트(다음 질문 때 GPT 가 보는 표): 회원은 '회원가 8,400원'
 $pdo->prepare("INSERT INTO chat_logs (session_key, user_msg, events_json) VALUES ('mock-mprice-chat', '[MOCK] 회원가', ?)")
     ->execute([json_encode([['type' => 'product_cards', 'products' => [['id' => $pids[1], 'name' => '[MOCK] 회원가 상품 1', 'spec' => '규격: 400*400*2000 | 단위: 본 | 중량: 100kg', 'spec_label' => '400×400×2000', 'price_b2c' => 10000, 'suggested_qty' => 20, 'unit' => '본']]]], JSON_UNESCAPED_UNICODE)]);
 $_SESSION['user'] = ['role' => 'customer', 'email' => 'mprice-cust@mock.test'];
-$rp = rag_recent_cards_prompt(rag_recent_cards('mock-mprice-chat'), member_price_label());
-ok('직전 추천표(개인회원): \'회원가 8,400원/본\' · 예상 자재비 168,000원 · 판매가 없음', str_contains($rp, '회원가 8,400원/본') && str_contains($rp, '예상 자재비 168,000원') && !str_contains($rp, '판매가') && str_contains($rp, '현재 회원가 기준'));
+$rp = rag_recent_cards_prompt(rag_recent_cards('mock-mprice-chat'), price_basis_label());
+ok('직전 추천표(개인회원): \'단가 8,400원/본\' · 예상 자재비 168,000원 · \'회원가\'·\'판매가\' 없음', str_contains($rp, '단가 8,400원/본') && str_contains($rp, '예상 자재비 168,000원') && !str_contains($rp, '판매가') && !str_contains($rp, ' · 회원가 ') && !str_contains($rp, '회원가 기준') && str_contains($rp, '현재 가격 기준'));   // 상품명 '[MOCK] 회원가 상품'은 제외하고 금액 이름표만 검사
 $sys = rag_build_prompt([['role' => 'user', 'content' => '수로관 50m 필요해요']])['system'];
-ok('시스템 프롬프트(회원): \'회원가 기준\' + 회원가로 말하라는 규칙', str_contains($sys, '예상 자재비(회원가 기준') && str_contains($sys, '이 고객은 로그인 회원이다'));
+ok('시스템 프롬프트(회원): 금액 이름 없이 + \'회원가\'라고 말하지 말라는 규칙', str_contains($sys, '예상 자재비(운반·시공비 별도)') && str_contains($sys, '이 고객은 로그인 회원이다') && str_contains($sys, "'회원가'·'판매가' 같은 가격 이름을 붙이지 않는다") && !str_contains($sys, '회원가 기준'));
 $_SESSION['user'] = null;
-$rp = rag_recent_cards_prompt(rag_recent_cards('mock-mprice-chat'), member_price_label());
+$rp = rag_recent_cards_prompt(rag_recent_cards('mock-mprice-chat'), price_basis_label());
 $sys = rag_build_prompt([['role' => 'user', 'content' => '수로관 50m 필요해요']])['system'];
 ok('비회원: 직전 추천표 \'판매가 10,000원/본\' · 프롬프트 \'판매가 기준\'·회원 규칙 없음(기존과 같음)', str_contains($rp, '판매가 10,000원/본') && str_contains($sys, '예상 자재비(판매가 기준') && !str_contains($sys, '이 고객은 로그인 회원이다'));
 $_SESSION['user'] = null;

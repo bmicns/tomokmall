@@ -58,7 +58,7 @@
       return '<span class="ch-price-pair">' +
         '<span class="ch-sr">판매가 </span><del class="ch-price-was">' + esc(won(list)) + '</del>' +
         '<span class="ch-price-arrow" aria-hidden="true">→</span>' +
-        '<span class="ch-sr">기업회원가 </span><strong class="ch-price-sale">' + esc(won(member)) + '</strong>' +
+        '<span class="ch-sr">할인가 </span><strong class="ch-price-sale">' + esc(won(member)) + '</strong>' +
       '</span>';
     }
     return priceHtml(member);

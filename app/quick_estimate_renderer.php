@@ -320,7 +320,7 @@ async function loadProducts(catId) {
       const member = p.price_member != null ? p.price_member : (p.price_b2b || p.price_b2c);
       const priceHtml = !(member > 0) ? '견적문의'
         : (p.price_list > member
-            ? `<span class="prod-card-pair"><span class="prod-card-sr">판매가 </span><del class="prod-card-was">${p.price_list.toLocaleString()}</del><span class="prod-card-arrow" aria-hidden="true">→</span><span class="prod-card-sr">기업회원가 </span><span class="prod-card-sale">${member.toLocaleString()}원</span></span>`
+            ? `<span class="prod-card-pair"><span class="prod-card-sr">판매가 </span><del class="prod-card-was">${p.price_list.toLocaleString()}</del><span class="prod-card-arrow" aria-hidden="true">→</span><span class="prod-card-sr">할인가 </span><span class="prod-card-sale">${member.toLocaleString()}원</span></span>`
             : `${member.toLocaleString()}원`);
       const imgHtml = p.image_url
         ? `<img src="${escHtml(p.image_url)}" class="prod-card-img" alt="" onerror="imgErr(this)">`

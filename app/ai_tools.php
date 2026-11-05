@@ -530,7 +530,7 @@ function tool_search_products(array $input): string
         return json_encode($out, JSON_UNESCAPED_UNICODE);
     }
 
-    [$cards, $costSummary] = ai_cost_summary($cards, member_price_label());
+    [$cards, $costSummary] = ai_cost_summary($cards, price_basis_label());
     $out = [
         'products' => $cards,
         'count'    => count($cards),
@@ -693,7 +693,7 @@ function ai_unit_label(string $spec): string
 /**
  * 예상 자재비 비교 요약 (순수 함수) — 같은 면적·길이로 계산된 카드가 2개 이상일 때만.
  * 가장 낮은 카드에 cost_lowest 표시. [카드 목록, 요약|null]. 금액은 카드의 est_cost(로그인 등급 단가 기준 자재비, 운반·시공비 별도) — 지어낸 값이 아님.
- * $priceLabel: 요약 근거 문구의 금액 이름(비회원 '판매가', 회원 '회원가' — member_price_label()).
+ * $priceLabel: 요약 근거 문구의 금액 이름(비회원 '판매가', 회원은 '' — 이름 없이 — price_basis_label()).
  */
 function ai_cost_summary(array $cards, string $priceLabel = '판매가'): array
 {
@@ -715,7 +715,7 @@ function ai_cost_summary(array $cards, string $priceLabel = '판매가'): array
         'lowest'  => ['name' => $lo['name'], 'spec' => spec_size_label((string) $lo['spec']), 'est_cost' => $lo['est_cost']],
         'highest' => ['name' => $hi['name'], 'spec' => spec_size_label((string) $hi['spec']), 'est_cost' => $hi['est_cost']],
         'difference' => $hi['est_cost'] - $lo['est_cost'],
-        'basis' => '같은 면적·길이 기준 ' . $priceLabel . ' 자재비(운반·시공비 별도)',
+        'basis' => '같은 면적·길이 기준 ' . ($priceLabel !== '' ? $priceLabel . ' ' : '') . '자재비(운반·시공비 별도)',
     ] + (count($tied) > 1 ? [
         'lowest_tied' => array_map(static fn($t) => $t['name'] . ' ' . spec_size_label((string) $t['spec']), $tied),
         'tie_note'    => '최저 예상 자재비가 같은 제품이 ' . count($tied) . '개입니다. 가장 저렴한 것을 말하거나 담을 때 같은 금액 제품이 여럿이라고 함께 알리고, 고객이 고르지 않았으면 표에서 먼저 나온 제품으로 하되 다른 제품도 같은 금액이라고 안내하세요.',
@@ -799,7 +799,7 @@ function ai_search_compare(array $queries, array $input): string
             '_sse'     => [],
         ], JSON_UNESCAPED_UNICODE);
     }
-    [$cards, $costSummary] = ai_cost_summary($cards, member_price_label());
+    [$cards, $costSummary] = ai_cost_summary($cards, price_basis_label());
     $out = [
         'products' => $cards,
         'count'    => count($cards),
