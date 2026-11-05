@@ -113,7 +113,7 @@ function cart_summary(array $cart): array
  * estimate_create() quick mode fallback 에서 사용
  *
  * @param  array<int,int> $quickItems  [product_id => quantity]
- * @return list<array{product_id:int,name:string,quantity:int,unit_price:int,subtotal:int}>
+ * @return list<array{product_id:int,name:string,spec:string,quantity:int,unit_price:int,subtotal:int}>
  */
 function quick_items_fetch(array $quickItems): array
 {
@@ -123,7 +123,7 @@ function quick_items_fetch(array $quickItems): array
     $ph  = implode(',', array_fill(0, count($ids), '?'));
 
     $stmt = db()->prepare(
-        "SELECT id, name, price_b2c, price_b2b FROM products WHERE id IN ({$ph}) AND is_active = 1"
+        "SELECT id, name, spec, price_b2c, price_b2b FROM products WHERE id IN ({$ph}) AND is_active = 1"
     );
     $stmt->execute($ids);
     $rows = $stmt->fetchAll();
@@ -137,6 +137,7 @@ function quick_items_fetch(array $quickItems): array
         $items[]   = [
             'product_id' => $pid,
             'name'       => $row['name'],
+            'spec'       => $row['spec'] ?? '',   // 견적 요청 화면 규격 칸(cart_fetch_items 와 같은 필드) — 없으면 기업회원 즉시견적 경로에서 규격이 비었음
             'quantity'   => $qty,
             'unit_price' => $unitPrice,
             'subtotal'   => $unitPrice * $qty,
