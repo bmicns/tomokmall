@@ -86,7 +86,7 @@
 
 1. ~~위 (ii) V25·V26 — law.go.kr 별표 현행판 대조~~ → 2026-11-05 완료(공식 파일 직접 대조, 위 절).
 2. 2026-11-12 이후 `law_api_sync.php`(기업용 OC) 재실행 — 장애인등편의법 제21116호 시행 후 `new_version_same` 확인.
-3. KS 최신성 16행(`legal-sources/ks-latest-check.csv` 빈 칸) — standard.go.kr 상세 페이지에서 최종 개정·확인일·상태 입력 후 `php scripts/legal-sources/import_ks_check.php`. 대체 경로(웹 검색·GitHub 공개 데이터)로는 출처 URL 이 있는 값을 찾지 못해 비워 둠: KS F 4561 · F 4001 · F 4005 · F 4417 · F 4010 · F 4016 · F 4012 · D 4040 · F 4403 · F 4402 · M 3500-1 · M 3600 · M 3404 · M 3410 · M 3401 · D 3590. (KS 후보는 전부 비활성 등록이라 이번 활성화와 무관)
+3. ~~KS 최신성 16행~~ → 완료: 2026-11-05 사용자 캡처 8 + Claude 가 e나라표준인증 상세 페이지 직접 열람 8(+ KS L 4201) — 아래 'KS 적용 범위 갱신' 절. 남은 KS 후보는 폐지 1(KS D 6021).
 4. V21·V22(공공도로 차도 100mm) 활성화 여부 결정 — 실제 GPT-4o 상담 확인 후. 이 SQL 묶음은 활성화하지 않는다.
 
 ## 법령 근거 보완 2차 — V28~V35 추가 (2026-11-04)
@@ -137,6 +137,11 @@ php scripts/legal-sources/build_prod_sql.php --reviewer='실제 검토자' --rev
 
 - 사용자가 보낸 표준 상세 화면 캡처(KS적용범위.zip)로 8개 표준의 적용 범위·최종 개정일을 `legal-sources/ks-latest-check.csv` → `candidates.json` 에 넣었다(KS F 4403·4010·4012·4561, KS M 3500-1·3600, KS D 3590·4040). 앞서 확인한 F 4419·F 4006 과 합쳐 10건.
 - `40_update_ks_metadata.sql`: 운영 `rag_documents` 의 KS 후보 행(author 'AI 조사 초안(검색 기반)', source_type 'ks') 10행의 `content`·`applies_to`·`verify_level`('metadata_confirmed' — 활성화 조건 아님)·`verified_by`·`verified_at` 만 바꾼다. `is_active`·검토 상태는 그대로다(KS 행은 상담 근거로 활성화하지 않음).
-- 순서(승인 후): 백업(`rag_documents` 내보내기) → `40_update_ks_metadata.sql` → 파일 끝 확인 SELECT. 단계 3(`10_register_inactive.sql`) 뒤 아무 때나 가능하다. 운영에 KS 후보 행이 없으면 0행이다.
+- **추가(2026-11-05 저녁)**: 이 세션에서 e나라표준인증 접속이 가능해져, 남은 9개(KS F 4001·4005·4417·4016·4402, KS M 3404·3410·3401, KS L 4201)의 상세 페이지를 Claude 가 직접 열람했다. 표준명·제정일·최종개정확인일·이력 마지막 구분·적용범위만 기록하고, 담당자 정보는 기록하지 않았다.
+  - 적용 범위 표시는 '공식 상세 확인 2026-11-05'(사용자 캡처분은 '사용자 확인')이다. 상담 코드(`ai_ks_confirmed_scope`)는 두 표시를 모두 확인된 적용 범위로 쓴다.
+  - 이름 차이가 있다. KS M 3401 은 현재 '압력용 경질 폴리염화비닐관'(목록의 '수도용'은 이전 명칭), KS F 4005 는 '콘크리트 및 철근 콘크리트 L 형'이다. 운영 행 제목은 그대로 두고(10·40 이 제목으로 맞추므로), 적용 범위에 '(공식 표준명: …)'을 적어 상담에는 공식 이름이 보이게 했다(`ai_ks_display_name`).
+  - 상품명 연결 규칙(`AI_KS_NAME_RULES`)은 바꾸지 않았다. 측구수로관·U형수로관·점토블럭·PVC관 VN/VG 는 이름만으로 어느 표준 대상인지 단정할 수 없다. 대신 '측구 KS'·'PVC관 하수용' 같은 자재 질문의 기본 정보(국가표준)에 적용 범위가 함께 나온다.
+  - → `40_update_ks_metadata.sql` 은 **19행**(사용자 캡처 10 + Claude 직접 열람 9)이다.
+- 순서(승인 후): 백업(`rag_documents` 내보내기) → `40_update_ks_metadata.sql` → 파일 끝 확인 SELECT(기대 19). 단계 3(`10_register_inactive.sql`) 뒤 아무 때나 가능하다. 운영에 KS 후보 행이 없으면 0행이다.
 - 코드 쪽(배포 보류): 상담 규칙은 도구 결과 basics.standards 에 scope(사람이 확인한 적용 범위)가 있으면 그 문구만 쓴다(`app/rag.php`). KS M 3500-1 연결 상품명은 'PE이중벽관(KS)'로 좁혔다(적용 범위 '관 내·외면 평활').
 <!-- manual:end -->

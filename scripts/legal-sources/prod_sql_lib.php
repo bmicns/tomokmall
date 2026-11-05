@@ -256,12 +256,15 @@ function prod_ks_metadata_update_sql(array $candidates): string
             $rows[] = [$c, $row];
         }
     }
-    $sql = "-- 운영 rag_documents KS 후보 행 확인 정보 갱신 — 사용자가 표준 상세 화면에서 확인한 " . count($rows) . "건(적용 범위·개정/확인일)\n"
+    $byUser = count(array_filter($rows, static fn($x) => !str_contains((string) ($x[0]['verified_by'] ?? ''), 'Claude')));
+    $latest = max(array_map(static fn($x) => (string) ($x[0]['ks_detail']['checked_at'] ?? ''), $rows ?: [[[]]]) ?: ['']);
+    $nLatest = count(array_filter($rows, static fn($x) => ($x[0]['ks_detail']['checked_at'] ?? '') === $latest));
+    $sql = "-- 운영 rag_documents KS 후보 행 확인 정보 갱신 — 표준 상세 화면에서 확인한 " . count($rows) . "건(적용 범위·개정/확인일): 사용자 캡처 {$byUser} · Claude 직접 열람(e나라표준인증) " . (count($rows) - $byUser) . "\n"
         . "-- ⚠️ 운영 실행은 사용자 승인 후(데이터 변경). 실행 전 phpMyAdmin 에서 rag_documents 내보내기 백업.\n"
         . "-- 대상: author = '" . PROD_AUTHOR_CANDIDATE . "' AND source_type = 'ks' — 활성 상태(is_active)·검토 상태는 바꾸지 않음(KS 행은 상담 근거로 활성화하지 않음,\n"
         . "--       확인된 적용 범위는 상담 '확인된 기본 정보'(ai_material_basics·ai_ks_standards)에서 표준 이름과 함께 쓰인다).\n"
         . "-- 생성: scripts/legal-sources/build_prod_sql.php (원본 candidates.json ks_detail). 재실행 안전(같은 값으로 다시 설정).\n"
-        . "-- 기대: 처음 실행 시 2026-11-05 확인분 8행 변경(이미 같은 값인 행은 '0행' 으로 표시될 수 있음). 확인: 아래 SELECT.\n"
+        . "-- 기대: 처음 실행 시 {$latest} 확인분 {$nLatest}행 변경(이미 같은 값인 행은 '0행' 으로 표시될 수 있음). 확인: 아래 SELECT.\n"
         . "-- 되돌리기: 실행 전 내보낸 백업에서 해당 행의 content·applies_to·verified_by·verified_at 복원.\n\nSTART TRANSACTION;\n";
     foreach ($rows as [$c, $row]) {
         $sql .= '-- ' . $c['ref_no'] . ' (확인 ' . ($c['ks_detail']['checked_at'] ?? '') . ")\n"
@@ -269,8 +272,9 @@ function prod_ks_metadata_update_sql(array $candidates): string
             . ', verify_level = ' . $row['verify_level'] . ', verified_by = ' . $row['verified_by'] . ', verified_at = ' . $row['verified_at'] . "\n"
             . ' WHERE author = ' . $row['author'] . " AND source_type = 'ks' AND title = " . $row['title'] . ";\n";
     }
-    return $sql . "COMMIT;\n\n-- 확인(읽기 전용): 사용자 확인 적용 범위가 들어간 KS 행 수 — 기대 " . count($rows) . "\n"
-        . "SELECT COUNT(*) AS ks_user_confirmed FROM rag_documents WHERE author = " . prod_q(PROD_AUTHOR_CANDIDATE) . " AND source_type = 'ks' AND applies_to LIKE '%사용자 확인%';\n";
+    $withScope = count(array_filter($rows, static fn($x) => preg_match('/(사용자 확인|공식 상세 확인)/u', (string) ($x[0]['scope_note'] ?? ''))));
+    return $sql . "COMMIT;\n\n-- 확인(읽기 전용): 확인 표시(사용자 확인·공식 상세 확인) 적용 범위가 들어간 KS 행 수 — 기대 {$withScope}\n"
+        . "SELECT COUNT(*) AS ks_scope_confirmed FROM rag_documents WHERE author = " . prod_q(PROD_AUTHOR_CANDIDATE) . " AND source_type = 'ks' AND (applies_to LIKE '%사용자 확인%' OR applies_to LIKE '%공식 상세 확인%');\n";
 }
 
 /**

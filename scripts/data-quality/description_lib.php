@@ -62,15 +62,15 @@ function desc_conflicts_spec(string $sentence, array $product): bool
     return ($mm >= 80 && $no) || ($mm <= 60 && $yes && !$no);
 }
 
-/** KS 적용 범위 표 [표준번호 => [name, scope]] — candidates.json 의 KS 중 '사용자 확인' 적용 범위가 있는 것만 (순수 함수) */
+/** KS 적용 범위 표 [표준번호 => [name, scope]] — candidates.json 의 KS 중 확인 표시('사용자 확인'·'공식 상세 확인') 적용 범위가 있는 것만 (순수 함수) */
 function desc_ks_scopes(array $candidates): array
 {
     $out = [];
     foreach ($candidates as $c) {
-        if (($c['type'] ?? '') !== 'KS' || !str_contains((string) ($c['scope_note'] ?? ''), '사용자 확인')) {
+        $scope = ($c['type'] ?? '') === 'KS' ? ai_ks_confirmed_scope((string) ($c['scope_note'] ?? '')) : null;   // app/ai_tools.php — 확인 표시 있는 적용 범위만
+        if ($scope === null) {
             continue;
         }
-        $scope = trim((string) preg_replace('/\s*\([^)]*사용자 확인[^)]*\)\s*$/u', '', (string) $c['scope_note']));
         $out[(string) $c['ref_no']] = ['name' => (string) $c['official_name'], 'scope' => $scope];
     }
     return $out;

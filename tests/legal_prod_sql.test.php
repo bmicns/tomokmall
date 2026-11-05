@@ -134,11 +134,17 @@ echo "[KS 적용 범위 갱신 — 40 (사용자 확인 2026-11-05)]\n";
 $ks40 = prod_ks_metadata_update_sql($candidates);
 $ks40Body = (string) preg_replace('/^--.*$/m', '', $ks40);
 $confirmed = array_values(array_filter($candidates, static fn($c) => ($c['type'] ?? '') === 'KS' && !empty($c['ks_detail'])));
-ok('사용자 확인 KS 10건(기존 2 + 2026-11-05 8) — 적용 범위에 사용자 확인 표시', count($confirmed) === 10 && !array_filter($confirmed, static fn($c) => !str_contains((string) $c['scope_note'], '사용자 확인'))
-    && count(array_filter($confirmed, static fn($c) => ($c['ks_detail']['checked_at'] ?? '') === '2026-11-05')) === 8);
-ok('40 은 UPDATE 10문 + 확인 SELECT 만(INSERT·DELETE·DDL 없음)', substr_count($ks40Body, 'UPDATE rag_documents SET') === 10 && !preg_match('/\b(INSERT|DELETE|DROP|ALTER|TRUNCATE|REPLACE)\b/', $ks40Body));
-ok('40 은 KS 후보 행만(author·source_type·title) — 활성·검토 상태 칸은 바꾸지 않음', substr_count($ks40Body, "WHERE author = '" . PROD_AUTHOR_CANDIDATE . "' AND source_type = 'ks' AND title = ") === 10
+$byClaudeKs = array_values(array_filter($confirmed, static fn($c) => str_contains((string) ($c['verified_by'] ?? ''), 'Claude')));
+ok('확인된 KS 19건 = 사용자 캡처 10(기존 2 + 2026-11-05 8) + Claude 직접 열람 9(2026-11-05) — 적용 범위에 확인 표시', count($confirmed) === 19
+    && count(array_filter($confirmed, static fn($c) => str_contains((string) $c['scope_note'], '사용자 확인'))) === 10
+    && count($byClaudeKs) === 9 && !array_filter($byClaudeKs, static fn($c) => !str_contains((string) $c['scope_note'], '공식 상세 확인 2026-11-05') || ($c['ks_detail']['source'] ?? '') !== 'e나라표준인증 표준 상세(Claude 직접 열람)'));
+$byRef9 = array_column($byClaudeKs, null, 'ref_no');
+ok('Claude 확인 9건: 등록 제목(official_name)은 그대로 — 운영 행과 title 로 맞춤(공식 표준명 차이는 적용 범위에 표시)', ($byRef9['KS M 3401']['official_name'] ?? '') === '수도용 경질 폴리염화비닐관'
+    && str_contains($byRef9['KS M 3401']['scope_note'] ?? '', '압력용 경질 폴리염화비닐관') && isset($byRef9['KS F 4417'], $byRef9['KS L 4201']));
+ok('40 은 UPDATE 19문 + 확인 SELECT 만(INSERT·DELETE·DDL 없음)', substr_count($ks40Body, 'UPDATE rag_documents SET') === 19 && !preg_match('/\b(INSERT|DELETE|DROP|ALTER|TRUNCATE|REPLACE)\b/', $ks40Body));
+ok('40 은 KS 후보 행만(author·source_type·title) — 활성·검토 상태 칸은 바꾸지 않음', substr_count($ks40Body, "WHERE author = '" . PROD_AUTHOR_CANDIDATE . "' AND source_type = 'ks' AND title = ") === 19
     && !preg_match('/\b(is_active|review_status|reviewer|reviewed_at)\s*=/', $ks40Body));
+ok('40 확인 SELECT 는 두 확인 표시 모두 센다(기대 19)', str_contains($ks40, "applies_to LIKE '%공식 상세 확인%'") && str_contains($ks40, '기대 19'));
 ok('40 의 값 = 초안 02(로컬 검증본)의 같은 행 값(적용 범위)', !array_filter($confirmed, static fn($c) => !str_contains($ks40, 'applies_to = ' . prod_candidate_row($c)['applies_to']) || !str_contains($d02, prod_candidate_row($c)['applies_to'])));
 ok('KS D 4040 출처는 한국표준협회 KSSN(사용자 캡처)', str_contains((string) array_values(array_filter($confirmed, static fn($c) => $c['ref_no'] === 'KS D 4040'))[0]['scope_note'], 'KSSN'));
 

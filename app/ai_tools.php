@@ -227,6 +227,33 @@ function ai_spec_brief(string $spec): string
 }
 
 /**
+ * 확인된 KS 적용 범위 (순수 함수) — applies_to(=candidates.json scope_note) 끝의 확인 표시 괄호가 있을 때만 그 앞 문구, 없으면 null.
+ * 확인 표시: '사용자 확인'(사용자가 e나라표준인증·KSSN 상세 화면 캡처) 또는 '공식 상세 확인'(e나라표준인증 상세 페이지를 직접 열람, 2026-11-05~).
+ * 검색 요약에서 온 적용 범위는 표시가 없으므로 쓰지 않는다.
+ */
+function ai_ks_confirmed_scope(string $appliesTo): ?string
+{
+    if (!preg_match('/(사용자 확인|공식 상세 확인)/u', $appliesTo)) {
+        return null;
+    }
+    $scope = trim((string) preg_replace('/\s*\([^)]*(?:사용자 확인|공식 상세 확인)[^)]*\)\s*$/u', '', $appliesTo));
+    $scope = trim((string) preg_replace('/\s*\(공식 표준명:[^)]*\)/u', '', $scope));   // 공식 표준명 표시는 이름으로 쓰고(ai_ks_display_name) 적용 범위 문구에서는 뺀다
+    return $scope !== '' ? $scope : null;
+}
+
+/**
+ * 상담에 보이는 KS 표준명 (순수 함수) — 등록 제목에서 온 이름이 옛 이름·검색 요약 이름일 수 있어, 적용 범위에 확인 표시와 함께
+ * '(공식 표준명: …)'이 있으면 그 이름을 쓴다(예: KS M 3401 '수도용 …' → '압력용 경질 폴리염화비닐관'). 운영 행 제목은 바꾸지 않는다(title 로 맞추므로).
+ */
+function ai_ks_display_name(string $name, string $appliesTo): string
+{
+    if (ai_ks_confirmed_scope($appliesTo) !== null && preg_match('/\(공식 표준명:\s*([^)—]+?)\s*(?:—[^)]*)?\)/u', $appliesTo, $m)) {
+        return trim($m[1]);
+    }
+    return $name;
+}
+
+/**
  * 자재 기본 정보 — 국가표준 번호·이름(rag_documents 의 KS 메타데이터 확인 행) + 토목몰 등록 상품 이름·규격(판매 중).
  * 둘 다 저장된 사실만 돌려준다(설명문 생성 없음). 운영 DB 에 근거 칸이 없으면 standards 는 빈 배열.
  * @return array{standards: list<array>, products: list<array>}
@@ -248,8 +275,9 @@ function ai_material_basics(string $topic): array
         foreach ($rows as $r) {
             $name = trim((string) preg_replace('/^\[KS\]\s*|\s*\(KS[^)]*\)\s*$/u', '', (string) $r['title']));
             $s = ['ref' => (string) $r['source_ref'], 'name' => $name, 'basis' => '국가표준 목록(표준 번호·이름 확인, 본문 수치 미확인)', 'url' => (string) ($r['source_url'] ?? '')];
-            if (str_contains((string) $r['applies_to'], '사용자 확인')) {   // e나라표준인증 상세 페이지를 사람이 확인한 적용 범위만
-                $s['scope'] = trim((string) preg_replace('/\s*\([^)]*사용자 확인[^)]*\)\s*$/u', '', (string) $r['applies_to']));
+            if (($scope = ai_ks_confirmed_scope((string) $r['applies_to'])) !== null) {   // 공식 표준 상세 페이지에서 확인한 적용 범위만
+                $s['scope'] = $scope;
+                $s['name'] = ai_ks_display_name($s['name'], (string) $r['applies_to']);
             }
             $items[] = [$name . ',' . $r['tags'], $s];
         }
@@ -658,8 +686,9 @@ function ai_ks_standards(array $refs): array
         foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
             $name = trim((string) preg_replace('/^\[KS\]\s*|\s*\(KS[^)]*\)\s*$/u', '', (string) $r['title']));
             $s = ['ref' => (string) $r['source_ref'], 'name' => $name, 'basis' => '국가표준 목록(표준 번호·이름 확인, 본문 수치 미확인)', 'url' => (string) ($r['source_url'] ?? '')];
-            if (str_contains((string) $r['applies_to'], '사용자 확인')) {   // e나라표준인증 상세 페이지를 사람이 확인한 적용 범위만
-                $s['scope'] = trim((string) preg_replace('/\s*\([^)]*사용자 확인[^)]*\)\s*$/u', '', (string) $r['applies_to']));
+            if (($scope = ai_ks_confirmed_scope((string) $r['applies_to'])) !== null) {   // 공식 표준 상세 페이지에서 확인한 적용 범위만
+                $s['scope'] = $scope;
+                $s['name'] = ai_ks_display_name($s['name'], (string) $r['applies_to']);
             }
             $out[$s['ref']] = $s;
         }
