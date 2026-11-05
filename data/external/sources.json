@@ -42,12 +42,12 @@
   },
   {
    "key": "manufacturer_catalog",
-   "name": "제조사 제공 카탈로그(허락받은 엑셀·CSV)",
+   "name": "제조사 제공 카탈로그(허락받은 PDF·엑셀·CSV) — 틀",
    "domain": "",
    "kind": "제조사 제공 파일",
    "priority": 0,
    "permission": "pending",
-   "basis": "제조사별 허락 메일·계약을 받으면 출처 키를 따로 추가하고 allowed 로 바꾼다",
+   "basis": "제조사별 허락 메일·계약을 받으면 출처 키를 따로(<제조사키>_catalog) 추가하고 allowed 로, basis 에 허락 날짜·방식·범위·허락한 분 직함(개인 연락처 제외)을 적는다. PDF 는 scripts/external/catalog-extract.php, 엑셀·CSV 는 import.php — 순서: docs/03-analysis/ai-sourcing/external-sources/catalog-intake-2026-11-05.md",
    "methods": [
     "file"
    ],

@@ -346,9 +346,10 @@ function renderMaterialSources(sources, container) {
   wrap.className = 'legal-sources material-sources';
   const items = sources.slice(0, 5).map(s => {
     const url = /^https?:\/\//.test(s.url || '') ? s.url : '';
-    return `<li>${escHtml(s.maker || '')}${url ? ` · <a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">원문 보기</a>` : ''}</li>`;
+    const cat = /^catalog:.*#p(\d+)$/.exec(s.url || '');   // 허락받은 제조사 카탈로그(scripts/external/catalog-extract.php) — 링크 없이 쪽만
+    return `<li>${escHtml(s.maker || '')}${url ? ` · <a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">원문 보기</a>` : ''}${cat ? ` · 제조사 카탈로그 ${escHtml(cat[1])}쪽` : ''}</li>`;
   }).join('');
-  wrap.innerHTML = `<div class="legal-sources-title">참고 자료 출처 (제조사 공개 자료 · 판매 상품 아님)</div><ul>${items}</ul>`;
+  wrap.innerHTML = `<div class="legal-sources-title">참고 자료 출처 (제조사 자료 · 판매 상품 아님)</div><ul>${items}</ul>`;
   container.appendChild(wrap);
 }
 

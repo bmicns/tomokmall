@@ -37,5 +37,5 @@
 ## 허락을 받으면 (사용자 PC)
 
 1. `data/external/sources.json` 에서 해당 출처 `permission` 을 `allowed` 로, `basis` 에 허락 근거(회신 날짜·담당자 직함, 개인 연락처 제외)를 적는다.
-2. 받은 엑셀·CSV 는 `scripts/external/import.php --source=<키> --file=<파일>`, 카탈로그 PDF 문장은 사람이 골라 같은 형식으로.
+2. 받은 엑셀·CSV 는 `scripts/external/import.php --source=<키> --file=<파일>`(가격 열은 뺀 사본으로), 카탈로그 PDF 는 `scripts/external/catalog-extract.php --source=<키> --file=<파일>` — 순서 전체는 [`catalog-intake-2026-11-05.md`](catalog-intake-2026-11-05.md).
 3. `approve-crawled.php` 보고서로 문장 단위 검토·승인 → `export-approved.php --expect=<승인 행 수>` → 리허설(`rehearse-prod-apply.sh --real-export=…`) → 운영 반영 승인 요청.
