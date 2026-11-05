@@ -18,7 +18,8 @@
     "출처 표시: 조달청·공공데이터포털",
     "가격은 조달 계약단가 — 우리 판매가로 쓰지 않음(참고가)"
    ],
-   "url": "https://www.data.go.kr/data/15142663/fileData.do"
+   "url": "https://www.data.go.kr/data/15142663/fileData.do",
+   "used_2026_11_05": "사용자가 조달데이터허브 보고서(UI-ADOXFA-183R, 대분류 토목/건축/자재, 쇼핑몰 계약 해당, 출력 2026-11-05) 제공 → scripts/external/g2b_summary.php 로 자재 종류별 품목·업체 수·인증 표시 품목 수만 집계(app/procurement_summary.php). 가격·사업자등록번호·업체 이름·원본은 저장소에 넣지 않음"
   },
   {
    "key": "g2b_mall_api",

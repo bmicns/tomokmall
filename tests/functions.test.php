@@ -449,6 +449,27 @@ eq('중량 표기 없거나 0이면 null(추정하지 않음)', [ai_spec_weight_
 eq('확인된 KS 적용 범위: 사용자 확인·공식 상세 확인 표시만, 표시 괄호는 뗌, 검색 요약은 null', [ai_ks_confirmed_scope('주로 도로 측구에 쓰는 철근 콘크리트 U형의 몸체 및 뚜껑 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)'),
     ai_ks_confirmed_scope('콘크리트 경계 블록 (e나라표준인증 적용 범위, 사용자 확인)'), ai_ks_confirmed_scope('보도 및 차도에 평행 설치(검색 요약)'), ai_ks_confirmed_scope('')],
     ['주로 도로 측구에 쓰는 철근 콘크리트 U형의 몸체 및 뚜껑', '콘크리트 경계 블록', null, null]);
+// 공공조달 등록 현황(app/procurement_summary.php 형식 — 테스트용 데이터 주입)
+ai_procurement_data(['as_of' => '2026-11-05', 'groups' => [
+    'hume_pipe' => ['label' => '원심력 철근콘크리트관(흄관)', 'words' => ['흄관', '원심력'], 'items' => 176, 'makers' => 9, 'certs' => ['ks' => 146, 'group_standard' => 0, 'excellent' => 0]],
+    'manhole_block' => ['label' => '콘크리트 맨홀블록', 'words' => ['맨홀블록', '맨홀'], 'items' => 1968, 'makers' => 18, 'certs' => ['ks' => 906, 'group_standard' => 0, 'excellent' => 0]],
+    'manhole_cover' => ['label' => '주철 맨홀뚜껑', 'words' => ['맨홀뚜껑', '주철뚜껑'], 'items' => 190, 'makers' => 8, 'certs' => ['ks' => 0, 'group_standard' => 169, 'excellent' => 0]],
+    'grating_cover' => ['label' => '그레이팅덮개', 'words' => ['그레이팅덮개'], 'items' => 103, 'makers' => 15, 'certs' => ['ks' => 0, 'group_standard' => 0, 'excellent' => 0]],
+]]);
+$pc = ai_procurement_summary('흄관 KS 인증 제품인가요?');
+eq('공공조달 현황: 질문 자재만, 출처·기준일 있는 한 문장(가격·업체 이름 없음)', [count($pc), $pc[0]['summary'] ?? ''],
+    [1, '공공 조달몰(나라장터 쇼핑몰)에 등록된 원심력 철근콘크리트관(흄관) 176개 품목(9개 업체) 중 KS 표시 146개 (조달청 품목 등록 내역, 2026-11-05 기준)']);
+eq('긴 낱말 우선(맨홀블록 4글자 > 흄관 2글자), 그 일부로만 걸린 종류는 뺌(맨홀뚜껑 → 맨홀블록 제외)·인증 없는 종류 문구·해당 없음', [array_column(ai_procurement_summary('주철 맨홀뚜껑 크기'), 'name'),
+    ai_procurement_summary('그레이팅 덮개')[0]['summary'] ?? '', ai_procurement_summary('잔디 깎는 기계'), array_column(ai_procurement_summary('맨홀 블럭이랑 흄관'), 'name')],
+    [['주철 맨홀뚜껑'], '공공 조달몰(나라장터 쇼핑몰)에 등록된 그레이팅덮개 103개 품목(15개 업체) 중 KS 표시·단체표준인증 품목 없음 (조달청 품목 등록 내역, 2026-11-05 기준)', [],
+     ['콘크리트 맨홀블록', '원심력 철근콘크리트관(흄관)']]);
+$bl = [['standards' => [], 'products' => [], 'procurement' => ai_procurement_summary('흄관')]];
+eq('출처 카드: 답에 \'조달\'이 있을 때만 공공조달 현황(이름·품목 수·기준일)', [rag_basic_sources_used('흄관은 KS F 4403 대상입니다.', $bl)['procurement'],
+    rag_basic_sources_used('조달청 품목 등록 내역에 따르면 흄관 176개 품목 중 146개가 KS 표시 제품입니다.', $bl)['procurement']],
+    [[], [['name' => '원심력 철근콘크리트관(흄관)', 'items' => 176, 'as_of' => '2026-11-05']]]);
+ai_procurement_data(is_file(__DIR__ . '/../app/procurement_summary.php') ? (array) require __DIR__ . '/../app/procurement_summary.php' : []);   // 실제 데이터로 되돌림
+eq('실제 데이터 파일: 출처 조달청·흄관 집계 있음·가격 칸 없음', [str_contains((string) (ai_procurement_data()['source'] ?? ''), '조달청'), isset(ai_procurement_data()['groups']['hume_pipe']),
+    str_contains((string) file_get_contents(__DIR__ . '/../app/procurement_summary.php'), '단가')], [true, true, false]);
 $m3401 = '유체 수송용 수도·배수·하수·우수 용도의 압력용 경질 PVC관(공식 표준명: 압력용 경질 폴리염화비닐관 — 목록의 수도용은 이전 명칭) (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)';
 eq('공식 표준명 표시가 있으면 그 이름(옛 등록 이름 대신), 적용 범위 문구에서는 뺌 — 확인 표시 없으면 원래 이름', [ai_ks_display_name('수도용 경질 폴리염화비닐관', $m3401), ai_ks_confirmed_scope($m3401),
     ai_ks_display_name('A', '범위(공식 표준명: B)(검색 요약)'), ai_ks_display_name('콘크리트 경계 블록', '콘크리트 경계 블록 (e나라표준인증 적용 범위, 사용자 확인)')],
@@ -558,8 +579,8 @@ ok('도구 요약: 검색 결과 수·수량·금액', str_contains(rag_tool_sum
 ok('도구 요약: 자재 자료 출처·국가표준', rag_tool_summary('material_info', ['facts' => [['maker' => 'A산업']], 'basics' => ['standards' => [['ref' => 'KS F 4010']], 'products' => [[], []]]]) === '제조사 문장 1개(A산업) · 국가표준 KS F 4010 · 등록 상품 2종');
 
 ok('기본 정보 출처: 답에 쓴 표준 번호·상품 이름만', rag_basic_sources_used('KS F4010 대상이며 벤치플륨관(벤치2종) 규격이 있습니다.', [['standards' => [['ref' => 'KS F 4010', 'name' => '플룸'], ['ref' => 'KS F 4016', 'name' => 'U형']], 'products' => [['name' => '벤치플륨관(벤치2종)', 'count' => 6], ['name' => '환경수로관', 'count' => 3]]]])
-    === ['standards' => [['ref' => 'KS F 4010', 'name' => '플룸', 'url' => '']], 'products' => [['name' => '벤치플륨관(벤치2종)', 'count' => 6]]]);
-ok('기본 정보 출처: 답에 없으면 빈 목록', rag_basic_sources_used('일반 설명입니다.', [['standards' => [['ref' => 'KS F 4010']], 'products' => []]]) === ['standards' => [], 'products' => []]);
+    === ['standards' => [['ref' => 'KS F 4010', 'name' => '플룸', 'url' => '']], 'products' => [['name' => '벤치플륨관(벤치2종)', 'count' => 6]], 'procurement' => []]);
+ok('기본 정보 출처: 답에 없으면 빈 목록', rag_basic_sources_used('일반 설명입니다.', [['standards' => [['ref' => 'KS F 4010']], 'products' => []]]) === ['standards' => [], 'products' => [], 'procurement' => []]);
 
 ok('직전 추천표: 최저 동률이면 같은 금액 제품도 알리라는 줄', str_contains(rag_recent_cards_prompt([['id' => 1, 'name' => 'A', 'spec' => '', 'price' => 100, 'qty' => 2, 'unit' => '㎡'], ['id' => 2, 'name' => 'B', 'spec' => '', 'price' => 100, 'qty' => 2, 'unit' => '㎡']]), '같은 금액의 다른 제품')
     && !str_contains(rag_recent_cards_prompt([['id' => 1, 'name' => 'A', 'spec' => '', 'price' => 100, 'qty' => 2, 'unit' => '㎡'], ['id' => 2, 'name' => 'B', 'spec' => '', 'price' => 120, 'qty' => 2, 'unit' => '㎡']]), '같은 금액의 다른 제품'));

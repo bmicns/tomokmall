@@ -82,7 +82,9 @@
 4. **법령 공식 API 대조**: V28~V35·V37·V38 — 사용자 PC `law_api_sync.php`(prod-apply/README.md 3차 절).
 5. **PVC관 중량**: PVC관 78개는 규격 칸에 중량 표기가 없다(등록 데이터 공백).
 
-### 진행 상황 (2026-11-05 오후)
+### 진행 상황 (2026-11-05 오후~저녁)
+
+- 추가(저녁): 사용자가 준 조달청 '나라장터쇼핑몰 품목 등록 내역'으로 자재 종류별 공공조달 등록 현황(품목·업체 수, KS·단체표준인증 표시 품목 수)을 만들어 상담 basics.procurement 에 연결했다 — `external-sources/g2b-procurement-summary-2026-11-05.md`.
 
 - 1 → 도구만 준비해 둠(`scripts/external/catalog-extract.php`, `external-sources/catalog-intake-2026-11-05.md`). 같은 날 사용자 결정으로 제조사 연락·허락 요청은 **남은 작업에서 제외** — 기다리는 자료 없음.
 - 2 → 완료(8건, 위 2-2). 같은 날 저녁, e나라표준인증 접속이 가능해져 남은 9건(F 4001·4005·4417·4016·4402, M 3404·3410·3401, L 4201)도 Claude 가 공식 상세 페이지로 확인 → 확인된 KS 19건(`prod-apply/README.md` KS 절).

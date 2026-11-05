@@ -67,7 +67,7 @@ scripts/deploy-files.sh check 02a98c2 public/admin-categories.php public/admin-o
 
 ## 5. 다음 배포 후보 — AI 상담 2차 (작업 브랜치 `claude/sharp-lamport-ykk35j`, 2026-11-04~05 · 운영 반영 보류)
 
-기준: `origin/main`(운영 1·2단계 코드 포함). main 대비 `app/`·`public/` 변경 **6개**:
+기준: `origin/main`(운영 1·2단계 코드 포함). main 대비 `app/`·`public/` 변경 **7개**(새 파일 1 포함):
 
 | 파일 | 바뀐 것 | 커밋 |
 |---|---|---|
@@ -76,7 +76,8 @@ scripts/deploy-files.sh check 02a98c2 public/admin-categories.php public/admin-o
 | `app/chat_renderer.php` · `public/assets/chat-ai.js` | 비교표·말풍선 시안(After), 담기 수량 1, 참고 자료 출처의 '제조사 카탈로그 N쪽' | `d502237` `4f33485` |
 | `app/external_products.php` | 이중벽관 고르는 기준 문구(바깥 면 모양 단정 없음) | `774a9f6` |
 | `public/product.php` | KS 배지는 상품명 표기로만(설명의 'KS' 글자로 붙지 않음) | `e576305` |
+| `app/procurement_summary.php` (새 파일) | 자재 종류별 공공조달 등록 현황 집계(조달청 공공데이터 — 가격·업체 이름 없음). `ai_tools.php`·`rag.php`·`chat-ai.js` 의 공공조달 연결과 함께 | 2026-11-05 저녁 |
 
 - **DB 와의 순서 무관(둘 다 안전)**: 새 코드는 운영 DB 에 확인 표시 적용 범위(`40`)·새 법령 행(`10`·`41`·`20`)이 없어도 그 항목만 빠진 채 동작한다(적용 범위 없음 → 표준 번호·이름만). 반대로 DB 를 먼저 반영해도 옛 코드는 새 칸을 쓰지 않는다.
-- 권장 순서(각각 승인): ① 코드 6개(`scripts/deploy-files.sh check <main 커밋> <6개>` → upload) ② 법령 `10` → `41` → `20`(사용자 PC 생성, 33건) → `30` ③ KS `40`(19행) ④ 상품 설명 `50`(검토 후)·`51`(따로) — 상세 `README.md`·`../data-quality/product-description-cleanup-2026-11-05.md`.
+- 권장 순서(각각 승인): ① 코드 7개(`scripts/deploy-files.sh check <main 커밋> <6개>` → upload) ② 법령 `10` → `41` → `20`(사용자 PC 생성, 33건) → `30` ③ KS `40`(19행) ④ 상품 설명 `50`(검토 후)·`51`(따로) — 상세 `README.md`·`../data-quality/product-description-cleanup-2026-11-05.md`.
 - 배포 전 확인(로컬, 이 브랜치): 단위 테스트(functions·legal_prod_sql·description_proposals·catalog_extract 등)와 로컬 테스트 DB 상담 테스트(rag_prompt 78·rag_legal 64·ai_search 40·consult 시험)가 통과한다(2026-11-05).

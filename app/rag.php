@@ -932,6 +932,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "=== 근거 구분 (출처 종류를 섞지 않는다) ===\n"
         . "- 공식 기준: 아래 '공식 법령 근거'에 [L번호]로 들어온 법령·KDS·KCS 조항만. 기준 이름과 함께 말하고 [L번호]를 붙인다. 들어오지 않았으면 '공식 기준에 따르면'이라고 말하지 않는다.\n"
         . "- 제조사 자료: material_info 의 원문 문장(facts)만, 'maker 자료에 따르면'으로. 국가표준·등록 규격: material_info 의 basics(표준 번호·이름, 토목몰 등록 상품 규격)만, 요구 수치를 덧붙이지 않는다.\n"
+        . "- 공공조달 등록 현황: 도구 결과 basics.procurement 의 summary 만, '조달청 품목 등록 내역에 따르면'으로 한 문장. 다른 회사 품목의 집계이므로 토목몰 상품이 KS 인증·조달 등록 제품이라고 말하지 않는다.\n"
         . "- 저희 권장 기준: [참조 문서](사내 기준)의 내용은 '저희 권장 기준'으로 말하고 법정 의무처럼 말하지 않는다.\n"
         . "- 시공 조건 질문(예: '집 앞에 블록 깔면 차 지나가도 돼요?')은 ① 조건을 쉬운 말로 정리 ② 위 근거를 종류별로 한두 문장씩 ③ 필요한 확인(면적 등)을 물어 비교표(필요 수량·예상 자재비)로 이어 간다.\n"
         . "\n"
@@ -1171,16 +1172,21 @@ function rag_guard_unverified_ks(string $text, string $known): array
 }
 
 /**
- * 답에 실제로 쓴 기본 정보만 고르기 (순수 함수) — 국가표준은 번호(띄어쓰기 무시)가, 등록 상품은 이름이 답에 있을 때만.
- * @param list<array{standards:list<array>, products:list<array>}> $basicsList material_info 결과의 basics 들
- * @return array{standards:list<array>, products:list<array>}
+ * 답에 실제로 쓴 기본 정보만 고르기 (순수 함수) — 국가표준은 번호(띄어쓰기 무시)가, 등록 상품은 이름이 답에 있을 때만,
+ * 공공조달 등록 현황은 답에 '조달'이 있을 때 그 자재 이름(괄호 앞)도 답에 있으면(없으면 첫 항목만).
+ * @param list<array{standards:list<array>, products:list<array>, procurement?:list<array>}> $basicsList material_info·search_products 결과의 basics 들
+ * @return array{standards:list<array>, products:list<array>, procurement:list<array>}
  */
 function rag_basic_sources_used(string $text, array $basicsList): array
 {
     $flat = strtoupper((string) preg_replace('/\s+/u', '', $text));
-    $out = ['standards' => [], 'products' => []];
+    $out = ['standards' => [], 'products' => [], 'procurement' => []];
     $seen = [];
+    $procAll = [];
     foreach ($basicsList as $b) {
+        foreach ($b['procurement'] ?? [] as $pc) {
+            $procAll[(string) ($pc['name'] ?? '')] ??= $pc;
+        }
         foreach ($b['standards'] ?? [] as $st) {
             $k = strtoupper((string) preg_replace('/\s+/u', '', (string) ($st['ref'] ?? '')));
             if ($k !== '' && !isset($seen[$k]) && str_contains($flat, $k)) {
@@ -1194,6 +1200,15 @@ function rag_basic_sources_used(string $text, array $basicsList): array
                 $seen[$k] = true;
                 $out['products'][] = ['name' => (string) $p['name'], 'count' => (int) ($p['count'] ?? 0)];
             }
+        }
+    }
+    if ($procAll && str_contains($flat, '조달')) {
+        $named = array_values(array_filter($procAll, static function ($pc) use ($flat) {
+            $base = strtoupper((string) preg_replace('/\s+|\(.*$/u', '', (string) ($pc['name'] ?? '')));
+            return $base !== '' && str_contains($flat, $base);
+        }));
+        foreach (array_slice($named ?: [reset($procAll)], 0, 2) as $pc) {
+            $out['procurement'][] = ['name' => (string) $pc['name'], 'items' => (int) ($pc['items'] ?? 0), 'as_of' => (string) ($pc['as_of'] ?? '')];
         }
     }
     return $out;
@@ -1212,7 +1227,8 @@ function rag_tool_summary(string $name, array $d): string
     if ($name === 'material_info') {
         $b = $d['basics'] ?? ['standards' => [], 'products' => []];
         return '제조사 문장 ' . count($d['facts'] ?? []) . '개' . (($d['facts'] ?? []) ? '(' . implode(', ', array_unique(array_column($d['facts'], 'maker'))) . ')' : '')
-            . ' · 국가표준 ' . (implode(', ', array_column($b['standards'] ?? [], 'ref')) ?: '없음') . ' · 등록 상품 ' . count($b['products'] ?? []) . '종';
+            . ' · 국가표준 ' . (implode(', ', array_column($b['standards'] ?? [], 'ref')) ?: '없음') . ' · 등록 상품 ' . count($b['products'] ?? []) . '종'
+            . (!empty($b['procurement']) ? ' · 조달 현황 ' . implode(', ', array_column($b['procurement'], 'name')) : '');
     }
     if ($name === 'add_to_cart') {
         return !empty($d['success']) || !empty($d['ok']) ? '담기 성공' : '담기 실패: ' . mb_substr((string) ($d['error'] ?? json_encode($d, JSON_UNESCAPED_UNICODE)), 0, 60);
@@ -1402,7 +1418,7 @@ function rag_process(array $messages, string $sid): array
     $added = array_map(static fn($t) => (int) ($t['input']['product_id'] ?? 0), array_values(array_filter($toolLog, static fn($t) => $t['name'] === 'add_to_cart')));
     $responseText .= rag_tie_note($responseText, $added, $turnCards, $recentCards);
     $basicSrc = rag_basic_sources_used($responseText, $basicsSeen);
-    if ($basicSrc['standards'] || $basicSrc['products']) {
+    if ($basicSrc['standards'] || $basicSrc['products'] || $basicSrc['procurement']) {
         $events[] = ['type' => 'basic_sources'] + $basicSrc;
     }
     // 확인된 자료(프롬프트·도구 결과·고객 발화)에 없는 KS 번호 → 답 끝에 확인 필요 안내(본문은 고치지 않음)

@@ -148,13 +148,14 @@ function tool_material_info(array $input): string
         $info['note'] .= ' by_product 는 같은 문장을 제품별로 묶은 것이다. 답할 때도 제품별로 나눠 쓰고, 고객이 묻지 않은 제품(예: 안전 중하중 그레이팅)의 문장은 그 제품 이름을 밝혀 따로 한 줄로만 쓴다.';
     }
     // 확인된 기본 정보(국가표준 번호·이름, 토목몰 등록 규격) — 제조사 자료가 없을 때 일반 지식으로 사양을 지어내지 않게 실제 근거를 준다
-    $basics = ai_material_basics($topic);
-    if ($basics['standards'] || $basics['products']) {
+    $basics = ai_material_basics($topic) + ['procurement' => ai_procurement_summary($topic)];
+    if ($basics['standards'] || $basics['products'] || $basics['procurement']) {
         $info['basics'] = $basics;
         $info['basics_note'] = 'basics 는 확인된 사실만 담았다: standards = 국가표준 목록에서 확인한 표준 번호·이름(요구 수치·조항은 미확인 — 수치를 말하지 않음), '
             . 'products = 토목몰에 등록된 상품 이름과 규격 표기 그대로. 제품 설명은 이 둘에서 바로 읽히는 것(종류 이름·등록 규격·중량·판매 단위)만 말한다. '
             . '국가표준은 \'KS F 4010(철근 콘크리트 플룸 및 벤치 플룸) 표준의 대상 종류\'처럼만 말하고 \'이 표준에 따라 제조된다\'·\'이 번호 제품을 고르면 된다\'고 단정하지 않는다(개별 상품의 KS 인증 여부는 상품 표기·제조사 자료로 확인). '
-            . '규격은 표기 그대로(예: 200*150*2000*35T) 쓰고 각 숫자가 폭·높이·길이 중 무엇인지, 단위(cm·mm)를 풀어 쓰지 않는다. 구조(개거·폐쇄형 등)·성능·용도는 이름에 없으면 덧붙이지 않는다. 출처는 \'국가표준 목록\'·\'토목몰 등록 상품\'으로 밝힌다.';
+            . '규격은 표기 그대로(예: 200*150*2000*35T) 쓰고 각 숫자가 폭·높이·길이 중 무엇인지, 단위(cm·mm)를 풀어 쓰지 않는다. 구조(개거·폐쇄형 등)·성능·용도는 이름에 없으면 덧붙이지 않는다. 출처는 \'국가표준 목록\'·\'토목몰 등록 상품\'으로 밝힌다. '
+            . AI_PROCUREMENT_NOTE;
     }
     return json_encode($info, JSON_UNESCAPED_UNICODE);
 }
@@ -251,6 +252,74 @@ function ai_ks_display_name(string $name, string $appliesTo): string
         return trim($m[1]);
     }
     return $name;
+}
+
+/** 공공조달 등록 현황(basics.procurement)을 답에 쓰는 규칙 — material_info·search_products 공통 */
+const AI_PROCUREMENT_NOTE = 'procurement = 조달청 나라장터 쇼핑몰(공공기관 구매용)에 등록된 같은 종류 품목의 집계다. 인증을 설명하거나 제품을 고르는 기준을 말할 때 summary 를 \'공공 조달몰에 등록된 흄관 176개 품목 중 146개가 KS 표시 제품\'처럼 출처(조달청 품목 등록 내역)와 함께 한 문장으로만 쓴다. 토목몰 상품이 KS 인증·조달 등록 제품이라고 말하지 않고, 비율로 품질을 단정하지 않는다(\'KS 표시 제품이 많은 자재라 표기를 확인해 보시면 좋습니다\' 정도).';
+
+/**
+ * 자재 종류별 공공조달 등록 현황 데이터(app/procurement_summary.php — scripts/external/g2b_summary.php 가 조달청 공공데이터에서 생성). 파일이 없으면 [].
+ * $override: 테스트용 데이터 주입.
+ */
+function ai_procurement_data(?array $override = null): array
+{
+    static $data = null;
+    if ($override !== null) {
+        $data = $override;
+    }
+    if ($data === null) {
+        $f = __DIR__ . '/procurement_summary.php';
+        $data = is_file($f) ? (array) require $f : [];
+    }
+    return $data;
+}
+
+/**
+ * 질문·상품명 → 해당 자재의 공공조달 등록 현황(최대 $limit 종) — 공공기관 구매용 조달몰에 등록된 다른 회사 품목의 집계일 뿐,
+ * 토목몰 상품의 인증·조달 여부가 아니다. 더 긴 낱말로 걸린 종류가 먼저(예: '맨홀뚜껑' → 주철 맨홀뚜껑).
+ * @return list<array{name:string, items:int, makers:int, ks:int, group_standard:int, excellent:int, as_of:string, summary:string}>
+ */
+function ai_procurement_summary(string $text, int $limit = 2): array
+{
+    $data = ai_procurement_data();
+    $t = ai_material_norm($text);
+    if ($t === '' || empty($data['groups'])) {
+        return [];
+    }
+    $hits = [];
+    foreach ($data['groups'] as $g) {
+        $best = '';
+        foreach ((array) $g['words'] as $w) {
+            $nw = ai_material_norm((string) $w);
+            if ($nw !== '' && str_contains($t, $nw) && mb_strlen($nw) > mb_strlen($best)) {
+                $best = $nw;
+            }
+        }
+        if ($best !== '') {
+            $hits[] = [mb_strlen($best), (int) $g['items'], $g, $best];
+        }
+    }
+    usort($hits, static fn($a, $b) => [$b[0], $b[1]] <=> [$a[0], $a[1]]);
+    $kept = [];
+    foreach ($hits as $h) {   // 더 긴 낱말의 일부로만 걸린 종류는 뺀다('맨홀뚜껑' 질문의 '맨홀' → 맨홀블록 제외)
+        if (!array_filter($kept, static fn($k) => $k[3] !== $h[3] && str_contains($k[3], $h[3]))) {
+            $kept[] = $h;
+        }
+    }
+    $hits = $kept;
+    $asOf = (string) ($data['as_of'] ?? '');
+    return array_map(static function ($h) use ($asOf) {
+        $g = $h[2];
+        $c = (array) $g['certs'];
+        $certs = array_filter(['KS 표시' => (int) ($c['ks'] ?? 0), '단체표준인증' => (int) ($c['group_standard'] ?? 0)]);
+        return [
+            'name' => (string) $g['label'], 'items' => (int) $g['items'], 'makers' => (int) $g['makers'],
+            'ks' => (int) ($c['ks'] ?? 0), 'group_standard' => (int) ($c['group_standard'] ?? 0), 'excellent' => (int) ($c['excellent'] ?? 0), 'as_of' => $asOf,
+            'summary' => "공공 조달몰(나라장터 쇼핑몰)에 등록된 {$g['label']} {$g['items']}개 품목({$g['makers']}개 업체) 중 "
+                . ($certs ? implode('·', array_map(static fn($k, $v) => "{$k} {$v}개", array_keys($certs), $certs)) : 'KS 표시·단체표준인증 품목 없음')
+                . " (조달청 품목 등록 내역, {$asOf} 기준)",
+        ];
+    }, array_slice($hits, 0, $limit));
 }
 
 /**
@@ -579,7 +648,11 @@ function tool_search_products(array $input): string
         ],
     ];
     if ($costSummary) { $out['cost_summary'] = $costSummary; }   // '어떤 게 더 저렴해?' 답변용 — 도구가 계산한 값만
-    if ($standards)   { $out['basics'] = ['standards' => array_values($standards), 'products' => []]; }   // 답에 표준 번호를 쓰면 '확인된 기본 정보' 출처 카드(rag_process)
+    $procurement = ai_procurement_summary($qText . ' ' . implode(' ', array_slice(array_column($cards, 'name'), 0, 3)));   // 질문·상위 결과 자재의 공공조달 등록 현황
+    if ($standards || $procurement) {   // 답에 표준 번호·'조달'을 쓰면 '확인된 기본 정보' 출처 카드(rag_process)
+        $out['basics'] = ['standards' => array_values($standards), 'products' => [], 'procurement' => $procurement];
+        if ($procurement) { $out['procurement_note'] = AI_PROCUREMENT_NOTE; }
+    }
     if ($note !== null)      { $out['note']      = $note; }      // 교정/규격완화 사유
     if ($corrected !== null) { $out['corrected'] = $corrected; }
     return json_encode($out, JSON_UNESCAPED_UNICODE);
