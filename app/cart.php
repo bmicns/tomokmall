@@ -146,3 +146,48 @@ function quick_items_fetch(array $quickItems): array
 
     return $items;
 }
+
+/**
+ * 화면 표시용 회원 단가 — 상품 상세(public/product.php)·목록과 같은 규칙. app/pricing.php 의 계산을 그대로 쓴다.
+ * 표시 전용: 견적 접수 시 저장하는 단가(cart_fetch_items·quick_items_fetch → estimate_create)는 바꾸지 않는다.
+ *   판매가(price_b2c) 0 이하 → 0(견적문의)
+ *   그 외 → min(등급별 단가 effective_unit_price, 판매가)
+ *           비회원=판매가, 개인=개인회원가, 기업·직원·관리자=기업회원가 (회원가가 판매가 이상이면 상세 화면처럼 판매가)
+ *
+ * @param array $p products 행(price_b2c, price_b2b, cost_price, category_id)
+ */
+function display_unit_price(array $p): int
+{
+    $list = (int) ($p['price_b2c'] ?? 0);
+    if ($list <= 0) {
+        return 0;
+    }
+    return min(effective_unit_price($p), $list);
+}
+
+/**
+ * 상품 id 목록의 화면 표시 가격 — 단일 쿼리(N+1 방지). 조회 실패(컬럼 미존재 등) 시 빈 배열 → 호출부는 기존 단가 유지.
+ *
+ * @param  list<int> $productIds
+ * @return array<int, array{list:int, price:int}>  [product_id => [판매가, 표시 단가]]
+ */
+function display_price_map(array $productIds): array
+{
+    $ids = array_values(array_unique(array_filter(array_map('intval', $productIds), static fn(int $v): bool => $v > 0)));
+    if (!$ids || !db()) {
+        return [];
+    }
+    $ph = implode(',', array_fill(0, count($ids), '?'));
+    try {
+        $stmt = db()->prepare("SELECT id, category_id, price_b2c, price_b2b, cost_price FROM products WHERE id IN ({$ph})");
+        $stmt->execute($ids);
+        $rows = $stmt->fetchAll();
+    } catch (\Throwable $e) {
+        return [];
+    }
+    $map = [];
+    foreach ($rows as $row) {
+        $map[(int) $row['id']] = ['list' => (int) $row['price_b2c'], 'price' => display_unit_price($row)];
+    }
+    return $map;
+}
