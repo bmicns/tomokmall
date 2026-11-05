@@ -837,7 +837,7 @@ function tool_add_to_cart(array $input, string $sid): string
 function tool_get_cart(string $sid): string
 {
     $cart  = cart_session_read();
-    $items = cart_fetch_items($cart);
+    $items = items_with_display_prices(cart_fetch_items($cart));   // 견적서 패널·견적 저장과 같은 회원 등급별 단가
     [$count, $total] = cart_summary_from_items($items);
 
     return json_encode([

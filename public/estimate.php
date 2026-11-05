@@ -19,15 +19,9 @@ if (empty($cartItems)) {
         $isQuick   = true;
     }
 }
-// 화면 표시 단가: 상품 상세와 같은 회원 할인가만(개인=개인회원가, 기업=기업회원가 — app/cart.php display_unit_price).
-// 표시 전용 — 접수 시 저장 단가는 app/estimate.php(cart_fetch_items·quick_items_fetch) 그대로
-$dispPrices = display_price_map(array_column($cartItems, 'product_id'));
-foreach ($cartItems as $i => $ci) {
-    if (isset($dispPrices[(int) $ci['product_id']])) {
-        $cartItems[$i]['unit_price'] = $dispPrices[(int) $ci['product_id']]['price'];
-        $cartItems[$i]['subtotal']   = $cartItems[$i]['unit_price'] * (int) $ci['quantity'];
-    }
-}
+// 화면 단가: 상품 상세와 같은 회원 할인가만(비회원=판매가, 개인=개인회원가, 기업=기업회원가 — app/cart.php).
+// 접수 시 저장도 같은 단가(app/estimate.php estimate_create → items_with_display_prices)
+$cartItems = items_with_display_prices($cartItems);
 [$cartCount, $cartTotal] = cart_summary_from_items($cartItems);
 // '문의'(단가 0) 품목 포함 여부 — 금액에서 제외되므로 최종 금액이 확정 금액처럼 보이지 않게 표시
 $hasInquiry = false;

@@ -219,7 +219,7 @@ async function quickItems(action, productId, qty) {
 
 function renderItems(items, total, displayTotal) {
   // 화면 금액은 기업회원가(API display_price·display_subtotal·display_total — 상품 상세와 같은 규칙).
-  // unit_price·subtotal·total(견적 저장 기준 단가)은 표시하지 않는다. 필드가 없으면(이전 API·재구매 응답) 기존 값
+  // unit_price·subtotal·total(기업가 컬럼 price_b2b 값)은 표시하지 않는다 — 견적 저장도 display 단가(app/estimate.php). 필드가 없으면(이전 API·재구매 응답) 기존 값
   items = items.map(it => it.display_price != null ? Object.assign({}, it, {unit_price: it.display_price, subtotal: it.display_subtotal}) : it);
   if (displayTotal != null) total = displayTotal;
   const tbody  = document.getElementById('items-body');

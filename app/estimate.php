@@ -97,6 +97,10 @@ function estimate_create(array $data): array
         return ['ok' => false, 'error' => '화면의 품목·수량이 저장된 견적 내용과 다릅니다. 화면을 새로고침한 뒤 수량을 확인하고 다시 신청해 주세요.'];
     }
 
+    // 저장 단가 = 견적 요청 화면·AI 상담 견적서 패널에 보인 단가(회원 등급별: 비회원=판매가, 개인=개인회원가, 기업=기업회원가)
+    // — 관리자·직원 견적 상세(요청단가)·마이페이지 이전주문·요청된 견적이 고객이 본 금액과 같도록. 이미 저장된 견적은 바꾸지 않는다
+    $items = items_with_display_prices($items);
+
     // 로그인 상태이면 user_id 자동 연결
     $userId = null;
     if (session_status() === PHP_SESSION_ACTIVE) {

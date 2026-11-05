@@ -148,8 +148,9 @@ function quick_items_fetch(array $quickItems): array
 }
 
 /**
- * 화면 표시용 회원 단가 — 상품 상세(public/product.php)·목록과 같은 규칙. app/pricing.php 의 계산을 그대로 쓴다.
- * 표시 전용: 견적 접수 시 저장하는 단가(cart_fetch_items·quick_items_fetch → estimate_create)는 바꾸지 않는다.
+ * 회원 등급별 견적 단가 — 상품 상세(public/product.php)·목록과 같은 규칙. app/pricing.php 의 계산을 그대로 쓴다.
+ * 견적 요청 화면·새 견적 저장(estimate_create)·AI 상담 견적서 패널·기업회원 즉시견적 화면이 같은 금액을 쓰도록 한 곳에서 계산.
+ * (cart_fetch_items·quick_items_fetch 의 unit_price 는 원래 값(price_b2c / price_b2b) 그대로 — 주문 등 다른 호출자 영향 없음)
  *   판매가(price_b2c) 0 이하 → 0(견적문의)
  *   그 외 → min(등급별 단가 effective_unit_price, 판매가)
  *           비회원=판매가, 개인=개인회원가, 기업·직원·관리자=기업회원가 (회원가가 판매가 이상이면 상세 화면처럼 판매가)
@@ -190,4 +191,24 @@ function display_price_map(array $productIds): array
         $map[(int) $row['id']] = ['list' => (int) $row['price_b2c'], 'price' => display_unit_price($row)];
     }
     return $map;
+}
+
+/**
+ * 품목 배열(cart_fetch_items·quick_items_fetch 결과)의 unit_price·subtotal 을 회원 등급별 단가(display_unit_price)로 바꾼 사본.
+ * 비회원=판매가, 개인=개인회원가, 기업=기업회원가. 조회 실패 시 원래 값 유지.
+ *
+ * @param  list<array{product_id:int,quantity:int,unit_price:int,subtotal:int}> $items
+ * @return list<array{product_id:int,quantity:int,unit_price:int,subtotal:int}>
+ */
+function items_with_display_prices(array $items): array
+{
+    $map = display_price_map(array_column($items, 'product_id'));
+    foreach ($items as $i => $it) {
+        $pid = (int) $it['product_id'];
+        if (isset($map[$pid])) {
+            $items[$i]['unit_price'] = $map[$pid]['price'];
+            $items[$i]['subtotal']   = $map[$pid]['price'] * (int) $it['quantity'];
+        }
+    }
+    return $items;
 }
