@@ -952,7 +952,9 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "- 순서는 이것만: ① 첫 문장 — 고객 조건(장소·차량·면적 등)을 짧게 정리하고 '…제품입니다.'로 맺는다.\n"
         . "  ② 제품마다 한 줄씩 '- 제품명: 설명. 권장 수량은 N개이며, 예상 자재비는 약 X원입니다.' — 설명은 그 자재가 무엇이고 어디에 쓰는지, 함께 나온 다른 제품과 무엇이 다른지 1~2문장.\n"
         . "  ③ 마지막 문단 — 고객 조건과 근거(공식 기준 [L번호] / 제조사 자료 / 저희 권장 기준 / 등록 규격)를 밝혀 어떤 제품을 왜 추천하는지 1~2문장, 이어서 '원하시는 제품을 선택해 주세요.'\n"
-        . "- 설명 재료는 도구 결과 제품별 category_desc(토목몰 자재 분류 설명)·guide(규격에서 읽은 고르는 기준)·규격 표기와 [참조 문서]·material_info 원문뿐이다. 여기에 없는 용도·성능·수치는 지어내지 않는다.\n"
+        . "- 설명 재료는 도구 결과 제품별 category_desc(토목몰 자재 분류 설명)·guide(규격에서 읽은 고르는 기준)·규격 표기·weight_kg·standard 와 [참조 문서]·material_info 원문뿐이다. 여기에 없는 용도·성능·수치는 지어내지 않는다.\n"
+        . "  weight_kg 는 등록 규격의 판매 단위(unit — 본·개·㎡ 등) 1개당 중량이다. 단위와 함께 그대로 쓴다(예: '흄관 1본 194kg', '인터로킹 블록 1㎡당 164kg'). 무게로 강도·내구성을 짐작해 말하지 않는다.\n"
+        . "  standard 는 그 제품 종류가 대상인 국가표준 번호·이름이다. 'KS F 4403(원심력 철근 콘크리트관) 표준 대상 종류'처럼만 말하고, 이 상품이 KS 인증을 받았다고 말하지 않는다(인증 여부는 상품명 표기·제조사 자료로만).\n"
         . "  guide 는 화면에 보이지 않으므로 쉬운 말로 풀어 설명에 넣는다. 주의할 점은 고객 조건과 맞지 않는 것만 짚는다(예: 차량이 올라가는데 60mm 제품).\n"
         . "- 수량·금액: 권장 수량은 suggested_qty(단위 포함), 예상 자재비는 est_cost 를 그대로 쓴다(직접 계산·반올림·합계 금지, 예: '약 1,074,000원'). 계산식(qty_basis)은 고객이 계산 방법을 물을 때만 쓴다.\n"
         . "  est_cost 가 없으면 수량·금액을 말하지 말고 '면적(또는 길이)을 알려 주시면 수량과 자재비를 계산해 드립니다'라고 한다. 판매가가 0원인 제품은 '가격 문의'라고 한다. ㎡ 단위 판매 제품은 ㎡ 로 주문하고 장수는 참고라고 덧붙인다.\n"
@@ -1287,7 +1289,7 @@ function rag_process(array $messages, string $sid): array
     $toolLog      = [];      // 부른 도구 이름·인자·결과 요약(시험 결과 기록용 — chat.php 는 화면에 보내지 않음)
     $turnCards    = [];      // 이번 턴 검색 결과 카드(동률 최저가 안내용)
     $preToolText  = '';      // 도구 호출과 함께 온 중간 글(최종 답이 없을 때만 사용)
-    $basicsSeen   = [];      // material_info 가 준 확인된 기본 정보(국가표준·등록 상품) — 답에 실제로 쓴 것만 출처 카드로
+    $basicsSeen   = [];      // material_info·search_products 가 준 확인된 기본 정보(국가표준·등록 상품) — 답에 실제로 쓴 것만 출처 카드로
     $known        = $system . ' ' . implode(' ', array_map(static fn($m) => (string) ($m['content'] ?? ''), $messages));   // 답에 나올 수 있는 확인된 글(KS 번호 대조용)
 
     for ($iter = 0; $iter < $maxIter; $iter++) {
@@ -1358,7 +1360,7 @@ function rag_process(array $messages, string $sid): array
             $toolData = json_decode($output, true) ?? [];
             $toolLog[] = ['name' => (string) ($tc['function']['name'] ?? ''), 'input' => $input, 'summary' => rag_tool_summary((string) ($tc['function']['name'] ?? ''), $toolData)];
             $known   .= ' ' . $output;
-            if (($tc['function']['name'] ?? '') === 'material_info' && !empty($toolData['basics'])) { $basicsSeen[] = $toolData['basics']; }
+            if (in_array($tc['function']['name'] ?? '', ['material_info', 'search_products'], true) && !empty($toolData['basics'])) { $basicsSeen[] = $toolData['basics']; }   // 검색 결과의 국가표준도 답에 쓰면 출처 카드
             if (($tc['function']['name'] ?? '') === 'search_products') { $turnCards = array_merge($turnCards, (array) ($toolData['products'] ?? [])); }
 
             foreach ($toolData['_sse'] ?? [] as $sseEvent) {

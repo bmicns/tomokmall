@@ -508,9 +508,19 @@ function tool_search_products(array $input): string
     }, $products);
     // 자재 분류 설명(운영자가 쓴 카테고리 설명 — 상품 분류, 없으면 상위 분류) — 답변 글의 '자재 설명' 재료. 화면 표에는 보내지 않는다(ai_cards_for_screen)
     $catDesc = ai_category_descs(array_map(static fn($p) => (int) ($p['category_id'] ?? 0), $products));
+    // 등록 규격의 실제 사실(1개 중량)과 그 제품 종류의 국가표준(KS 확인 행) — 제품 간 비교·설명 재료(화면 표에는 보내지 않음)
+    $ksInfo = ai_ks_standards(array_map(static fn($c) => ai_name_ks_ref((string) $c['name']), $cards));
+    $standards = [];
     foreach ($cards as $i => $c) {
         $d = $catDesc[(int) ($products[$i]['category_id'] ?? 0)] ?? '';
         if ($d !== '') { $cards[$i]['category_desc'] = $d; }
+        $w = ai_spec_weight_kg((string) $c['spec']);
+        if ($w !== null) { $cards[$i]['weight_kg'] = $w; }
+        $ref = ai_name_ks_ref((string) $c['name']);
+        if ($ref !== '' && isset($ksInfo[$ref])) {
+            $cards[$i]['standard'] = $ksInfo[$ref]['ref'] . ' ' . $ksInfo[$ref]['name'];
+            $standards[$ref] = $ksInfo[$ref];
+        }
     }
 
     // 그래도 0건이면 손님을 위한 대안 안내(모델이 되묻지 말고 이 안내를 전달)
@@ -541,6 +551,7 @@ function tool_search_products(array $input): string
         ],
     ];
     if ($costSummary) { $out['cost_summary'] = $costSummary; }   // '어떤 게 더 저렴해?' 답변용 — 도구가 계산한 값만
+    if ($standards)   { $out['basics'] = ['standards' => array_values($standards), 'products' => []]; }   // 답에 표준 번호를 쓰면 '확인된 기본 정보' 출처 카드(rag_process)
     if ($note !== null)      { $out['note']      = $note; }      // 교정/규격완화 사유
     if ($corrected !== null) { $out['corrected'] = $corrected; }
     return json_encode($out, JSON_UNESCAPED_UNICODE);
@@ -581,10 +592,81 @@ function ai_category_descs(array $categoryIds): array
     }
 }
 
-/** 화면 비교표 이벤트용 카드 (순수 함수) — 상담 글 재료(category_desc)는 빼고 보낸다(표에 표시하지 않고 상담 기록 용량도 줄임) */
+/** 화면 비교표 이벤트용 카드 (순수 함수) — 상담 글 재료(category_desc·weight_kg·standard)는 빼고 보낸다(표에 표시하지 않고 상담 기록 용량도 줄임) */
 function ai_cards_for_screen(array $cards): array
 {
-    return array_map(static function (array $c): array { unset($c['category_desc']); return $c; }, $cards);
+    return array_map(static function (array $c): array { unset($c['category_desc'], $c['weight_kg'], $c['standard']); return $c; }, $cards);
+}
+
+/** 규격 칸의 판매 단위 1개당 중량 kg (순수 함수) — 등록 규격의 '중량: 40kg' 표기만 읽는다(단위가 ㎡면 1㎡당, 본이면 1본당). 없으면 null(추정하지 않음) */
+function ai_spec_weight_kg(string $spec): ?float
+{
+    if (!preg_match('/중량\s*[:：]\s*([\d,]+(?:\.\d+)?)\s*(?:kg|㎏)/iu', $spec, $m)) {
+        return null;
+    }
+    $v = (float) str_replace(',', '', $m[1]);
+    return $v > 0 ? $v : null;
+}
+
+/**
+ * 상품 이름 → 그 제품 종류의 국가표준(KS) 번호 규칙. 국가표준 목록에서 확인한 표준의 적용 범위(rag_documents KS 행)와
+ * 이름이 분명히 맞는 제품군만 — 부속(분기구·소켓·뚜껑·집게)·유공관·대용품(VR관)·범위가 애매한 제품은 넣지 않는다(틀린 연결 방지).
+ * 이 연결은 '표준의 대상 종류'라는 뜻이고 개별 상품의 KS 인증 여부가 아니다.
+ */
+const AI_KS_NAME_RULES = [
+    'KS F 4403'   => '/^(흄관\([AB]형\)|접속흄관)/u',                        // 원심력 철근 콘크리트관
+    'KS M 3500-1' => '/^(PE이중벽관(\(KS\)|[123]종)|HDPE이중벽관\(직관\))$/u', // 배수·하수용 구조형 PE관 — 이중벽관
+    'KS M 3600'   => '/^고강성PVC이중벽관$/u',                                 // 배수·하수용 구조형 PVC관 — 이중벽관·리브관
+    'KS F 4419'   => '/^인터로킹/u',                                           // 보차도용 콘크리트 인터로킹 블록
+    'KS F 4561'   => '/점자블[록럭]/u',                                        // 시각장애인용 점자블록
+    'KS D 3590'   => '/^파형강관$/u',                                          // 파형 강관 및 파형 섹션
+    'KS F 4010'   => '/^(U형플륨관|벤치플륨관)/u',                             // 철근 콘크리트 플룸 및 벤치 플룸
+    'KS D 4040'   => '/^주철뚜껑/u',                                           // 주철(강)재 맨홀 뚜껑 및 틀
+    'KS F 4012'   => '/^조립식원형맨홀/u',                                     // 하수도용 콘크리트 맨홀 블록
+    'KS F 4006'   => '/^(콘크리트경계석|고강도콘크리트경계석|인조화강경계석)$/u', // 콘크리트 경계 블록(인조석 표면층 포함)
+];
+
+/** 상품 이름 → 해당 국가표준 번호 (순수 함수). 규칙에 없으면 '' */
+function ai_name_ks_ref(string $name): string
+{
+    $n = trim($name);
+    foreach (AI_KS_NAME_RULES as $ref => $re) {
+        if (preg_match($re, $n) === 1) {
+            return $ref;
+        }
+    }
+    return '';
+}
+
+/**
+ * 국가표준 번호 → 확인된 표준 정보 [ref => {ref, name, basis, url, scope?}] — rag_documents 의 KS 확인 행(국가표준 목록에서 번호·이름 확인)만.
+ * ai_material_basics 의 standards 와 같은 형식(출처 카드 rag_basic_sources_used 가 그대로 쓴다). 근거 칸이 없는 DB 면 빈 배열.
+ */
+function ai_ks_standards(array $refs): array
+{
+    $refs = array_values(array_unique(array_filter($refs)));
+    if (!$refs || !function_exists('rag_documents_has_source_columns') || !rag_documents_has_source_columns()) {
+        return [];
+    }
+    try {
+        $ph = implode(',', array_fill(0, count($refs), '?'));
+        $st = db()->prepare("SELECT source_ref, title, applies_to, source_url FROM rag_documents
+                             WHERE source_type = 'ks' AND verify_level IN ('metadata_confirmed', 'original_verified', 'api_text_verified')
+                               AND legal_status <> 'repealed' AND source_ref IN ({$ph})");
+        $st->execute($refs);
+        $out = [];
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $name = trim((string) preg_replace('/^\[KS\]\s*|\s*\(KS[^)]*\)\s*$/u', '', (string) $r['title']));
+            $s = ['ref' => (string) $r['source_ref'], 'name' => $name, 'basis' => '국가표준 목록(표준 번호·이름 확인, 본문 수치 미확인)', 'url' => (string) ($r['source_url'] ?? '')];
+            if (str_contains((string) $r['applies_to'], '사용자 확인')) {   // e나라표준인증 상세 페이지를 사람이 확인한 적용 범위만
+                $s['scope'] = trim((string) preg_replace('/\s*\([^)]*사용자 확인[^)]*\)\s*$/u', '', (string) $r['applies_to']));
+            }
+            $out[$s['ref']] = $s;
+        }
+        return $out;
+    } catch (\Throwable $e) {
+        return [];
+    }
 }
 
 /** 포장 블록 검색어인지 (순수 함수) — 블록·인터로킹·보도·점토·투수·잔디·평판 등. 호안·축조·옹벽 등 구조용은 제외 */
@@ -775,6 +857,7 @@ function ai_search_compare(array $queries, array $input): string
     $seen  = [];
     $notes = [];
     $missing = [];
+    $standards = [];   // 종류별 검색 결과의 국가표준(확인된 기본 정보) — 합쳐서 출처 카드 후보로
     $specMm = (int) ($input['spec_mm'] ?? 0);
     foreach ($queries as $q) {
         $one = $input;
@@ -790,6 +873,9 @@ function ai_search_compare(array $queries, array $input): string
         }
         if (!empty($res['note'])) {
             $notes[] = "'{$q}': " . $res['note'];
+        }
+        foreach ((array) ($res['basics']['standards'] ?? []) as $st) {
+            $standards[(string) $st['ref']] = $st;
         }
         foreach ($res['products'] as $c) {
             if (isset($seen[$c['id']])) {
@@ -828,6 +914,7 @@ function ai_search_compare(array $queries, array $input): string
         ],
     ];
     if ($costSummary) { $out['cost_summary'] = $costSummary; }
+    if ($standards) { $out['basics'] = ['standards' => array_values($standards), 'products' => []]; }
     if ($notes) { $out['note'] = implode(' ', $notes); }
     return json_encode($out, JSON_UNESCAPED_UNICODE);
 }
