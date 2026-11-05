@@ -11,6 +11,7 @@ declare(strict_types=1);
  *  - 저장 단가(견적·주문)와 관리자·직원 화면 가격은 원래대로(판매가·기업가 컬럼) — 회원 화면만 할인가(사용자 결정 2026-11-05)
  *  - 회원 화면 금액: 요청된 견적·마이페이지 이전주문·현장별 주문·현장 합계(estimate_display_totals), 주문 API display_amount
  *  - AI 상담 견적서 패널(/api/cart.php)·AI 도구 장바구니 조회(tool_get_cart)·추천표 카드(price_member)도 같은 단가
+ *  - AI 답변 금액(GPT 가 보는 검색 결과 est_cost·cost_summary·직전 추천표·시스템 프롬프트): 회원은 회원가, 비회원은 판매가(기존과 같음)
  *  - 장바구니 비우기: GET ?clear=1 로는 비워지지 않고 POST action=clear 로만
  *
  * 목 데이터 원칙(tests/favorites_api.test.php 와 동일):
@@ -80,6 +81,7 @@ function cleanup_mprice_mock(PDO $pdo): void
     foreach (['payments', 'shipping_info', 'order_items'] as $t) { $pdo->exec("DELETE FROM {$t} WHERE order_id IN ({$mockOrd})"); }
     $pdo->exec("DELETE FROM orders WHERE customer_name LIKE '[MOCK] 회원가%'");
     $pdo->exec("DELETE FROM favorite_products WHERE user_id IN ({$uids})");
+    $pdo->exec("DELETE FROM chat_logs WHERE session_key = 'mock-mprice-chat'");
     $pdo->exec("DELETE FROM users WHERE email LIKE 'mprice-%@mock.test'");
     $pdo->exec("DELETE FROM products WHERE external_source = 'MOCK' AND external_id LIKE 'mprice-%'");
     $pdo->exec("DELETE FROM categories WHERE id = 9301 AND slug = 'mock-mprice'");
@@ -317,6 +319,30 @@ ok('이전 상담 복원 현재가: price 10,000(판매가) · member 8,400', ($
 $ev = [0 => [['type' => 'product_cards', 'products' => [['id' => $pids[1], 'spec' => $cur[$pids[1]]['spec'], 'price_b2c' => 9999, 'price_member' => 1]]]]];
 $ap = rag_apply_current_prices($ev, $cur)[0][0]['products'][0];
 ok('복원 카드: price_b2c 현재 판매가 10,000 · price_member 현재 회원가 8,400(상담 당시 값 대체)', $ap['price_b2c'] === 10000 && ($ap['price_member'] ?? null) === 8400 && $ap['price_state'] === 'ok');
+$_SESSION['user'] = null;
+
+echo "[AI 상담 답변 금액(GPT 가 보는 값) — 회원은 회원가, 비회원은 판매가 그대로]\n";
+$sr = static function (?array $u) { $_SESSION['user'] = $u; return json_decode(tool_search_products(['query' => '회원가', 'length_m' => 40]), true); };
+$byName = static function (array $d): array { $m = []; foreach (($d['products'] ?? []) as $c) { $m[(string) $c['name']] = $c; } return $m; };
+$g = $sr(null); $gm = $byName($g);
+ok('비회원 검색 결과: 상품1 est_cost 200,000(판매가 × 20) · 근거 \'판매가\'', (int) ($gm['[MOCK] 회원가 상품 1']['est_cost'] ?? -1) === 200000 && str_contains((string) ($g['cost_summary']['basis'] ?? ''), '판매가'));
+$c = $sr(['role' => 'customer', 'email' => 'mprice-cust@mock.test']); $cm = $byName($c);
+ok('개인회원 검색 결과: price_member 8,400 · est_cost 168,000 · price_b2c 10,000(참고값)', ($cm['[MOCK] 회원가 상품 1']['price_member'] ?? null) === 8400 && (int) ($cm['[MOCK] 회원가 상품 1']['est_cost'] ?? -1) === 168000 && ($cm['[MOCK] 회원가 상품 1']['price_b2c'] ?? null) === 10000);
+ok('개인회원 cost_summary: 최저 168,000(상품1) · 근거 \'회원가\'', (int) ($c['cost_summary']['lowest']['est_cost'] ?? -1) === 168000 && str_contains((string) ($c['cost_summary']['basis'] ?? ''), '회원가'));
+$k = $sr(['role' => 'corporate', 'email' => 'mprice-corp@mock.test']); $km = $byName($k);
+ok('기업회원 검색 결과: price_member 8,050 · est_cost 161,000', ($km['[MOCK] 회원가 상품 1']['price_member'] ?? null) === 8050 && (int) ($km['[MOCK] 회원가 상품 1']['est_cost'] ?? -1) === 161000);
+// 직전 추천표 프롬프트(다음 질문 때 GPT 가 보는 표): 회원은 '회원가 8,400원'
+$pdo->prepare("INSERT INTO chat_logs (session_key, user_msg, events_json) VALUES ('mock-mprice-chat', '[MOCK] 회원가', ?)")
+    ->execute([json_encode([['type' => 'product_cards', 'products' => [['id' => $pids[1], 'name' => '[MOCK] 회원가 상품 1', 'spec' => '규격: 400*400*2000 | 단위: 본 | 중량: 100kg', 'spec_label' => '400×400×2000', 'price_b2c' => 10000, 'suggested_qty' => 20, 'unit' => '본']]]], JSON_UNESCAPED_UNICODE)]);
+$_SESSION['user'] = ['role' => 'customer', 'email' => 'mprice-cust@mock.test'];
+$rp = rag_recent_cards_prompt(rag_recent_cards('mock-mprice-chat'), member_price_label());
+ok('직전 추천표(개인회원): \'회원가 8,400원/본\' · 예상 자재비 168,000원 · 판매가 없음', str_contains($rp, '회원가 8,400원/본') && str_contains($rp, '예상 자재비 168,000원') && !str_contains($rp, '판매가') && str_contains($rp, '현재 회원가 기준'));
+$sys = rag_build_prompt([['role' => 'user', 'content' => '수로관 50m 필요해요']])['system'];
+ok('시스템 프롬프트(회원): \'회원가 기준\' + 회원가로 말하라는 규칙', str_contains($sys, '예상 자재비(회원가 기준') && str_contains($sys, '이 고객은 로그인 회원이다'));
+$_SESSION['user'] = null;
+$rp = rag_recent_cards_prompt(rag_recent_cards('mock-mprice-chat'), member_price_label());
+$sys = rag_build_prompt([['role' => 'user', 'content' => '수로관 50m 필요해요']])['system'];
+ok('비회원: 직전 추천표 \'판매가 10,000원/본\' · 프롬프트 \'판매가 기준\'·회원 규칙 없음(기존과 같음)', str_contains($rp, '판매가 10,000원/본') && str_contains($sys, '예상 자재비(판매가 기준') && !str_contains($sys, '이 고객은 로그인 회원이다'));
 $_SESSION['user'] = null;
 
 echo "[장바구니 비우기 — POST 만]\n";

@@ -245,3 +245,12 @@ function estimate_display_totals(array $estimateIds): array
     }
     return $totals;
 }
+
+/**
+ * 화면·AI 상담에서 금액을 부르는 이름 — 로그인 회원(개인·기업·직원 등)은 '회원가', 비회원은 '판매가'.
+ * display_unit_price 와 같은 등급 기준(price_tier).
+ */
+function member_price_label(): string
+{
+    return price_tier() === 'guest' ? '판매가' : '회원가';
+}

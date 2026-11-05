@@ -482,21 +482,25 @@ function tool_search_products(array $input): string
 
     // 고르는 기준(초보 고객용 쉬운 설명) — 상품 규격 + 사람이 확정한 외부 자료(제조사·KS 표기, 가격 제외). 외부 테이블이 없으면 상품 규격만
     $knowledge = ext_knowledge_for_products(array_column($products, 'id'));
-    $cards = array_map(function ($p) use ($lengthM, $specMm, $areaM2, $knowledge) {
+    // 로그인 등급 단가(회원은 할인가, 비회원은 판매가 — app/cart.php display_unit_price). 표·AI 답변 금액이 같도록
+    $memberMap = display_price_map(array_column($products, 'id'));
+    $cards = array_map(function ($p) use ($lengthM, $specMm, $areaM2, $knowledge, $memberMap) {
         [$qty, $basis] = ai_estimate_quantity(
             $p,
             $lengthM,
             $specMm > 0 ? (float) $specMm : null,
             $areaM2 > 0 ? $areaM2 : null
         );
-        $price = (int) $p['price_b2c'];
+        $price  = (int) $p['price_b2c'];
+        $member = $memberMap[(int) $p['id']]['price'] ?? $price;
         return [
             'id'            => (int)  $p['id'],
             'name'          =>        $p['name'],
             'spec'          =>        $p['spec'],
-            'price_b2c'     => $price,
+            'price_b2c'     => $price,    // 판매가(화면 대체값·이전 상담 복원 비교용)
+            'price_member'  => $member,   // 로그인 등급 단가 — 회원은 할인가, 비회원은 판매가와 같음
             'unit'          => ai_unit_label((string) $p['spec']),
-            'est_cost'      => ($qty !== null && $price > 0) ? $qty * $price : null, // 판매가 기준 자재비(운반·시공비 별도)
+            'est_cost'      => ($qty !== null && $member > 0) ? $qty * $member : null, // 로그인 등급 단가 기준 자재비(운반·시공비 별도) — 비회원은 판매가 기준(기존과 같음)
             'category_name' =>        $p['category_name'],
             'image_url'     =>        $p['image_url']  ?? null,
             'stock_qty'     => (int)  $p['stock_qty'],
@@ -526,7 +530,7 @@ function tool_search_products(array $input): string
         return json_encode($out, JSON_UNESCAPED_UNICODE);
     }
 
-    [$cards, $costSummary] = ai_cost_summary($cards);
+    [$cards, $costSummary] = ai_cost_summary($cards, member_price_label());
     $out = [
         'products' => $cards,
         'count'    => count($cards),
@@ -688,9 +692,10 @@ function ai_unit_label(string $spec): string
 
 /**
  * 예상 자재비 비교 요약 (순수 함수) — 같은 면적·길이로 계산된 카드가 2개 이상일 때만.
- * 가장 낮은 카드에 cost_lowest 표시. [카드 목록, 요약|null]. 금액은 판매가 기준 자재비(운반·시공비 별도) — 지어낸 값이 아니라 카드의 est_cost.
+ * 가장 낮은 카드에 cost_lowest 표시. [카드 목록, 요약|null]. 금액은 카드의 est_cost(로그인 등급 단가 기준 자재비, 운반·시공비 별도) — 지어낸 값이 아님.
+ * $priceLabel: 요약 근거 문구의 금액 이름(비회원 '판매가', 회원 '회원가' — member_price_label()).
  */
-function ai_cost_summary(array $cards): array
+function ai_cost_summary(array $cards, string $priceLabel = '판매가'): array
 {
     $priced = array_values(array_filter($cards, static fn($c) => ($c['est_cost'] ?? 0) > 0));
     if (count($priced) < 2) {
@@ -710,7 +715,7 @@ function ai_cost_summary(array $cards): array
         'lowest'  => ['name' => $lo['name'], 'spec' => spec_size_label((string) $lo['spec']), 'est_cost' => $lo['est_cost']],
         'highest' => ['name' => $hi['name'], 'spec' => spec_size_label((string) $hi['spec']), 'est_cost' => $hi['est_cost']],
         'difference' => $hi['est_cost'] - $lo['est_cost'],
-        'basis' => '같은 면적·길이 기준 판매가 자재비(운반·시공비 별도)',
+        'basis' => '같은 면적·길이 기준 ' . $priceLabel . ' 자재비(운반·시공비 별도)',
     ] + (count($tied) > 1 ? [
         'lowest_tied' => array_map(static fn($t) => $t['name'] . ' ' . spec_size_label((string) $t['spec']), $tied),
         'tie_note'    => '최저 예상 자재비가 같은 제품이 ' . count($tied) . '개입니다. 가장 저렴한 것을 말하거나 담을 때 같은 금액 제품이 여럿이라고 함께 알리고, 고객이 고르지 않았으면 표에서 먼저 나온 제품으로 하되 다른 제품도 같은 금액이라고 안내하세요.',
@@ -718,9 +723,9 @@ function ai_cost_summary(array $cards): array
 }
 
 /**
- * 추천표(화면) 카드에 로그인 등급의 표시 단가 price_member 추가 — 회원(개인·기업)은 판매가 대신 할인가를 보이게
- * (app/cart.php display_unit_price, 비회원은 판매가 그대로). 화면으로 보내는 SSE 사본에만 넣는다:
- * GPT 가 보는 products(price_b2c·est_cost·cost_summary)와 저장 금액·관리자 화면은 그대로.
+ * 추천표(화면) 카드에 로그인 등급의 표시 단가 price_member 를 (다시) 넣는다 — 회원(개인·기업)은 판매가 대신 할인가
+ * (app/cart.php display_unit_price, 비회원은 판매가 그대로). 검색 카드는 이미 price_member·est_cost 를 로그인 등급 단가로
+ * 만들므로(GPT 답변 금액도 같음) 여기서는 화면 사본의 값을 현재 기준으로 맞춘다. 저장 금액·관리자 화면은 그대로.
  */
 function ai_cards_with_member_price(array $cards): array
 {
@@ -794,7 +799,7 @@ function ai_search_compare(array $queries, array $input): string
             '_sse'     => [],
         ], JSON_UNESCAPED_UNICODE);
     }
-    [$cards, $costSummary] = ai_cost_summary($cards);
+    [$cards, $costSummary] = ai_cost_summary($cards, member_price_label());
     $out = [
         'products' => $cards,
         'count'    => count($cards),
