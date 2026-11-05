@@ -2043,5 +2043,89 @@
             "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
             "api_note": ""
         }
-    ]
+    ],
+    "kcsc_documents": [
+        {
+            "type": "KDS",
+            "code": "118010",
+            "name": "보강토옹벽",
+            "version": "2025",
+            "updated": "2025-12-29",
+            "clauses": [
+                "V39"
+            ]
+        },
+        {
+            "type": "KCS",
+            "code": "118010",
+            "name": "보강토옹벽공사",
+            "version": "2025",
+            "updated": "2025-12-30",
+            "clauses": [
+                "V39"
+            ]
+        },
+        {
+            "type": "KDS",
+            "code": "118025",
+            "name": "돌(블록)쌓기옹벽",
+            "version": "2025",
+            "updated": "2025-12-29",
+            "clauses": [
+                "V40"
+            ]
+        },
+        {
+            "type": "KDS",
+            "code": "117010",
+            "name": "비탈면 보호공법",
+            "version": "2025",
+            "updated": "2025-12-29",
+            "clauses": [
+                "V41"
+            ]
+        },
+        {
+            "type": "KDS",
+            "code": "614000",
+            "name": "관로시설 설계기준",
+            "version": "2025",
+            "updated": "2026-08-03",
+            "clauses": [
+                "V42",
+                "V43"
+            ]
+        },
+        {
+            "type": "KDS",
+            "code": "444020",
+            "name": "도시지역 도로배수",
+            "version": "2026",
+            "updated": "2026-10-07",
+            "clauses": [
+                "V23"
+            ]
+        },
+        {
+            "type": "KDS",
+            "code": "445025",
+            "name": "차도용 블록포장설계",
+            "version": "2026",
+            "updated": "2026-10-07",
+            "clauses": [
+                "V21"
+            ]
+        },
+        {
+            "type": "KCS",
+            "code": "445025",
+            "name": "차도용 블록포장 공사",
+            "version": "2026",
+            "updated": "2026-10-07",
+            "clauses": [
+                "V22"
+            ]
+        }
+    ],
+    "kcsc_note": "국가건설기준센터 OpenAPI 목록(CodeList)의 판(version)·갱신일(updateDate) 기준값(2026-11-05). 재확인: php scripts/legal-sources/kcsc_fetch.php --recheck (KCSC_API_KEY 필요)"
 }

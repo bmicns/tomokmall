@@ -48,6 +48,17 @@ ok('평문: 태그 제거·엔티티·표 칸 구분·수식 이미지 표시', 
 $g = kcsc_grep($secs, '토피');
 ok('낱말 검색: 절 번호·제목·앞뒤 글', count($g) === 1 && $g[0]['label'] === '1.' && str_contains($g[0]['snippet'], '최소 토피'));
 
+echo "[판·갱신일 재확인]\n";
+$rc = kcsc_recheck($list, [
+    ['type' => 'KCS', 'code' => '614010', 'name' => '하수관로 공사', 'version' => '2024', 'updated' => '2024-05-01', 'clauses' => ['V99']],
+    ['type' => 'KDS', 'code' => '614010', 'name' => '하수관로 설계', 'version' => '2022', 'updated' => '2021-12-31', 'clauses' => []],
+    ['type' => 'KCS', 'code' => '513010', 'name' => '하천 호안', 'version' => '2019', 'updated' => '2019-01-01', 'clauses' => []],
+    ['type' => 'KDS', 'code' => '999999', 'name' => '없는 기준', 'version' => '2020', 'updated' => '2020-01-01', 'clauses' => []],
+]);
+ok('재확인: same·updated(갱신일만)·new_version(판)·missing, 코드 표시', array_column($rc, 'status') === ['same', 'updated', 'new_version', 'missing'] && $rc[0]['display'] === 'KCS 61 40 10' && $rc[0]['clauses'] === ['V99']);
+$targetsReal = json_decode((string) file_get_contents(__DIR__ . '/../docs/03-analysis/ai-sourcing/legal-sources/api_targets.json'), true)['kcsc_documents'] ?? [];
+ok('기준값 8건(V21~V23·V39~V43 근거 기준), 판·갱신일 형식', count($targetsReal) === 8 && !array_filter($targetsReal, static fn($t) => !preg_match('/^\d{6}$/', $t['code']) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $t['updated']) || !$t['clauses']));
+
 echo "[조회 도구 안전장치 — 네트워크 전에 멈추는 경우만]\n";
 $bin = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/../scripts/legal-sources/kcsc_fetch.php');
 exec("env -u KCSC_API_KEY {$bin} --check --no-dotenv 2>&1", $o1, $c1);

@@ -6,6 +6,7 @@ declare(strict_types=1);
  * 데이터: SQL 초안 01·02·06·07 (scripts/testdb/load-legal-docs.sh) — 후보 39건(비활성) + 원문 조문 확인 근거 38건(로컬 활성 33건 + 공공도로 범위 검증 후 V21·V22)
  *        2026-11-04: V28~V35(옹벽·담장·성토·하천·도로 점용·KS 표시·과속방지턱) 8건 추가 — 로컬 활성 22 → 30건
  *        2026-11-05: V36~V38(하수도법 용어 정의·주차장 종류 정의·하천 수로 기준) 3건 추가 — 로컬 활성 30 → 33건
+ *        2026-11-05: V39~V43(국가건설기준 — 보강토옹벽·돌(블록)쌓기옹벽·비탈면 보호·하수 관로·배수설비, KCSC OpenAPI 원문) 5건 추가 — 로컬 활성 33 → 38건
  *  - DB 이름이 '_test'로 끝나고 호스트가 로컬일 때만 실행(아니면 SKIP). 활성/비활성 전환 테스트 후 원상 복구.
  *  - OpenAI 호출 없음: 근거 검색 → 프롬프트 구역 → 답변의 [L번호] 처리까지 rag_process 와 같은 함수로 검증.
  * 확인: 검증된 근거만 검색, 비검증 후보·비활성·비현행 제외, 사내 문서 검색은 기존 그대로, 80T 질문에 법령 출처 미연결.
@@ -50,7 +51,7 @@ echo "[데이터 상태]\n";
 ok('기존 사내 문서 5건 유지', $cnt("source_type = 'internal' AND id <= 5") === 5);
 ok('후보 39건 전부 비활성', $cnt("author = 'AI 조사 초안(검색 기반)' AND is_active = 1") === 0 && $cnt("author = 'AI 조사 초안(검색 기반)'") === 39);
 $activeAll = $cnt("author = '검증 조문(2-1단계)' AND is_active = 1");
-ok('검증 조문 38건 등록 · 로컬 활성 33건(+V21·V22 활성 시 35건)', $cnt("author = '검증 조문(2-1단계)'") === 38 && in_array($activeAll, [33, 35], true));
+ok('검증 조문 43건 등록 · 로컬 활성 38건(+V21·V22 활성 시 40건)', $cnt("author = '검증 조문(2-1단계)'") === 43 && in_array($activeAll, [38, 40], true));
 ok('KDS 44 40 20(우수받이 5~30m)·하수관로 별표 1 은 등록만(비활성)', $cnt("author = '검증 조문(2-1단계)' AND (source_name LIKE 'KDS 44 40 20%' OR source_ref LIKE '[별표 1] 하수관로%') AND is_active = 0") === 2);
 ok('공공 범위 근거는 @scope 태그 보유(V21·V22 public_road, V24 public_sidewalk)', $cnt("author = '검증 조문(2-1단계)' AND tags LIKE '@scope:public_road%'") === 2 && $cnt("author = '검증 조문(2-1단계)' AND tags LIKE '@scope:public_sidewalk%'") === 1);
 
@@ -130,7 +131,7 @@ foreach ($v2122 as $id => $was) {   // 활성·검토 상태 모두 원래대로
 }
 [$c, $r, $d] = $conv('시청에서 발주한 도로 공사인데 차도에 블록 깔려면 두께 몇 mm 써야 해요?');
 $hit = (bool) array_filter($d, static fn($x) => array_intersect(rag_legal_doc_scopes($x), rag_road_scopes($c)));
-ok('V21·V22 비활성(현재 상태)에서는 공공도로 근거 없음 → 수치 없는 안전 구역', $activeAll === 35 || (!$hit && !str_contains(rag_road_context_prompt($c, $hit), '100mm')));
+ok('V21·V22 비활성(현재 상태)에서는 공공도로 근거 없음 → 수치 없는 안전 구역', $activeAll === 40 || (!$hit && !str_contains(rag_road_context_prompt($c, $hit), '100mm')));
 foreach ($v2122 as $id => $was) {   // 활성·검토 상태 모두 원래대로
     $st = $pdo->prepare('UPDATE rag_documents SET is_active = ?, review_status = ? WHERE id = ?');
     $st->execute([(int) $was, (string) $v2122Review[$id], (int) $id]);
@@ -178,7 +179,10 @@ echo "[2차 보완 근거 V28~V35 — 실제 상담 프롬프트(rag_build_promp
 $P = static fn(string $msg): array => rag_build_prompt([['role' => 'user', 'content' => $msg]]);
 $names = static fn(array $p): array => array_map(static fn($d) => $d['source_name'] . ' ' . $d['source_ref'], $p['legalDocs']);
 $p = $P('경사진 마당에 보강토블록으로 옹벽을 2.5m 높이로 쌓으려고 해요. 어떤 블록이 좋아요?');
-ok('옹벽 2.5m → 건축법 시행규칙 제25조 + 시행령 제118조(축조신고)', hasRef($names($p), '건축법 시행규칙') && hasRef($names($p), '건축법 시행령'));
+ok('보강토블록 옹벽 2.5m → 보강토옹벽 기준(KDS 11 80 10, 4차) + 건축법 시행규칙 제25조 — 축조신고(2m 초과)는 KDS 근거 조건에 함께 표시',
+    hasRef($names($p), 'KDS 11 80 10') && hasRef($names($p), '건축법 시행규칙') && str_contains($p['system'], '공작물 축조신고') && str_contains($p['system'], '0.7배'));
+$pPlain = $P('마당에 옹벽을 2.5m 높이로 쌓으려고 해요');
+ok('보강토 없는 옹벽 2.5m → 건축법 시행규칙 제25조 + 시행령 제118조(축조신고)', hasRef($names($pPlain), '건축법 시행규칙') && hasRef($names($pPlain), '건축법 시행령'));
 ok('옹벽 근거 구역에 적용 조건·[L번호]·별표 6 미확보 표시', str_contains($p['system'], '=== 공식 법령 근거') && str_contains($p['system'], '대지(건축물을 짓는 땅)') && str_contains($p['system'], '별표 6') && preg_match('/\[L\d+\] 건축법 시행규칙/u', $p['system']) === 1);
 $p = $P('블록으로 담장을 높이 2m 넘게 쌓아도 되나요?');
 ok('담장 2m → 건축법 시행령 제118조', hasRef($names($p), '제118조'));

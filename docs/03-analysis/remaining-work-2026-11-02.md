@@ -27,7 +27,8 @@
 | 장애인등편의법 시행판 재대조 | **2026-11-12 이후** | `php scripts/legal-sources/mirror_recheck.php` · `law_api_sync.php` 결과 |
 | ~~V25·V26(교통약자법 시행규칙 별표 1·2) law.go.kr 확인~~ | 완료 2026-11-05 | 공식 파일 직접 대조(Claude) — 활성화 대상 33건(`prod-apply/README.md`) |
 | ~~KS 16건 최신 개정·적용 범위(standard.go.kr)~~ | 완료 2026-11-05 | 사용자 캡처 8 + Claude 직접 열람 9 → 확인된 KS 19건 |
-| KCSC OpenAPI 인증키를 환경에 설정(키 발급 완료 2026-11-05) | 수시 | 클라우드 환경 설정의 환경 변수 `KCSC_API_KEY` → 새 세션에서 `kcsc_fetch.php --check` — `ai-sourcing/legal-sources/kcsc-api-2026-11-05.md` |
+| ~~KCSC OpenAPI 인증키 설정~~ | 완료 2026-11-05 | 키 확인 후 기준 원문 조회 → 국가건설기준 근거 V39~V43 추가(`ai-sourcing/legal-sources/additions-2026-11-04.md` 8장) |
+| KCSC 기준 판 재확인 | 분기마다(또는 개정 소식 때) | `php scripts/legal-sources/kcsc_fetch.php --recheck` — 바뀌면 해당 근거 재검토 |
 | ~~조달청 품목 등록 내역~~ | 완료 2026-11-05 | 사용자 제공 → 자재 종류별 공공조달 등록 현황 상담 연결(`ai-sourcing/external-sources/g2b-procurement-summary-2026-11-05.md`) |
 | ~~제조사 이용 허락 요청~~ | — | **제외**(사용자 결정 2026-11-05: 거래 제조사에 직접 연락해 카탈로그를 요청하거나 이용 허락을 받는 작업은 현실적으로 어려워 남은 작업에서 제외) — 템플릿은 참고용으로만 남김 |
 | 그린파이프·고려콘크리트 재수집(선택) | 수시 | `report.md`·`approval-candidates.md` 공유 → 문장 단위 승인 |

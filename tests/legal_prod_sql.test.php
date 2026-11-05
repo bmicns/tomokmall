@@ -28,7 +28,7 @@ echo "[분류]\n";
 $c = prod_classify($verified);
 $ids = static fn(array $rows): array => array_map(static fn($r) => (string) $r['id'], $rows);
 $ready = $ids($c['ready']);
-ok('38건 = 준비 + 확인 필요 + 비활성', count($ready) + count($c['check']) + count($c['inactive']) === count($verified) && count($verified) === 38);
+ok('43건 = 준비 + 확인 필요 + 비활성', count($ready) + count($c['check']) + count($c['inactive']) === count($verified) && count($verified) === 43);
 ok('V21·V22 는 비활성 유지 집합', in_array('V21', $ids($c['inactive']), true) && in_array('V22', $ids($c['inactive']), true) && !array_intersect(['V21', 'V22'], $ready));
 ok('준비 완료는 로컬 상담 대상(active)·확인 수준 원문/API 만', !array_filter($c['ready'], static fn($r) => empty($r['active']) || !in_array($r['verify_level'], PROD_ACTIVE_LEVELS, true)));
 ok('공식 사이트 확인 대기 목록(PROD_NEEDS_OFFICIAL_CHECK)은 준비 집합에 없음', !array_intersect(array_keys(PROD_NEEDS_OFFICIAL_CHECK), $ready) && $ids($c['check']) === array_keys(PROD_NEEDS_OFFICIAL_CHECK));
@@ -72,8 +72,8 @@ array_map('unlink', glob("{$tmp}/*"));
 echo "[등록 SQL — 10]\n";
 $reg = prod_register_sql($candidates, $verified);
 $nCand = count(array_filter(array_map('prod_candidate_row', $candidates)));
-ok('77건 = 후보 39 + 검증 조문 38', $nCand === 39 && substr_count($reg, 'INSERT INTO rag_documents') === 77);
-ok('모든 INSERT 가 INSERT … SELECT … WHERE NOT EXISTS(author, title)', substr_count($reg, "FROM DUAL\n WHERE NOT EXISTS (SELECT 1 FROM rag_documents WHERE author = ") === 77 && !str_contains($reg, 'VALUES ('));
+ok('82건 = 후보 39 + 검증 조문 43', $nCand === 39 && substr_count($reg, 'INSERT INTO rag_documents') === 82);
+ok('모든 INSERT 가 INSERT … SELECT … WHERE NOT EXISTS(author, title)', substr_count($reg, "FROM DUAL\n WHERE NOT EXISTS (SELECT 1 FROM rag_documents WHERE author = ") === 82 && !str_contains($reg, 'VALUES ('));
 ok('UPDATE·DELETE·DDL 없음', !preg_match('/^\s*(UPDATE|DELETE|DROP|ALTER|TRUNCATE|REPLACE)\b/mi', $reg));
 $allRows = array_merge(array_values(array_filter(array_map('prod_candidate_row', $candidates))), array_map('prod_verified_row', $verified));
 ok('전부 is_active=0·review_status=unreviewed', !array_filter($allRows, static fn($r) => $r['is_active'] !== '0' || $r['review_status'] !== "'unreviewed'"));
@@ -89,7 +89,7 @@ echo "[사후 확인·되돌리기 — 30·90]\n";
 $post = prod_post_check_sql($candidates, $verified);
 $stmts = array_filter(array_map('trim', preg_split('/;\s*(?:--[^\n]*)?\n/', (string) preg_replace('/^--.*$/m', '', $post))));
 ok('30 은 SELECT 만', $stmts !== [] && !array_filter($stmts, static fn($s) => !str_starts_with($s, 'SELECT')));
-ok('30 기대값: 등록 77·활성 ' . count($ready) . '·V21/V22 활성 0·source_type 별', str_contains($post, '-- 기대 77') && str_contains($post, '-- 기대 ' . count($ready) . ' (20 적용 전 0)') && str_contains($post, 'v21_v22_active') && str_contains($post, 'kcs=4, kds=5, ks=20, law=48'));
+ok('30 기대값: 등록 82·활성 ' . count($ready) . '·V21/V22 활성 0·source_type 별', str_contains($post, '-- 기대 82') && str_contains($post, '-- 기대 ' . count($ready) . ' (20 적용 전 0)') && str_contains($post, 'v21_v22_active') && str_contains($post, 'kcs=4, kds=5, ks=20, law=53'));
 $rb = prod_rollback_sql();
 ok('90 의 변경문은 법령 근거 행(author)만 대상', preg_match_all('/^(UPDATE|DELETE)[^\n]*$/m', $rb, $rm) === 2 && !array_filter($rm[0], static fn($s) => !str_contains($s, "author")));
 
@@ -151,9 +151,37 @@ ok('40 의 값 = 초안 02(로컬 검증본)의 같은 행 값(적용 범위)', 
 ok('KS D 4040 출처는 한국표준협회 KSSN(사용자 캡처)', str_contains((string) array_values(array_filter($confirmed, static fn($c) => $c['ref_no'] === 'KS D 4040'))[0]['scope_note'], 'KSSN'));
 
 echo "[3차 보완 V36~V38 (2026-11-05) — 용어 정의·하천 수로]\n";
-$new3 = array_values(array_filter($verified, static fn($r) => (int) substr((string) $r['id'], 1) >= 36));
+$new3 = array_values(array_filter($verified, static fn($r) => (int) substr((string) $r['id'], 1) >= 36 && (int) substr((string) $r['id'], 1) <= 38));
 ok('3건(V36~V38)·확인일 2026-11-05·조문 미러 확인', array_column($new3, 'id') === ['V36', 'V37', 'V38'] && !array_filter($new3, static fn($r) => $r['checked_at'] !== '2026-11-05' || $r['verify_level'] !== 'api_text_verified'));
 ok('V36~V38 모두 활성화 준비(V36 은 2026-10-28, V37·V38 은 2026-11-05 공식 API 대조 일치)', !array_diff(['V36', 'V37', 'V38'], $ready));
+
+
+echo "[4차 보완 V39~V43 — 국가건설기준(KCSC OpenAPI 원문)]\n";
+$new4 = array_values(array_filter($verified, static fn($r) => (int) substr((string) $r['id'], 1) >= 39));
+ok('5건(V39~V43)·KDS·원문 확인(original_verified)·확인일 2026-11-05·KCSC OpenAPI 출처·적용 범위·주의 있음', array_column($new4, 'id') === ['V39', 'V40', 'V41', 'V42', 'V43']
+    && !array_filter($new4, static fn($r) => $r['doc_type'] !== 'KDS' || $r['verify_level'] !== 'original_verified' || $r['checked_at'] !== '2026-11-05'
+        || !str_contains($r['verify_source'], '국가건설기준센터 OpenAPI') || trim($r['applies_to']) === '' || trim($r['not_for']) === '' || !$r['conditions'] || !str_starts_with($r['official_url'], 'https://www.kcsc.re.kr')));
+ok('V39~V43 은 활성화 준비 집합(활성화 SQL 포함)', !array_diff(array_column($new4, 'id'), $ready) && !array_filter(array_column($new4, 'id'), static fn($id) => !str_contains($act, "/* {$id} */")));
+// 실제 선택 규칙(app/rag.php rag_search_legal_documents: 점수 3 이상, 상위 2, 동점은 오래된 조문)으로 활성 조문 전체에서 고름
+$pick = static function (string $q) use ($verified): array {
+    $sc = [];
+    foreach ($verified as $r) {
+        if (empty($r['active']) || str_contains((string) $r['tags'], '@scope')) { continue; }
+        $s = rag_legal_score(['tags' => $r['tags'], 'category_key' => $r['category']], $q);
+        if ($s >= 3) { $sc[] = [$s, (int) substr((string) $r['id'], 1), (string) $r['id']]; }
+    }
+    usort($sc, static fn($a, $b) => [$b[0], $a[1]] <=> [$a[0], $b[1]]);
+    return array_column(array_slice($sc, 0, 2), 2);
+};
+ok('보강토블록 옹벽 질문 → V39(보강토옹벽 기준)·V28(건축법 옹벽)', $pick('마당에 보강토블록으로 옹벽을 2.5m 쌓으려고 해요') === ['V39', 'V28']);
+ok('보강토 없는 옹벽 질문은 그대로 V28·V29', $pick('마당에 옹벽을 2.5m 쌓으려고 해요') === ['V28', 'V29']);
+ok('조경석 쌓기 → V40, 격자블록·흙 쓸림 → V41', $pick('조경석 쌓기로 화단 만들려고 해요') === ['V40'] && $pick('경사면 흙이 쓸려 내려가서 격자블록 쓰려고요')[0] === 'V41');
+ok('흄관 모래 기초·PE관 흙 두께 → V42', $pick('흄관 묻을 때 모래 기초 해야 하나요?') === ['V42'] && $pick('PE관을 마당에 묻으려는데 흙 두께는?') === ['V42']);
+ok('오수받이 크기 → V43 먼저, 마당 배수관 관경 → V08(법령)·V43', $pick('오수받이 크기는 어떻게 정해요?')[0] === 'V43' && $pick('마당 배수관 몇 mm 관을 써야 해요?') === ['V08', 'V43']);
+ok('무관 질문에는 새 조문 안 걸림(보도블록 모래 기초·담장 블록 수량·경사 주차장·PE관 수량)', !array_intersect(['V39', 'V40', 'V41', 'V42', 'V43'], array_merge(
+    $pick('보도블록 모래 기초 두께는 얼마나 해요?'), $pick('담장 블록 쌓기 몇 장 필요해요?'), $pick('경사면 주차장에 블록 깔기'), $pick('PE 이중벽관 300mm 50m 필요해요'))));
+ok('V40 한계높이는 허용 높이가 아님을 조건·주의에 명시', str_contains(implode(' ', $byId['V40']['conditions']), '허용 높이가 아님') && str_contains($byId['V40']['not_for'], '쌓아도 된다'));
+ok('V23(도시지역 도로배수)은 2026 판 KCSC 원문 일치 기록 + 비활성 유지', str_contains($byId['V23']['verify_source'], 'KDS 444020 판 2026') && empty($byId['V23']['active']));
 
 echo "[공식 API 대조 2회(2026-11-05-b) — 새 문서 13개]\n";
 $byKey = array_column($targets, null, 'key');
@@ -186,7 +214,7 @@ ok('41 의 content 는 10·06 과 같은 생성 규칙(같은 행 값)', str_con
 $threw = false;
 try { prod_verified_metadata_update_sql($verified, ['V99']); } catch (InvalidArgumentException) { $threw = true; }
 ok('41: 없는 조문 ID → 예외', $threw);
-ok('공식 확인 대기 0건 — 활성화 대상 33건(1단계 20 + V25·V26 + V28~V38)', PROD_NEEDS_OFFICIAL_CHECK === [] && $c['check'] === [] && count($ready) === 33
+ok('공식 확인 대기 0건 — 활성화 대상 38건(1단계 20 + V25·V26 + V28~V38 + V39~V43)', PROD_NEEDS_OFFICIAL_CHECK === [] && $c['check'] === [] && count($ready) === 38
     && !array_diff(['V25', 'V26', 'V28', 'V29', 'V30', 'V31', 'V32', 'V33', 'V34', 'V35', 'V36', 'V37', 'V38'], $ready) && !array_intersect(['V04', 'V20', 'V21', 'V22', 'V23'], $ready));
 $hits3 = static fn(string $q): array => array_values(array_map(static fn($r) => (string) $r['id'], array_filter($new3, static fn($r) => rag_legal_score($r, $q) >= 3)));
 ok('오수·우수 질문 → V36', in_array('V36', $hits3('오수관이랑 빗물관을 따로 묻어야 하나요? 분류식이 뭐예요?'), true));

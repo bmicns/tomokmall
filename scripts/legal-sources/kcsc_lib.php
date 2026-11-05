@@ -114,3 +114,24 @@ function kcsc_find(array $list, array $words, ?string $type = null): array
     }
     return $out;
 }
+
+/**
+ * 판·갱신일 재확인 (순수 함수) — 목록(CodeList)과 기준값(api_targets.json kcsc_documents) 비교.
+ * status: same(판·갱신일 같음) / updated(판은 같고 갱신일만 바뀜 — 본문 일부 수정 가능) / new_version(판이 바뀜) / missing(목록에 없음)
+ */
+function kcsc_recheck(array $list, array $targets): array
+{
+    $idx = [];
+    foreach ($list as $r) {
+        if (is_array($r) && isset($r['codeType'], $r['code'])) { $idx[$r['codeType'] . '/' . $r['code']] = $r; }
+    }
+    $out = [];
+    foreach ($targets as $t) {
+        $r = $idx[$t['type'] . '/' . $t['code']] ?? null;
+        $now = ['version' => (string) ($r['version'] ?? ''), 'updated' => substr((string) ($r['updateDate'] ?? ''), 0, 10)];
+        $status = $r === null ? 'missing' : ($now['version'] !== (string) $t['version'] ? 'new_version' : ($now['updated'] !== (string) $t['updated'] ? 'updated' : 'same'));
+        $out[] = ['display' => $t['type'] . ' ' . implode(' ', str_split((string) $t['code'], 2)), 'name' => (string) $t['name'], 'status' => $status,
+                  'base' => ['version' => (string) $t['version'], 'updated' => (string) $t['updated']], 'now' => $now, 'clauses' => (array) ($t['clauses'] ?? [])];
+    }
+    return $out;
+}

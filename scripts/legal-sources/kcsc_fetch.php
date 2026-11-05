@@ -10,12 +10,13 @@ declare(strict_types=1);
  * 사용: php scripts/legal-sources/kcsc_fetch.php --check
  *       php scripts/legal-sources/kcsc_fetch.php --find='하수,관로' [--type=KCS] [--out=저장소 밖 폴더]
  *       php scripts/legal-sources/kcsc_fetch.php --code='KCS 61 40 10' [--grep=관경] [--out=저장소 밖 폴더]
+ *       php scripts/legal-sources/kcsc_fetch.php --recheck   (근거로 쓰는 기준의 판·갱신일 재확인 — api_targets.json kcsc_documents 와 비교, 바뀌면 종료 코드 1)
  *       --no-dotenv: .env.local 을 읽지 않음(환경변수만)
  */
 if (PHP_SAPI !== 'cli') { exit; }
 require __DIR__ . '/kcsc_lib.php';
 $root = dirname(__DIR__, 2);
-$opt = getopt('', ['check', 'find:', 'type:', 'code:', 'grep:', 'out:', 'no-dotenv']);
+$opt = getopt('', ['check', 'find:', 'type:', 'code:', 'grep:', 'out:', 'no-dotenv', 'recheck', 'targets:']);
 $fail = static function (string $m, string $key = ''): never { fwrite(STDERR, '[중단] ' . kcsc_mask($m, $key) . "\n"); exit(2); };
 
 // 키: 환경변수 → (없으면) .env.local 의 KCSC_API_KEY= 줄 — 값은 어디에도 출력하지 않는다
@@ -61,6 +62,21 @@ $save = static function (string $name, mixed $data) use ($out): void {
     if ($out !== '') { file_put_contents("{$out}/{$name}", json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)); }
 };
 
+if (isset($opt['recheck'])) {
+    $tf = (string) ($opt['targets'] ?? "{$root}/docs/03-analysis/ai-sourcing/legal-sources/api_targets.json");
+    $targets = (array) (json_decode((string) file_get_contents($tf), true)['kcsc_documents'] ?? []);
+    if (!$targets) { $fail("기준값(kcsc_documents)이 없습니다: {$tf}"); }
+    $list = $get('CodeList');
+    if (kcsc_is_null_sentinel($list)) { $fail('키가 틀린 것으로 보입니다 — 목록이 값이 모두 비어 있는 1건으로 왔습니다.'); }
+    $res = kcsc_recheck(is_array($list) ? $list : [], $targets);
+    $changed = 0;
+    foreach ($res as $r) {
+        $changed += $r['status'] === 'same' ? 0 : 1;
+        echo "- {$r['display']} {$r['name']}: {$r['status']} (기준 판 {$r['base']['version']}·{$r['base']['updated']} → 지금 판 {$r['now']['version']}·{$r['now']['updated']}) · 근거 " . implode('·', $r['clauses']) . "\n";
+    }
+    echo "결과: 바뀜 {$changed}건 / " . count($res) . "건" . ($changed ? ' — 바뀐 기준은 --code 로 해당 조항을 다시 읽고 근거 문구·활성 상태를 재검토' : '') . "\n";
+    exit($changed ? 1 : 0);
+}
 if (isset($opt['check']) || isset($opt['find'])) {
     $list = $get('CodeList');
     if (kcsc_is_null_sentinel($list)) { $fail('키가 틀린 것으로 보입니다 — 목록이 값이 모두 비어 있는 1건으로 왔습니다(KCSC 는 잘못된 키에 오류 대신 이렇게 답함).'); }

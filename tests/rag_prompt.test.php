@@ -31,7 +31,8 @@ declare(strict_types=1);
  *        2026-11-05 의도적 변경 반영(16, 설명 자료 실제 데이터 보강): 설명 재료에 weight_kg(등록 규격 판매 단위당 중량)·standard(제품 종류의 국가표준) 추가 — 1줄 수정·2줄 추가.
  *        2026-11-05 의도적 변경 반영(17, KS 적용 범위 사용자 확인 8건): standard 줄에 '사람이 확인한 적용 범위(scope)는 그 문구만' 규칙 덧붙임 — 1줄 수정.
  *        2026-11-05 의도적 변경 반영(18, 공공조달 등록 현황): 근거 구분에 'basics.procurement 의 summary 만, 토목몰 상품 인증·조달 여부로 말하지 않음' 1줄 추가(전 시나리오 같은 차이).
- * 데이터: SQL 초안 01·02·06·07 을 적용한 테스트 DB(검증 조문 38건·활성 33건 — 2026-11-04 V28~V35, 2026-11-05 V36~V38 추가). 다르면 SKIP(기준값은 그 데이터 기준).
+ *        2026-11-05 의도적 변경 반영(19, V39~V43 추가·V21·V22 게시일 KCSC 확인): 공공도로 활성 시나리오 2개(s1·s2 active)의 V21·V22 '확인:' 줄에 국가건설기준센터 확인 문구 — 근거 선택은 7개 시나리오 모두 그대로.
+ * 데이터: SQL 초안 01·02·06·07 을 적용한 테스트 DB(검증 조문 43건·활성 38건 — 2026-11-04 V28~V35, 2026-11-05 V36~V38·V39~V43 추가). 다르면 SKIP(기준값은 그 데이터 기준).
  * 프롬프트를 의도적으로 바꿨다면: php scripts/testdb/dump-prompts.php --out=… 로 확인 후 기준값을 갱신한다.
  * 실행: DB_HOST=127.0.0.1 DB_NAME=tomokmall_test DB_USER=… DB_PASS=… php tests/rag_prompt.test.php
  */
@@ -49,8 +50,8 @@ $pdo = db();
 $cnt = static fn(string $w): int => (int) $pdo->query("SELECT COUNT(*) FROM rag_documents WHERE {$w}")->fetchColumn();
 // 활성 22건(07) 또는 24건(08 — V21·V22 로컬 활성, 사용자 승인 2026-11-02). 'inactive' 기준값은 V21·V22 를 잠시 끄고 만든다(끝나면 원래 값)
 $activeNonRoad = $cnt("author = '검증 조문(2-1단계)' AND is_active = 1 AND (tags IS NULL OR tags NOT LIKE '@scope:public_road%')");
-if ($cnt("author = '검증 조문(2-1단계)'") !== 38 || $activeNonRoad !== 33) {
-    echo "SKIP: 기준값은 검증 조문 38건·(V21·V22 외) 활성 33건 데이터 기준입니다(SQL 초안 06·07 재적용 필요).\n";
+if ($cnt("author = '검증 조문(2-1단계)'") !== 43 || $activeNonRoad !== 38) {
+    echo "SKIP: 기준값은 검증 조문 43건·(V21·V22 외) 활성 38건 데이터 기준입니다(SQL 초안 06·07 재적용 필요).\n";
     exit(0);
 }
 
