@@ -1,6 +1,6 @@
 {
     "_about": "2-1단계 병행 전략 — 39건을 국가법령정보 OPEN API 로 확보 가능한 것과 별도 수집이 필요한 것으로 분류. documents[].baseline 은 scripts/legal-sources/build_api_baseline.php 가 원문 미러에서 계산(조문 정규화 해시·공포번호·시행일). 동기화: scripts/legal-sources/law_api_sync.php. 어떤 결과도 자동 활성화하지 않는다.",
-    "updated": "2026-11-04",
+    "updated": "2026-11-05",
     "coverage_legend": {
         "law_text": "법령 조문 원문·공포번호·시행일·개정 이력을 API 로 수집·대조",
         "law_text+annex_link": "조문은 API, 별표는 제목·HWP/PDF 링크만 API(별표 내용은 파일 — 사람 확인)",
@@ -467,7 +467,8 @@
             ],
             "clauses": [
                 "V07",
-                "V09"
+                "V09",
+                "V36"
             ],
             "watch_articles": [
                 "2",
@@ -1234,6 +1235,72 @@
             "api_check": {
                 "status": "not_checked",
                 "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=road_safety 로 공식 API 대조 필요"
+            }
+        },
+        {
+            "key": "parking_law",
+            "target": "law",
+            "name": "주차장법",
+            "kind": "법률",
+            "candidates": [],
+            "clauses": [
+                "V37"
+            ],
+            "watch_articles": [
+                "2"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/parking_law.md",
+            "api_scope": "조문 원문 — 제2조(정의: 노상·노외·부설주차장)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-05 열람 — 최신판 = 현행판)",
+                "number": "21413",
+                "promulgated": "2026-02-27",
+                "effective": "2026-08-28",
+                "mst": "283743",
+                "articles": {
+                    "2": "fb60945e2f1d1d5d"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "status": "not_checked",
+                "note": "2026-11-05 추가 — 사용자 PC 에서 law_api_sync.php --only=parking_law 로 공식 API 대조 필요"
+            }
+        },
+        {
+            "key": "river_occupy",
+            "target": "admrul",
+            "name": "하천점용허가 세부기준",
+            "kind": "고시",
+            "candidates": [],
+            "clauses": [
+                "V38"
+            ],
+            "watch_articles": [
+                "2",
+                "15"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "admrule/river_occupy.md",
+            "api_scope": "행정규칙 조문 원문 — 제2조(적용범위)·제15조(수로)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/admrule-kr (법제처 OPEN API 행정규칙 원문 미러, 2026-11-05 열람)",
+                "number": "2026-62",
+                "promulgated": "2026-03-09",
+                "effective": "2026-03-09",
+                "mst": "2100000275882",
+                "articles": {
+                    "2": "cfae782f525b230a",
+                    "15": "0e6c2081f300fc9c"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "status": "not_checked",
+                "note": "2026-11-05 추가 — 사용자 PC 에서 law_api_sync.php --only=river_occupy 로 공식 API 대조 필요"
             }
         }
     ],

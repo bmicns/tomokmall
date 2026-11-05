@@ -3,8 +3,9 @@ declare(strict_types=1);
 /**
  * 공식 법령 근거 상담 연동 통합 테스트 — 로컬 테스트 DB 전용(목 데이터 없음).
  *
- * 데이터: SQL 초안 01·02·06·07 (scripts/testdb/load-legal-docs.sh) — 후보 39건(비활성) + 원문 조문 확인 근거 35건(로컬 활성 30건 + 공공도로 범위 검증 후 V21·V22)
+ * 데이터: SQL 초안 01·02·06·07 (scripts/testdb/load-legal-docs.sh) — 후보 39건(비활성) + 원문 조문 확인 근거 38건(로컬 활성 33건 + 공공도로 범위 검증 후 V21·V22)
  *        2026-11-04: V28~V35(옹벽·담장·성토·하천·도로 점용·KS 표시·과속방지턱) 8건 추가 — 로컬 활성 22 → 30건
+ *        2026-11-05: V36~V38(하수도법 용어 정의·주차장 종류 정의·하천 수로 기준) 3건 추가 — 로컬 활성 30 → 33건
  *  - DB 이름이 '_test'로 끝나고 호스트가 로컬일 때만 실행(아니면 SKIP). 활성/비활성 전환 테스트 후 원상 복구.
  *  - OpenAI 호출 없음: 근거 검색 → 프롬프트 구역 → 답변의 [L번호] 처리까지 rag_process 와 같은 함수로 검증.
  * 확인: 검증된 근거만 검색, 비검증 후보·비활성·비현행 제외, 사내 문서 검색은 기존 그대로, 80T 질문에 법령 출처 미연결.
@@ -49,7 +50,7 @@ echo "[데이터 상태]\n";
 ok('기존 사내 문서 5건 유지', $cnt("source_type = 'internal' AND id <= 5") === 5);
 ok('후보 39건 전부 비활성', $cnt("author = 'AI 조사 초안(검색 기반)' AND is_active = 1") === 0 && $cnt("author = 'AI 조사 초안(검색 기반)'") === 39);
 $activeAll = $cnt("author = '검증 조문(2-1단계)' AND is_active = 1");
-ok('검증 조문 35건 등록 · 로컬 활성 30건(+V21·V22 활성 시 32건)', $cnt("author = '검증 조문(2-1단계)'") === 35 && in_array($activeAll, [30, 32], true));
+ok('검증 조문 38건 등록 · 로컬 활성 33건(+V21·V22 활성 시 35건)', $cnt("author = '검증 조문(2-1단계)'") === 38 && in_array($activeAll, [33, 35], true));
 ok('KDS 44 40 20(우수받이 5~30m)·하수관로 별표 1 은 등록만(비활성)', $cnt("author = '검증 조문(2-1단계)' AND (source_name LIKE 'KDS 44 40 20%' OR source_ref LIKE '[별표 1] 하수관로%') AND is_active = 0") === 2);
 ok('공공 범위 근거는 @scope 태그 보유(V21·V22 public_road, V24 public_sidewalk)', $cnt("author = '검증 조문(2-1단계)' AND tags LIKE '@scope:public_road%'") === 2 && $cnt("author = '검증 조문(2-1단계)' AND tags LIKE '@scope:public_sidewalk%'") === 1);
 
@@ -129,7 +130,7 @@ foreach ($v2122 as $id => $was) {   // 활성·검토 상태 모두 원래대로
 }
 [$c, $r, $d] = $conv('시청에서 발주한 도로 공사인데 차도에 블록 깔려면 두께 몇 mm 써야 해요?');
 $hit = (bool) array_filter($d, static fn($x) => array_intersect(rag_legal_doc_scopes($x), rag_road_scopes($c)));
-ok('V21·V22 비활성(현재 상태)에서는 공공도로 근거 없음 → 수치 없는 안전 구역', $activeAll === 32 || (!$hit && !str_contains(rag_road_context_prompt($c, $hit), '100mm')));
+ok('V21·V22 비활성(현재 상태)에서는 공공도로 근거 없음 → 수치 없는 안전 구역', $activeAll === 35 || (!$hit && !str_contains(rag_road_context_prompt($c, $hit), '100mm')));
 foreach ($v2122 as $id => $was) {   // 활성·검토 상태 모두 원래대로
     $st = $pdo->prepare('UPDATE rag_documents SET is_active = ?, review_status = ? WHERE id = ?');
     $st->execute([(int) $was, (string) $v2122Review[$id], (int) $id]);
@@ -197,6 +198,13 @@ $intrude = static fn(array $p): bool => (bool) array_filter($names($p), static f
 $plain = ['주차장 배수로 그레이팅 중하중으로 50m 필요해요', 'PE 이중벽관 300mm 50m 필요해요', '집 앞 마당 4m×5m에 승용차 다니는데 블록 뭐가 좋아요?',
           '맨홀 뚜껑 우수용 중하중 2개요', 'U형 수로관 폭 300 길이 40m', '요즘 물가가 올라서 블록 가격이 궁금해요'];
 ok('일반 자재 질문 6개에는 새 근거 없음', !array_filter($plain, static fn($q) => $intrude($P($q))));
+// 2026-11-05 V36~V38: 용어 정의·하천 수로 기준
+$p = $P('오수관이랑 빗물관을 따로 묻어야 하나요? 분류식이 뭐예요?');
+ok('오수·빗물 질문 → 하수도법 제2조(용어 정의)', hasRef($names($p), '하수도법 (법률') && (bool) array_filter($p['legalDocs'], static fn($d) => str_starts_with((string) $d['source_ref'], '제2조제1호')));
+$p = $P('우리 집 마당 주차 공간도 부설주차장인가요?');
+ok('부설주차장 질문 → 주차장법 제2조(주차장 종류)', hasRef($names($p), '주차장법 (법률'));
+$p = $P('마당 배수로를 집 옆 개울로 연결해도 되나요?');
+ok('개울로 배수 연결 → 하천점용허가 세부기준 제15조(수로)', hasRef($names($p), '하천점용허가 세부기준'));
 // 답변 출처 처리: 새 근거도 [L번호] → 출처 카드(기준명·조항·시행일·URL)
 $p = $P('보강토블록으로 옹벽 3m 쌓으려고요');
 $ids = array_map(static fn($d) => (int) $d['id'], $p['legalDocs']);

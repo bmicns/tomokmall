@@ -22,13 +22,13 @@ $src = "{$root}/docs/03-analysis/ai-sourcing/legal-sources";
 $verified = json_decode((string) file_get_contents("{$src}/verified_clauses.json"), true);
 $candidates = json_decode((string) file_get_contents("{$src}/candidates.json"), true);
 $byId = array_column($verified, null, 'id');
-$today = '2026-11-02';
+$today = '2026-11-05';   // V36(2026-11-05 확인)이 활성화 준비 — 검토일은 확인일 이후여야 함
 
 echo "[분류]\n";
 $c = prod_classify($verified);
 $ids = static fn(array $rows): array => array_map(static fn($r) => (string) $r['id'], $rows);
 $ready = $ids($c['ready']);
-ok('35건 = 준비 + 확인 필요 + 비활성', count($ready) + count($c['check']) + count($c['inactive']) === count($verified) && count($verified) === 35);
+ok('38건 = 준비 + 확인 필요 + 비활성', count($ready) + count($c['check']) + count($c['inactive']) === count($verified) && count($verified) === 38);
 ok('V21·V22 는 비활성 유지 집합', in_array('V21', $ids($c['inactive']), true) && in_array('V22', $ids($c['inactive']), true) && !array_intersect(['V21', 'V22'], $ready));
 ok('준비 완료는 로컬 상담 대상(active)·확인 수준 원문/API 만', !array_filter($c['ready'], static fn($r) => empty($r['active']) || !in_array($r['verify_level'], PROD_ACTIVE_LEVELS, true)));
 ok('공식 사이트 확인 대기(V25·V26)는 준비 집합에 없음', !array_intersect(array_keys(PROD_NEEDS_OFFICIAL_CHECK), $ready) && $ids($c['check']) === array_keys(PROD_NEEDS_OFFICIAL_CHECK));
@@ -36,7 +36,7 @@ ok('로컬 비활성(active=false) 조문은 준비 집합에 없음', !array_in
 ok('확인 필요 항목마다 확인 URL(law.go.kr)·확인 내용', !array_filter($c['check'], static fn($r) => !str_starts_with($r['url'], 'https://www.law.go.kr/') || $r['what'] === ''));
 
 echo "[활성화 SQL — 20]\n";
-$act = prod_activate_sql($verified, '홍길동', '2026-11-02', $today);
+$act = prod_activate_sql($verified, '홍길동', '2026-11-05', $today);
 $actBody = (string) preg_replace('/^--.*$/m', '', $act); // 실행되는 SQL(머리말 주석 제외, /* ID */ 표시는 남음)
 ok('V21·V22 제목·ID 없음(실행 SQL)', !str_contains($act, prod_verified_title($byId['V21'])) && !str_contains($act, prod_verified_title($byId['V22'])) && !preg_match('/\bV2[12]\b/', $actBody));
 ok('공공도로 범위(@scope:public_road) 조문 제목 없음', !array_filter($verified, static fn($r) => str_contains($r['tags'], '@scope:public_road') && str_contains($act, prod_verified_title($r))));
@@ -44,36 +44,36 @@ preg_match_all("/\/\* (V\d+) \*\/ '((?:[^']|'')*)'/u", $act, $m);
 ok('활성화 ID 는 전부 준비 완료 집합(개수 일치)', $m[1] === $ready);
 ok('활성화 제목은 각 ID 의 조문 제목', !array_filter(array_keys($m[1]), static fn($i) => str_replace("''", "'", $m[2][$i]) !== prod_verified_title($byId[$m[1][$i]])));
 ok('검증 조문(author)·원문/API 확인·현행만 대상', str_contains($act, "WHERE author = '" . PROD_AUTHOR_VERIFIED . "'") && str_contains($act, "verify_level IN ('original_verified','api_text_verified')") && str_contains($act, "legal_status = 'current'"));
-ok('검토자·검토일 기록, 후보(author AI 조사 초안) 미포함', str_contains($act, "reviewer = '홍길동', reviewed_at = '2026-11-02'") && !str_contains($act, PROD_AUTHOR_CANDIDATE));
+ok('검토자·검토일 기록, 후보(author AI 조사 초안) 미포함', str_contains($act, "reviewer = '홍길동', reviewed_at = '2026-11-05'") && !str_contains($act, PROD_AUTHOR_CANDIDATE));
 ok('UPDATE 1문만(INSERT·DELETE·DDL 없음)', substr_count($actBody, 'UPDATE ') === 1 && !preg_match('/\b(INSERT|DELETE|DROP|ALTER|TRUNCATE)\b/', $actBody));
 $err = static function (string $rv, string $on) use ($verified, $today): bool {
     try { prod_activate_sql($verified, $rv, $on, $today); return false; } catch (InvalidArgumentException) { return true; }
 };
-ok('검토자 빈 값 거부', $err('', '2026-11-02') && $err('   ', '2026-11-02'));
-ok('검토자 AI·로컬 테스트·자리표시 거부', $err('Claude', '2026-11-02') && $err('로컬 테스트', '2026-11-02') && $err('__REVIEWER__', '2026-11-02'));
-ok('검토일 형식·실제 날짜·미래·확인일 이전 거부', $err('홍길동', '2026/11/02') && $err('홍길동', '2026-02-30') && $err('홍길동', '2026-11-03') && $err('홍길동', '2026-10-27'));
-ok('작은따옴표 검토자도 SQL 문자열로 이스케이프', str_contains(prod_activate_sql($verified, "O'Neil", '2026-11-02', $today), "reviewer = 'O''Neil'"));
+ok('검토자 빈 값 거부', $err('', '2026-11-05') && $err('   ', '2026-11-05'));
+ok('검토자 AI·로컬 테스트·자리표시 거부', $err('Claude', '2026-11-05') && $err('로컬 테스트', '2026-11-05') && $err('__REVIEWER__', '2026-11-05'));
+ok('검토일 형식·실제 날짜·미래·확인일 이전 거부', $err('홍길동', '2026/11/05') && $err('홍길동', '2026-02-30') && $err('홍길동', '2026-11-06') && $err('홍길동', '2026-11-04'));
+ok('작은따옴표 검토자도 SQL 문자열로 이스케이프', str_contains(prod_activate_sql($verified, "O'Neil", '2026-11-05', $today), "reviewer = 'O''Neil'"));
 
 echo "[생성기 CLI — 검토자 인자 없으면 거부]\n";
 $tmp = sys_get_temp_dir() . '/legal_prod_sql_test_' . getmypid();
 @mkdir($tmp);
 $run = static function (string $args) use ($root, $tmp): int {
-    exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg("{$root}/scripts/legal-sources/build_prod_sql.php") . ' --out=' . escapeshellarg($tmp) . " --today=2026-11-02 {$args} 2>/dev/null", $o, $code);
+    exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg("{$root}/scripts/legal-sources/build_prod_sql.php") . ' --out=' . escapeshellarg($tmp) . " --today=2026-11-05 {$args} 2>/dev/null", $o, $code);
     return $code;
 };
 ok('인자 없음 → 종료 코드 2·파일 생성 없음', $run('') === 2 && glob("{$tmp}/*") === []);
 ok('--reviewer 만 → 거부', $run("--reviewer='홍길동'") === 2 && !is_file("{$tmp}/20_activate_ready.sql"));
 ok('잘못된 검토일 → 거부', $run("--reviewer='홍길동' --reviewed-on=2026-13-01") === 2 && glob("{$tmp}/*") === []);
 ok('--no-activation → 10·30·90·README 만', $run('--no-activation') === 0 && is_file("{$tmp}/10_register_inactive.sql") && !is_file("{$tmp}/20_activate_ready.sql") && is_file("{$tmp}/README.md"));
-ok('검토자·검토일 → 20 생성', $run("--reviewer='홍길동' --reviewed-on=2026-11-02") === 0 && str_contains((string) @file_get_contents("{$tmp}/20_activate_ready.sql"), "reviewer = '홍길동'"));
+ok('검토자·검토일 → 20 생성', $run("--reviewer='홍길동' --reviewed-on=2026-11-05") === 0 && str_contains((string) @file_get_contents("{$tmp}/20_activate_ready.sql"), "reviewer = '홍길동'"));
 array_map('unlink', glob("{$tmp}/*"));
 @rmdir($tmp);
 
 echo "[등록 SQL — 10]\n";
 $reg = prod_register_sql($candidates, $verified);
 $nCand = count(array_filter(array_map('prod_candidate_row', $candidates)));
-ok('74건 = 후보 39 + 검증 조문 35', $nCand === 39 && substr_count($reg, 'INSERT INTO rag_documents') === 74);
-ok('모든 INSERT 가 INSERT … SELECT … WHERE NOT EXISTS(author, title)', substr_count($reg, "FROM DUAL\n WHERE NOT EXISTS (SELECT 1 FROM rag_documents WHERE author = ") === 74 && !str_contains($reg, 'VALUES ('));
+ok('77건 = 후보 39 + 검증 조문 38', $nCand === 39 && substr_count($reg, 'INSERT INTO rag_documents') === 77);
+ok('모든 INSERT 가 INSERT … SELECT … WHERE NOT EXISTS(author, title)', substr_count($reg, "FROM DUAL\n WHERE NOT EXISTS (SELECT 1 FROM rag_documents WHERE author = ") === 77 && !str_contains($reg, 'VALUES ('));
 ok('UPDATE·DELETE·DDL 없음', !preg_match('/^\s*(UPDATE|DELETE|DROP|ALTER|TRUNCATE|REPLACE)\b/mi', $reg));
 $allRows = array_merge(array_values(array_filter(array_map('prod_candidate_row', $candidates))), array_map('prod_verified_row', $verified));
 ok('전부 is_active=0·review_status=unreviewed', !array_filter($allRows, static fn($r) => $r['is_active'] !== '0' || $r['review_status'] !== "'unreviewed'"));
@@ -89,7 +89,7 @@ echo "[사후 확인·되돌리기 — 30·90]\n";
 $post = prod_post_check_sql($candidates, $verified);
 $stmts = array_filter(array_map('trim', preg_split('/;\s*(?:--[^\n]*)?\n/', (string) preg_replace('/^--.*$/m', '', $post))));
 ok('30 은 SELECT 만', $stmts !== [] && !array_filter($stmts, static fn($s) => !str_starts_with($s, 'SELECT')));
-ok('30 기대값: 등록 74·활성 ' . count($ready) . '·V21/V22 활성 0·source_type 별', str_contains($post, '-- 기대 74') && str_contains($post, '-- 기대 ' . count($ready) . ' (20 적용 전 0)') && str_contains($post, 'v21_v22_active') && str_contains($post, 'kcs=4, kds=5, ks=20, law=45'));
+ok('30 기대값: 등록 77·활성 ' . count($ready) . '·V21/V22 활성 0·source_type 별', str_contains($post, '-- 기대 77') && str_contains($post, '-- 기대 ' . count($ready) . ' (20 적용 전 0)') && str_contains($post, 'v21_v22_active') && str_contains($post, 'kcs=4, kds=5, ks=20, law=48'));
 $rb = prod_rollback_sql();
 ok('90 의 변경문은 법령 근거 행(author)만 대상', preg_match_all('/^(UPDATE|DELETE)[^\n]*$/m', $rb, $rm) === 2 && !array_filter($rm[0], static fn($s) => !str_contains($s, "author")));
 
@@ -103,7 +103,7 @@ ok('시행 예정 새 판 → pending(감시 조문 같음 표시)', ($r = law_a
 ok('미러 경로가 api_targets.json 문서 전부에 있음', !array_diff(array_column(json_decode((string) file_get_contents("{$src}/api_targets.json"), true)['documents'], 'key'), array_keys(MIRROR_PATHS)));
 
 echo "[2차 보완 V28~V35 (2026-11-04)]\n";
-$new = array_values(array_filter($verified, static fn($r) => (int) substr((string) $r['id'], 1) >= 28));
+$new = array_values(array_filter($verified, static fn($r) => (int) substr((string) $r['id'], 1) >= 28 && (int) substr((string) $r['id'], 1) <= 35));
 $newIds = array_map(static fn($r) => (string) $r['id'], $new);
 ok('8건(V28~V35)', $newIds === ['V28', 'V29', 'V30', 'V31', 'V32', 'V33', 'V34', 'V35']);
 ok('공식 API 대조 전 — 전부 확인 필요 집합(활성화 SQL 제외)', !array_diff($newIds, $ids($c['check'])) && !array_intersect($newIds, $ready) && !array_filter($newIds, static fn($id) => str_contains($act, "/* {$id} */")));
@@ -128,6 +128,16 @@ ok('집 앞 인도 배수로 질문 → V33', in_array('V33', $hits('집 앞 인
 ok('KS 질문 → V34', in_array('V34', $hits('KS 인증 제품이 뭐가 달라요?'), true));
 ok('고무 방지턱 질문 → V35', in_array('V35', $hits('고무 방지턱 도로에 설치해도 되나요?'), true));
 ok('무관한 질문(그레이팅 하중·PE관 관경·물가)에는 안 걸림', $hits('주차장 배수로 그레이팅 중하중 몇 개 필요해요?') === [] && $hits('PE 이중벽관 300mm 50m 필요해요') === [] && $hits('요즘 물가가 올라서 가격이 궁금해요') === []);
+
+echo "[3차 보완 V36~V38 (2026-11-05) — 용어 정의·하천 수로]\n";
+$new3 = array_values(array_filter($verified, static fn($r) => (int) substr((string) $r['id'], 1) >= 36));
+ok('3건(V36~V38)·확인일 2026-11-05·조문 미러 확인', array_column($new3, 'id') === ['V36', 'V37', 'V38'] && !array_filter($new3, static fn($r) => $r['checked_at'] !== '2026-11-05' || $r['verify_level'] !== 'api_text_verified'));
+ok('V36(하수도법 제2조 — 공식 API 대조 일치한 감시 조문)은 활성화 준비, V37·V38 은 공식 대조 대기', in_array('V36', $ready, true) && !array_diff(['V37', 'V38'], $ids($c['check'])));
+$hits3 = static fn(string $q): array => array_values(array_map(static fn($r) => (string) $r['id'], array_filter($new3, static fn($r) => rag_legal_score($r, $q) >= 3)));
+ok('오수·우수 질문 → V36', in_array('V36', $hits3('오수관이랑 빗물관을 따로 묻어야 하나요? 분류식이 뭐예요?'), true));
+ok('부설주차장 질문 → V37', in_array('V37', $hits3('우리 집 마당 주차 공간도 부설주차장인가요?'), true));
+ok('개울로 배수 질문 → V38', in_array('V38', $hits3('마당 배수로를 집 옆 개울로 연결해도 되나요?'), true));
+ok('일반 자재 질문에는 안 걸림', $hits3('PE 이중벽관 300mm 50m 필요해요') === [] && $hits3('인터로킹 블록 20㎡ 주차장') === [] && $hits3('그레이팅 수로용 중하중') === []);
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

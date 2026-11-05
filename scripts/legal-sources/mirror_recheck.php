@@ -49,6 +49,9 @@ const MIRROR_PATHS = [
     'road_decree'   => ['legalize-kr', 'kr/도로법/시행령.md'],
     'ks_law'        => ['legalize-kr', 'kr/산업표준화법/법률.md'],
     'road_safety'   => ['admrule-kr', '국토교통부/_본부/예규/도로안전시설 설치 및 관리 지침/본문.md'],
+    // 2026-11-05 추가(V37 주차장 종류 정의, V38 하천 수로 기준)
+    'parking_law'   => ['legalize-kr', 'kr/주차장법/법률.md'],
+    'river_occupy'  => ['admrule-kr', '기후에너지환경부/_본부/고시/하천점용허가 세부기준/본문.md'],
 ];
 /**
  * 시행 예정판 고정 커밋(미러는 커밋 날짜 = 공포일). 미러가 force-push 되면 해시가 바뀌므로 404 이면
