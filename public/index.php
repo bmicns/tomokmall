@@ -299,9 +299,6 @@ if ($query) {
                             <?php foreach ($u['needs'] as $n): ?>
                             <?= work_type_material_card_html($n) ?>
                             <?php endforeach; ?>
-                            <?php foreach (($u['notes'] ?? []) as $note): /* 법령 주의 안내 말풍선(카드 아래 전체 폭) — 대상 자재가 화면에 있을 때만 */ ?>
-                            <?php if ($noteNames = work_type_note_names($u['needs'], $note)): ?><?= work_type_note_html($note, $noteNames) ?><?php endif; ?>
-                            <?php endforeach; ?>
                         </div>
                         <?php endforeach; ?>
                     </div>

@@ -188,9 +188,6 @@ render_header($pageTitle);
         <img class="ut-banner-side" src="<?= e($bannerImg) ?>" alt="<?= e($workType['img_alt'] ?? '') ?>">
         <?php endif; ?>
     </section>
-    <?php if ($wtNote = work_type_note($workType, (int) $categoryId)): /* 이 자재에 걸린 법령 주의 안내(예: 옹벽 상단 2m 이내 배수관) */ ?>
-    <?= work_type_note_html($wtNote, work_type_note_names($workMats, ['ids' => [(int) $categoryId]])) ?>
-    <?php endif; ?>
     <?php endif;
     if ($hasCatSection):
         $catImg  = $category['image_url'] ?? '';

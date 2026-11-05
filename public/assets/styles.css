@@ -2041,24 +2041,6 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .gh-need-name span, .gh-need-desc{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 }
 
-/* ── 작업별 법령 주의 안내 (app/work_types.php work_type_note_html — 메인 작업 패널·작업별 목록 공통) ── */
-/* 자재 카드 이미지 위 작은 표시 + 카드 아래 말풍선. 색은 --color-warning 계열(badge-warning 과 같은 바탕) */
-.gh-need-img{position:relative}
-.gh-need-flag{position:absolute;top:6px;left:6px;padding:2px 7px;border-radius:999px;background:#FFF8E1;border:1px solid #F0D58A;color:#8A5A00;font-size:11px;font-weight:600;line-height:1.5;white-space:nowrap}
-.wt-note{position:relative;display:flex;gap:10px;align-items:flex-start;margin-top:14px;padding:12px 14px;border:1px solid #F0D58A;border-radius:10px;background:#FFF8E1;color:#4A3B12}
-.gh-need-grid .wt-note{grid-column:1/-1;margin-top:2px}
-.wt-note-icon{flex:none;margin-top:1px;color:var(--color-warning)}
-.wt-note-body{min-width:0}
-.wt-note-title{display:inline;font-size:14px;font-weight:700;color:#5C4300}
-.wt-note-for{display:inline;margin-left:8px;font-size:12px;color:#7A6630}
-.wt-note-text{margin:4px 0 0;font-size:13.5px;line-height:1.6;word-break:keep-all;overflow-wrap:anywhere}
-@media (max-width: 640px) {
-  .gh-need-grid .wt-note{order:-1;margin:0 0 2px}   /* 모바일: 카드가 세로로 길어져 안내를 목록 위로 */
-  .wt-note{padding:12px}
-  .wt-note-for{display:block;margin:2px 0 0}
-  .wt-note-text{font-size:13px}
-}
-
 /* ── 상품 목록 상단 배너 (products.php — 상황별 진입·카테고리 진입 공통 틀) ─────────────── */
 /* 위치 → 제목 → 설명 + 오른쪽 사진. 사진은 글자 뒤가 아니라 글자 오른쪽에만 둔다(명도 대비) */
 .ut-banner{position:relative;overflow:hidden;display:flex;align-items:stretch;gap:28px;min-height:150px;margin-top:24px;padding:30px 40px;background:#EEF3F9;border:1px solid #E3EAF2;box-sizing:border-box}

@@ -336,34 +336,21 @@ ok('work_type_has_material: 대표 자재만 true', work_type_has_material($dr, 
 $imgOk = true;
 foreach (work_types() as $t) { foreach (array_filter([$t['img'] ?? null, $t['banner'] ?? null]) as $im) { if (!is_file(__DIR__ . '/../public' . $im)) { $imgOk = false; } } }
 ok('작업 카드·배너 이미지 파일 존재', $imgOk);
-// 2026-11-05: 사구석(157) 정원 추가·수목보호틀(인조석, 104) 제외, 옹벽 배수관 재질 주의 안내(건축법 시행규칙 제25조제4호)
+// 2026-11-05: 사구석(157) 정원 추가·수목보호틀(인조석, 104) 제외. 배수관 주의 안내는 화면에 없음(AI 상담 답변에서만)
 $gd = work_type_find('garden');
 ok('정원: 사구석(157) 포함, 수목보호틀(인조석, 104) 제외', work_type_has_material($gd, 157) && !work_type_has_material($gd, 104));
-$rt = work_type_find('retaining');
-$rn = work_type_note($rt, 167);
-ok('옹벽: PE 유공관(167) 추천 유지 + 주의 안내(제25조 재질 제한·2m)', work_type_has_material($rt, 167) && $rn !== null
-    && str_contains($rn['text'], '제25조') && str_contains($rn['text'], '2m') && work_type_note($rt, 84) === null);
-ok('지하 배수: PE 유공관 1종·2종(167·168)에 같은 안내', work_type_note(work_type_find('subdrain'), 167) !== null
-    && work_type_note(work_type_find('subdrain'), 168) !== null && work_type_note(work_type_find('subdrain'), 181) === null);
-$rm = work_type_materials($rt, []);
-$flags = array_column($rm, 'note', 'id');
-ok('주의 대상 카드만 표시 문구', ($flags[167] ?? '') === '설치 위치 주의' && ($flags[84] ?? 'x') === '');
-ok('카드 HTML: 대상 카드에만 표시', str_contains(work_type_material_card_html($rm[array_search(167, array_column($rm, 'id'), true)]), 'gh-need-flag')
-    && !str_contains(work_type_material_card_html($rm[0]), 'gh-need-flag'));
-$nh = work_type_note_html($rn, work_type_note_names($rm, $rn));
-ok('말풍선 HTML: 제목·대상 이름·문구, 이스케이프', str_contains($nh, 'role="note"') && str_contains($nh, '대상: PE이중벽관1종(유공관)')
-    && str_contains($nh, '「건축법 시행규칙」') && !str_contains(work_type_note_html(['title' => '<b>', 'text' => 'x']), '<b>'));
 $sw = work_type_find('sewer');
-$cn = work_type_note($sw, 269);
-ok('배수관 묻기: 파형강관(269) 역할 \'도로 횡배수관\' + 관경 안내(KDS 44 40 15·1,000mm·800mm)',
-    in_array([269, '파형강관', '도로 횡배수관'], $sw['materials'], true) && $cn !== null
-    && str_contains($cn['text'], 'KDS 44 40 15') && str_contains($cn['text'], '1,000mm') && str_contains($cn['text'], '800mm')
-    && work_type_note($sw, 50) === null);
+ok('배수관 묻기: 파형강관(269) 역할 \'도로 횡배수관\'', in_array([269, '파형강관', '도로 횡배수관'], $sw['materials'], true));
+$noteFns = ['work_type_note', 'work_type_note_html', 'work_type_wall_drain_note', 'work_type_cross_drain_note'];
+ok('AI 상담 밖 배수관 안내 없음(작업 설정 notes·안내 함수 없음)', !array_filter($wt, static fn($t) => isset($t['notes'])) && !array_filter($noteFns, 'function_exists'));
+$bp = rag_build_prompt([['role' => 'user', 'content' => '보강토 옹벽 뒤에 PE 유공관 묻을 건데 어떤 거 써요?']])['system'];
+$bq = rag_build_prompt([['role' => 'user', 'content' => '차도 밑으로 파형강관 넣으려는데 관경 몇 mm 써야 하나요']])['system'];
+$bn = rag_build_prompt([['role' => 'user', 'content' => '사람만 다니는 정원 길에 블록 깔고 싶어요']])['system'];
+ok('AI 상담 프롬프트: 옹벽 배수관·도로 횡단배수관 질문에만 주의 안내 구역', str_contains($bp, '[옹벽 배수관]') && !str_contains($bp, '[도로 횡단배수관]')
+    && str_contains($bq, '[도로 횡단배수관]') && !str_contains($bn, '배수관 설치 위치·관경 주의 안내'));
 $descs = [];
 foreach ($wt as $t) { foreach ($t['materials'] as $mm) { $descs[] = $mm[2]; } }
 ok('용도 설명에 근거 없는 \'대구경\' 없음(50 흄관·137·269 파형강관)', !array_filter($descs, static fn($d) => str_contains($d, '대구경')));
-$bad = [['key' => 'x', 'name' => 'X', 'materials' => [[24, 'a', 'd']], 'notes' => [['ids' => [25], 'title' => 't', 'text' => 'x']]]];
-ok('주의 안내 대상이 대표 자재에 없으면 위반 검출', count(work_types_validate($bad)) === 1);
 
 echo "[작업별 목록 필터 = 기존 products.php 필터 render_product_filters]\n";
 $fc = ['mat' => [11 => 28, 13 => 10], 'shape' => ['U형' => 2], 'load' => [], 'spec' => ['200*200' => 3, '300*300' => 1], 'total' => 38];

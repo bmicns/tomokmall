@@ -11,8 +11,7 @@ declare(strict_types=1);
  *  - work_type_category_info()  대표 자재 카테고리의 이름·활성 여부·썸네일 일괄 조회(DB)
  *  - work_type_materials()      화면에 표시할 대표 자재 목록(비활성·없는 카테고리 제외)
  *  - work_type_find() / work_type_has_material()  작업별 상품 목록(products.php?category=ID&work=키) 판별(순수 함수)
- *  - work_type_note() / work_type_note_html()       자재별 법령·기준 주의 안내(말풍선) — 옹벽 상단 2m 이내 배수관 재질(건축법 시행규칙 제25조),
- *                                                   도로 횡단배수관 최소관경(KDS 44 40 15)
+ *  (배수관 설치 위치·관경 주의 안내는 화면이 아니라 AI 상담 답변에서만 — app/rag.php rag_drain_notice_prompt())
  *
  * 규칙(확정 정책):
  *  - 작업 유형별 대표 자재는 최대 WORK_TYPE_MAX_MATERIALS(10)개, 같은 작업 안에서 중복 금지
@@ -31,7 +30,6 @@ const WORK_TYPE_STRUCTURE_CATEGORY_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 14
  * materials: [카테고리ID, 이름(DB 미연결 시 표시용), 짧은 용도 설명] — 순서는 근거 강도·핵심도 순(자재별 근거는 v5 문서 3장)
  * img: 작업 카드 이미지(로컬, null이면 첫 대표 자재 이미지), img_kind: photo(현장 사진) | product(자재 이미지, 여백·배경 적용)
  * banner: (선택) 작업별 상품 목록 상단 배너용 가로형 이미지. 없으면 img 사용
- * notes: (선택) 법령 주의 안내 [['ids' => [카테고리ID…], 'flag', 'title', 'text']] — 자재 카드에 표시 + 작업 패널·작업별 목록에 말풍선
  */
 function work_types(): array
 {
@@ -88,8 +86,6 @@ function work_types(): array
         ['key' => 'retaining', 'name' => '경사지 옹벽 설치',
          'summary' => '높낮이 차이가 있는 땅이나 비탈이 무너지지 않게 벽을 쌓을 때',
          'img' => '/assets/images/home-use-옹벽.jpg', 'img_kind' => 'photo', 'img_alt' => '비탈 아래에 회색 블록을 쌓아 흙을 받친 보강토 블록 옹벽',
-         // PE 유공관은 추천을 유지하되, 옹벽 상단 2m 이내 매설 배수관 재질 제한(건축법 시행규칙 제25조제4호)을 안내(v5 3-4 #4)
-         'notes' => [work_type_wall_drain_note([167])],
          'materials' => [
              [84,  '보강토블록(민무늬)',         '보강토 옹벽 본체'],
              [88,  '그리드',                     '보강토 보강재'],
@@ -155,8 +151,6 @@ function work_types(): array
         ['key' => 'sewer', 'name' => '배수관 묻기·맨홀 설치',
          'summary' => '빗물·하수를 땅속 관으로 보내거나, 맨홀·집수정·도로 밑 물길을 놓을 때',
          'img' => '/assets/images/home-use-맨홀.png', 'img_kind' => 'photo', 'img_alt' => '집수정 구조물과 맨홀 뚜껑',
-         // 판매 파형강관(D150~D700)은 공공 도로 횡단배수관 최소관경(1,000mm, 부득이 800mm)보다 작을 수 있어 관경 확인 안내(v5 3-8 #9)
-         'notes' => [work_type_cross_drain_note([269])],
          'materials' => [
              [164, 'PE이중벽관2종',              '일반 우수·오수관'],
              [163, 'PE이중벽관1종',              '차도 하부 우수관'],
@@ -173,8 +167,6 @@ function work_types(): array
         ['key' => 'subdrain', 'name' => '땅속 물 빼기(지하 배수)',
          'summary' => '운동장·농경지·옹벽 뒤가 늘 질척여 땅속 물을 빼야 할 때',
          'img' => '/assets/images/home-use-지하배수.jpg', 'img_kind' => 'photo', 'img_alt' => '부직포를 깐 도랑 바닥의 자갈 위에 유공 배수관을 묻는 지하 배수 공사',
-         // 요약에 '옹벽 뒤'가 있어 PE 유공관에 같은 재질 제한 안내(건축법 시행규칙 제25조제4호)
-         'notes' => [work_type_wall_drain_note([167, 168])],
          'materials' => [
              [167, 'PE이중벽관1종(유공관)',      '유공 배수관'],
              [168, 'PE이중벽관2종(유공관)',      '일반 지하 배수'],
@@ -273,16 +265,6 @@ function work_types_validate(array $types): array
                 $errors[] = "{$key}: 대분류(구조) 카테고리 {$id}";
             }
         }
-        foreach ($t['notes'] ?? [] as $note) {
-            if (trim((string) ($note['text'] ?? '')) === '' || empty($note['ids'])) {
-                $errors[] = "{$key}: 주의 안내 문구·대상 없음";
-            }
-            foreach ($note['ids'] ?? [] as $nid) {
-                if (!isset($seen[$nid])) {
-                    $errors[] = "{$key}: 주의 안내 대상 {$nid}이(가) 대표 자재에 없음";
-                }
-            }
-        }
     }
     return $errors;
 }
@@ -343,7 +325,6 @@ function work_type_materials(array $type, array $info): array
             // 작업 키가 있으면 작업별 목록(작업 배너 + 자재 종류 패널)으로 연결
             'href' => '/products.php?category=' . $id . (isset($type['key']) ? '&work=' . rawurlencode((string) $type['key']) : ''),
             'img'  => $localImg[$id] ?? ($info[$id]['thumb'] ?? ''),
-            'note' => (string) (work_type_note($type, $id)['flag'] ?? ''),
         ];
     }
     return $out;
@@ -364,71 +345,6 @@ function work_type_find(string $key): ?array
 function work_type_has_material(array $type, int $categoryId): bool
 {
     return $categoryId > 0 && in_array($categoryId, array_column($type['materials'] ?? [], 0), true);
-}
-
-/**
- * 옹벽 배수관 재질 주의 안내. 건축법 시행규칙 제25조제4호: 대지 조성 옹벽의 윗가장자리로부터 안쪽 2m 이내에
- * 묻는 배수관은 주철관·강관·흄관. 추천은 유지하고 설치 위치 확인을 안내한다(문구: 사용자 확정 2026-11-05, v5 문서 3-4).
- */
-function work_type_wall_drain_note(array $ids): array
-{
-    return [
-        'ids'   => $ids,
-        'flag'  => '설치 위치 주의',
-        'title' => '옹벽 배수관 설치 위치 확인',
-        'text'  => '옹벽 배수에는 현장 설계에 따라 유공관 등의 배수 자재를 사용할 수 있습니다. '
-                 . '다만 옹벽 상단에서 대지 안쪽 2m 이내에 매설하는 배수관은 「건축법 시행규칙」 제25조의 재질 제한이 적용될 수 있습니다. '
-                 . '설치 위치와 설계도면을 확인한 후 적합한 배수관을 선택해 주세요.',
-    ];
-}
-
-/**
- * 도로 횡단배수관 관경 주의 안내. KDS 44 40 15:2026 횡단배수 및 「도로 배수시설 설계 및 관리 지침」(2025.02) 5.7.5:
- * 횡단배수관 최소관경 1,000mm 이상, 부득이한 경우 800mm 이상. 추천은 유지하고 설계도면 관경 확인을 안내한다
- * (문구: 사용자 확정 2026-11-05, v5 문서 3-8).
- */
-function work_type_cross_drain_note(array $ids): array
-{
-    return [
-        'ids'   => $ids,
-        'flag'  => '관경 확인',
-        'title' => '도로 횡단배수관 관경 확인',
-        'text'  => '공공 도로를 가로지르는 횡단배수관은 국가건설기준(KDS 44 40 15)상 관경 1,000mm 이상(부득이한 경우 800mm)이 요구될 수 있습니다. '
-                 . '설계도면의 관경을 확인해 주세요.',
-    ];
-}
-
-/** 작업 유형에서 카테고리에 걸린 주의 안내(없으면 null, 순수 함수) */
-function work_type_note(array $type, int $categoryId): ?array
-{
-    foreach ($type['notes'] ?? [] as $note) {
-        if (in_array($categoryId, $note['ids'] ?? [], true)) {
-            return $note;
-        }
-    }
-    return null;
-}
-
-/**
- * 주의 안내 말풍선 HTML. $names: 대상 자재 이름(화면 표시용, 비면 생략).
- * 작업 패널(index.php)에서는 카드 아래 전체 폭, 작업별 목록(products.php)에서는 배너 아래.
- */
-function work_type_note_html(array $note, array $names = []): string
-{
-    $for = $names ? '<span class="wt-note-for">대상: ' . e(implode(', ', $names)) . '</span>' : '';
-    return '<div class="wt-note" role="note">'
-        . '<svg class="wt-note-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 7v6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="16.8" r="1.4" fill="#fff"/></svg>'
-        . '<div class="wt-note-body"><strong class="wt-note-title">' . e((string) $note['title']) . '</strong>' . $for
-        . '<p class="wt-note-text">' . e((string) $note['text']) . '</p></div>'
-        . '</div>';
-}
-
-/** 화면에 표시할 대표 자재 중 주의 안내 대상의 이름 */
-function work_type_note_names(array $materials, array $note): array
-{
-    $ids = $note['ids'] ?? [];
-    return array_values(array_map(static fn($n) => (string) $n['name'],
-        array_filter($materials, static fn($n) => in_array((int) $n['id'], $ids, true))));
 }
 
 /** 로컬에 고해상도 자재 이미지가 있는 카테고리 (DB 썸네일보다 우선) */
@@ -463,9 +379,8 @@ function work_type_material_card_html(array $n): string
         ? '<img src="' . e($n['img']) . '" alt="" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false">'
           . '<span class="gh-need-noimg" aria-hidden="true" hidden>' . $initial . '</span>'
         : '<span class="gh-need-noimg" aria-hidden="true">' . $initial . '</span>';
-    $flag = ($n['note'] ?? '') !== '' ? '<span class="gh-need-flag">' . e($n['note']) . '</span>' : '';
     return '<a class="gh-need-card" href="' . e($n['href']) . '" data-category-id="' . (int) $n['id'] . '">'
-        . '<span class="gh-need-img">' . $img . $flag . '</span>'
+        . '<span class="gh-need-img">' . $img . '</span>'
         . '<span class="gh-need-name"><span>' . e($n['name']) . '</span>'
         . '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>'
         . '</span>'
