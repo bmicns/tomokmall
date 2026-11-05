@@ -626,6 +626,11 @@ main {
   font-size: 13px;
   color: var(--color-text-secondary);
 }
+/* 장바구니 '비우기'(POST 폼 버튼): 예전 글자 링크 모양 유지 — 전역 button(파란 배경)·hover 덮기, 터치 높이 44px */
+.cart-clear-form { margin: 0; }
+.cart-clear-btn,
+.cart-clear-btn:hover { min-height: 44px; padding: 0 4px; border: 0; background: transparent; color: inherit; font-size: 15px; font-weight: 400; }
+.cart-clear-btn:hover { text-decoration: underline; }
 
 /* ── 상품 그리드 (피그마: 이미지박스 + 이름 아래) ──────────── */
 .product-grid {
