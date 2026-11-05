@@ -189,6 +189,9 @@ try {
     exit;
 }
 
+// 회원 화면 표시 금액: 회원 등급별 할인가 합계(표시 전용 — orders·order_items·payments 에 저장하는 금액과 관리자 화면은 원래대로)
+$displayAmount = (int) array_sum(array_column(items_with_display_prices($cartItems), 'subtotal'));
+
 // 장바구니 초기화
 cart_session_write([]);
 
@@ -197,6 +200,7 @@ echo json_encode([
     'ok'          => true,
     'order_id'    => $orderId,
     'pg_order_id' => $pgOrderId,
-    'amount'      => $totalAmount,
+    'amount'      => $totalAmount,      // 저장·결제 기준 금액(판매가)
+    'display_amount' => $displayAmount, // 회원 화면 표시 금액(할인가) — PG 연동 시 실제 결제 금액과 맞출지 결정 필요
     'payment_url' => null, // TODO: P2 PG 선택 후 실제 결제 URL 반환
 ]);

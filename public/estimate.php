@@ -20,7 +20,7 @@ if (empty($cartItems)) {
     }
 }
 // 화면 단가: 상품 상세와 같은 회원 할인가만(비회원=판매가, 개인=개인회원가, 기업=기업회원가 — app/cart.php).
-// 접수 시 저장도 같은 단가(app/estimate.php estimate_create → items_with_display_prices)
+// 표시 전용 — 접수 시 저장 단가·관리자 화면 가격은 원래대로(app/estimate.php)
 $cartItems = items_with_display_prices($cartItems);
 [$cartCount, $cartTotal] = cart_summary_from_items($cartItems);
 // '문의'(단가 0) 품목 포함 여부 — 금액에서 제외되므로 최종 금액이 확정 금액처럼 보이지 않게 표시

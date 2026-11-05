@@ -3,6 +3,7 @@ declare(strict_types=1);
 require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/auth.php';
 require __DIR__ . '/../app/layout.php';
+require_once __DIR__ . '/../app/cart.php';   // estimate_display_totals — 이전주문 금액(회원 할인가)
 
 if (!is_logged_in()) {
     redirect('/login.php?redirect=' . urlencode('/mypage.php'));
@@ -31,6 +32,11 @@ try {
     );
     $st->execute(['uid' => $uid]);
     $orders = $st->fetchAll();
+    // 회원 화면 금액: 회원 등급별 할인가 합계(표시 전용 — 저장 단가·관리자 화면은 원래대로)
+    $dispTotals = estimate_display_totals(array_column($orders, 'id'));
+    foreach ($orders as $i => $row) {
+        if (isset($dispTotals[(int) $row['id']])) { $orders[$i]['total_amount'] = $dispTotals[(int) $row['id']]; }
+    }
 } catch (\Throwable $e) { $orders = []; }
 
 $activeTab = $_GET['tab'] ?? 'info';

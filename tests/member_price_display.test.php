@@ -8,8 +8,9 @@ declare(strict_types=1);
  *  - 견적 요청(/estimate.php): 개인=개인회원가·기업=기업회원가만 표시(취소선 없음), 합계도 같은 단가
  *  - API 추가 필드: by-category(price_list·price_member), quick-items(display_*), favorites(price_list·price_member) — 기존 필드 그대로, 매입가 미노출
  *  - 기업회원 홈 단골품목 데이터(price_list·price_member)
- *  - 새 견적 저장 단가 = 화면 단가(비회원=판매가, 개인=개인회원가, 기업=기업회원가) → 마이페이지 이전주문·요청된 견적 금액도 같음
- *  - AI 상담 견적서 패널(/api/cart.php)·AI 도구 장바구니 조회(tool_get_cart)도 같은 단가
+ *  - 저장 단가(견적·주문)와 관리자·직원 화면 가격은 원래대로(판매가·기업가 컬럼) — 회원 화면만 할인가(사용자 결정 2026-11-05)
+ *  - 회원 화면 금액: 요청된 견적·마이페이지 이전주문·현장별 주문·현장 합계(estimate_display_totals), 주문 API display_amount
+ *  - AI 상담 견적서 패널(/api/cart.php)·AI 도구 장바구니 조회(tool_get_cart)·추천표 카드(price_member)도 같은 단가
  *  - 장바구니 비우기: GET ?clear=1 로는 비워지지 않고 POST action=clear 로만
  *
  * 목 데이터 원칙(tests/favorites_api.test.php 와 동일):
@@ -27,6 +28,7 @@ $_SERVER['HTTPS'] = $_SERVER['HTTPS'] ?? '';
 require __DIR__ . '/../app/bootstrap.php';
 require_once __DIR__ . '/../app/cart.php';
 require_once __DIR__ . '/../app/ai_tools.php';
+require_once __DIR__ . '/../app/rag.php';
 
 $dbName = (string) ($config['db']['name'] ?? '');
 $dbHost = (string) ($config['db']['host'] ?? '');
@@ -56,6 +58,7 @@ define('MOCK_PW', getenv('MPRICE_TEST_PW') ?: bin2hex(random_bytes(12)));
 const MOCK_USERS = [
     'cust' => ['customer',  '[MOCK] 회원가 개인', 'mprice-cust@mock.test'],
     'corp' => ['corporate', '[MOCK] 회원가 기업', 'mprice-corp@mock.test'],
+    'staff' => ['staff',    '[MOCK] 회원가 직원', 'mprice-staff@mock.test'],
 ];
 // [이름, 판매가 b2c, 기업가 b2b, 매입가] — 개인 마진 20%, 기업 마진 15%
 const MOCK_PRODUCTS = [
@@ -71,6 +74,11 @@ function cleanup_mprice_mock(PDO $pdo): void
     $mockEst = "user_id IN ({$uids}) OR (user_id IS NULL AND customer_name LIKE '[MOCK] 회원가%')";   // 비회원 목 견적 포함
     $pdo->exec("DELETE FROM estimate_items WHERE estimate_id IN (SELECT id FROM (SELECT id FROM estimates WHERE {$mockEst}) t)");
     $pdo->exec("DELETE FROM estimates WHERE {$mockEst}");
+    $pdo->exec("DELETE FROM site_orders WHERE site_id IN (SELECT id FROM (SELECT id FROM sites WHERE user_id IN ({$uids})) t)");
+    $pdo->exec("DELETE FROM sites WHERE user_id IN ({$uids})");
+    $mockOrd = "SELECT id FROM (SELECT id FROM orders WHERE customer_name LIKE '[MOCK] 회원가%') t";
+    foreach (['payments', 'shipping_info', 'order_items'] as $t) { $pdo->exec("DELETE FROM {$t} WHERE order_id IN ({$mockOrd})"); }
+    $pdo->exec("DELETE FROM orders WHERE customer_name LIKE '[MOCK] 회원가%'");
     $pdo->exec("DELETE FROM favorite_products WHERE user_id IN ({$uids})");
     $pdo->exec("DELETE FROM users WHERE email LIKE 'mprice-%@mock.test'");
     $pdo->exec("DELETE FROM products WHERE external_source = 'MOCK' AND external_id LIKE 'mprice-%'");
@@ -207,17 +215,39 @@ ok('/api/cart.php get: 상품1 단가 8,400 · 소계 16,800, 합계 34,800', ($
 [, $d] = http('POST', "{$base}/api/cart.php", ['action' => 'update', 'product_id' => $pids[2], 'quantity' => 1], $jCust);
 ok('/api/cart.php update 응답도 같은 단가(합계 34,800)', ($d['cart']['total'] ?? null) === 34800);
 
-echo "[개인회원 — 접수 시 저장 단가 = 화면 단가 → 이전주문·요청된 견적 금액도 같음]\n";
+echo "[개인회원 — 저장 단가는 원래대로(판매가), 회원 화면(요청된 견적·이전주문)은 할인가 합계]\n";
 $items = array_map(static fn($n, $q) => ['product_id' => $pids[$n], 'quantity' => $q], [1, 2, 4], [2, 1, 1]);
 [, $d] = http('POST', "{$base}/quote.php", ['customer_name' => '[MOCK] 회원가 개인', 'phone' => '010-0000-0000', 'delivery_undecided' => true, 'items' => $items], $jCust);
 $eid = (int) ($d['estimate_id'] ?? 0);
 $saved = $eid ? $pdo->query("SELECT product_id, unit_price FROM estimate_items WHERE estimate_id = {$eid}")->fetchAll(PDO::FETCH_KEY_PAIR) : [];
 ok('견적 접수 ok', ($d['ok'] ?? false) === true && $eid > 0);
-ok('저장 단가: 상품1 8,400 · 상품2 18,000 · 상품4 0 (화면과 같음)', (int) ($saved[$pids[1]] ?? -1) === 8400 && (int) ($saved[$pids[2]] ?? -1) === 18000 && (int) ($saved[$pids[4]] ?? -1) === 0);
+ok('저장 단가: 상품1 10,000 · 상품2 20,000 · 상품4 0 (판매가 그대로)', (int) ($saved[$pids[1]] ?? -1) === 10000 && (int) ($saved[$pids[2]] ?? -1) === 20000 && (int) ($saved[$pids[4]] ?? -1) === 0);
 [, , $html] = http('GET', "{$base}/my-estimates.php", null, $jCust);
-ok('요청된 견적: 금액 34,800원', str_contains($html, '34,800원'));
+ok('요청된 견적(회원 화면): 금액 34,800원 — 저장 합계 40,000 아님', str_contains($html, '34,800원') && !str_contains($html, '40,000'));
 [, , $html] = http('GET', "{$base}/mypage.php?tab=orders", null, $jCust);
-ok('마이페이지 이전주문: 금액 34,800', str_contains($html, '34,800'));
+ok('마이페이지 이전주문(회원 화면): 금액 34,800원', str_contains($html, '34,800원') && !str_contains($html, '40,000'));
+$jStaff = login($base, MOCK_USERS['staff'][2]);
+[$st, , $html] = http('GET', "{$base}/staff/estimate-detail.php?id={$eid}", null, $jStaff);
+ok('관리자·직원 견적 상세: 요청단가 10,000원·20,000원(원래대로, 할인가 아님)', $st === 200 && str_contains($html, '>10,000원<') && str_contains($html, '>20,000원<') && !str_contains($html, '8,400'));
+
+echo "[개인회원 — 현장관리 주문 금액(회원 화면) = 할인가 합계]\n";
+[, $d] = http('POST', "{$base}/api/sites/index.php", ['name' => '[MOCK] 회원가 현장'], $jCust);
+$siteId = (int) ($d['id'] ?? 0);
+http('POST', "{$base}/api/sites/orders.php", ['site_id' => $siteId, 'estimate_id' => $eid], $jCust);
+[, $d] = http('GET', "{$base}/api/sites/orders.php?site_id={$siteId}", null, $jCust);
+ok('현장별 주문: total_amount 34,800', $siteId > 0 && (int) ($d['orders'][0]['total_amount'] ?? -1) === 34800);
+[, $d] = http('GET', "{$base}/api/sites/index.php", null, $jCust);
+$site = []; foreach (($d['sites'] ?? []) as $x) { if ((int) $x['id'] === $siteId) { $site = $x; } }
+ok('현장 목록 합계: 34,800', (int) ($site['total_amount'] ?? -1) === 34800);
+
+echo "[개인회원 — 주문 API: 저장·결제 금액은 판매가, 화면 표시 금액(display_amount)은 할인가]\n";
+http('POST', "{$base}/api/cart.php", ['action' => 'add', 'product_id' => $pids[1], 'quantity' => 2], $jCust);
+[, $d] = http('POST', "{$base}/api/order.php", ['customer_name' => '[MOCK] 회원가 주문', 'phone' => '010-0000-0000',
+    'shipping' => ['recipient_name' => '[MOCK] 수령', 'phone' => '010-0000-0000', 'address1' => '[MOCK] 주소']], $jCust);
+$oid = (int) ($d['order_id'] ?? 0);
+ok('주문 응답: amount 20,000 · display_amount 16,800', $oid > 0 && ($d['amount'] ?? null) === 20000 && ($d['display_amount'] ?? null) === 16800);
+$oSaved = $oid ? $pdo->query("SELECT o.total_amount, p.amount, oi.unit_price FROM orders o JOIN payments p ON p.order_id = o.id JOIN order_items oi ON oi.order_id = o.id WHERE o.id = {$oid}")->fetch() : [];
+ok('저장: orders.total_amount 20,000 · payments.amount 20,000 · order_items.unit_price 10,000(원래대로)', (int) ($oSaved['total_amount'] ?? -1) === 20000 && (int) ($oSaved['amount'] ?? -1) === 20000 && (int) ($oSaved['unit_price'] ?? -1) === 10000);
 
 echo "[비회원 — 견적 요청·저장은 판매가 그대로]\n";
 $jGuest = tempnam(sys_get_temp_dir(), 'mpjar');
@@ -258,7 +288,9 @@ ok('할인가만 표시(취소선 없음)', !str_contains(items_table($html), '<
 [, $d] = http('POST', "{$base}/quote.php", ['customer_name' => '[MOCK] 회원가 기업', 'phone' => '010-0000-0000', 'delivery_undecided' => true, 'mode' => 'quick', 'items' => [['product_id' => $pids[1], 'quantity' => 3]]], $jCorp);
 $ceid = (int) ($d['estimate_id'] ?? 0);
 $csaved = $ceid ? (int) $pdo->query("SELECT unit_price FROM estimate_items WHERE estimate_id = {$ceid} AND product_id = {$pids[1]}")->fetchColumn() : -1;
-ok('기업회원 즉시견적 접수: 저장 단가 8,050(기업회원가 — 예전 price_b2b 9,500 아님)', $csaved === 8050);
+ok('기업회원 즉시견적 접수: 저장 단가 9,500(기업가 컬럼 그대로)', $csaved === 9500);
+[, , $html] = http('GET', "{$base}/my-estimates.php", null, $jCorp);
+ok('기업회원 요청된 견적(회원 화면): 24,150원(기업회원가 × 3)', str_contains($html, '24,150원'));
 
 echo "[기업회원 — 단골품목 표시 가격]\n";
 [, $d] = http('GET', "{$base}/api/estimate/favorites.php", null, $jCorp);
@@ -268,6 +300,23 @@ require_once __DIR__ . '/../app/corp_home.php';
 $_SESSION['user'] = ['role' => 'corporate', 'email' => 'mprice-corp@mock.test'];
 $reg = corp_home_regulars($pdo, $uids['corp']);
 ok('기업회원 홈 단골품목: price_list 10,000 · price_member 8,050 · price 9,500 그대로', ($reg[0]['price_list'] ?? null) === 10000 && ($reg[0]['price_member'] ?? null) === 8050 && ($reg[0]['price'] ?? null) === 9500);
+$_SESSION['user'] = null;
+
+echo "[AI 상담 추천표 카드 — 화면용 price_member(회원은 할인가), GPT 용 값은 그대로]\n";
+$cards = [['id' => $pids[1], 'price_b2c' => 10000, 'suggested_qty' => 3, 'est_cost' => 30000], ['id' => $pids[4], 'price_b2c' => 0]];
+$_SESSION['user'] = ['role' => 'customer', 'email' => 'mprice-cust@mock.test'];
+$mc = ai_cards_with_member_price($cards);
+ok('개인회원: price_member 8,400 · price_b2c·est_cost 그대로', ($mc[0]['price_member'] ?? null) === 8400 && $mc[0]['price_b2c'] === 10000 && $mc[0]['est_cost'] === 30000 && ($mc[1]['price_member'] ?? null) === 0);
+$_SESSION['user'] = ['role' => 'corporate', 'email' => 'mprice-corp@mock.test'];
+ok('기업회원: price_member 8,050', (ai_cards_with_member_price($cards)[0]['price_member'] ?? null) === 8050);
+$_SESSION['user'] = null;
+ok('비회원: price_member = 판매가 10,000', (ai_cards_with_member_price($cards)[0]['price_member'] ?? null) === 10000);
+$_SESSION['user'] = ['role' => 'customer', 'email' => 'mprice-cust@mock.test'];
+$cur = rag_current_product_prices([$pids[1]]);
+ok('이전 상담 복원 현재가: price 10,000(판매가) · member 8,400', ($cur[$pids[1]]['price'] ?? null) === 10000 && ($cur[$pids[1]]['member'] ?? null) === 8400);
+$ev = [0 => [['type' => 'product_cards', 'products' => [['id' => $pids[1], 'spec' => $cur[$pids[1]]['spec'], 'price_b2c' => 9999, 'price_member' => 1]]]]];
+$ap = rag_apply_current_prices($ev, $cur)[0][0]['products'][0];
+ok('복원 카드: price_b2c 현재 판매가 10,000 · price_member 현재 회원가 8,400(상담 당시 값 대체)', $ap['price_b2c'] === 10000 && ($ap['price_member'] ?? null) === 8400 && $ap['price_state'] === 'ok');
 $_SESSION['user'] = null;
 
 echo "[장바구니 비우기 — POST 만]\n";
@@ -281,7 +330,7 @@ http('POST', "{$base}/cart.php", ['action' => 'clear'], $jCust, true);
 [, $d] = http('POST', "{$base}/api/cart.php", ['action' => 'get'], $jCust);
 ok('POST /cart.php action=clear → 비워짐', ($d['cart']['count'] ?? -1) === 0);
 
-foreach ([$jCust, $jCorp, $jGuest] as $j) { @unlink($j); }
+foreach ([$jCust, $jCorp, $jGuest, $jStaff] as $j) { @unlink($j); }
 if (getenv('MPRICE_KEEP') === '1') {
     echo "목 데이터 남김(MPRICE_KEEP=1) — 확인 후 다시 실행(MPRICE_KEEP 없이)하면 지워집니다.\n";
 } else {

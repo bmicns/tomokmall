@@ -148,9 +148,10 @@ function quick_items_fetch(array $quickItems): array
 }
 
 /**
- * 회원 등급별 견적 단가 — 상품 상세(public/product.php)·목록과 같은 규칙. app/pricing.php 의 계산을 그대로 쓴다.
- * 견적 요청 화면·새 견적 저장(estimate_create)·AI 상담 견적서 패널·기업회원 즉시견적 화면이 같은 금액을 쓰도록 한 곳에서 계산.
- * (cart_fetch_items·quick_items_fetch 의 unit_price 는 원래 값(price_b2c / price_b2b) 그대로 — 주문 등 다른 호출자 영향 없음)
+ * 회원 화면 표시 단가 — 상품 상세(public/product.php)·목록과 같은 규칙. app/pricing.php 의 계산을 그대로 쓴다.
+ * 회원(개인·기업)이 보는 화면(견적 요청·AI 상담·기업회원 즉시견적·요청된 견적·이전주문 등)이 같은 금액을 쓰도록 한 곳에서 계산.
+ * 표시 전용: 저장 단가(견적 estimate_items·주문 order_items, cart_fetch_items·quick_items_fetch 원래 값)와
+ * 관리자·직원 화면 가격은 바꾸지 않는다(사용자 결정 2026-11-05).
  *   판매가(price_b2c) 0 이하 → 0(견적문의)
  *   그 외 → min(등급별 단가 effective_unit_price, 판매가)
  *           비회원=판매가, 개인=개인회원가, 기업·직원·관리자=기업회원가 (회원가가 판매가 이상이면 상세 화면처럼 판매가)
@@ -211,4 +212,36 @@ function items_with_display_prices(array $items): array
         }
     }
     return $items;
+}
+
+/**
+ * 회원 화면용 견적 합계 — 견적 품목 수량 × 회원 등급별 단가(display_unit_price, 현재 상품 가격 기준).
+ * 회원이 보는 요청된 견적·마이페이지 이전주문·현장별 주문 금액용. 저장 단가(estimate_items.unit_price)는 바꾸지 않고
+ * 관리자·직원 화면은 저장값을 그대로 쓴다. 상품이 없어진 품목은 저장 단가로 계산. 조회 실패 시 빈 배열(호출부는 저장 합계 유지).
+ *
+ * @param  list<int> $estimateIds
+ * @return array<int,int> [estimate_id => 합계]
+ */
+function estimate_display_totals(array $estimateIds): array
+{
+    $ids = array_values(array_unique(array_filter(array_map('intval', $estimateIds), static fn(int $v): bool => $v > 0)));
+    if (!$ids || !db()) {
+        return [];
+    }
+    $ph = implode(',', array_fill(0, count($ids), '?'));
+    try {
+        $st = db()->prepare("SELECT estimate_id, product_id, quantity, unit_price FROM estimate_items WHERE estimate_id IN ({$ph})");
+        $st->execute($ids);
+        $rows = $st->fetchAll();
+    } catch (\Throwable $e) {
+        return [];
+    }
+    $map    = display_price_map(array_column($rows, 'product_id'));
+    $totals = array_fill_keys($ids, 0);
+    foreach ($rows as $r) {
+        $pid   = (int) $r['product_id'];
+        $price = isset($map[$pid]) ? $map[$pid]['price'] : (int) $r['unit_price'];
+        $totals[(int) $r['estimate_id']] += $price * (int) $r['quantity'];
+    }
+    return $totals;
 }

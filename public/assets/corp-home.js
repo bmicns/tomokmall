@@ -301,7 +301,7 @@
   var cartBody = $('ch-cart-body'), submitBtn = $('ch-submit');
 
   // 담은 품목 화면 금액은 기업회원가(API display_price·display_subtotal — 상품 상세와 같은 규칙).
-  // API 의 unit_price·subtotal(기업가 컬럼 price_b2b 값)은 화면에 쓰지 않는다 — 견적 저장도 display 단가(app/estimate.php). 필드가 없으면(이전 API) 기존 값 그대로
+  // API 의 unit_price·subtotal(기업가 컬럼 price_b2b 값)은 화면에 쓰지 않는다 — 표시 전용(저장 단가·관리자 화면은 원래대로). 필드가 없으면(이전 API) 기존 값 그대로
   function cartViewItem(it) {
     return it.display_price != null ? Object.assign({}, it, { unit_price: it.display_price, subtotal: it.display_subtotal }) : it;
   }
