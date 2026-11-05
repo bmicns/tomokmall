@@ -326,33 +326,45 @@
 - R10 고양시 대형보도블록 표준안 기사 — https://newsseoul.co.kr/news/view/1065573027559835
 - R11 헤드라인제주, 보도횡단 차량진출입시설 기사 — https://www.headlinejeju.co.kr/news/articleView.html?idxno=536852
 
-## 5. 상황 사진 (자재 사진 아님) — 미완료
+## 5. 상황 사진 (자재 사진 아님) — 2026-11-05 5장 추가, 3장 미확보
 
-- 현재 상황 사진이 있는 카드: drainage(`home-use-배수로.png`·배너 `-wide`), garden(`home-use-포장.png`), building-drain(`home-use-배관.png`), sewer(`home-use-맨홀.png`).
-- 자재 사진이 들어간 카드 8개: paving, curb, retaining, parking(첫 자재 이미지), subdrain, river, farm(첫 자재 이미지), utility.
-- **2026-11-05 수집 시도 결과: 0장.** 세션 네트워크 정책이 무료·공공 이미지 출처를 모두 차단했다(`commons.wikimedia.org`·`upload.wikimedia.org`·`unsplash.com`·`images.unsplash.com`·`www.pexels.com`·`images.pexels.com`·`pixabay.com`·`cdn.pixabay.com`·`gongu.copyright.or.kr`·`www.kogl.or.kr`·`www.korea.kr`·Flickr). 출처·라이선스를 확인할 수 없는 이미지는 쓰지 않았고, 임의·AI 생성 이미지로 대신하지 않았다.
+- 기존 상황 사진 카드 4개는 그대로: drainage(`home-use-배수로.png`·배너 `-wide`), garden(`home-use-포장.png`), building-drain(`home-use-배관.png`), sewer(`home-use-맨홀.png`).
+- **이번에 넣은 사진 5장**: paving, curb, river, farm, utility. 모두 **출처 표시가 필요 없는 CC0 또는 퍼블릭 도메인**이다(CC BY·CC BY-SA 사진은 쓰지 않음).
+- **못 구한 3장**: retaining, parking, subdrain — 아래 표 참고. 이 카드는 지금처럼 자재 이미지를 쓴다.
+- 검색 방법: 위키미디어 공용(구조화 데이터 `P275=CC0` 또는 `P6216=퍼블릭 도메인` 조건 검색, 한국어·일본어·영어 검색어), Openverse API(`license=cc0,pdm`), WordPress 사진 디렉터리(CC0). Unsplash 는 검색 API 가 인증을 요구하고 사이트 검색 페이지는 봇 차단이라 쓰지 못했다(검색 우회는 하지 않음). Pexels·Pixabay 는 403.
+- 라이선스는 검색 결과가 아니라 **각 파일 페이지의 원문(위키텍스트 라이선스 틀·작가·출처)**에서 확인했다. 후보는 모두 원본·썸네일을 직접 열어 보고 골랐다(AI 생성 이미지·워터마크·읽히는 번호판·주인공인 얼굴 없음).
+- 가공(공통): 위키미디어 1920px 축소본(하천은 원본) → 가로 2.36:1 영역 자르기 → **902×382 JPG, 품질 80, 프로그레시브, 메타데이터 제거**(ImageMagick `-strip`). 배너용 가로형(`banner`) 파일은 만들지 않았다 — 작업별 목록 배너가 같은 사진을 오른쪽 58% 영역(데스크톱 약 658×162px)에 가운데 자르기로 써도 상황이 읽혀서다.
+- 내려받은 날짜: 모두 2026-11-05. 원본은 저장소에 넣지 않았다.
 
-**필요한 사진 (8장, 우선순위 순)**
+| 키 | 파일 (용량) | 원본 페이지 | 원본 파일 | 작가 | 라이선스 | 출처 표시 | 가공 |
+|---|---|---|---|---|---|---|---|
+| paving | `home-use-보도포장.jpg` (85KB) | https://commons.wikimedia.org/wiki/File:Tower_General_Store_Project-_laying_pavers_(51201344033).jpg (원 출처 Flickr https://www.flickr.com/photos/yellowstonenps/51201344033) | https://upload.wikimedia.org/wikipedia/commons/1/1b/Tower_General_Store_Project-_laying_pavers_%2851201344033%29.jpg | 미국 국립공원관리청(NPS) Jacob W. Frank (Yellowstone NPS) | 퍼블릭 도메인 — 미국 연방정부 저작물 `{{PD-USGov-NPS}}`, Flickr 'Public Domain Mark' https://creativecommons.org/publicdomain/mark/1.0/ | 불필요 | 1920×1280 → 위 420px 아래 자르기(1920×813) → 902×382 |
+| curb | `home-use-경계석.jpg` (116KB) | https://commons.wikimedia.org/wiki/File:Long_gradual_sidewalk_ramp_to_tactile_paving_and_curb_cut_in_Colchester_VT.jpg | https://upload.wikimedia.org/wikipedia/commons/5/5b/Long_gradual_sidewalk_ramp_to_tactile_paving_and_curb_cut_in_Colchester_VT.jpg | Ezekielf (위키미디어 사용자, 본인 촬영) | CC0 1.0 https://creativecommons.org/publicdomain/zero/1.0/ | 불필요 | 1920×1446 → y=330 부터 1920×813 → 902×382 (멀리 보이는 차량은 잘라냄) |
+| river | `home-use-하천.jpg` (78KB) | https://commons.wikimedia.org/wiki/File:Gabion.jpg (원 출처: 미국 농무부 NRCS 앨라배마 사진집) | https://upload.wikimedia.org/wikipedia/commons/a/a3/Gabion.jpg | 미국 농무부 자연자원보전청(USDA NRCS) | 퍼블릭 도메인 — `{{PD-USGov-USDA}}` | 불필요 | 원본 639×486 → y=160 부터 639×271 → 902×382 (**1.41배 확대**, 사람 부분 잘라냄) |
+| farm | `home-use-농수로.jpg` (106KB) | https://commons.wikimedia.org/wiki/File:%E5%BB%BA%E9%83%A8%E7%94%A8%E6%B0%B4_02.jpg (일본 오카야마현 다케베 용수로) | https://upload.wikimedia.org/wikipedia/commons/d/d5/%E5%BB%BA%E9%83%A8%E7%94%A8%E6%B0%B4_02.jpg | Indiana jo (위키미디어 사용자, 본인 촬영) | CC0 1.0 https://creativecommons.org/publicdomain/zero/1.0/ | 불필요 | 1920×1440 → y=120 부터 1920×813 → 902×382 |
+| utility | `home-use-지중매설.jpg` (106KB) | https://commons.wikimedia.org/wiki/File:20180529-RD-PJK-0802_TONED.jpg (원 출처 Flickr https://www.flickr.com/photos/usdagov/40632551170) | https://upload.wikimedia.org/wikipedia/commons/1/10/20180529-RD-PJK-0802_TONED.jpg | 미국 농무부(USDA) Preston Keres | 퍼블릭 도메인 — `{{PD-USGov-USDA}}`, Flickr 'Public Domain Mark' | 불필요 | 1920×1280 → y=260 부터 1920×813 → 902×382 |
 
-| 키 | 사진 내용 |
-|---|---|
-| paving | 블록·돌로 포장된 보도·마당(시공 중 또는 완성) |
-| curb | 차도와 보도 사이 경계석 라인 |
-| retaining | 비탈에 쌓은 블록(보강토) 옹벽 |
-| parking | 잔디블록·카스토퍼·볼라드가 보이는 소규모 주차장(번호판 식별 불가) |
-| farm | 논밭 사이 U형 콘크리트 농수로 |
-| river | 돌망태·호안블록으로 보호한 개울·하천 둑 |
-| subdrain | 도랑에 유공관을 묻는 장면 |
-| utility | 도랑 속 전선관·수도관, 또는 전기·통신 맨홀 |
+- 사진 설명(`img_alt`): paving '작업자가 바닥에 보도블록을 한 장씩 깔고 있는 포장 공사 현장', curb '차도와 보도 사이에 놓인 경계석과 턱을 낮춘 진입부의 점자블록', river '돌망태를 쌓아 깎이지 않게 보호한 개울 둑', farm '갈아 놓은 논 옆으로 이어진 콘크리트 농수로', utility '굴착기로 판 도랑에 작업자가 수도관을 묻는 공사 현장'.
+- 주의할 점
+  - **미국 연방정부 저작물(NPS·USDA)**은 미국 저작권법상 퍼블릭 도메인이고 위키미디어도 그렇게 분류한다. 다만 미국 밖에서의 지위는 나라별 해석이 있을 수 있다는 것이 위키미디어 안내다. 걱정되면 3장(보도 포장·하천·매설)을 CC0 사진으로 바꾸는 것을 후속 검토한다.
+  - 하천 사진은 원본이 작아(639px) 확대했다. 카드(약 260~370×140px)·배너(약 658×162px)에서는 문제 없이 보였지만 고해상도 화면에서는 약간 부드럽다.
+  - 매설 사진에는 굴착기 제조사 로고와 'UTILITY WORK AHEAD' 표지판이 작게 보인다(눈에 띄는 크기 아님). 작업자 1명은 옆모습이 작게 보인다(주인공 얼굴 아님). 차량 번호판은 읽히지 않는다.
+  - 외국 현장 사진이다(미국 4장, 일본 1장). 같은 조건의 한국 사진은 찾지 못했다(위키미디어 한국 사진은 대부분 CC BY-SA).
 
-- 규격: 카드는 가로 100%×세로 140px 가운데 자르기. 기존 사진과 같은 비율(약 2.36:1), **902×382px 이상** 권장. 작업별 목록 배너는 선택(기존 `home-use-배수로-wide.png` 1044×162).
-- 라이선스: 상업 사이트이므로 CC0·Public Domain·Unsplash·Pexels·Pixabay 라이선스 우선. CC BY·CC BY-SA·공공누리 제1유형은 출처 표시가 필요(표시 위치 결정 필요). NC·ND·편집 전용·워터마크·식별 가능한 얼굴·번호판 제외.
-- 넣는 방법: `public/assets/images/home-use-<이름>.jpg` 로 저장 → `app/work_types.php` 해당 작업의 `img`(경로)·`img_kind`(`'photo'`)·`img_alt`(사진 설명) 변경, 필요하면 `banner` 추가. 단위 테스트가 파일 존재를 확인한다.
+**못 구한 상황**
+
+| 키 | 필요한 장면 | 결과 |
+|---|---|---|
+| retaining | 비탈에 쌓은 블록(보강토) 옹벽 | CC0·퍼블릭 도메인으로는 **돌쌓기(間知石) 옹벽·콘크리트 옹벽**만 찾았다. 쇼핑몰이 파는 보강토·옹벽블록과 모양이 달라 넣지 않았다. |
+| parking | 잔디블록·카스토퍼·볼라드가 보이는 소규모 주차장 | 잔디블록 바닥만 크게 찍은 사진, 볼라드 단독 사진은 있으나 '주차장'으로 읽히는 사진이 없었다. |
+| subdrain | 도랑에 유공관을 묻는 장면 | 미국 연방 자료(1997, 습지 배수관 수문 설치)와 목장 급수관 매설 사진만 있었다. 구멍 뚫린 유공관이 보이지 않아 넣지 않았다. |
+
+- 이 3장은 사용자가 직접 촬영한 현장 사진이나 구매한 사진을 주시면 같은 규격(902×382 JPG)으로 넣을 수 있다.
 
 ## 6. 사용자 결정·후속 검토 항목
 
 1. **원문 대조** — 4장 출처를 국가법령정보센터·국가건설기준센터 원문과 대조(네트워크 허용 또는 사용자가 직접). 화면에 "근거 기준" 문구를 넣을지는 대조 후 결정.
-2. **상황 사진 8장** — 5장 조건으로 수집(네트워크 허용 시 Claude 가 수집, 또는 사용자가 직접 촬영·구매한 사진 제공).
+2. **상황 사진** — 5장 추가 완료(2026-11-05). 남은 3장(옹벽·주차장·지하배수)은 사용자 촬영·구매 사진 제공 시 반영. 미국 연방정부 저작물 3장을 그대로 쓸지 확인.
 3. **분류 추가 검토(카드 13개 이상이 되므로 보류)**
    - parking 을 '주차장·차 마당 바닥'과 '단지 길 안전시설'로 나누기(단지 도로는 별도 고시 [K14] 체계).
    - '깨진 덮개·뚜껑 바꾸기' 분리(v4 에 있던 상황, 개인 고객이 자주 찾음 — 지금은 drainage 요약에 포함).
@@ -367,3 +379,9 @@
 - 운영 DB 대조(읽기 전용 조회 결과로 독립 계산): 선정 자재 113건 모두 사용 중·판매중 상품 1개 이상·이름 일치, `work_types_validate()` 위반 0
 - 로컬 화면(PHP 내장 서버, **로컬 DB 없음 — 설정 이름·대체 글자 썸네일로 표시**): 메인 카드 12개·펼침 패널(정원·담장 / 논밭 수로)·작업별 목록(`category=102&work=garden`)을 데스크톱 1280·태블릿 820·모바일 360px 에서 확인. 가로 스크롤 없음, 자재명·설명 잘림 없음
 - 확인 못함: 복제 DB(`tomokmall_test`) 기반 `scripts/testdb/verify-work-list.php` — 이 세션에 개발 DB 스냅샷이 없어 실행하지 못함. 실제 상품 썸네일이 들어간 화면
+
+### 7-2. 상황 사진 추가 검증 (2026-11-05)
+
+- `php -l app/work_types.php` — 문법 오류 없음. `php tests/functions.test.php` — 217 통과 / 0 실패(작업 카드·배너 이미지 파일 존재 검사 포함)
+- 이미지: 5장 모두 902×382 JPG, 78~116KB(목표 150KB 이하), EXIF 등 메타데이터 없음
+- 로컬 화면(`php -S 127.0.0.1:8080 -t public/` + Playwright, **로컬 DB 없음 — 주차장 카드와 자재 썸네일은 대체 글자로 표시**): 메인 작업 카드 12개와 사진을 넣은 5개 작업의 목록 배너(`products.php?category=69&work=paving`, `150&work=curb`, `96&work=river`, `22&work=farm`, `210&work=utility`)를 데스크톱 1280·태블릿 820·모바일 360px 에서 스크린숏으로 확인. 세 너비 모두 가로 스크롤 없음(scrollWidth = clientWidth). 카드 사진 표시 크기 293×140(1280)·370×140(820)·260×140(360), 배너 사진 658×162(1280)·334~391×162(820)·326×110(360) — 모두 가운데 자르기에서 상황(블록 깔기·경계석·돌망태 둑·농수로·매설 도랑)이 읽힘

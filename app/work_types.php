@@ -53,7 +53,7 @@ function work_types(): array
         // 근거: 보도 설치 및 관리 지침·KDS 34 60 10·교통약자법 시행규칙·LH 조경포장 시방(v5 3-2)
         ['key' => 'paving', 'name' => '보도·마당 바닥 포장',
          'summary' => '보도·마당·가게 앞 바닥을 블록이나 돌로 깔 때',
-         'img' => '/assets/images/home-블록.png', 'img_kind' => 'product', 'img_alt' => '보도블록',
+         'img' => '/assets/images/home-use-보도포장.jpg', 'img_kind' => 'photo', 'img_alt' => '작업자가 바닥에 보도블록을 한 장씩 깔고 있는 포장 공사 현장',
          'materials' => [
              [69,  '인터로킹U형블럭',            '기본 보도블록'],
              [71,  '인조화강블록(투수)',         '빗물 스미는 블록'],
@@ -69,7 +69,7 @@ function work_types(): array
         // 근거: 도로의 구조·시설 기준에 관한 규칙 제16조·교통약자 이동편의시설 기준(턱낮춤)·LH 조경포장경계(v5 3-3)
         ['key' => 'curb', 'name' => '도로·보도 경계 만들기',
          'summary' => '차도와 보도 사이 경계를 세우거나, 진입로 턱을 낮출 때',
-         'img' => '/assets/images/home-경계석.png', 'img_kind' => 'product', 'img_alt' => '경계석',
+         'img' => '/assets/images/home-use-경계석.jpg', 'img_kind' => 'photo', 'img_alt' => '차도와 보도 사이에 놓인 경계석과 턱을 낮춘 진입부의 점자블록',
          'materials' => [
              [150, '화강경계도로',               '차도·보도 경계'],
              [152, '화강경계낮춤',               '횡단·진입로 턱 낮춤'],
@@ -180,7 +180,7 @@ function work_types(): array
         // 근거: KDS 51 50 10 하천호안·하천공사 설계실무요령·국도 설계실무요령(비탈면)(v5 3-10). 생태수로(27·28)는 '논밭 수로 정비'로 옮김
         ['key' => 'river', 'name' => '하천·비탈면 보호',
          'summary' => '하천 둑이나 비탈면이 깎이고 쓸려 내려가는 것을 막을 때',
-         'img' => '/assets/images/home-need-돌망태.png', 'img_kind' => 'product', 'img_alt' => '돌망태',
+         'img' => '/assets/images/home-use-하천.jpg', 'img_kind' => 'photo', 'img_alt' => '돌망태를 쌓아 깎이지 않게 보호한 개울 둑',
          'materials' => [
              [96,  '호안블록(식생용)',           '식생형 호안'],
              [162, '돌망태(개비온)',             '돌망태 호안'],
@@ -193,7 +193,7 @@ function work_types(): array
         // 농수로·농로 수로(농가 고객). 근거: KS F 4010 벤치플륨·환경부 수로 탈출시설 지침·국립생태원 연구·도로 배수시설 지침(v5 3-11)
         ['key' => 'farm', 'name' => '논밭 수로 정비',
          'summary' => '논밭 농수로를 놓거나 고치고, 농로 밑으로 물길을 낼 때',
-         'img' => null, 'img_kind' => 'product', 'img_alt' => '플륨관',
+         'img' => '/assets/images/home-use-농수로.jpg', 'img_kind' => 'photo', 'img_alt' => '갈아 놓은 논 옆으로 이어진 콘크리트 농수로',
          'materials' => [
              [22,  'U형플륨관(벤치1종)',         '농수로 본체'],
              [23,  '벤치플륨관(벤치2종)',        '얕은 농수로'],
@@ -208,7 +208,7 @@ function work_types(): array
         // 전기·통신·가로등 지중시설 + 수도 급수관(계량기 뒤) 통합. 근거: KEC 334 지중전선로·건축물 설비기준 규칙 별표 3의2·지자체 급수 조례(v5 3-12)
         ['key' => 'utility', 'name' => '전기·통신·수도 설비 묻기',
          'summary' => '전기·통신선이나 수도관을 땅에 묻고, 가로등을 세울 때',
-         'img' => '/assets/images/home-맨홀.png', 'img_kind' => 'product', 'img_alt' => '맨홀 뚜껑',
+         'img' => '/assets/images/home-use-지중매설.jpg', 'img_kind' => 'photo', 'img_alt' => '굴착기로 판 도랑에 작업자가 수도관을 묻는 공사 현장',
          'materials' => [
              [210, 'PE전원박스',                 '지중 접속함'],
              [64,  '전기맨홀',                   '전기 케이블 맨홀'],
