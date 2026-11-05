@@ -255,10 +255,11 @@ render_header($p['name']);
             <?php
             // 상품명·설명에서 상태 배지 도출
             $pdBadges = [];
-            $pdNm = (string) $p['name']; $pdDesc = (string) ($p['description'] ?? '');
+            $pdNm = (string) $p['name'];
             if (mb_strpos($pdNm, '안전중하중') !== false)      $pdBadges[] = ['load', '안전중하중'];
             elseif (mb_strpos($pdNm, '중하중') !== false)       $pdBadges[] = ['load', '중하중'];
-            if (mb_stripos($pdNm, 'KS') !== false || mb_strpos($pdDesc, 'KS') !== false) $pdBadges[] = ['ks', 'KS'];
+            // KS 배지는 상품명의 KS 표기로만 — 설명에 '국가표준 KS F 4403 대상 종류' 같은 표준 안내가 들어가도 인증처럼 보이지 않게(2026-11-05 상품 설명 정비)
+            if (mb_stripos($pdNm, 'KS') !== false) $pdBadges[] = ['ks', 'KS'];
             if ((int) ($p['stock_qty'] ?? 0) > 0)               $pdBadges[] = ['stock', '재고 보유'];
             ?>
             <div class="pd-badge-row">
