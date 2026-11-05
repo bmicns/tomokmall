@@ -55,6 +55,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "01604",
+                    "api_effective": "2026-07-27",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -103,6 +111,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "20594",
+                    "api_effective": "2025-12-21",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             },
             "pending": [
@@ -165,6 +181,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "01166",
+                    "api_effective": "2026-07-02",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -213,6 +237,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "35947",
+                    "api_effective": "2026-01-02",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -261,6 +293,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "01558",
+                    "api_effective": "2026-02-01",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -311,6 +351,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "00344",
+                    "api_effective": "2022-07-12",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -352,6 +400,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "321",
+                    "api_effective": "2021-07-23",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -404,6 +460,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "01588",
+                    "api_effective": "2026-06-03",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -454,6 +518,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "00882",
+                    "api_effective": "2021-08-27",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -506,6 +578,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "21065",
+                    "api_effective": "2025-10-01",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -552,6 +632,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "36338",
+                    "api_effective": "2026-06-03",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -604,6 +692,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "00042",
+                    "api_effective": "2026-06-22",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -658,6 +754,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "2025-165",
+                    "api_effective": "2025-10-01",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -709,6 +813,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "2025-165",
+                    "api_effective": "2025-10-01",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -753,6 +865,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "2023-907",
+                    "api_effective": "2023-01-12",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             },
             "notice_versions": [
@@ -823,6 +943,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "2024-743",
+                    "api_effective": "2024-12-16",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },

@@ -308,6 +308,40 @@ function prod_activate_sql(array $verified, string $reviewer, string $reviewedOn
         . "   AND title IN (\n" . implode(",\n", $titles) . "\n);\n";
 }
 
+/**
+ * 40: 이미 운영에 등록된 KS 후보 행의 확인 정보 갱신 — 사용자가 표준 상세 화면(e나라표준인증·KSSN)에서 확인한 행(ks_detail 있음)만.
+ * 10 은 '없을 때만 넣기'라 기존 행의 적용 범위·확인 정보가 바뀌지 않으므로 UPDATE 로 초안 02 와 같은 값으로 맞춘다.
+ * 바꾸는 칸: content·applies_to·verify_level·verified_by·verified_at (활성 상태·검토 상태·가격과 무관한 칸만). 재실행 안전(같은 값).
+ */
+function prod_ks_metadata_update_sql(array $candidates): string
+{
+    $rows = [];
+    foreach ($candidates as $c) {
+        if (($c['type'] ?? '') !== 'KS' || empty($c['ks_detail'])) {
+            continue;
+        }
+        $row = prod_candidate_row($c);
+        if ($row !== null) {
+            $rows[] = [$c, $row];
+        }
+    }
+    $sql = "-- 운영 rag_documents KS 후보 행 확인 정보 갱신 — 사용자가 표준 상세 화면에서 확인한 " . count($rows) . "건(적용 범위·개정/확인일)\n"
+        . "-- ⚠️ 운영 실행은 사용자 승인 후(데이터 변경). 실행 전 phpMyAdmin 에서 rag_documents 내보내기 백업.\n"
+        . "-- 대상: author = '" . PROD_AUTHOR_CANDIDATE . "' AND source_type = 'ks' — 활성 상태(is_active)·검토 상태는 바꾸지 않음(KS 행은 상담 근거로 활성화하지 않음,\n"
+        . "--       확인된 적용 범위는 상담 '확인된 기본 정보'(ai_material_basics·ai_ks_standards)에서 표준 이름과 함께 쓰인다).\n"
+        . "-- 생성: scripts/legal-sources/build_prod_sql.php (원본 candidates.json ks_detail). 재실행 안전(같은 값으로 다시 설정).\n"
+        . "-- 기대: 처음 실행 시 2026-11-05 확인분 8행 변경(이미 같은 값인 행은 '0행' 으로 표시될 수 있음). 확인: 아래 SELECT.\n"
+        . "-- 되돌리기: 실행 전 내보낸 백업에서 해당 행의 content·applies_to·verified_by·verified_at 복원.\n\nSTART TRANSACTION;\n";
+    foreach ($rows as [$c, $row]) {
+        $sql .= '-- ' . $c['ref_no'] . ' (확인 ' . ($c['ks_detail']['checked_at'] ?? '') . ")\n"
+            . 'UPDATE rag_documents SET content = ' . $row['content'] . ', applies_to = ' . $row['applies_to']
+            . ', verify_level = ' . $row['verify_level'] . ', verified_by = ' . $row['verified_by'] . ', verified_at = ' . $row['verified_at'] . "\n"
+            . ' WHERE author = ' . $row['author'] . " AND source_type = 'ks' AND title = " . $row['title'] . ";\n";
+    }
+    return $sql . "COMMIT;\n\n-- 확인(읽기 전용): 사용자 확인 적용 범위가 들어간 KS 행 수 — 기대 " . count($rows) . "\n"
+        . "SELECT COUNT(*) AS ks_user_confirmed FROM rag_documents WHERE author = " . prod_q(PROD_AUTHOR_CANDIDATE) . " AND source_type = 'ks' AND applies_to LIKE '%사용자 확인%';\n";
+}
+
 /** 30: 사후 확인(읽기 전용) — 기대값을 주석으로 */
 function prod_post_check_sql(array $candidates, array $verified): string
 {

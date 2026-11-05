@@ -129,6 +129,18 @@ ok('KS 질문 → V34', in_array('V34', $hits('KS 인증 제품이 뭐가 달라
 ok('고무 방지턱 질문 → V35', in_array('V35', $hits('고무 방지턱 도로에 설치해도 되나요?'), true));
 ok('무관한 질문(그레이팅 하중·PE관 관경·물가)에는 안 걸림', $hits('주차장 배수로 그레이팅 중하중 몇 개 필요해요?') === [] && $hits('PE 이중벽관 300mm 50m 필요해요') === [] && $hits('요즘 물가가 올라서 가격이 궁금해요') === []);
 
+echo "[KS 적용 범위 갱신 — 40 (사용자 확인 2026-11-05)]\n";
+$ks40 = prod_ks_metadata_update_sql($candidates);
+$ks40Body = (string) preg_replace('/^--.*$/m', '', $ks40);
+$confirmed = array_values(array_filter($candidates, static fn($c) => ($c['type'] ?? '') === 'KS' && !empty($c['ks_detail'])));
+ok('사용자 확인 KS 10건(기존 2 + 2026-11-05 8) — 적용 범위에 사용자 확인 표시', count($confirmed) === 10 && !array_filter($confirmed, static fn($c) => !str_contains((string) $c['scope_note'], '사용자 확인'))
+    && count(array_filter($confirmed, static fn($c) => ($c['ks_detail']['checked_at'] ?? '') === '2026-11-05')) === 8);
+ok('40 은 UPDATE 10문 + 확인 SELECT 만(INSERT·DELETE·DDL 없음)', substr_count($ks40Body, 'UPDATE rag_documents SET') === 10 && !preg_match('/\b(INSERT|DELETE|DROP|ALTER|TRUNCATE|REPLACE)\b/', $ks40Body));
+ok('40 은 KS 후보 행만(author·source_type·title) — 활성·검토 상태 칸은 바꾸지 않음', substr_count($ks40Body, "WHERE author = '" . PROD_AUTHOR_CANDIDATE . "' AND source_type = 'ks' AND title = ") === 10
+    && !preg_match('/\b(is_active|review_status|reviewer|reviewed_at)\s*=/', $ks40Body));
+ok('40 의 값 = 초안 02(로컬 검증본)의 같은 행 값(적용 범위)', !array_filter($confirmed, static fn($c) => !str_contains($ks40, 'applies_to = ' . prod_candidate_row($c)['applies_to']) || !str_contains($d02, prod_candidate_row($c)['applies_to'])));
+ok('KS D 4040 출처는 한국표준협회 KSSN(사용자 캡처)', str_contains((string) array_values(array_filter($confirmed, static fn($c) => $c['ref_no'] === 'KS D 4040'))[0]['scope_note'], 'KSSN'));
+
 echo "[3차 보완 V36~V38 (2026-11-05) — 용어 정의·하천 수로]\n";
 $new3 = array_values(array_filter($verified, static fn($r) => (int) substr((string) $r['id'], 1) >= 36));
 ok('3건(V36~V38)·확인일 2026-11-05·조문 미러 확인', array_column($new3, 'id') === ['V36', 'V37', 'V38'] && !array_filter($new3, static fn($r) => $r['checked_at'] !== '2026-11-05' || $r['verify_level'] !== 'api_text_verified'));

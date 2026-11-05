@@ -102,4 +102,22 @@
 - V36 은 같은 하수도법 제2조가 2026-10-28 공식 API 대조에서 일치(`sewer_law`) → **(i) 활성화 대상**(20 → 21). V37·V38 은 공식 대조 전 → (ii).
 - 운영 반영 순서(각 단계 승인 필요): ① `10_register_inactive.sql` 재실행 — 운영에 66행(1단계)만 있으면 **11행 추가**(V28~V38), 2차 8행을 이미 넣었다면 3행 추가 ② `30_post_check_readonly.sql`(등록 77 · 검증 조문 38) ③ 사용자 PC `law_api_sync.php --only=...,parking_law,river_occupy` (2차 문서 목록에 2개 추가) ④ 일치하면 `PROD_NEEDS_OFFICIAL_CHECK` 에서 V28~V35·V37·V38 을 빼고 20 재생성(활성 21 → 31) → 승인 후 실행. 검토일은 조문 확인일(2026-11-05) 이후여야 생성된다.
 - 미러 재확인(2026-11-05): 하수도법·주차장법·하천점용허가 세부기준 모두 `same`.
+
+## 사용자 PC 공식 API 대조 결과 (2026-11-05)
+
+- 결과 파일: [`../legal-sources/api-sync-report-2026-11-05.md`](../legal-sources/api-sync-report-2026-11-05.md) — 기존 감시 문서 16개 모두 **일치**(`api_targets.json` 의 `api_check.recheck_2026_11_05` 에 기록, V36 근거의 하수도법 제2조 포함).
+- 아직 대조하지 않은 문서 13개(V28~V35·V37·V38 의 법령): 사용자 PC 에서 이 브랜치를 받은 뒤(`git pull origin claude/sharp-lamport-ykk35j`) 아래를 실행하고 결과 파일을 보내 주시면 (ii) 중 V28~V35·V37·V38 10건을 (i) 로 옮긴다(V25·V26 은 별도 확인 사항 그대로).
+
+```bash
+php scripts/legal-sources/law_api_sync.php --only=bldg_law,bldg_decree,bldg_rule,plan_law,plan_decree,river_law,sriver_law,road_law,road_decree,ks_law,road_safety,parking_law,river_occupy --md=api-sync-report-2026-11-XX.md
+```
+
+- 2026-11-12 이후 한 번 더(장애인등편의법 제21116호 시행 — 위 '최신성 재확인' 참고).
+
+## KS 적용 범위 갱신 — `40_update_ks_metadata.sql` (2026-11-05 오후)
+
+- 사용자가 보낸 표준 상세 화면 캡처(KS적용범위.zip)로 8개 표준의 적용 범위·최종 개정일을 `legal-sources/ks-latest-check.csv` → `candidates.json` 에 넣었다(KS F 4403·4010·4012·4561, KS M 3500-1·3600, KS D 3590·4040). 앞서 확인한 F 4419·F 4006 과 합쳐 10건.
+- `40_update_ks_metadata.sql`: 운영 `rag_documents` 의 KS 후보 행(author 'AI 조사 초안(검색 기반)', source_type 'ks') 10행의 `content`·`applies_to`·`verify_level`('metadata_confirmed' — 활성화 조건 아님)·`verified_by`·`verified_at` 만 바꾼다. `is_active`·검토 상태는 그대로다(KS 행은 상담 근거로 활성화하지 않음).
+- 순서(승인 후): 백업(`rag_documents` 내보내기) → `40_update_ks_metadata.sql` → 파일 끝 확인 SELECT. 단계 3(`10_register_inactive.sql`) 뒤 아무 때나 가능하다. 운영에 KS 후보 행이 없으면 0행이다.
+- 코드 쪽(배포 보류): 상담 규칙은 도구 결과 basics.standards 에 scope(사람이 확인한 적용 범위)가 있으면 그 문구만 쓴다(`app/rag.php`). KS M 3500-1 연결 상품명은 'PE이중벽관(KS)'로 좁혔다(적용 범위 '관 내·외면 평활').
 <!-- manual:end -->

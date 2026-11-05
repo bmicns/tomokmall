@@ -51,6 +51,7 @@ if (!is_dir($out) && !mkdir($out, 0777, true)) {
 file_put_contents("{$out}/10_register_inactive.sql", prod_register_sql($candidates, $verified));
 file_put_contents("{$out}/30_post_check_readonly.sql", prod_post_check_sql($candidates, $verified));
 file_put_contents("{$out}/90_rollback.sql", prod_rollback_sql());
+file_put_contents("{$out}/40_update_ks_metadata.sql", prod_ks_metadata_update_sql($candidates));   // 기존 KS 행의 사용자 확인 적용 범위 갱신(2026-11-05)
 if ($activate !== null) {
     file_put_contents("{$out}/20_activate_ready.sql", $activate);
 }

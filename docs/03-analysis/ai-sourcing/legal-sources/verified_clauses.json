@@ -1302,7 +1302,7 @@
     "ai_use": "조건부 안내",
     "ai_guidance": "\"하수도법에서 오수는 생활하면서 더러워진 물이고, 빗물·지하수와 함께 '하수'로 정의됩니다. 분류식 하수관로는 오수와 빗물이 따로 흐르게, 합류식은 함께 흐르게 만든 관로입니다(하수도법 제2조). 우리 지역이 어느 방식인지는 관할 지자체 하수도 부서에 확인하세요.\"",
     "verify_level": "api_text_verified",
-    "verify_source": "legalize-kr/legalize-kr (법제처 국가법령정보 Open API 원문 미러) 2026-11-05 열람 — 현재 시행판(하수도법 21065·시행 2025-10-01, 미러 최신판과 같음, 시행 예정판 없음) 조문 확인. 법제처 OPEN API 대조 기준값(api_targets.json sewer_law 제2조)은 2026-10-28 사용자 PC 대조 일치",
+    "verify_source": "legalize-kr/legalize-kr (법제처 국가법령정보 Open API 원문 미러) 2026-11-05 열람 — 현재 시행판(하수도법 21065·시행 2025-10-01, 미러 최신판과 같음, 시행 예정판 없음) 조문 확인. 법제처 OPEN API 대조 기준값(api_targets.json sewer_law 제2조)은 2026-10-28 사용자 PC 대조 일치 · 2026-11-05 사용자 PC 공식 API 재대조 일치(하수도법 21065·제2조, api-sync-report-2026-11-05.md)",
     "official_url": "https://www.law.go.kr/법령/하수도법/제2조",
     "tags": "오수,오수관,빗물관,우수와 오수,오수와 우수,합류식,분류식,개인하수처리,정화조,하수관로,하수란,하수가 뭐",
     "category": "pe_pipe",
