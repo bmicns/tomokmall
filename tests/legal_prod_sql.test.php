@@ -178,6 +178,11 @@ ok('보강토 없는 옹벽 질문은 그대로 V28·V29', $pick('마당에 옹�
 ok('조경석 쌓기 → V40, 격자블록·흙 쓸림 → V41', $pick('조경석 쌓기로 화단 만들려고 해요') === ['V40'] && $pick('경사면 흙이 쓸려 내려가서 격자블록 쓰려고요')[0] === 'V41');
 ok('흄관 모래 기초·PE관 흙 두께 → V42', $pick('흄관 묻을 때 모래 기초 해야 하나요?') === ['V42'] && $pick('PE관을 마당에 묻으려는데 흙 두께는?') === ['V42']);
 ok('오수받이 크기 → V43 먼저, 마당 배수관 관경 → V08(법령)·V43', $pick('오수받이 크기는 어떻게 정해요?')[0] === 'V43' && $pick('마당 배수관 몇 mm 관을 써야 해요?') === ['V08', 'V43']);
+ok('V08(별표 7) 질문 형태 낱말: 오수관·우수관 크기·관경·경사·물받이 간격 → V08 이 먼저(법령 우선)', $pick('오수관 크기는 몇 mm로 하나요? 4인 가족 주택입니다')[0] === 'V08'
+    && $pick('우수관 크기는 어떻게 정하나요? 마당이 300㎡입니다')[0] === 'V08' && $pick('마당 배수관 관경은 얼마로 해야 하나요?') === ['V08', 'V43']
+    && $pick('배수관 경사는 어느 정도로 해야 하나요')[0] === 'V08' && $pick('PVC 배수관 묻을 때 물받이 간격은?')[0] === 'V08');
+ok('V08 새 낱말은 상품 주문형 질문에 안 걸림(흄관 가격·PE관 수량·물받이 상품)', !array_intersect(['V08'], array_merge(
+    $pick('흄관 300mm 가격 알려주세요'), $pick('PE 이중벽관 300mm 50m 필요해요'), $pick('U형 측구 물받이 10개 주문'))));
 ok('무관 질문에는 새 조문 안 걸림(보도블록 모래 기초·담장 블록 수량·경사 주차장·PE관 수량)', !array_intersect(['V39', 'V40', 'V41', 'V42', 'V43'], array_merge(
     $pick('보도블록 모래 기초 두께는 얼마나 해요?'), $pick('담장 블록 쌓기 몇 장 필요해요?'), $pick('경사면 주차장에 블록 깔기'), $pick('PE 이중벽관 300mm 50m 필요해요'))));
 ok('V40 한계높이는 허용 높이가 아님을 조건·주의에 명시', str_contains(implode(' ', $byId['V40']['conditions']), '허용 높이가 아님') && str_contains($byId['V40']['not_for'], '쌓아도 된다'));
@@ -207,13 +212,17 @@ ok('V25·V26: law.go.kr 공식 별표 파일 재대조(개정 표시 그대로) 
     && in_array('보행안전시설물의 구조 시설기준(제9조 관련)', $byKey['mobility_rule']['watch_annexes'], true) && !array_diff(['V25', 'V26'], $byKey['mobility_rule']['clauses']));
 $m41 = prod_verified_metadata_update_sql($verified);
 $m41Body = (string) preg_replace('/^--.*$/m', '', $m41);
-ok('41: 1단계 등록 행 V25·V26 확인 정보만 UPDATE 2문(활성·검토 칸·INSERT·DELETE·DDL 없음)', substr_count($m41Body, 'UPDATE rag_documents SET content = ') === 2
+ok('41: 1단계 등록 행 V08·V25·V26 내용·확인 정보만 UPDATE 3문(활성·검토·제목 칸·INSERT·DELETE·DDL 없음)', substr_count($m41Body, 'UPDATE rag_documents SET content = ') === 3 && !preg_match('/\\btitle\\s*=\\s*\'/', (string) preg_replace('/WHERE.*$/m', '', $m41Body))
     && !preg_match('/\b(is_active|review_status|reviewer|reviewed_at)\s*=|\b(INSERT|DELETE|DROP|ALTER|TRUNCATE|REPLACE)\b/', $m41Body)
     && str_contains($m41, prod_verified_row($byId['V26'])['title']) && str_contains($m41, "flSeq=161304041"));
 ok('41 의 content 는 10·06 과 같은 생성 규칙(같은 행 값)', str_contains($m41, prod_verified_row($byId['V25'])['content']) && str_contains(prod_register_sql($candidates, $verified), prod_verified_row($byId['V25'])['content']));
 $threw = false;
 try { prod_verified_metadata_update_sql($verified, ['V99']); } catch (InvalidArgumentException) { $threw = true; }
 ok('41: 없는 조문 ID → 예외', $threw);
+ok('V08: 별표 7(배수설비 설치기준) 공식 파일 확보 — 관경·경사·물받이 기준 요지, 미확보 표시 없음, 제목(article)은 1단계 등록과 같음', str_contains($byId['V08']['summary'], '별표 7(개정 2019. 12. 20.)')
+    && str_contains($byId['V08']['summary'], '0.6~1.5m') && str_contains($byId['V08']['summary'], '120배') && !str_contains(json_encode($byId['V08'], JSON_UNESCAPED_UNICODE), '미확보')
+    && $byId['V08']['article'] === '제23조제1항·제2항 (배수설비의 설치기준 및 구조기준)' && str_contains($m41, prod_verified_row($byId['V08'])['title']) && str_contains($byId['V08']['verify_source'], 'flSeq=165912267'));
+ok('V43 은 법령(V08 별표 7) 우선을 조건에 명시', str_contains($byId['V43']['conditions'][0], '별표 7(V08'));
 ok('공식 확인 대기 0건 — 활성화 대상 38건(1단계 20 + V25·V26 + V28~V38 + V39~V43)', PROD_NEEDS_OFFICIAL_CHECK === [] && $c['check'] === [] && count($ready) === 38
     && !array_diff(['V25', 'V26', 'V28', 'V29', 'V30', 'V31', 'V32', 'V33', 'V34', 'V35', 'V36', 'V37', 'V38'], $ready) && !array_intersect(['V04', 'V20', 'V21', 'V22', 'V23'], $ready));
 $hits3 = static fn(string $q): array => array_values(array_map(static fn($r) => (string) $r['id'], array_filter($new3, static fn($r) => rag_legal_score($r, $q) >= 3)));

@@ -280,25 +280,26 @@ function prod_ks_metadata_update_sql(array $candidates): string
 /**
  * 1단계(2026-11-02)에 운영에 이미 등록된 검증 조문 중, 그 뒤 확인 정보가 바뀐 행 — 10 은 '없을 때만 넣기'라 기존 행이 그대로이므로 41 로 맞춘다.
  * V25·V26: 2026-11-05 law.go.kr 공식 별표 파일 재대조(확인 문구·확인일), V26 출처 링크를 별표 2 PDF 로.
+ * V08: 2026-11-05 하수도법 시행규칙 별표 7(배수설비 설치기준) 공식 파일 확보 — 요지·적용 조건·안내 문구에 관경·경사·물받이 기준 추가(content 갱신).
  */
-const PROD_STAGE1_METADATA_REFRESH = ['V25', 'V26'];
+const PROD_STAGE1_METADATA_REFRESH = ['V08', 'V25', 'V26'];
 
-/** 41: 이미 등록된 검증 조문 행의 확인 정보(content·source_url·verified_by·verified_at)만 갱신 — 활성·검토 상태는 바꾸지 않음 */
+/** 41: 이미 등록된 검증 조문 행의 내용·확인 정보(content·tags·applies_to·source_url·verified_by·verified_at)만 갱신 — 제목(title)으로 맞추므로 article 은 바꾸지 않는다, 활성·검토 상태는 그대로 */
 function prod_verified_metadata_update_sql(array $verified, array $ids = PROD_STAGE1_METADATA_REFRESH): string
 {
     $byId = array_column($verified, null, 'id');
     $sql = "-- 운영 rag_documents 검증 조문 확인 정보 갱신 — 1단계(2026-11-02)에 이미 등록된 행 중 확인 정보가 바뀐 " . count($ids) . "건(" . implode('·', $ids) . ")\n"
         . "-- ⚠️ 운영 실행은 사용자 승인 후(데이터 변경). 실행 전 phpMyAdmin 에서 rag_documents 내보내기 백업.\n"
-        . "-- 바꾸는 칸: content(끝의 '확인:' 문구)·source_url·verified_by·verified_at 만 — is_active·review_status·reviewer·reviewed_at 은 그대로(활성화는 20).\n"
+        . "-- 바꾸는 칸: content·tags·applies_to·source_url·verified_by·verified_at 만 — is_active·review_status·reviewer·reviewed_at·title 은 그대로(활성화는 20).\n"
         . "-- 생성: scripts/legal-sources/build_prod_sql.php (원본 verified_clauses.json). 재실행 안전(같은 값으로 다시 설정). 기대: 처음 실행 시 " . count($ids) . "행 변경.\n"
-        . "-- 되돌리기: 실행 전 내보낸 백업에서 해당 행의 content·source_url·verified_by·verified_at 복원.\n\nSTART TRANSACTION;\n";
+        . "-- 되돌리기: 실행 전 내보낸 백업에서 해당 행의 content·tags·applies_to·source_url·verified_by·verified_at 복원.\n\nSTART TRANSACTION;\n";
     foreach ($ids as $id) {
         if (!isset($byId[$id])) {
             throw new InvalidArgumentException("verified_clauses.json 에 {$id} 가 없습니다");
         }
         $row = prod_verified_row($byId[$id]);
         $sql .= "-- {$id} (확인 {$byId[$id]['checked_at']})\n"
-            . 'UPDATE rag_documents SET content = ' . $row['content'] . ', source_url = ' . $row['source_url']
+            . 'UPDATE rag_documents SET content = ' . $row['content'] . ', tags = ' . $row['tags'] . ', applies_to = ' . $row['applies_to'] . ', source_url = ' . $row['source_url']
             . ', verified_by = ' . $row['verified_by'] . ', verified_at = ' . $row['verified_at'] . "\n"
             . ' WHERE author = ' . $row['author'] . ' AND title = ' . $row['title'] . ";\n";
     }

@@ -678,7 +678,8 @@
                 "23"
             ],
             "watch_annexes": [
-                "공공하수도의 구조에 관한 기술적 기준(제6조 관련)"
+                "공공하수도의 구조에 관한 기술적 기준(제6조 관련)",
+                "배수설비의 설치기준(제23조제2항 관련)"
             ],
             "mirror_file": "legalize/kr/sewer_rule.md",
             "api_scope": "조문 원문 + 별표 5 제목·파일 링크(구조 기준 내용은 파일 확인)",
@@ -694,7 +695,8 @@
                     "23": "8b0bf560fc9a83da"
                 },
                 "annexes": {
-                    "공공하수도의 구조에 관한 기술적 기준(제6조 관련)": true
+                    "공공하수도의 구조에 관한 기술적 기준(제6조 관련)": true,
+                    "배수설비의 설치기준(제23조제2항 관련)": true
                 }
             },
             "api_check": {
@@ -719,6 +721,13 @@
                     "api_number": "00042",
                     "api_effective": "2026-06-22",
                     "report": "api-sync-report-2026-11-05.md"
+                }
+            },
+            "annex_files": {
+                "배수설비의 설치기준(제23조제2항 관련)": {
+                    "pdf": "https://www.law.go.kr/LSW/flDownload.do?flSeq=165912267",
+                    "revision": "개정 2019. 12. 20.",
+                    "checked_at": "2026-11-05"
                 }
             }
         },
