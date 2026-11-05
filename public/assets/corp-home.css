@@ -254,13 +254,33 @@ body.mode-corp .footer-inner { max-width: 1360px; padding: 28px 24px 32px; }
 
 /* ── 반응형 (디자인: 1100 / 640) ── */
 @media (max-width: 1100px) {
-  body.mode-corp .header-cats { display: none; }
+  /* 대분류: 숨기지 않고 헤더 아래 전폭 줄로(일반 화면 1200px 이하 대분류 줄과 같은 모양·위치) */
+  body.mode-corp { --gnb-bar-h: 52px; }
+  body.mode-corp .header-cats {
+    position: absolute; left: 0; right: 0; top: var(--header-h); height: var(--gnb-bar-h);
+    justify-content: center; background: #FFFFFF;
+    border-top: 1px solid #F4F4F4; border-bottom: 1px solid #F4F4F4; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  }
+  body.mode-corp .header-cats .mega-tabs { gap: 0; }
+  body.mode-corp .header-cats .mega-tab { padding: 8px 24px; font-size: 18px; font-weight: 200; color: var(--color-text-secondary); }
   body.mode-corp .header-inner { grid-template-columns: auto 1fr; }
 }
 @media (max-width: 640px) {
-  /* 메뉴가 여러 줄로 감싸져 높아지므로 고정(sticky) 해제 → 본문 화면 확보 */
-  body.mode-corp .site-header { height: auto; position: static; }
+  /* 메뉴가 여러 줄로 감싸져 높아지므로 고정(sticky) 해제 → 본문 화면 확보.
+     relative: 대분류 하위 목록(메가 패널)을 헤더 바로 아래에 붙이는 기준(아래 .mega-panel) */
+  body.mode-corp { --gnb-bar-h: 0px; }
+  body.mode-corp .site-header { height: auto; position: relative; }
   body.mode-corp .header-inner { grid-template-columns: minmax(0, 1fr); row-gap: 12px; height: auto; padding: 14px 16px; }
+  /* 대분류 줄: 메뉴 줄 아래 마지막 줄(전폭·가로 스크롤) — 일반 화면 모바일 대분류 줄과 같은 크기 */
+  body.mode-corp .header-cats {
+    position: static; order: 1; height: 44px; margin: 0 -16px -14px; justify-content: flex-start;
+    border-bottom: 0; box-shadow: none;
+  }
+  body.mode-corp .header-cats .mega-tabs { width: 100%; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+  body.mode-corp .header-cats .mega-tab { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 16px; font-size: 15px; white-space: nowrap; }
+  /* 펼친 하위 목록: 헤더가 화면에 고정되지 않으므로 헤더 바로 아래에 붙여 본문과 함께 스크롤(높이 제한 없음) */
+  body.mode-corp .header-cats .mega-item { position: static; }
+  body.mode-corp .header-cats .mega-panel { position: absolute; top: 100%; max-height: none; overflow: visible; }
   /* 메뉴 한 줄(검색·AI 상담·견적보기·마이페이지·로그아웃): 일반 화면 모바일 헤더와 같은 균등 배치 — 로그아웃만 다음 줄로 떨어지던 것 방지 */
   body.mode-corp .header-nav { width: 100%; justify-self: stretch; flex-wrap: nowrap; gap: 4px; }
   body.mode-corp .header-nav > .btn-header-search, body.mode-corp .header-nav > .btn-header-ai,

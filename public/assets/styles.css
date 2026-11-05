@@ -2107,7 +2107,8 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .mega-col-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0 12px; padding: 4px 0 8px; }
   .mega-3item { min-height: 44px; font-size: 14px; line-height: 1.35; color: var(--color-text-primary); white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
   .mega-3item-img, .mega-3item-thumb { width: 24px; height: 24px; }
-  body:not(.mode-corp) .site-header .mega-item.is-open > .mega-tab { color: var(--color-primary); box-shadow: inset 0 -2px 0 var(--color-primary); }
+  body:not(.mode-corp) .site-header .mega-item.is-open > .mega-tab { color: var(--color-primary); }   /* 기업회원 홈 글자색은 corp-home.css */
+  .site-header .mega-item.is-open > .mega-tab { box-shadow: inset 0 -2px 0 currentColor; }
   body:not(.mode-chat):not(.mode-corp) .site-header { transition: transform .22s ease; will-change: transform; }
   body:not(.mode-chat):not(.mode-corp) .site-header.is-scroll-hidden { transform: translateY(-100%); box-shadow: none; }
 }
