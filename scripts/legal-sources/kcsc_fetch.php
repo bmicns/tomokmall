@@ -41,7 +41,7 @@ $get = static function (string $path) use ($key, $fail): mixed {
     for ($i = 0; $i < 4; $i++) {
         $ch = curl_init(kcsc_url($path, $key));
         curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 90, CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_USERAGENT => 'tomokmall-kcsc-reader/1.0 (기준 조항 확인용)', CURLOPT_HTTPHEADER => ['Accept: application/json']]);
+            CURLOPT_USERAGENT => KCSC_USER_AGENT, CURLOPT_HTTPHEADER => ['Accept: application/json']]);
         $body = curl_exec($ch);
         $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         $err = curl_error($ch);
@@ -86,11 +86,13 @@ if (isset($opt['code'])) {
     if ($doc === null || kcsc_is_null_sentinel($data)) { $fail("본문 없음(또는 키 오류): {$tc[0]} {$tc[1]} — 상위 분류(xx0000)는 본문이 없습니다."); }
     $save("{$tc[0]}-{$tc[1]}.json", $data);
     $secs = kcsc_sections($doc);
-    echo "{$tc[0]} {$tc[1]} " . ($doc['name'] ?? '') . ' (판 ' . ($doc['version'] ?? '') . ', 갱신 ' . substr((string) ($doc['updateDate'] ?? ''), 0, 10) . ') · 절 ' . count($secs) . "개\n";
+    echo "{$tc[0]} " . implode(' ', str_split($tc[1], 2)) . ' ' . ($doc['name'] ?? '') . ' (판 ' . ($doc['version'] ?? '') . ', 갱신 ' . substr((string) ($doc['updateDate'] ?? ''), 0, 10) . ') · 절 ' . count($secs) . "개\n";
     if (isset($opt['grep'])) {
         foreach (kcsc_grep($secs, (string) $opt['grep']) as $g) { echo "- [{$g['label']}] {$g['title']} … {$g['snippet']}\n"; }
     } else {
-        foreach (array_slice($secs, 0, 60) as $s) { if ($s['level'] <= 2) { echo str_repeat('  ', max(0, $s['level'] - 1)) . "- {$s['label']} {$s['title']}\n"; } }
+        foreach (array_slice($secs, 0, 60) as $s) {   // 제목이 절 번호로 시작하면 번호를 한 번만
+            if ($s['level'] <= 2) { echo str_repeat('  ', max(0, $s['level'] - 1)) . '- ' . (str_starts_with($s['title'], $s['label']) ? $s['title'] : "{$s['label']} {$s['title']}") . "\n"; }
+        }
     }
     exit(0);
 }

@@ -11,6 +11,8 @@ declare(strict_types=1);
  */
 
 const KCSC_BASE = 'https://kcsc.re.kr/OpenApi';
+/** 요청 User-Agent — ASCII 만(한글이 들어가면 이 클라우드 환경의 프록시·서버가 HTTP 502 로 답함, 2026-11-05 확인) */
+const KCSC_USER_AGENT = 'tomokmall-kcsc-reader/1.0 (standards check)';
 
 /** 'KDS 14 31 10' · 'KCS 61 40 10' · 'KCS/614010' → ['KCS', '614010'] (순수 함수). 형식이 아니면 null */
 function kcsc_normalize_code(string $s): ?array

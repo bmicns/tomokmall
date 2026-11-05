@@ -22,6 +22,7 @@ ok('코드 정규화: 다른 형식은 null', kcsc_normalize_code('KS F 4403') =
 $key = 'AbC/123+xyz=';
 $url = kcsc_url('CodeViewer/KCS/614010', $key);
 ok('URL: 경로 + 쿼리 key(인코딩)', $url === 'https://kcsc.re.kr/OpenApi/CodeViewer/KCS/614010?key=' . rawurlencode($key));
+ok('User-Agent 는 ASCII 만(한글이면 HTTP 502)', KCSC_USER_AGENT !== '' && preg_match('/^[\x20-\x7E]+$/', KCSC_USER_AGENT) === 1);
 ok('키 가림: 원문·URL 인코딩 모두', !str_contains(kcsc_mask("실패 {$url} 키={$key}", $key), 'AbC') && str_contains(kcsc_mask("키={$key}", $key), '***'));
 
 echo "[응답 해석]\n";
