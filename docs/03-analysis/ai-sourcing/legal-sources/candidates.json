@@ -840,7 +840,7 @@
     "evidence": "kssn.net https://www.kssn.net/search/stddetail.do?itemNo=K001010134117 ('KS F 4001(2021 확인) 포장용 콘크리트 평판')",
     "confidence": "높음",
     "verify_level": "metadata_confirmed",
-    "verified_by": "Claude(e나라표준인증 상세 페이지 직접 열람)",
+    "verified_by": "Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05",
     "verified_at": "2026-11-05",
     "verified_url": null,
     "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
@@ -871,7 +871,8 @@
       "status": "개정",
       "scope": "주로 도로·광장 등의 포장에 쓰는 콘크리트 평판",
       "checked_at": "2026-11-05",
-      "source": "e나라표준인증 표준 상세(Claude 직접 열람)"
+      "source": "e나라표준인증 표준 상세(Claude 직접 열람)",
+      "user_accepted": "2026-11-05"
     }
   },
   {
@@ -934,7 +935,7 @@
     "evidence": "kssn.net 제목 '무근 및 철근 콘크리트 L 형 측구 - KS F 4005'",
     "confidence": "높음",
     "verify_level": "metadata_confirmed",
-    "verified_by": "Claude(e나라표준인증 상세 페이지 직접 열람)",
+    "verified_by": "Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05",
     "verified_at": "2026-11-05",
     "verified_url": null,
     "verify_note": "검색 후보 — 공식 사이트 주소·요약은 찾았으나 사람이 페이지를 열어 확인하지 않음. 사용자가 해당 URL에서 확인하면 metadata_confirmed 로 승격.",
@@ -969,7 +970,8 @@
       "status": "확인",
       "scope": "주로 노면 배수용 측구로 쓰는 콘크리트 및 철근 콘크리트 L형(공식 표준명: 콘크리트 및 철근 콘크리트 L 형)",
       "checked_at": "2026-11-05",
-      "source": "e나라표준인증 표준 상세(Claude 직접 열람)"
+      "source": "e나라표준인증 표준 상세(Claude 직접 열람)",
+      "user_accepted": "2026-11-05"
     }
   },
   {
@@ -985,7 +987,7 @@
     "evidence": "kssn.net https://www.kssn.net/search/stddetail.do?itemNo=K001010124900 ; standard.go.kr 상세 URL(검색 결과 노출)",
     "confidence": "높음",
     "verify_level": "metadata_confirmed",
-    "verified_by": "Claude(e나라표준인증 상세 페이지 직접 열람)",
+    "verified_by": "Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05",
     "verified_at": "2026-11-05",
     "verified_url": null,
     "verify_note": "검색 후보 — 공식 사이트 주소·요약은 찾았으나 사람이 페이지를 열어 확인하지 않음. 사용자가 해당 URL에서 확인하면 metadata_confirmed 로 승격.",
@@ -1019,7 +1021,8 @@
       "status": "개정",
       "scope": "보도·차도에 평행하게 설치하는 철근 콘크리트 측구의 몸체 및 뚜껑",
       "checked_at": "2026-11-05",
-      "source": "e나라표준인증 표준 상세(Claude 직접 열람)"
+      "source": "e나라표준인증 표준 상세(Claude 직접 열람)",
+      "user_accepted": "2026-11-05"
     }
   },
   {
@@ -1085,7 +1088,7 @@
     "evidence": "kssn.net KS F 4015 상세 페이지의 관련표준 목록에 'KS F 4016 - 철근 콘크리트 U형' 노출 https://www.kssn.net/search/stddetail.do?itemNo=K001010124912",
     "confidence": "중간",
     "verify_level": "metadata_confirmed",
-    "verified_by": "Claude(e나라표준인증 상세 페이지 직접 열람)",
+    "verified_by": "Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05",
     "verified_at": "2026-11-05",
     "verified_url": null,
     "verify_note": "검색 후보 — 공식 사이트 주소·요약은 찾았으나 사람이 페이지를 열어 확인하지 않음. 사용자가 해당 URL에서 확인하면 metadata_confirmed 로 승격.",
@@ -1120,7 +1123,8 @@
       "status": "개정",
       "scope": "주로 도로 측구에 쓰는 철근 콘크리트 U형의 몸체 및 뚜껑",
       "checked_at": "2026-11-05",
-      "source": "e나라표준인증 표준 상세(Claude 직접 열람)"
+      "source": "e나라표준인증 표준 상세(Claude 직접 열람)",
+      "user_accepted": "2026-11-05"
     }
   },
   {
@@ -1316,7 +1320,7 @@
     "evidence": "standard.go.kr URL 검색 결과 노출 및 검색 요약",
     "confidence": "중간",
     "verify_level": "metadata_confirmed",
-    "verified_by": "Claude(e나라표준인증 상세 페이지 직접 열람)",
+    "verified_by": "Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05",
     "verified_at": "2026-11-05",
     "verified_url": null,
     "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
@@ -1347,7 +1351,8 @@
       "status": "확인",
       "scope": "진동 코어·롤로 내면을 진동 또는 롤 전압해 만든 철근 콘크리트관(공식 표준명: 진동 및 전압 철근 콘크리트 관)",
       "checked_at": "2026-11-05",
-      "source": "e나라표준인증 표준 상세(Claude 직접 열람)"
+      "source": "e나라표준인증 표준 상세(Claude 직접 열람)",
+      "user_accepted": "2026-11-05"
     }
   },
   {
@@ -1457,7 +1462,7 @@
     "evidence": "standard.go.kr 상세 URL ; kssn.net https://kssn.net/search/stddetail.do?itemNo=K001010108878",
     "confidence": "높음",
     "verify_level": "metadata_confirmed",
-    "verified_by": "Claude(e나라표준인증 상세 페이지 직접 열람)",
+    "verified_by": "Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05",
     "verified_at": "2026-11-05",
     "verified_url": null,
     "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
@@ -1488,7 +1493,8 @@
       "status": "개정",
       "scope": "건물 안 비압력 환기·통기·배기·배수 배관과 건물 밖 비압력 용도의 경질 PVC관(일반 특성)",
       "checked_at": "2026-11-05",
-      "source": "e나라표준인증 표준 상세(Claude 직접 열람)"
+      "source": "e나라표준인증 표준 상세(Claude 직접 열람)",
+      "user_accepted": "2026-11-05"
     }
   },
   {
@@ -1504,7 +1510,7 @@
     "evidence": "kssn.net 제목 'KS M 3410 비압력용 경질 폴리염화비닐 이음관'",
     "confidence": "높음",
     "verify_level": "metadata_confirmed",
-    "verified_by": "Claude(e나라표준인증 상세 페이지 직접 열람)",
+    "verified_by": "Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05",
     "verified_at": "2026-11-05",
     "verified_url": null,
     "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
@@ -1535,7 +1541,8 @@
       "status": "개정",
       "scope": "비압력용 경질 PVC관을 접착 접합할 때 쓰는 이음관",
       "checked_at": "2026-11-05",
-      "source": "e나라표준인증 표준 상세(Claude 직접 열람)"
+      "source": "e나라표준인증 표준 상세(Claude 직접 열람)",
+      "user_accepted": "2026-11-05"
     }
   },
   {
@@ -1551,7 +1558,7 @@
     "evidence": "kssn.net 제목 'KS M 3401 수도용 경질 폴리염화비닐관'",
     "confidence": "높음",
     "verify_level": "metadata_confirmed",
-    "verified_by": "Claude(e나라표준인증 상세 페이지 직접 열람)",
+    "verified_by": "Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05",
     "verified_at": "2026-11-05",
     "verified_url": null,
     "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
@@ -1583,7 +1590,8 @@
       "status": "개정",
       "scope": "유체 수송용 수도·배수·하수·우수 용도의 압력용 경질 PVC관(공식 표준명: 압력용 경질 폴리염화비닐관 — 목록의 수도용은 이전 명칭)",
       "checked_at": "2026-11-05",
-      "source": "e나라표준인증 표준 상세(Claude 직접 열람)"
+      "source": "e나라표준인증 표준 상세(Claude 직접 열람)",
+      "user_accepted": "2026-11-05"
     }
   },
   {
@@ -1646,7 +1654,7 @@
     "evidence": "standard.go.kr 상세 URL ; kssn.net https://www.kssn.net/search/stddetail.do?itemNo=K001010115150",
     "confidence": "중간",
     "verify_level": "metadata_confirmed",
-    "verified_by": "Claude(e나라표준인증 상세 페이지 직접 열람)",
+    "verified_by": "Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05",
     "verified_at": "2026-11-05",
     "verified_url": null,
     "verify_note": "웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.",
@@ -1676,7 +1684,8 @@
       "status": "개정",
       "scope": "점토·고령토·황토 등을 원료로 반죽·성형·건조·소성해 만든 벽돌 — 포장용 점토블록에 그대로 적용되는지는 표준 본문 확인 필요",
       "checked_at": "2026-11-05",
-      "source": "e나라표준인증 표준 상세(Claude 직접 열람)"
+      "source": "e나라표준인증 표준 상세(Claude 직접 열람)",
+      "user_accepted": "2026-11-05"
     }
   }
 ]

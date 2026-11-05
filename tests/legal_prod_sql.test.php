@@ -139,6 +139,8 @@ ok('확인된 KS 19건 = 사용자 캡처 10(기존 2 + 2026-11-05 8) + Claude �
     && count(array_filter($confirmed, static fn($c) => str_contains((string) $c['scope_note'], '사용자 확인'))) === 10
     && count($byClaudeKs) === 9 && !array_filter($byClaudeKs, static fn($c) => !str_contains((string) $c['scope_note'], '공식 상세 확인 2026-11-05') || ($c['ks_detail']['source'] ?? '') !== 'e나라표준인증 표준 상세(Claude 직접 열람)'));
 $byRef9 = array_column($byClaudeKs, null, 'ref_no');
+ok('Claude 확인분(V25·V26·KS 9) 사용자 인정 기록(2026-11-05)', count(array_filter($byClaudeKs, static fn($c) => ($c['ks_detail']['user_accepted'] ?? '') === '2026-11-05' && str_contains((string) $c['verified_by'], '사용자 인정 2026-11-05'))) === 9
+    && str_contains($byId['V25']['verify_source'], '2026-11-05 사용자 인정') && str_contains($byId['V26']['verify_source'], '2026-11-05 사용자 인정') && mb_strlen($byId['V25']['checked_by']) <= 100);
 ok('Claude 확인 9건: 등록 제목(official_name)은 그대로 — 운영 행과 title 로 맞춤(공식 표준명 차이는 적용 범위에 표시)', ($byRef9['KS M 3401']['official_name'] ?? '') === '수도용 경질 폴리염화비닐관'
     && str_contains($byRef9['KS M 3401']['scope_note'] ?? '', '압력용 경질 폴리염화비닐관') && isset($byRef9['KS F 4417'], $byRef9['KS L 4201']));
 ok('40 은 UPDATE 19문 + 확인 SELECT 만(INSERT·DELETE·DDL 없음)', substr_count($ks40Body, 'UPDATE rag_documents SET') === 19 && !preg_match('/\b(INSERT|DELETE|DROP|ALTER|TRUNCATE|REPLACE)\b/', $ks40Body));

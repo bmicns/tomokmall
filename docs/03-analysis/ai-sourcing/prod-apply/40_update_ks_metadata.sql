@@ -51,7 +51,7 @@ AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
 검색 근거 신뢰도: 높음
 확인 수준: metadata_confirmed — 웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.
 확인 URL: 없음
-※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', applies_to = '주로 도로·광장 등의 포장에 쓰는 콘크리트 평판 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', verify_level = 'metadata_confirmed', verified_by = 'Claude(e나라표준인증 상세 페이지 직접 열람)', verified_at = '2026-11-05'
+※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', applies_to = '주로 도로·광장 등의 포장에 쓰는 콘크리트 평판 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', verify_level = 'metadata_confirmed', verified_by = 'Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05', verified_at = '2026-11-05'
  WHERE author = 'AI 조사 초안(검색 기반)' AND source_type = 'ks' AND title = '[KS] 포장용 콘크리트 평판 (KS F 4001)';
 -- KS F 4006 (확인 2026-10-27)
 UPDATE rag_documents SET content = '[공식 메타데이터 확인 — AI 상담 미사용(검토 전)]
@@ -82,7 +82,7 @@ AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
 검색 근거 신뢰도: 높음
 확인 수준: metadata_confirmed — 검색 후보 — 공식 사이트 주소·요약은 찾았으나 사람이 페이지를 열어 확인하지 않음. 사용자가 해당 URL에서 확인하면 metadata_confirmed 로 승격.
 확인 URL: 없음
-※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', applies_to = '주로 노면 배수용 측구로 쓰는 콘크리트 및 철근 콘크리트 L형(공식 표준명: 콘크리트 및 철근 콘크리트 L 형) (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', verify_level = 'metadata_confirmed', verified_by = 'Claude(e나라표준인증 상세 페이지 직접 열람)', verified_at = '2026-11-05'
+※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', applies_to = '주로 노면 배수용 측구로 쓰는 콘크리트 및 철근 콘크리트 L형(공식 표준명: 콘크리트 및 철근 콘크리트 L 형) (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', verify_level = 'metadata_confirmed', verified_by = 'Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05', verified_at = '2026-11-05'
  WHERE author = 'AI 조사 초안(검색 기반)' AND source_type = 'ks' AND title = '[KS] 무근 및 철근 콘크리트 L형 측구 (KS F 4005)';
 -- KS F 4417 (확인 2026-11-05)
 UPDATE rag_documents SET content = '[공식 메타데이터 확인 — AI 상담 미사용(검토 전)]
@@ -97,7 +97,7 @@ AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
 검색 근거 신뢰도: 높음
 확인 수준: metadata_confirmed — 검색 후보 — 공식 사이트 주소·요약은 찾았으나 사람이 페이지를 열어 확인하지 않음. 사용자가 해당 URL에서 확인하면 metadata_confirmed 로 승격.
 확인 URL: 없음
-※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', applies_to = '보도·차도에 평행하게 설치하는 철근 콘크리트 측구의 몸체 및 뚜껑 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', verify_level = 'metadata_confirmed', verified_by = 'Claude(e나라표준인증 상세 페이지 직접 열람)', verified_at = '2026-11-05'
+※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', applies_to = '보도·차도에 평행하게 설치하는 철근 콘크리트 측구의 몸체 및 뚜껑 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', verify_level = 'metadata_confirmed', verified_by = 'Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05', verified_at = '2026-11-05'
  WHERE author = 'AI 조사 초안(검색 기반)' AND source_type = 'ks' AND title = '[KS] 도로용 철근 콘크리트 측구 (KS F 4417)';
 -- KS F 4010 (확인 2026-11-05)
 UPDATE rag_documents SET content = '[공식 메타데이터 확인 — AI 상담 미사용(검토 전)]
@@ -127,7 +127,7 @@ AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
 검색 근거 신뢰도: 중간
 확인 수준: metadata_confirmed — 검색 후보 — 공식 사이트 주소·요약은 찾았으나 사람이 페이지를 열어 확인하지 않음. 사용자가 해당 URL에서 확인하면 metadata_confirmed 로 승격.
 확인 URL: 없음
-※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', applies_to = '주로 도로 측구에 쓰는 철근 콘크리트 U형의 몸체 및 뚜껑 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', verify_level = 'metadata_confirmed', verified_by = 'Claude(e나라표준인증 상세 페이지 직접 열람)', verified_at = '2026-11-05'
+※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', applies_to = '주로 도로 측구에 쓰는 철근 콘크리트 U형의 몸체 및 뚜껑 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', verify_level = 'metadata_confirmed', verified_by = 'Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05', verified_at = '2026-11-05'
  WHERE author = 'AI 조사 초안(검색 기반)' AND source_type = 'ks' AND title = '[KS] 철근 콘크리트 U형 (KS F 4016)';
 -- KS F 4012 (확인 2026-11-05)
 UPDATE rag_documents SET content = '[공식 메타데이터 확인 — AI 상담 미사용(검토 전)]
@@ -187,7 +187,7 @@ AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
 검색 근거 신뢰도: 중간
 확인 수준: metadata_confirmed — 웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.
 확인 URL: 없음
-※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', applies_to = '진동 코어·롤로 내면을 진동 또는 롤 전압해 만든 철근 콘크리트관(공식 표준명: 진동 및 전압 철근 콘크리트 관) (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', verify_level = 'metadata_confirmed', verified_by = 'Claude(e나라표준인증 상세 페이지 직접 열람)', verified_at = '2026-11-05'
+※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', applies_to = '진동 코어·롤로 내면을 진동 또는 롤 전압해 만든 철근 콘크리트관(공식 표준명: 진동 및 전압 철근 콘크리트 관) (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', verify_level = 'metadata_confirmed', verified_by = 'Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05', verified_at = '2026-11-05'
  WHERE author = 'AI 조사 초안(검색 기반)' AND source_type = 'ks' AND title = '[KS] 진동 및 전압 철근 콘크리트관(제목 원문 미확인) (KS F 4402)';
 -- KS M 3500-1 (확인 2026-11-05)
 UPDATE rag_documents SET content = '[공식 메타데이터 확인 — AI 상담 미사용(검토 전)]
@@ -232,7 +232,7 @@ AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
 검색 근거 신뢰도: 높음
 확인 수준: metadata_confirmed — 웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.
 확인 URL: 없음
-※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', applies_to = '건물 안 비압력 환기·통기·배기·배수 배관과 건물 밖 비압력 용도의 경질 PVC관(일반 특성) (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', verify_level = 'metadata_confirmed', verified_by = 'Claude(e나라표준인증 상세 페이지 직접 열람)', verified_at = '2026-11-05'
+※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', applies_to = '건물 안 비압력 환기·통기·배기·배수 배관과 건물 밖 비압력 용도의 경질 PVC관(일반 특성) (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', verify_level = 'metadata_confirmed', verified_by = 'Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05', verified_at = '2026-11-05'
  WHERE author = 'AI 조사 초안(검색 기반)' AND source_type = 'ks' AND title = '[KS] 비압력용 경질 폴리염화비닐관(구 일반용 경질 폴리염화비닐관) (KS M 3404)';
 -- KS M 3410 (확인 2026-11-05)
 UPDATE rag_documents SET content = '[공식 메타데이터 확인 — AI 상담 미사용(검토 전)]
@@ -247,7 +247,7 @@ AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
 검색 근거 신뢰도: 높음
 확인 수준: metadata_confirmed — 웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.
 확인 URL: 없음
-※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', applies_to = '비압력용 경질 PVC관을 접착 접합할 때 쓰는 이음관 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', verify_level = 'metadata_confirmed', verified_by = 'Claude(e나라표준인증 상세 페이지 직접 열람)', verified_at = '2026-11-05'
+※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', applies_to = '비압력용 경질 PVC관을 접착 접합할 때 쓰는 이음관 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', verify_level = 'metadata_confirmed', verified_by = 'Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05', verified_at = '2026-11-05'
  WHERE author = 'AI 조사 초안(검색 기반)' AND source_type = 'ks' AND title = '[KS] 비압력용 경질 폴리염화비닐 이음관 (KS M 3410)';
 -- KS M 3401 (확인 2026-11-05)
 UPDATE rag_documents SET content = '[공식 메타데이터 확인 — AI 상담 미사용(검토 전)]
@@ -262,7 +262,7 @@ AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
 검색 근거 신뢰도: 높음
 확인 수준: metadata_confirmed — 웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.
 확인 URL: 없음
-※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', applies_to = '유체 수송용 수도·배수·하수·우수 용도의 압력용 경질 PVC관(공식 표준명: 압력용 경질 폴리염화비닐관 — 목록의 수도용은 이전 명칭) (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', verify_level = 'metadata_confirmed', verified_by = 'Claude(e나라표준인증 상세 페이지 직접 열람)', verified_at = '2026-11-05'
+※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', applies_to = '유체 수송용 수도·배수·하수·우수 용도의 압력용 경질 PVC관(공식 표준명: 압력용 경질 폴리염화비닐관 — 목록의 수도용은 이전 명칭) (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', verify_level = 'metadata_confirmed', verified_by = 'Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05', verified_at = '2026-11-05'
  WHERE author = 'AI 조사 초안(검색 기반)' AND source_type = 'ks' AND title = '[KS] 수도용 경질 폴리염화비닐관 (KS M 3401)';
 -- KS D 3590 (확인 2026-11-05)
 UPDATE rag_documents SET content = '[공식 메타데이터 확인 — AI 상담 미사용(검토 전)]
@@ -292,7 +292,7 @@ AI 적용 범위: 불가 — 적용 대상 다름
 검색 근거 신뢰도: 중간
 확인 수준: metadata_confirmed — 웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.
 확인 URL: 없음
-※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', applies_to = '점토·고령토·황토 등을 원료로 반죽·성형·건조·소성해 만든 벽돌 — 포장용 점토블록에 그대로 적용되는지는 표준 본문 확인 필요 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', verify_level = 'metadata_confirmed', verified_by = 'Claude(e나라표준인증 상세 페이지 직접 열람)', verified_at = '2026-11-05'
+※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', applies_to = '점토·고령토·황토 등을 원료로 반죽·성형·건조·소성해 만든 벽돌 — 포장용 점토블록에 그대로 적용되는지는 표준 본문 확인 필요 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', verify_level = 'metadata_confirmed', verified_by = 'Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05', verified_at = '2026-11-05'
  WHERE author = 'AI 조사 초안(검색 기반)' AND source_type = 'ks' AND title = '[KS] 점토 벽돌 (KS L 4201)';
 COMMIT;
 

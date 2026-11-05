@@ -316,7 +316,7 @@ AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
 검색 근거 신뢰도: 높음
 확인 수준: metadata_confirmed — 웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.
 확인 URL: 없음
-※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'pavement', '보도용 평판 블록', 0, 900, 'ks', '포장용 콘크리트 평판', 'KS F 4001', 'https://www.kssn.net/search/stddetail.do?itemNo=K001010050193', '주로 도로·광장 등의 포장에 쓰는 콘크리트 평판 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', 'Claude(e나라표준인증 상세 페이지 직접 열람)', '2026-11-05', NULL, NULL);
+※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'pavement', '보도용 평판 블록', 0, 900, 'ks', '포장용 콘크리트 평판', 'KS F 4001', 'https://www.kssn.net/search/stddetail.do?itemNo=K001010050193', '주로 도로·광장 등의 포장에 쓰는 콘크리트 평판 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', 'Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05', '2026-11-05', NULL, NULL);
 INSERT INTO rag_documents (title, content, category_key, tags, is_active, sort_order, source_type, source_name, source_ref, source_url, applies_to, legal_status, author, review_status, verify_level, verified_by, verified_at, effective_date, revised_date)
 VALUES ('[KS] 콘크리트 경계 블록 (KS F 4006)', '[공식 메타데이터 확인 — AI 상담 미사용(검토 전)]
 확인된 내용: 표준명·최종 개정·확인일·적용 범위만 확인. 종류(A·B·C형 등)·치수·1개 길이 등 상세 조항은 미검증.
@@ -345,7 +345,7 @@ AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
 검색 근거 신뢰도: 높음
 확인 수준: metadata_confirmed — 검색 후보 — 공식 사이트 주소·요약은 찾았으나 사람이 페이지를 열어 확인하지 않음. 사용자가 해당 URL에서 확인하면 metadata_confirmed 로 승격.
 확인 URL: 없음
-※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'culvert', 'L형 측구, 노면 배수', 0, 900, 'ks', '무근 및 철근 콘크리트 L형 측구', 'KS F 4005', 'https://www.kssn.net/search/stddetail.do?itemNo=K001010124877', '주로 노면 배수용 측구로 쓰는 콘크리트 및 철근 콘크리트 L형(공식 표준명: 콘크리트 및 철근 콘크리트 L 형) (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', 'Claude(e나라표준인증 상세 페이지 직접 열람)', '2026-11-05', NULL, NULL);
+※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'culvert', 'L형 측구, 노면 배수', 0, 900, 'ks', '무근 및 철근 콘크리트 L형 측구', 'KS F 4005', 'https://www.kssn.net/search/stddetail.do?itemNo=K001010124877', '주로 노면 배수용 측구로 쓰는 콘크리트 및 철근 콘크리트 L형(공식 표준명: 콘크리트 및 철근 콘크리트 L 형) (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', 'Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05', '2026-11-05', NULL, NULL);
 INSERT INTO rag_documents (title, content, category_key, tags, is_active, sort_order, source_type, source_name, source_ref, source_url, applies_to, legal_status, author, review_status, verify_level, verified_by, verified_at, effective_date, revised_date)
 VALUES ('[KS] 도로용 철근 콘크리트 측구 (KS F 4417)', '[공식 메타데이터 확인 — AI 상담 미사용(검토 전)]
 AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
@@ -359,7 +359,7 @@ AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
 검색 근거 신뢰도: 높음
 확인 수준: metadata_confirmed — 검색 후보 — 공식 사이트 주소·요약은 찾았으나 사람이 페이지를 열어 확인하지 않음. 사용자가 해당 URL에서 확인하면 metadata_confirmed 로 승격.
 확인 URL: 없음
-※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'culvert', '측구(몸체·뚜껑), 도로 배수', 0, 900, 'ks', '도로용 철근 콘크리트 측구', 'KS F 4417', 'https://standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?pageIndex=1&pageUnit=10&ksNo=KSF4417&tmprKsNo=KSF4417&reformNo=19&menuId=919&topMenuId=502&upperMenuId=503', '보도·차도에 평행하게 설치하는 철근 콘크리트 측구의 몸체 및 뚜껑 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', 'Claude(e나라표준인증 상세 페이지 직접 열람)', '2026-11-05', NULL, NULL);
+※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'culvert', '측구(몸체·뚜껑), 도로 배수', 0, 900, 'ks', '도로용 철근 콘크리트 측구', 'KS F 4417', 'https://standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?pageIndex=1&pageUnit=10&ksNo=KSF4417&tmprKsNo=KSF4417&reformNo=19&menuId=919&topMenuId=502&upperMenuId=503', '보도·차도에 평행하게 설치하는 철근 콘크리트 측구의 몸체 및 뚜껑 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', 'Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05', '2026-11-05', NULL, NULL);
 INSERT INTO rag_documents (title, content, category_key, tags, is_active, sort_order, source_type, source_name, source_ref, source_url, applies_to, legal_status, author, review_status, verify_level, verified_by, verified_at, effective_date, revised_date)
 VALUES ('[KS] 철근 콘크리트 플룸 및 벤치 플룸 (KS F 4010)', '[공식 메타데이터 확인 — AI 상담 미사용(검토 전)]
 AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
@@ -387,7 +387,7 @@ AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
 검색 근거 신뢰도: 중간
 확인 수준: metadata_confirmed — 검색 후보 — 공식 사이트 주소·요약은 찾았으나 사람이 페이지를 열어 확인하지 않음. 사용자가 해당 URL에서 확인하면 metadata_confirmed 로 승격.
 확인 URL: 없음
-※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'culvert', 'U형 수로관(U형 측구)', 0, 900, 'ks', '철근 콘크리트 U형', 'KS F 4016', 'https://standard.go.kr', '주로 도로 측구에 쓰는 철근 콘크리트 U형의 몸체 및 뚜껑 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', 'Claude(e나라표준인증 상세 페이지 직접 열람)', '2026-11-05', NULL, NULL);
+※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'culvert', 'U형 수로관(U형 측구)', 0, 900, 'ks', '철근 콘크리트 U형', 'KS F 4016', 'https://standard.go.kr', '주로 도로 측구에 쓰는 철근 콘크리트 U형의 몸체 및 뚜껑 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', 'Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05', '2026-11-05', NULL, NULL);
 INSERT INTO rag_documents (title, content, category_key, tags, is_active, sort_order, source_type, source_name, source_ref, source_url, applies_to, legal_status, author, review_status, verify_level, verified_by, verified_at, effective_date, revised_date)
 VALUES ('[KS] 하수도용 콘크리트 맨홀 블록 (KS F 4012)', '[공식 메타데이터 확인 — AI 상담 미사용(검토 전)]
 AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
@@ -457,7 +457,7 @@ AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
 검색 근거 신뢰도: 중간
 확인 수준: metadata_confirmed — 웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.
 확인 URL: 없음
-※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'pe_pipe', '철근 콘크리트관(진동·롤 전압 성형)', 0, 900, 'ks', '진동 및 전압 철근 콘크리트관(제목 원문 미확인)', 'KS F 4402', 'https://www.standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?ksNo=KSF4402', '진동 코어·롤로 내면을 진동 또는 롤 전압해 만든 철근 콘크리트관(공식 표준명: 진동 및 전압 철근 콘크리트 관) (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', 'Claude(e나라표준인증 상세 페이지 직접 열람)', '2026-11-05', NULL, NULL);
+※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'pe_pipe', '철근 콘크리트관(진동·롤 전압 성형)', 0, 900, 'ks', '진동 및 전압 철근 콘크리트관(제목 원문 미확인)', 'KS F 4402', 'https://www.standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?ksNo=KSF4402', '진동 코어·롤로 내면을 진동 또는 롤 전압해 만든 철근 콘크리트관(공식 표준명: 진동 및 전압 철근 콘크리트 관) (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', 'Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05', '2026-11-05', NULL, NULL);
 INSERT INTO rag_documents (title, content, category_key, tags, is_active, sort_order, source_type, source_name, source_ref, source_url, applies_to, legal_status, author, review_status, verify_level, verified_by, verified_at, effective_date, revised_date)
 VALUES ('[KS] 배수 및 하수용 비압력 매설용 구조형 폴리에틸렌(PE)관 — 제1부: 이중벽관 (KS M 3500-1)', '[공식 메타데이터 확인 — AI 상담 미사용(검토 전)]
 AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
@@ -499,7 +499,7 @@ AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
 검색 근거 신뢰도: 높음
 확인 수준: metadata_confirmed — 웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.
 확인 URL: 없음
-※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'pe_pipe', 'PVC관(배수·통기·건물 외부 비압력)', 0, 900, 'ks', '비압력용 경질 폴리염화비닐관(구 일반용 경질 폴리염화비닐관)', 'KS M 3404', 'https://standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?ksNo=KSM3404&menuId=919&pageIndex=1&pageUnit=10&reformNo=19&tmprKsNo=KSM3404&topMenuId=502&upperMenuId=503', '건물 안 비압력 환기·통기·배기·배수 배관과 건물 밖 비압력 용도의 경질 PVC관(일반 특성) (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', 'Claude(e나라표준인증 상세 페이지 직접 열람)', '2026-11-05', NULL, NULL);
+※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'pe_pipe', 'PVC관(배수·통기·건물 외부 비압력)', 0, 900, 'ks', '비압력용 경질 폴리염화비닐관(구 일반용 경질 폴리염화비닐관)', 'KS M 3404', 'https://standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?ksNo=KSM3404&menuId=919&pageIndex=1&pageUnit=10&reformNo=19&tmprKsNo=KSM3404&topMenuId=502&upperMenuId=503', '건물 안 비압력 환기·통기·배기·배수 배관과 건물 밖 비압력 용도의 경질 PVC관(일반 특성) (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', 'Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05', '2026-11-05', NULL, NULL);
 INSERT INTO rag_documents (title, content, category_key, tags, is_active, sort_order, source_type, source_name, source_ref, source_url, applies_to, legal_status, author, review_status, verify_level, verified_by, verified_at, effective_date, revised_date)
 VALUES ('[KS] 비압력용 경질 폴리염화비닐 이음관 (KS M 3410)', '[공식 메타데이터 확인 — AI 상담 미사용(검토 전)]
 AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
@@ -513,7 +513,7 @@ AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
 검색 근거 신뢰도: 높음
 확인 수준: metadata_confirmed — 웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.
 확인 URL: 없음
-※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'pe_pipe', 'PVC 이음관', 0, 900, 'ks', '비압력용 경질 폴리염화비닐 이음관', 'KS M 3410', 'https://www.kssn.net/search/stddetail.do?itemNo=K001010132913', '비압력용 경질 PVC관을 접착 접합할 때 쓰는 이음관 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', 'Claude(e나라표준인증 상세 페이지 직접 열람)', '2026-11-05', NULL, NULL);
+※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'pe_pipe', 'PVC 이음관', 0, 900, 'ks', '비압력용 경질 폴리염화비닐 이음관', 'KS M 3410', 'https://www.kssn.net/search/stddetail.do?itemNo=K001010132913', '비압력용 경질 PVC관을 접착 접합할 때 쓰는 이음관 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', 'Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05', '2026-11-05', NULL, NULL);
 INSERT INTO rag_documents (title, content, category_key, tags, is_active, sort_order, source_type, source_name, source_ref, source_url, applies_to, legal_status, author, review_status, verify_level, verified_by, verified_at, effective_date, revised_date)
 VALUES ('[KS] 수도용 경질 폴리염화비닐관 (KS M 3401)', '[공식 메타데이터 확인 — AI 상담 미사용(검토 전)]
 AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
@@ -527,7 +527,7 @@ AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
 검색 근거 신뢰도: 높음
 확인 수준: metadata_confirmed — 웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.
 확인 URL: 없음
-※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'pe_pipe', 'PVC관(수도용)', 0, 900, 'ks', '수도용 경질 폴리염화비닐관', 'KS M 3401', 'https://www.kssn.net/search/stddetail.do?itemNo=K001010123794', '유체 수송용 수도·배수·하수·우수 용도의 압력용 경질 PVC관(공식 표준명: 압력용 경질 폴리염화비닐관 — 목록의 수도용은 이전 명칭) (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', 'Claude(e나라표준인증 상세 페이지 직접 열람)', '2026-11-05', NULL, NULL);
+※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'pe_pipe', 'PVC관(수도용)', 0, 900, 'ks', '수도용 경질 폴리염화비닐관', 'KS M 3401', 'https://www.kssn.net/search/stddetail.do?itemNo=K001010123794', '유체 수송용 수도·배수·하수·우수 용도의 압력용 경질 PVC관(공식 표준명: 압력용 경질 폴리염화비닐관 — 목록의 수도용은 이전 명칭) (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', 'Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05', '2026-11-05', NULL, NULL);
 INSERT INTO rag_documents (title, content, category_key, tags, is_active, sort_order, source_type, source_name, source_ref, source_url, applies_to, legal_status, author, review_status, verify_level, verified_by, verified_at, effective_date, revised_date)
 VALUES ('[KS] 파형 강관 및 파형 섹션 (KS D 3590)', '[공식 메타데이터 확인 — AI 상담 미사용(검토 전)]
 AI 적용 범위: 불가 — 공식 확인 전(검색 후보)
@@ -555,7 +555,7 @@ AI 적용 범위: 불가 — 적용 대상 다름
 검색 근거 신뢰도: 중간
 확인 수준: metadata_confirmed — 웹 검색 결과(제목·요약)로만 존재 추정. 공식 원문 미열람.
 확인 URL: 없음
-※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'pavement', '점토블록(참고 — 포장용 전용 표준 아님)', 0, 900, 'ks', '점토 벽돌', 'KS L 4201', 'https://standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?pageIndex=1&pageUnit=10&ksNo=KSL4201&tmprKsNo=KSL4201&reformNo=19&menuId=919&topMenuId=502&upperMenuId=503', '점토·고령토·황토 등을 원료로 반죽·성형·건조·소성해 만든 벽돌 — 포장용 점토블록에 그대로 적용되는지는 표준 본문 확인 필요 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', 'Claude(e나라표준인증 상세 페이지 직접 열람)', '2026-11-05', NULL, NULL);
+※ 이 칸에는 원문 확인 후 ''상담에 필요한 요지''만 입력합니다(조문 전문 복사 금지, KS 원문 재게시 금지).', 'pavement', '점토블록(참고 — 포장용 전용 표준 아님)', 0, 900, 'ks', '점토 벽돌', 'KS L 4201', 'https://standard.go.kr/KSCI/standardIntro/getStandardSearchView.do?pageIndex=1&pageUnit=10&ksNo=KSL4201&tmprKsNo=KSL4201&reformNo=19&menuId=919&topMenuId=502&upperMenuId=503', '점토·고령토·황토 등을 원료로 반죽·성형·건조·소성해 만든 벽돌 — 포장용 점토블록에 그대로 적용되는지는 표준 본문 확인 필요 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)', 'unknown', 'AI 조사 초안(검색 기반)', 'unreviewed', 'metadata_confirmed', 'Claude(e나라표준인증 상세 페이지 직접 열람) · 사용자 인정 2026-11-05', '2026-11-05', NULL, NULL);
 COMMIT;
 
 -- 롤백: DELETE FROM rag_documents WHERE author = 'AI 조사 초안(검색 기반)' AND review_status = 'unreviewed';
