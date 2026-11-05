@@ -294,6 +294,9 @@ body.mode-corp .footer-inner { max-width: 1360px; padding: 28px 24px 32px; }
   .ch-hero { padding: 32px 0 28px; word-break: keep-all; }   /* 제목이 단어 중간(건/축자재)에서 줄바꿈되던 것 */
   .ch-hero-title { font-size: 34px; }
   .ch-hero-sub { font-size: 17px; }
+  /* 검색창 아래 칩 5개: 360px 폭에서 한 줄(5번째 칩만 다음 줄로 떨어지던 것) — 글자·여백 축소 */
+  .ch-chips { gap: 5px; }
+  .ch-chips a { padding: 7px 8px; font-size: 12px; }
   .ch-search button { padding: 0 16px; }
   .ch-pick { padding: 0 12px 20px; }
   .ch-tab { flex: 1; padding: 16px 8px 12px; }

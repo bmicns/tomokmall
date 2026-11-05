@@ -2024,7 +2024,9 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .gh-hero-title{font-size:34px}
   .gh-hero-sub{font-size:18px}
   .gh-section-title{font-size:22px}
-  .gh-chips a{display:inline-flex;align-items:center;min-height:44px;padding:0 16px}
+  /* 검색창 아래 칩 5개: 360px 폭에서 한 줄(5번째 칩만 다음 줄로 떨어지던 것) — 글자·여백 축소 */
+  .gh-chips{gap:5px}
+  .gh-chips a{display:inline-flex;align-items:center;min-height:36px;padding:0 8px;font-size:12px}
   .gh-use-card{flex-basis:80%}
   .gh-need-panel{padding:16px 14px}
   .gh-need-title{font-size:19px}
