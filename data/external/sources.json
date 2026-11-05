@@ -42,7 +42,7 @@
   },
   {
    "key": "manufacturer_catalog",
-   "name": "제조사 제공 카탈로그(허락받은 PDF·엑셀·CSV) — 틀",
+   "name": "제조사 제공 카탈로그(허락받은 PDF·엑셀·CSV) — 틀(2026-11-05 사용자 결정: 제조사 연락·허락 요청은 하지 않음 — 제조사가 자료를 보내 오는 경우에만)",
    "domain": "",
    "kind": "제조사 제공 파일",
    "priority": 0,
@@ -142,7 +142,8 @@
    ],
    "crawl_priority": 7,
    "ai_value": "중(흄관·VR관 KS, 보도블럭)",
-   "difficulty": "중"
+   "difficulty": "중",
+   "note_2026_11_05": "https://kr-con.co.kr/robots.txt 가 User-agent:* Disallow:/ (Yeti·Googlebot·Daumoa 만 허용) — 우리 수집기는 수집하지 않음(crawl-sources.php 가 robots 확인으로 건너뜀). 10-29 302 반복과 별개"
   },
   {
    "key": "dhconc",
