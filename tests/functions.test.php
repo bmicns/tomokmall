@@ -336,6 +336,25 @@ ok('work_type_has_material: 대표 자재만 true', work_type_has_material($dr, 
 $imgOk = true;
 foreach (work_types() as $t) { foreach (array_filter([$t['img'] ?? null, $t['banner'] ?? null]) as $im) { if (!is_file(__DIR__ . '/../public' . $im)) { $imgOk = false; } } }
 ok('작업 카드·배너 이미지 파일 존재', $imgOk);
+// 2026-11-05: 사구석(157) 정원 추가·수목보호틀(인조석, 104) 제외, 옹벽 배수관 재질 주의 안내(건축법 시행규칙 제25조제4호)
+$gd = work_type_find('garden');
+ok('정원: 사구석(157) 포함, 수목보호틀(인조석, 104) 제외', work_type_has_material($gd, 157) && !work_type_has_material($gd, 104));
+$rt = work_type_find('retaining');
+$rn = work_type_note($rt, 167);
+ok('옹벽: PE 유공관(167) 추천 유지 + 주의 안내(제25조 재질 제한·2m)', work_type_has_material($rt, 167) && $rn !== null
+    && str_contains($rn['text'], '제25조') && str_contains($rn['text'], '2m') && work_type_note($rt, 84) === null);
+ok('지하 배수: PE 유공관 1종·2종(167·168)에 같은 안내', work_type_note(work_type_find('subdrain'), 167) !== null
+    && work_type_note(work_type_find('subdrain'), 168) !== null && work_type_note(work_type_find('subdrain'), 181) === null);
+$rm = work_type_materials($rt, []);
+$flags = array_column($rm, 'note', 'id');
+ok('주의 대상 카드만 표시 문구', ($flags[167] ?? '') === '설치 위치 주의' && ($flags[84] ?? 'x') === '');
+ok('카드 HTML: 대상 카드에만 표시', str_contains(work_type_material_card_html($rm[array_search(167, array_column($rm, 'id'), true)]), 'gh-need-flag')
+    && !str_contains(work_type_material_card_html($rm[0]), 'gh-need-flag'));
+$nh = work_type_note_html($rn, work_type_note_names($rm, $rn));
+ok('말풍선 HTML: 제목·대상 이름·문구, 이스케이프', str_contains($nh, 'role="note"') && str_contains($nh, '대상: PE이중벽관1종(유공관)')
+    && str_contains($nh, '「건축법 시행규칙」') && !str_contains(work_type_note_html(['title' => '<b>', 'text' => 'x']), '<b>'));
+$bad = [['key' => 'x', 'name' => 'X', 'materials' => [[24, 'a', 'd']], 'notes' => [['ids' => [25], 'title' => 't', 'text' => 'x']]]];
+ok('주의 안내 대상이 대표 자재에 없으면 위반 검출', count(work_types_validate($bad)) === 1);
 
 echo "[작업별 목록 필터 = 기존 products.php 필터 render_product_filters]\n";
 $fc = ['mat' => [11 => 28, 13 => 10], 'shape' => ['U형' => 2], 'load' => [], 'spec' => ['200*200' => 3, '300*300' => 1], 'total' => 38];
