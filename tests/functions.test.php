@@ -307,6 +307,16 @@ ok('통합 전 작업명 없음(배수시설·노면배수·지하배수관·집
     !array_intersect($names, ['배수시설 설치·정비', '도로·진입로 노면 배수 정비', '지하 배수관 매설', '집수정·맨홀 설치',
         '도로 밑 횡단 배수로 놓기', '도로·단지 안전시설 설치', '주차장 만들기·정비', '담장 쌓기', '건물 기초·바닥 콘크리트',
         '전기·통신·가로등 지중시설', '수도 급수관 연결']));
+// v5 근거 기반 재선정(docs/03-analysis/work-types-v5.md)
+$wtKeys = array_column($wt, 'key');
+ok('v5: 논밭 수로 정비(farm) 추가, 담장(fence)은 정원·담장 꾸미기(garden)로 통합',
+    in_array('farm', $wtKeys, true) && !in_array('fence', $wtKeys, true)
+    && work_type_has_material(work_type_find('garden'), 102) && work_type_has_material(work_type_find('garden'), 101));
+ok('v5: 지하 배수에 침투시설(38 침투측구·63 침투집수정) 미연결 — 빗물을 넣는 시설이라 목적이 반대',
+    !work_type_has_material(work_type_find('subdrain'), 38) && !work_type_has_material(work_type_find('subdrain'), 63));
+$descOk = true;
+foreach ($wt as $t) { foreach ($t['materials'] as $mm) { $len = mb_strlen((string) ($mm[2] ?? '')); if ($len < 1 || $len > 14) { $descOk = false; } } }
+ok('v5: 대표 자재 용도 설명 1~14자(카드 한 줄)', $descOk);
 $bad = [['key' => 'x', 'name' => 'X', 'materials' => array_map(static fn($i) => [$i, 'n', 'd'], range(30, 40))]];
 ok('11개 연결 시 위반 검출', count(work_types_validate($bad)) === 1);
 $bad = [['key' => 'x', 'name' => 'X', 'materials' => [[203, 'PE망', ''], [1, '철근/시멘트', ''], [24, 'a', ''], [24, 'a', '']]]];
@@ -326,6 +336,21 @@ ok('work_type_has_material: 대표 자재만 true', work_type_has_material($dr, 
 $imgOk = true;
 foreach (work_types() as $t) { foreach (array_filter([$t['img'] ?? null, $t['banner'] ?? null]) as $im) { if (!is_file(__DIR__ . '/../public' . $im)) { $imgOk = false; } } }
 ok('작업 카드·배너 이미지 파일 존재', $imgOk);
+// 2026-11-05: 사구석(157) 정원 추가·수목보호틀(인조석, 104) 제외. 배수관 주의 안내는 화면에 없음(AI 상담 답변에서만)
+$gd = work_type_find('garden');
+ok('정원: 사구석(157) 포함, 수목보호틀(인조석, 104) 제외', work_type_has_material($gd, 157) && !work_type_has_material($gd, 104));
+$sw = work_type_find('sewer');
+ok('배수관 묻기: 파형강관(269) 역할 \'도로 횡배수관\'', in_array([269, '파형강관', '도로 횡배수관'], $sw['materials'], true));
+$noteFns = ['work_type_note', 'work_type_note_html', 'work_type_wall_drain_note', 'work_type_cross_drain_note'];
+ok('AI 상담 밖 배수관 안내 없음(작업 설정 notes·안내 함수 없음)', !array_filter($wt, static fn($t) => isset($t['notes'])) && !array_filter($noteFns, 'function_exists'));
+$bp = rag_build_prompt([['role' => 'user', 'content' => '보강토 옹벽 뒤에 PE 유공관 묻을 건데 어떤 거 써요?']])['system'];
+$bq = rag_build_prompt([['role' => 'user', 'content' => '차도 밑으로 파형강관 넣으려는데 관경 몇 mm 써야 하나요']])['system'];
+$bn = rag_build_prompt([['role' => 'user', 'content' => '사람만 다니는 정원 길에 블록 깔고 싶어요']])['system'];
+ok('AI 상담 프롬프트: 옹벽 배수관·도로 횡단배수관 질문에만 주의 안내 구역', str_contains($bp, '[옹벽 배수관]') && !str_contains($bp, '[도로 횡단배수관]')
+    && str_contains($bq, '[도로 횡단배수관]') && !str_contains($bn, '배수관 설치 위치·관경 주의 안내'));
+$descs = [];
+foreach ($wt as $t) { foreach ($t['materials'] as $mm) { $descs[] = $mm[2]; } }
+ok('용도 설명에 근거 없는 \'대구경\' 없음(50 흄관·137·269 파형강관)', !array_filter($descs, static fn($d) => str_contains($d, '대구경')));
 
 echo "[작업별 목록 필터 = 기존 products.php 필터 render_product_filters]\n";
 $fc = ['mat' => [11 => 28, 13 => 10], 'shape' => ['U형' => 2], 'load' => [], 'spec' => ['200*200' => 3, '300*300' => 1], 'total' => 38];

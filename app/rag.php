@@ -14,6 +14,8 @@ declare(strict_types=1);
  *  rag_extract_legal_citations() — AI 답변의 [L번호] 표시 → 실제 인용한 근거만 추출
  *  rag_road_context()          — 차량 블록 시공 장소 판정(공공도로 차도/공공 보도 차량 출입부/사유지/불명확)
  *  rag_road_context_prompt()   — 판정별 별도 안내 구역(사내 80T 안내 문구는 그대로 두고 공식 기준을 맥락별로 분리)
+ *  rag_drain_notice_keys()     — 배수관 설치 위치·관경 주의 상황 판정(옹벽 배수관 / 공공 도로 횡단배수관)
+ *  rag_drain_notice_prompt()   — 그 상황에서만 붙는 주의 안내 구역(문구는 사용자 확정, 원문 확인한 법령·기준)
  *  rag_build_prompt()          — 상담 시스템 프롬프트·근거 묶음 생성(API 호출 없음, rag_process 가 사용)
  */
 
@@ -776,6 +778,67 @@ function rag_road_context_prompt(string $ctx, bool $hasScopedDocs = true): strin
 }
 
 /**
+ * 배수관 설치 위치·관경 주의 상황 판정 (순수 함수). 고객 발화(user)만 본다.
+ *  wall_drain : 옹벽(보강토·석축 포함) 뒤·주변에 배수관을 묻는 상황 — 건축법 시행규칙 제25조제4호(옹벽 상단 안쪽 2m 이내 배수관 재질)
+ *  cross_drain: 도로를 가로질러 배수관을 묻는 상황 — KDS 44 40 15:2026 횡단배수관 최소관경(1,000mm, 부득이 800mm)
+ * 화면(메인 작업 패널·상품 목록)에는 표시하지 않고 AI 상담 답변에서만 안내한다(사용자 결정 2026-11-05, docs/03-analysis/work-types-v5.md 3-4·3-8).
+ * 판정은 안내를 붙일지 고르는 데만 쓰고, 법적 적용 여부를 확정하지 않는다(답변에서 조건부로 말함).
+ * @return list<string>
+ */
+function rag_drain_notice_keys(array $messages): array
+{
+    $text = '';
+    foreach ($messages as $m) {
+        if (($m['role'] ?? '') === 'user') {
+            $text .= ' ' . ($m['content'] ?? '');
+        }
+    }
+    $t = mb_strtolower(preg_replace('/\s+/u', ' ', $text) ?? '');
+    $pipe = preg_match('/배수\s*관|유공\s*관|이중\s*벽\s*관|주름\s*관|pe\s*관|흄\s*관|파형\s*강관|맹암거|배수\s*파이프|관로|수로\s*관|우수\s*관|하수\s*관/u', $t) === 1;
+    $keys = [];
+    // 옹벽 + (배수관 또는 옹벽 배수·물빼기 문맥)
+    if (preg_match('/옹벽|보강토|석축/u', $t) === 1
+        && ($pipe || preg_match('/배수|물\s*빼|물\s*빠|물이\s*고/u', $t) === 1)) {
+        $keys[] = 'wall_drain';
+    }
+    // '횡배수관·횡단 배수'를 직접 말했거나, 도로 + 가로지르기 + 배수관
+    $crossWord = preg_match('/횡\s*배수|횡단\s*배수|횡단\s*관|횡단\s*수로/u', $t) === 1;
+    $road      = preg_match('/도로|차도|찻길|국도|지방도|군도|도로법/u', $t) === 1;
+    $across    = preg_match('/가로질|가로\s*질러|횡단|건너|밑으로|아래로|밑에\s*(?:묻|매설|놓)|아래에\s*(?:묻|매설|놓)/u', $t) === 1;
+    if ($crossWord || ($road && $across && $pipe)) {
+        $keys[] = 'cross_drain';
+    }
+    return $keys;
+}
+
+/**
+ * 배수관 주의 안내 구역 (순수 함수). 해당 상황이 없으면 빈 문자열(기존 프롬프트 그대로).
+ * 안내 문구는 사용자 확정 문장이고, 근거는 원문 확인한 건축법 시행규칙 제25조제4호·KDS 44 40 15:2026 이다.
+ * 법령 근거 DB([L번호]) 밖의 고정 안내라 출처 카드는 붙지 않는다.
+ */
+function rag_drain_notice_prompt(array $keys): string
+{
+    if (!$keys) {
+        return '';
+    }
+    $out = "\n\n=== 배수관 설치 위치·관경 주의 안내 (확인된 안내 문구) ===\n"
+        . "- 아래 안내는 원문을 확인한 법령·기준을 바탕으로 정한 문구다. 고객 상황이 조건에 맞으면 답변 끝에 한 번만, 문구를 거의 그대로 전한다.\n"
+        . "- 위 '근거 구분' 규칙의 예외로, 이 문구 안의 법령·기준 이름과 수치는 그대로 써도 된다. [L번호]는 붙이지 않고, 이 구역에 없는 법령·조항·수치는 덧붙이지 않는다.\n"
+        . "- 이 안내 때문에 상품 추천·검색을 멈추거나 빼지 않는다. '적용될 수 있습니다'·'요구될 수 있습니다' 표현을 지키고 의무·불법으로 단정하지 않는다.\n"
+        . "- 같은 대화에서 이미 전한 안내는 고객이 다시 묻지 않는 한 되풀이하지 않는다.";
+    if (in_array('wall_drain', $keys, true)) {
+        $out .= "\n\n[옹벽 배수관] 조건: 옹벽(보강토·블록·석축 옹벽 포함) 뒤나 위쪽 땅에 배수관(유공관·PE관 등)을 묻는 경우.\n"
+            . "안내: \"옹벽 배수에는 현장 설계에 따라 유공관 등의 배수 자재를 사용할 수 있습니다. 다만 옹벽 상단에서 대지 안쪽 2m 이내에 매설하는 배수관은 「건축법 시행규칙」 제25조의 재질 제한이 적용될 수 있습니다. 설치 위치와 설계도면을 확인한 후 적합한 배수관을 선택해 주세요.\"";
+    }
+    if (in_array('cross_drain', $keys, true)) {
+        $out .= "\n\n[도로 횡단배수관] 조건: 공공 도로(국도·지방도·시도·군도 등 도로법상 도로)를 가로질러 배수관을 묻는 경우. 개인 마당·진입로·사유 농로처럼 공공 도로가 아닌 것이 분명하면 이 안내를 하지 않고, 불분명하면 '공공 도로를 가로지르는 경우'라는 조건을 붙여 말한다.\n"
+            . "안내: \"공공 도로를 가로지르는 횡단배수관은 국가건설기준(KDS 44 40 15)상 관경 1,000mm 이상(부득이한 경우 800mm)이 요구될 수 있습니다. 설계도면의 관경을 확인해 주세요.\"\n"
+            . "- 판매 상품 규격이 이 관경보다 작아도 '쓸 수 없다'고 단정하지 말고, 설계도면의 관경을 먼저 확인하도록 안내한다.";
+    }
+    return $out;
+}
+
+/**
  * AI 답변의 [L번호] 표시 처리 (순수 함수).
  * 이번 질문에 넣은 근거 번호만 인정하고(지어낸 번호는 버림) 표시는 본문에서 지운다.
  *
@@ -1052,6 +1115,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
     $scopedHit = (bool) array_filter($legalDocs, static fn($d) => array_intersect(rag_legal_doc_scopes($d), $legalIn['scopes']));
     $system .= rag_road_context_prompt($roadCtx, $scopedHit);
     $system .= rag_legal_prompt_section($legalDocs);
+    $system .= rag_drain_notice_prompt(rag_drain_notice_keys($messages)); // 옹벽 배수관·도로 횡단배수관 주의(해당 상황만, 없으면 빈 문자열)
     $system .= rag_recent_cards_prompt($recentCards);   // 이 상담에서 고객 화면에 보인 직전 추천표(담기·비교 질문용) — 없으면 빈 문자열(기존과 같음)
 
     return [
