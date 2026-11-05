@@ -28,18 +28,8 @@ const PROD_NEVER_ACTIVATE = [
  * api_targets.json api_check 에 기록한 뒤 이 목록에서 뺀다(V28~V35·V37·V38 은 2026-11-05 대조 후 뺌).
  */
 const PROD_NEEDS_OFFICIAL_CHECK = [
-    'V25' => [
-        'url'  => 'https://www.law.go.kr/LSW/flDownload.do?flSeq=164257997',
-        'site' => 'law.go.kr',
-        'why'  => '원문 대조에 쓴 파일과 현재 API 현행 링크(flSeq=164257997)가 같은 판인지 기록이 없음(2026-10-28 링크 갱신, api-strategy.md 9-1)',
-        'what' => '현행 별표 1 의 개정 표시(2024-12-26 이후 개정 여부)와 제3호가목 수치(보도 유효폭 2m·완화 1.2m, 덮개 틈 1cm 이하, 기울기 1/18·좌우 1/25, 연석 25cm 이하, 턱 2cm 이하)가 verified_clauses.json V25 요약과 같은지',
-    ],
-    'V26' => [
-        'url'  => 'https://www.law.go.kr/법령/교통약자의이동편의증진법시행규칙',
-        'site' => 'law.go.kr (별표·서식 → 별표 2)',
-        'why'  => '별표 2 는 API 감시 별표 목록에 없고 원문 파일 링크(flSeq)도 기록되지 않음 — 현행판 여부를 API 로 대조하지 않음',
-        'what' => '현행 별표 2 의 개정 표시(2021-08-27 이후 개정 여부)와 제2호가목 고원식 횡단보도 평탄부 250cm 이상·제7호 말뚝 높이 80~100cm·지름 10~20cm·간격 1.5m 안팎이 V26 요약과 같은지',
-    ],
+    // V25·V26(교통약자법 시행규칙 별표 1·2): 2026-11-05 law.go.kr 공식 파일 직접 대조(Claude) — 별표 1 은 API 현행 링크와 현행판 첨부가 같은 파일,
+    // 별표 2 는 현행판(제1558호, 공식 API 일치) 첨부 PDF. 개정 표시·수치가 요약과 같음 → 확인 대기에서 뺌. 별표 2 는 api_targets.json 감시 별표에 추가
     // V28~V35·V37·V38: 2026-11-05 사용자 PC 법제처 OPEN API 공식 대조(api-sync-report-2026-11-05-b.md) — 감시 조문 일치 8·새 판(감시 조문 동일) 5,
     // V35 는 API 가 조 단위 본문을 주지 않아 law.go.kr 공식 첨부 PDF(flSeq=169584827) 본문으로 대조 → 확인 대기에서 뺌(api_targets.json api_check)
 ];
@@ -281,6 +271,37 @@ function prod_ks_metadata_update_sql(array $candidates): string
     }
     return $sql . "COMMIT;\n\n-- 확인(읽기 전용): 사용자 확인 적용 범위가 들어간 KS 행 수 — 기대 " . count($rows) . "\n"
         . "SELECT COUNT(*) AS ks_user_confirmed FROM rag_documents WHERE author = " . prod_q(PROD_AUTHOR_CANDIDATE) . " AND source_type = 'ks' AND applies_to LIKE '%사용자 확인%';\n";
+}
+
+/**
+ * 1단계(2026-11-02)에 운영에 이미 등록된 검증 조문 중, 그 뒤 확인 정보가 바뀐 행 — 10 은 '없을 때만 넣기'라 기존 행이 그대로이므로 41 로 맞춘다.
+ * V25·V26: 2026-11-05 law.go.kr 공식 별표 파일 재대조(확인 문구·확인일), V26 출처 링크를 별표 2 PDF 로.
+ */
+const PROD_STAGE1_METADATA_REFRESH = ['V25', 'V26'];
+
+/** 41: 이미 등록된 검증 조문 행의 확인 정보(content·source_url·verified_by·verified_at)만 갱신 — 활성·검토 상태는 바꾸지 않음 */
+function prod_verified_metadata_update_sql(array $verified, array $ids = PROD_STAGE1_METADATA_REFRESH): string
+{
+    $byId = array_column($verified, null, 'id');
+    $sql = "-- 운영 rag_documents 검증 조문 확인 정보 갱신 — 1단계(2026-11-02)에 이미 등록된 행 중 확인 정보가 바뀐 " . count($ids) . "건(" . implode('·', $ids) . ")\n"
+        . "-- ⚠️ 운영 실행은 사용자 승인 후(데이터 변경). 실행 전 phpMyAdmin 에서 rag_documents 내보내기 백업.\n"
+        . "-- 바꾸는 칸: content(끝의 '확인:' 문구)·source_url·verified_by·verified_at 만 — is_active·review_status·reviewer·reviewed_at 은 그대로(활성화는 20).\n"
+        . "-- 생성: scripts/legal-sources/build_prod_sql.php (원본 verified_clauses.json). 재실행 안전(같은 값으로 다시 설정). 기대: 처음 실행 시 " . count($ids) . "행 변경.\n"
+        . "-- 되돌리기: 실행 전 내보낸 백업에서 해당 행의 content·source_url·verified_by·verified_at 복원.\n\nSTART TRANSACTION;\n";
+    foreach ($ids as $id) {
+        if (!isset($byId[$id])) {
+            throw new InvalidArgumentException("verified_clauses.json 에 {$id} 가 없습니다");
+        }
+        $row = prod_verified_row($byId[$id]);
+        $sql .= "-- {$id} (확인 {$byId[$id]['checked_at']})\n"
+            . 'UPDATE rag_documents SET content = ' . $row['content'] . ', source_url = ' . $row['source_url']
+            . ', verified_by = ' . $row['verified_by'] . ', verified_at = ' . $row['verified_at'] . "\n"
+            . ' WHERE author = ' . $row['author'] . ' AND title = ' . $row['title'] . ";\n";
+    }
+    return $sql . "COMMIT;\n\n-- 확인(읽기 전용): 확인일이 갱신된 행 수 — 기대 " . count($ids) . "\n"
+        . 'SELECT COUNT(*) AS refreshed FROM rag_documents WHERE author = ' . prod_q(PROD_AUTHOR_VERIFIED) . ' AND verified_at IN ('
+        . implode(', ', array_unique(array_map(static fn($id) => prod_q($byId[$id]['checked_at']), $ids))) . ') AND title IN ('
+        . implode(', ', array_map(static fn($id) => prod_verified_row($byId[$id])['title'], $ids)) . ");\n";
 }
 
 /** 30: 사후 확인(읽기 전용) — 기대값을 주석으로 */

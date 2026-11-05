@@ -256,15 +256,19 @@
             "candidates": [
                 4
             ],
-            "clauses": [],
+            "clauses": [
+                "V25",
+                "V26"
+            ],
             "watch_articles": [
                 "2"
             ],
             "watch_annexes": [
-                "이동편의시설의 구조ㆍ재질 등에 관한 세부기준(제2조제1항 관련)"
+                "이동편의시설의 구조ㆍ재질 등에 관한 세부기준(제2조제1항 관련)",
+                "보행안전시설물의 구조 시설기준(제9조 관련)"
             ],
             "mirror_file": "legalize/kr/mobility_rule.md",
-            "api_scope": "조문 원문 + 별표 1 제목·파일 링크(내용은 파일 확인)",
+            "api_scope": "조문 원문 + 별표 1 제목·파일 링크(내용은 파일 확인) · 2026-11-05 별표 2(보행안전시설물) 감시 추가(V26)",
             "baseline": {
                 "source": "mirror",
                 "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-10-27 스냅샷)",
@@ -276,7 +280,8 @@
                     "2": "0b958f20deee94a5"
                 },
                 "annexes": {
-                    "이동편의시설의 구조ㆍ재질 등에 관한 세부기준(제2조제1항 관련)": true
+                    "이동편의시설의 구조ㆍ재질 등에 관한 세부기준(제2조제1항 관련)": true,
+                    "보행안전시설물의 구조 시설기준(제9조 관련)": true
                 }
             },
             "api_check": {
@@ -301,6 +306,20 @@
                     "api_number": "01558",
                     "api_effective": "2026-02-01",
                     "report": "api-sync-report-2026-11-05.md"
+                }
+            },
+            "annex_files": {
+                "이동편의시설의 구조ㆍ재질 등에 관한 세부기준(제2조제1항 관련)": {
+                    "pdf": "https://www.law.go.kr/LSW/flDownload.do?flSeq=164257997",
+                    "pdf_mirror": "https://www.law.go.kr/LSW/flDownload.do?flSeq=161303961",
+                    "revision": "개정 2024. 12. 26.",
+                    "md5": "816eb691999a4cd0cd29dfbee8bcbb4d",
+                    "checked_at": "2026-11-05"
+                },
+                "보행안전시설물의 구조 시설기준(제9조 관련)": {
+                    "pdf": "https://www.law.go.kr/LSW/flDownload.do?flSeq=161304041",
+                    "revision": "개정 2021. 8. 27.",
+                    "checked_at": "2026-11-05"
                 }
             }
         },

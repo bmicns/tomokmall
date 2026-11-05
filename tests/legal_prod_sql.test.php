@@ -31,7 +31,7 @@ $ready = $ids($c['ready']);
 ok('38건 = 준비 + 확인 필요 + 비활성', count($ready) + count($c['check']) + count($c['inactive']) === count($verified) && count($verified) === 38);
 ok('V21·V22 는 비활성 유지 집합', in_array('V21', $ids($c['inactive']), true) && in_array('V22', $ids($c['inactive']), true) && !array_intersect(['V21', 'V22'], $ready));
 ok('준비 완료는 로컬 상담 대상(active)·확인 수준 원문/API 만', !array_filter($c['ready'], static fn($r) => empty($r['active']) || !in_array($r['verify_level'], PROD_ACTIVE_LEVELS, true)));
-ok('공식 사이트 확인 대기(V25·V26)는 준비 집합에 없음', !array_intersect(array_keys(PROD_NEEDS_OFFICIAL_CHECK), $ready) && $ids($c['check']) === array_keys(PROD_NEEDS_OFFICIAL_CHECK));
+ok('공식 사이트 확인 대기 목록(PROD_NEEDS_OFFICIAL_CHECK)은 준비 집합에 없음', !array_intersect(array_keys(PROD_NEEDS_OFFICIAL_CHECK), $ready) && $ids($c['check']) === array_keys(PROD_NEEDS_OFFICIAL_CHECK));
 ok('로컬 비활성(active=false) 조문은 준비 집합에 없음', !array_intersect($ready, array_keys(array_filter($byId, static fn($r) => empty($r['active'])))));
 ok('확인 필요 항목마다 확인 URL(law.go.kr)·확인 내용', !array_filter($c['check'], static fn($r) => !str_starts_with($r['url'], 'https://www.law.go.kr/') || $r['what'] === ''));
 
@@ -166,7 +166,20 @@ ok('V35(지침 — API 는 번호·시행일만): 공식 첨부 PDF 본문 대�
 ok('V30·V33 문서 표기 = 공식 현행판(시행령 36587·도로법 21480, 시행 2026-09-18)', $byId['V30']['doc_kind'] === '대통령령 제36587호' && $byId['V30']['effective'] === '2026-09-18'
     && $byId['V33']['doc_kind'] === '법률 제21480호' && $byId['V33']['effective'] === '2026-09-18');
 ok('V28 별표 6 은 석축 옹벽 기준(공식 별표 PDF) — 미확보 표시 없음', !array_filter($byId['V28']['conditions'], static fn($t) => str_contains($t, '미확보')) && isset($byId['V28']['values']['별표6_석축_멧쌓기_경사도']));
-ok('공식 확인 대기는 V25·V26 만 — 활성화 대상 31건', array_keys(PROD_NEEDS_OFFICIAL_CHECK) === ['V25', 'V26'] && count($ready) === 31);
+ok('V25·V26: law.go.kr 공식 별표 파일 재대조(개정 표시 그대로) 기록, 별표 2 를 API 감시 별표에 추가', str_contains($byId['V25']['verify_source'], '2026-11-05 공식 파일 재대조') && str_contains($byId['V25']['verify_source'], '개정 2024. 12. 26.')
+    && str_contains($byId['V26']['verify_source'], '2026-11-05 공식 파일 재대조') && str_contains($byId['V26']['verify_source'], '개정 2021. 8. 27.')
+    && in_array('보행안전시설물의 구조 시설기준(제9조 관련)', $byKey['mobility_rule']['watch_annexes'], true) && !array_diff(['V25', 'V26'], $byKey['mobility_rule']['clauses']));
+$m41 = prod_verified_metadata_update_sql($verified);
+$m41Body = (string) preg_replace('/^--.*$/m', '', $m41);
+ok('41: 1단계 등록 행 V25·V26 확인 정보만 UPDATE 2문(활성·검토 칸·INSERT·DELETE·DDL 없음)', substr_count($m41Body, 'UPDATE rag_documents SET content = ') === 2
+    && !preg_match('/\b(is_active|review_status|reviewer|reviewed_at)\s*=|\b(INSERT|DELETE|DROP|ALTER|TRUNCATE|REPLACE)\b/', $m41Body)
+    && str_contains($m41, prod_verified_row($byId['V26'])['title']) && str_contains($m41, "flSeq=161304041"));
+ok('41 의 content 는 10·06 과 같은 생성 규칙(같은 행 값)', str_contains($m41, prod_verified_row($byId['V25'])['content']) && str_contains(prod_register_sql($candidates, $verified), prod_verified_row($byId['V25'])['content']));
+$threw = false;
+try { prod_verified_metadata_update_sql($verified, ['V99']); } catch (InvalidArgumentException) { $threw = true; }
+ok('41: 없는 조문 ID → 예외', $threw);
+ok('공식 확인 대기 0건 — 활성화 대상 33건(1단계 20 + V25·V26 + V28~V38)', PROD_NEEDS_OFFICIAL_CHECK === [] && $c['check'] === [] && count($ready) === 33
+    && !array_diff(['V25', 'V26', 'V28', 'V29', 'V30', 'V31', 'V32', 'V33', 'V34', 'V35', 'V36', 'V37', 'V38'], $ready) && !array_intersect(['V04', 'V20', 'V21', 'V22', 'V23'], $ready));
 $hits3 = static fn(string $q): array => array_values(array_map(static fn($r) => (string) $r['id'], array_filter($new3, static fn($r) => rag_legal_score($r, $q) >= 3)));
 ok('오수·우수 질문 → V36', in_array('V36', $hits3('오수관이랑 빗물관을 따로 묻어야 하나요? 분류식이 뭐예요?'), true));
 ok('부설주차장 질문 → V37', in_array('V37', $hits3('우리 집 마당 주차 공간도 부설주차장인가요?'), true));
