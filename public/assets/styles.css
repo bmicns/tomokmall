@@ -1532,6 +1532,8 @@ a.pt-name-text:hover { color: var(--color-primary); }
 .info-label{font-size:12px;font-weight:600;color:var(--color-text-secondary)}
 .info-input{border:1px solid var(--color-border);padding:10px 12px;font-size:13px;font-family:var(--font);outline:none;transition:border-color .15s}
 .info-input:focus{border-color:var(--color-primary)}
+.info-hint{margin:1px 0 0;font-size:12px;color:#767676}   /* 입력 안내(예: 전화번호 미입력) — 흰 바탕 대비 4.5:1 이상 */
+.info-hint[hidden]{display:none}
 .info-divider{border:none;border-top:1px solid var(--color-border);margin:8px 0}
 .info-section-title{font-size:13px;font-weight:700;color:var(--color-text-primary);margin-bottom:0}
 .info-btn{padding:11px 28px;background:var(--color-primary);color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);margin-top:4px}

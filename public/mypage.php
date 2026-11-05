@@ -42,7 +42,8 @@ render_header('마이페이지');
     <div class="mp-userbar">
         <div>
             <div class="mp-username"><?= e($user['name']) ?></div>
-            <div class="mp-userrole"><?= e($user['company_name'] ?? '') ?><?= $user['company_name'] ? ' · ' : '' ?><?= e($user['role']) ?></div>
+            <?php // 회원 구분: 내부 코드(customer 등) 대신 화면 이름 — 디자인 '마이페이지 정보수정(After)'. 회사명은 아래 '회사명' 칸에 표시 ?>
+            <div class="mp-userrole"><?= e(['customer' => '개인회원', 'corporate' => '기업회원', 'staff' => '직원', 'admin' => '관리자'][$user['role']] ?? $user['role']) ?></div>
         </div>
     </div>
 
@@ -73,8 +74,9 @@ render_header('마이페이지');
                 <input id="p-company" class="info-input" type="text" value="<?= e($user['company_name'] ?? '') ?>" maxlength="120">
             </div>
             <div class="info-field">
-                <label class="info-label">전화번호</label>
-                <input id="p-phone" class="info-input" type="tel" value="" maxlength="40" placeholder="불러오는 중...">
+                <label class="info-label" for="p-phone">전화번호</label>
+                <input id="p-phone" class="info-input" type="tel" value="" maxlength="40" placeholder="예: 010-1234-5678" autocomplete="tel" aria-describedby="p-phone-hint">
+                <p class="info-hint" id="p-phone-hint" hidden>전화번호를 입력해 주세요.</p>
             </div>
             <div class="info-field">
                 <label class="info-label">주소</label>
