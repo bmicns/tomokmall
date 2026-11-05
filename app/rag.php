@@ -301,7 +301,8 @@ function rag_pair_turn_events(array $messages, array $logs): array
  * 이전 상담 복원용 현재 판매가 일괄 조회 — 견적서와 같은 규칙(cart_fetch_items: price_b2c, 판매 중 상품만)
  *
  * @param  list<int> $ids
- * @return array<int, array{price:int, spec:string}>|null  [상품ID => 현재가·규격], 조회 실패 시 null
+ * @return array<int, array{price:int, spec:string, member?:int}>|null  [상품ID => 현재가·규격·회원 표시 단가], 조회 실패 시 null
+ *         member: 로그인 등급의 표시 단가(app/cart.php display_unit_price) — 추천표 화면용(회원은 할인가)
  */
 function rag_current_product_prices(array $ids): ?array
 {
@@ -318,9 +319,12 @@ function rag_current_product_prices(array $ids): ?array
         error_log('[chat] 이전 상담 현재가 조회 실패: ' . get_class($e));
         return null;
     }
+    $member = display_price_map(array_column($items, 'product_id'));
     $map = [];
     foreach ($items as $it) {
-        $map[(int) $it['product_id']] = ['price' => (int) $it['unit_price'], 'spec' => (string) ($it['spec'] ?? '')];
+        $pid = (int) $it['product_id'];
+        $map[$pid] = ['price' => (int) $it['unit_price'], 'spec' => (string) ($it['spec'] ?? '')];
+        if (isset($member[$pid])) { $map[$pid]['member'] = $member[$pid]['price']; }
     }
     return $map;
 }
@@ -382,6 +386,11 @@ function rag_apply_current_prices(array $eventsByMsg, ?array $current): array
                 }
                 $eventsByMsg[$mi][$ei]['products'][$pi]['price_b2c']   = $price;
                 $eventsByMsg[$mi][$ei]['products'][$pi]['price_state'] = $state;
+                // 화면 표시 단가(회원은 할인가): 현재 기준으로 다시 — 상담 당시 값·다른 등급 값이 남지 않게
+                unset($eventsByMsg[$mi][$ei]['products'][$pi]['price_member']);
+                if ($state === 'ok' && isset($cur['member'])) {
+                    $eventsByMsg[$mi][$ei]['products'][$pi]['price_member'] = (int) $cur['member'];
+                }
             }
             // 예상 자재비는 상담 당시 판매가 × 권장 수량 → 현재가로 다시 계산(금액을 보이지 않는 상태면 지움)하고 최저 표시도 다시
             if (array_filter($ev['products'], static fn($p) => is_array($p) && array_key_exists('est_cost', $p))) {

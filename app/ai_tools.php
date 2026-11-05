@@ -531,7 +531,7 @@ function tool_search_products(array $input): string
         'products' => $cards,
         'count'    => count($cards),
         '_sse'     => [
-            ['type' => 'product_cards', 'products' => $cards],
+            ['type' => 'product_cards', 'products' => ai_cards_with_member_price($cards)],   // 화면용: 회원은 할인가
         ],
     ];
     if ($costSummary) { $out['cost_summary'] = $costSummary; }   // '어떤 게 더 저렴해?' 답변용 — 도구가 계산한 값만
@@ -718,6 +718,28 @@ function ai_cost_summary(array $cards): array
 }
 
 /**
+ * 추천표(화면) 카드에 로그인 등급의 표시 단가 price_member 추가 — 회원(개인·기업)은 판매가 대신 할인가를 보이게
+ * (app/cart.php display_unit_price, 비회원은 판매가 그대로). 화면으로 보내는 SSE 사본에만 넣는다:
+ * GPT 가 보는 products(price_b2c·est_cost·cost_summary)와 저장 금액·관리자 화면은 그대로.
+ */
+function ai_cards_with_member_price(array $cards): array
+{
+    try {
+        $map = display_price_map(array_column($cards, 'id'));
+    } catch (\Throwable $e) {
+        return $cards;
+    }
+    foreach ($cards as &$c) {
+        $id = (int) ($c['id'] ?? 0);
+        if (isset($map[$id])) {
+            $c['price_member'] = $map[$id]['price'];
+        }
+    }
+    unset($c);
+    return $cards;
+}
+
+/**
  * 여러 종류 비교 검색: 종류별 대표 제품을 같은 조건(spec_mm·length_m·area_m2)으로 찾아 한 표로 합친다.
  * 종류별 결과는 기존 tool_search_products 그대로 사용(검색·수량 계산 로직 공유).
  */
@@ -777,7 +799,7 @@ function ai_search_compare(array $queries, array $input): string
         'products' => $cards,
         'count'    => count($cards),
         '_sse'     => [
-            ['type' => 'product_cards', 'products' => $cards, 'compare' => true],
+            ['type' => 'product_cards', 'products' => ai_cards_with_member_price($cards), 'compare' => true],   // 화면용: 회원은 할인가
         ],
     ];
     if ($costSummary) { $out['cost_summary'] = $costSummary; }

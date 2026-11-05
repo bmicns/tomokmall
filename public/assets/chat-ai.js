@@ -207,17 +207,25 @@ function renderProductCards(products, container) {
   wrap.className = 'compare-table';
 
   const fmt = n => new Intl.NumberFormat('ko-KR').format(n);
+  // 화면 단가: 서버가 넣은 price_member(로그인 등급 단가 — 회원은 할인가, 비회원은 판매가)가 있으면 그 값, 없으면 판매가.
+  // 예상 자재비·'예상 최저'·'최저보다 +'도 같은 단가로 다시 계산(서버 est_cost 는 판매가 기준 — GPT 답변용)
+  const viewPrice = p => (p.price_member != null ? Number(p.price_member) : Number(p.price_b2c));
+  const viewCost  = p => (p.est_cost && p.est_cost > 0 && p.suggested_qty > 0) ? p.suggested_qty * viewPrice(p) : null;
+  const memberView = products.some(p => p.price_member != null && Number(p.price_member) < Number(p.price_b2c));
+  const okCosts = products.filter(p => (p.price_state || 'ok') === 'ok').map(viewCost).filter(c => c && c > 0);
+  const lowCost = okCosts.length >= 2 ? Math.min(...okCosts) : null;
   const rows = products.map(p => {
     // 가격 상태: 이전 상담 복원 시 서버가 현재가 기준 price_state를 넣음. 실시간 상담은 0원만 '가격 문의'
     const state   = p.price_state || (Number(p.price_b2c) > 0 ? 'ok' : 'inquiry');
     const blocked = state === 'stopped' || state === 'changed';
     const price   = state === 'ok'
-      ? '₩' + fmt(p.price_b2c)
+      ? '₩' + fmt(viewPrice(p))
       : (PRICE_STATE_LABEL[state] || PRICE_STATE_LABEL.unknown);
     // 단위·예상 자재비는 판매가가 있는 상품만(가격 문의·판매 중지·변경 상품에는 금액을 보이지 않음)
     const unitHtml = (state === 'ok' && p.unit) ? `<span class="compare-unit">/${escHtml(p.unit)}</span>` : '';
-    const costHtml = (state === 'ok' && p.est_cost && p.est_cost > 0)
-      ? `<div class="compare-cost">예상 ₩${fmt(p.est_cost)}${p.cost_lowest ? ' <span class="compare-lowest">예상 최저</span>' : ''}${p.cost_diff > 0 ? `<span class="compare-diff">최저보다 +₩${fmt(p.cost_diff)}</span>` : ''}</div>`
+    const cost     = state === 'ok' ? viewCost(p) : null;
+    const costHtml = (cost && cost > 0)
+      ? `<div class="compare-cost">예상 ₩${fmt(cost)}${lowCost !== null && cost === lowCost ? ' <span class="compare-lowest">예상 최저</span>' : ''}${lowCost !== null && cost > lowCost ? `<span class="compare-diff">최저보다 +₩${fmt(cost - lowCost)}</span>` : ''}</div>`
       : '';
     const stateNote = state === 'changed'
       ? '<div class="compare-state-note">상담 이후 상품 규격이 바뀌어 담을 수 없습니다. 다시 상담해 주세요.</div>'
@@ -246,13 +254,14 @@ function renderProductCards(products, container) {
   }).join('');
 
   // 예상 자재비 요약: 같은 면적·길이 기준으로 계산된 제품끼리 최저~최고 비교
-  const costs = products.map(p => p.est_cost).filter(c => c && c > 0);
+  const costs = okCosts;
+  const basis = memberView ? '회원가' : '판매가';
   let summaryHtml = '';
   if (costs.length >= 2) {
     const min = Math.min(...costs), max = Math.max(...costs);
-    summaryHtml = `<div class="compare-summary">입력하신 면적·길이 기준 예상 자재비 <b>₩${fmt(min)}</b>${min !== max ? ` ~ <b>₩${fmt(max)}</b>` : ''}<span>판매가 기준 · 운반비·시공비 별도 · 최종 금액은 견적 요청 후 회신으로 안내</span></div>`;
+    summaryHtml = `<div class="compare-summary">입력하신 면적·길이 기준 예상 자재비 <b>₩${fmt(min)}</b>${min !== max ? ` ~ <b>₩${fmt(max)}</b>` : ''}<span>${basis} 기준 · 운반비·시공비 별도 · 최종 금액은 견적 요청 후 회신으로 안내</span></div>`;
   } else if (costs.length === 1) {
-    summaryHtml = `<div class="compare-summary"><span>예상 금액은 판매가 기준 자재비입니다 · 운반비·시공비 별도 · 최종 금액은 견적 요청 후 회신으로 안내</span></div>`;
+    summaryHtml = `<div class="compare-summary"><span>예상 금액은 ${basis} 기준 자재비입니다 · 운반비·시공비 별도 · 최종 금액은 견적 요청 후 회신으로 안내</span></div>`;
   }
 
   wrap.innerHTML = `${summaryHtml}
