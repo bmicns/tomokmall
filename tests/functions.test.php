@@ -353,6 +353,15 @@ ok('카드 HTML: 대상 카드에만 표시', str_contains(work_type_material_ca
 $nh = work_type_note_html($rn, work_type_note_names($rm, $rn));
 ok('말풍선 HTML: 제목·대상 이름·문구, 이스케이프', str_contains($nh, 'role="note"') && str_contains($nh, '대상: PE이중벽관1종(유공관)')
     && str_contains($nh, '「건축법 시행규칙」') && !str_contains(work_type_note_html(['title' => '<b>', 'text' => 'x']), '<b>'));
+$sw = work_type_find('sewer');
+$cn = work_type_note($sw, 269);
+ok('배수관 묻기: 파형강관(269) 역할 \'도로 횡배수관\' + 관경 안내(KDS 44 40 15·1,000mm·800mm)',
+    in_array([269, '파형강관', '도로 횡배수관'], $sw['materials'], true) && $cn !== null
+    && str_contains($cn['text'], 'KDS 44 40 15') && str_contains($cn['text'], '1,000mm') && str_contains($cn['text'], '800mm')
+    && work_type_note($sw, 50) === null);
+$descs = [];
+foreach ($wt as $t) { foreach ($t['materials'] as $mm) { $descs[] = $mm[2]; } }
+ok('용도 설명에 근거 없는 \'대구경\' 없음(50 흄관·137·269 파형강관)', !array_filter($descs, static fn($d) => str_contains($d, '대구경')));
 $bad = [['key' => 'x', 'name' => 'X', 'materials' => [[24, 'a', 'd']], 'notes' => [['ids' => [25], 'title' => 't', 'text' => 'x']]]];
 ok('주의 안내 대상이 대표 자재에 없으면 위반 검출', count(work_types_validate($bad)) === 1);
 
