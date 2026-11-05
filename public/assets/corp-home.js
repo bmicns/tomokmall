@@ -48,13 +48,19 @@
   function priceHtml(price) {
     return price > 0 ? esc(won(price)) + '원' : '<span class="ch-price--ask">견적문의</span>';
   }
-  // 단가 칸: 기업회원가가 판매가보다 낮으면 [판매가(취소선)] 위 · [기업회원가(빨강)] 아래 — 상품 목록(products.php) 가격 표시와 같은 모양.
+  // 단가 칸: 기업회원가가 판매가보다 낮으면 한 줄로 [판매가(취소선)] → [기업회원가(빨강)] (단위 '본' 옆 배치가 어색하지 않게 아래로 쌓지 않음).
   // price_list·price_member: API(by-category)·서버 데이터(단골품목)의 화면 표시 가격(상품 상세와 같은 규칙). 없으면 기존 단가(price)
   function priceCellHtml(p) {
     var member = p.price_member != null ? p.price_member : p.price;
     var list = p.price_list != null ? p.price_list : 0;
     if (!(member > 0)) return priceHtml(0);
-    if (list > member) return '<del class="ch-price-was">' + esc(won(list)) + '</del><strong class="ch-price-sale">' + esc(won(member)) + '</strong>';
+    if (list > member) {
+      return '<span class="ch-price-pair">' +
+        '<span class="ch-sr">판매가 </span><del class="ch-price-was">' + esc(won(list)) + '</del>' +
+        '<span class="ch-price-arrow" aria-hidden="true">→</span>' +
+        '<span class="ch-sr">기업회원가 </span><strong class="ch-price-sale">' + esc(won(member)) + '</strong>' +
+      '</span>';
+    }
     return priceHtml(member);
   }
 
