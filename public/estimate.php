@@ -91,22 +91,29 @@ render_header('견적 요청');
   .delivery-row>div{flex-wrap:wrap;flex-shrink:1;width:100%}
   .delivery-row input[type=date],.delivery-row input[type=time]{flex:1 1 140px;width:auto;min-width:0;height:44px}
   .est-items td:nth-child(4),.est-items td:nth-child(5){white-space:nowrap}
-  /* 품목 표 → 품목마다 카드(제품명·삭제 / 규격 / 수량·단가·소계) — 360px 에서 가로 스크롤 없이 */
+  /* 품목 표 → 품목마다 카드 — 360px 에서 가로 스크롤 없이, 머리글(thead)이 없으므로 칸마다 이름표
+     [제품명 ................ ×]
+     [규격 250*1000*32         ]
+     [수량 [ 3 ]   단가 10,400원]
+     [             소계 31,200원] */
   .est-items,.est-items tbody{display:block}
   .est-items thead{display:none}
-  .est-items tr{display:grid;grid-template-columns:auto minmax(0,1fr) 44px;grid-template-areas:"name name rm" "spec spec spec" "qty price price" "sub sub sub";gap:6px 10px;padding:12px 0;border-bottom:1px solid var(--color-border)}
+  .est-items tr{display:grid;grid-template-columns:auto minmax(0,1fr) 44px;grid-template-areas:"name name rm" "spec spec spec" "qty price price" "qty sub sub";align-items:center;gap:2px 12px;padding:12px 0 14px;border-bottom:1px solid var(--color-border)}
   .est-items td{display:block;border:0;padding:0;min-width:0}
-  .est-items td:nth-child(1){grid-area:name;font-weight:600}
-  .est-items td:nth-child(2){grid-area:spec}
-  .est-items td:nth-child(3){grid-area:qty}
-  .est-items td:nth-child(4){grid-area:price;align-self:center}
-  .est-items td:nth-child(5){grid-area:sub;align-self:center;font-weight:600;text-align:right}
-  .est-items td:nth-child(6){grid-area:rm;text-align:right}
-  .est-items td:nth-child(4)::before{content:'단가 ';font-size:12px;color:var(--color-text-secondary);font-weight:400}
+  .est-items td:nth-child(1){grid-area:name;font-size:15px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
+  .est-items td:nth-child(2){grid-area:spec;overflow-wrap:anywhere}
+  .est-items td:nth-child(2):empty{display:none}
+  .est-items td:nth-child(2)::before{content:'규격 ';color:var(--color-text-secondary)}
+  .est-items td:nth-child(3){grid-area:qty;margin-top:8px}
+  .est-items td:nth-child(4){grid-area:price;align-self:end;margin-top:8px;font-size:13px;color:var(--color-text-secondary)}
+  .est-items td:nth-child(5){grid-area:sub;align-self:start;font-size:16px;font-weight:700}
+  .est-items td:nth-child(6){grid-area:rm;justify-self:end;margin-right:-10px}   /* × 글자를 오른쪽 금액 끝선에 맞춤(버튼 터치 영역 44px 유지) */
+  .est-items td:nth-child(4)::before{content:'단가 ';font-size:12px}
   .est-items td:nth-child(5)::before{content:'소계 ';font-size:12px;color:var(--color-text-secondary);font-weight:400}
-  .est-items .qty-cell{justify-content:flex-start}
-  .est-items input.qty-input{width:64px;height:44px}
-  .est-items .remove-btn{min-width:44px;min-height:44px}
+  .est-items .qty-cell{justify-content:flex-start;gap:8px}
+  .est-items .qty-cell::before{content:'수량';font-size:13px;color:var(--color-text-secondary)}
+  .est-items input.qty-input{width:72px;height:44px;background:#fff;font-size:16px}   /* 전역 입력창 회색 배경 → 이 화면 신청 정보 입력창과 같은 흰 바탕 */
+  .est-items .remove-btn{min-width:44px;min-height:44px;font-size:20px}
 }
 .delivery-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .delivery-row input[type=date],.delivery-row input[type=time]{color-scheme:light;border:1px solid var(--color-border);border-radius:0;padding:8px 10px;font-size:13px;font-family:var(--font)}
