@@ -307,6 +307,16 @@ ok('통합 전 작업명 없음(배수시설·노면배수·지하배수관·집
     !array_intersect($names, ['배수시설 설치·정비', '도로·진입로 노면 배수 정비', '지하 배수관 매설', '집수정·맨홀 설치',
         '도로 밑 횡단 배수로 놓기', '도로·단지 안전시설 설치', '주차장 만들기·정비', '담장 쌓기', '건물 기초·바닥 콘크리트',
         '전기·통신·가로등 지중시설', '수도 급수관 연결']));
+// v5 근거 기반 재선정(docs/03-analysis/work-types-v5.md)
+$wtKeys = array_column($wt, 'key');
+ok('v5: 논밭 수로 정비(farm) 추가, 담장(fence)은 정원·담장 꾸미기(garden)로 통합',
+    in_array('farm', $wtKeys, true) && !in_array('fence', $wtKeys, true)
+    && work_type_has_material(work_type_find('garden'), 102) && work_type_has_material(work_type_find('garden'), 101));
+ok('v5: 지하 배수에 침투시설(38 침투측구·63 침투집수정) 미연결 — 빗물을 넣는 시설이라 목적이 반대',
+    !work_type_has_material(work_type_find('subdrain'), 38) && !work_type_has_material(work_type_find('subdrain'), 63));
+$descOk = true;
+foreach ($wt as $t) { foreach ($t['materials'] as $mm) { $len = mb_strlen((string) ($mm[2] ?? '')); if ($len < 1 || $len > 14) { $descOk = false; } } }
+ok('v5: 대표 자재 용도 설명 1~14자(카드 한 줄)', $descOk);
 $bad = [['key' => 'x', 'name' => 'X', 'materials' => array_map(static fn($i) => [$i, 'n', 'd'], range(30, 40))]];
 ok('11개 연결 시 위반 검출', count(work_types_validate($bad)) === 1);
 $bad = [['key' => 'x', 'name' => 'X', 'materials' => [[203, 'PE망', ''], [1, '철근/시멘트', ''], [24, 'a', ''], [24, 'a', '']]]];
