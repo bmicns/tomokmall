@@ -17,6 +17,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../../../app/bootstrap.php';
 require __DIR__ . '/../../../app/auth.php';
+require_once __DIR__ . '/../../../app/cart.php';   // display_unit_price (화면 표시용 회원가)
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -109,14 +110,14 @@ echo json_encode(quick_items_response($pdo, $items), JSON_UNESCAPED_UNICODE);
 function quick_items_response(\PDO $pdo, array $items): array
 {
     if (empty($items)) {
-        return ['ok' => true, 'items' => [], 'total' => 0];
+        return ['ok' => true, 'items' => [], 'total' => 0, 'display_total' => 0];
     }
 
     $ids = array_map('intval', array_keys($items));
     $ph  = implode(',', array_fill(0, count($ids), '?'));
 
     $stmt = $pdo->prepare(
-        "SELECT id, name, spec, price_b2c, price_b2b, image_url
+        "SELECT id, category_id, name, spec, price_b2c, price_b2b, cost_price, image_url
          FROM products
          WHERE id IN ({$ph}) AND is_active = 1"
     );
@@ -125,6 +126,7 @@ function quick_items_response(\PDO $pdo, array $items): array
 
     $result = [];
     $total  = 0;
+    $displayTotal = 0;
 
     foreach ($rows as $row) {
         $pid       = (int) $row['id'];
@@ -133,6 +135,8 @@ function quick_items_response(\PDO $pdo, array $items): array
         $unitPrice = $b2b > 0 ? $b2b : (int) $row['price_b2c'];
         $subtotal  = $unitPrice * $qty;
         $total    += $subtotal;
+        $dispPrice = display_unit_price($row);
+        $displayTotal += $dispPrice * $qty;
 
         $result[] = [
             'product_id' => $pid,
@@ -144,8 +148,12 @@ function quick_items_response(\PDO $pdo, array $items): array
             // 기업회원 메인 '담은 품목' 표시용(추가 필드 — 기존 호출자 영향 없음)
             'size'       => spec_size_label((string) $row['spec']),
             'image_url'  => (string) ($row['image_url'] ?? ''),
+            // 화면 표시 금액(추가 필드): 기업회원가(상품 상세와 같은 규칙, 0=견적문의). unit_price·subtotal·total 은 기존 값 그대로
+            'list_price'       => (int) $row['price_b2c'],
+            'display_price'    => $dispPrice,
+            'display_subtotal' => $dispPrice * $qty,
         ];
     }
 
-    return ['ok' => true, 'items' => $result, 'total' => $total];
+    return ['ok' => true, 'items' => $result, 'total' => $total, 'display_total' => $displayTotal];
 }

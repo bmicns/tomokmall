@@ -142,6 +142,9 @@ body.mode-corp .footer-inner { max-width: 1360px; padding: 28px 24px 32px; }
 .ch-unit { font-size: 12px; color: var(--ch-sub-text); }
 .ch-price { white-space: nowrap; }
 .ch-price--ask { font-size: 13px; color: var(--ch-sub-text); }
+/* 단가: 판매가(취소선) 위 · 기업회원가(빨강) 아래 — 상품 목록(.pt-price-was/.pt-price-sale)과 같은 모양 */
+.ch-price-was { display: block; font-size: 12px; font-weight: 400; color: #999999; text-decoration: line-through; white-space: nowrap; }
+.ch-price-sale { display: block; color: #E12020; font-weight: 700; white-space: nowrap; }
 /* styles.css 의 전역 input[type=text] 규칙보다 우선하도록 .ch 범위로 지정 */
 .ch .ch-qty {
   width: 44px; height: 44px; padding: 0 2px; border: 1px solid #D5D5D5; border-radius: 4px; background: #FFFFFF;

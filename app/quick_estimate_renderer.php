@@ -60,6 +60,8 @@ render_header('즉시견적');
   .prod-card-name{font-size:14px;font-weight:600;color:var(--color-text-primary);line-height:1.3;word-break:keep-all;}
   .prod-card-spec{font-size:13px;color:var(--color-text-secondary);line-height:1.3;}
   .prod-card-price{font-size:12px;color:var(--color-primary);font-weight:700;margin-top:2px;}
+  .prod-card-was{display:block;font-size:11px;font-weight:400;color:#999;text-decoration:line-through;}
+  .prod-card-sale{color:#E12020;}
   .prod-card-actions{display:flex;gap:4px;margin-top:auto;padding-top:6px;}
   .prod-card-qty{flex:1;min-width:0;text-align:right;background:#EEEEEE;border:1px solid var(--color-border);padding:4px 6px;font-size:11px;font-family:var(--font);}
   .btn-add-card{background:var(--color-primary);color:#fff;border:none;padding:4px 8px;font-size:11px;font-family:var(--font);cursor:pointer;white-space:nowrap;flex-shrink:0;}
@@ -210,12 +212,16 @@ async function quickItems(action, productId, qty) {
   if (productId) body.product_id = +productId;
   if (qty != null) body.quantity = +qty;
   const d = await API.post('/api/estimate/quick-items.php', body);
-  if (d.ok) renderItems(d.items, d.total);
+  if (d.ok) renderItems(d.items, d.total, d.display_total);
   else if (action !== 'get') alert(d.error || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.');
   return d;
 }
 
-function renderItems(items, total) {
+function renderItems(items, total, displayTotal) {
+  // 화면 금액은 기업회원가(API display_price·display_subtotal·display_total — 상품 상세와 같은 규칙).
+  // unit_price·subtotal·total(견적 저장 기준 단가)은 표시하지 않는다. 필드가 없으면(이전 API·재구매 응답) 기존 값
+  items = items.map(it => it.display_price != null ? Object.assign({}, it, {unit_price: it.display_price, subtotal: it.display_subtotal}) : it);
+  if (displayTotal != null) total = displayTotal;
   const tbody  = document.getElementById('items-body');
   const emptyEl = document.getElementById('empty-items');
   const submitBtn = document.getElementById('btn-submit');
@@ -225,8 +231,8 @@ function renderItems(items, total) {
       <td>${escHtml(it.size||'-')}</td>
       <td><input class="qty-inp" type="number" value="${it.quantity}" min="1" max="999"
         onchange="quickItems('update',${it.product_id},this.value)"></td>
-      <td>${it.unit_price.toLocaleString()}원</td>
-      <td>${it.subtotal.toLocaleString()}원</td>
+      <td>${it.unit_price > 0 ? it.unit_price.toLocaleString() + '원' : '문의'}</td>
+      <td>${it.unit_price > 0 ? it.subtotal.toLocaleString() + '원' : '문의'}</td>
       <td><button class="btn-remove" onclick="quickItems('remove',${it.product_id})"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>
     </tr>`).join('');
   document.getElementById('total-amount').textContent = (total||0).toLocaleString() + '원';
@@ -306,7 +312,10 @@ async function loadProducts(catId) {
   if (d.ok && d.products.length) {
     const noImg = `<div class="prod-card-no-img"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`;
     document.getElementById('prod-cards-list').innerHTML = d.products.map(p => {
-      const price = (p.price_b2b || p.price_b2c).toLocaleString();
+      // 단가: 기업회원가가 판매가보다 낮으면 [판매가(취소선)]·[기업회원가(빨강)] — 상품 목록과 같은 모양(price_list·price_member 없으면 기존 단가)
+      const member = p.price_member != null ? p.price_member : (p.price_b2b || p.price_b2c);
+      const priceHtml = !(member > 0) ? '견적문의'
+        : (p.price_list > member ? `<del class="prod-card-was">${p.price_list.toLocaleString()}</del><span class="prod-card-sale">${member.toLocaleString()}원</span>` : `${member.toLocaleString()}원`);
       const imgHtml = p.image_url
         ? `<img src="${escHtml(p.image_url)}" class="prod-card-img" alt="" onerror="imgErr(this)">`
         : noImg;
@@ -315,7 +324,7 @@ async function loadProducts(catId) {
         <div class="prod-card-body">
           <div class="prod-card-name">${escHtml(p.name)}</div>
           ${p.size ? `<div class="prod-card-spec">${escHtml(p.size)}</div>` : ''}
-          <div class="prod-card-price">${price}원</div>
+          <div class="prod-card-price">${priceHtml}</div>
           <div class="prod-card-actions">
             <input type="number" class="prod-card-qty" value="1" min="1" max="999">
             <button class="btn-add-card" onclick="addProductCard(${p.id},this)">+ 추가</button>
@@ -350,7 +359,7 @@ async function loadFavorites() {
   el.innerHTML = d.favorites.map(f => `
     <div class="list-card">
       <div><div class="list-card-name">${escHtml(f.name)}${f.size?` <span style="color:var(--color-text-secondary)">${escHtml(f.size)}</span>`:''}</div>
-        <div class="list-card-sub">수량 ${f.quantity}개 · ${f.price_b2b.toLocaleString()}원</div></div>
+        <div class="list-card-sub">수량 ${f.quantity}개 · ${(f.price_member != null ? f.price_member : f.price_b2b) > 0 ? (f.price_member != null ? f.price_member : f.price_b2b).toLocaleString() + '원' : '견적문의'}</div></div>
       <div style="display:flex;gap:6px">
         <button class="btn-sm" onclick="quickItems('add',${f.product_id},${f.quantity}).then(()=>showTab('new'))">추가</button>
         <button class="btn-sm danger" onclick="removeFav(${f.product_id})">삭제</button>

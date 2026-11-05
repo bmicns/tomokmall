@@ -21,6 +21,7 @@ declare(strict_types=1);
 require __DIR__ . '/../../../app/bootstrap.php';
 require __DIR__ . '/../../../app/auth.php';
 require __DIR__ . '/../../../app/favorites.php';
+require_once __DIR__ . '/../../../app/cart.php';   // display_unit_price (화면 표시용 회원가)
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -71,6 +72,9 @@ if ($method === 'GET') {
             'vendors'    => array_values(array_filter(array_map('trim', explode('|', (string) ($row['vendor_names'] ?? ''))), 'strlen')),
             // 규격 치수 표시: 숫자 사이 곱셈 기호만 × 로 통일(400*400*2000 → 400×400×2000)
             'size'       => (string) preg_replace('/(?<=\d)\s*[*xX]\s*(?=\d)/u', '×', parse_spec_field((string) $row['spec'])['spec']),
+            // 화면 표시 가격(추가 필드 — price_b2b 등 기존 필드 그대로): 판매가와 로그인 등급 회원가(상품 상세와 같은 규칙)
+            'price_list'   => (int) $row['price_b2c'],
+            'price_member' => display_unit_price($row),
         ];
     }, $rows);
 

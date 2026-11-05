@@ -15,6 +15,8 @@ declare(strict_types=1);
  *  corp_home_items_summary()  — '첫 품목명 외 N개 품목' 요약 문구
  */
 
+require_once __DIR__ . '/cart.php';   // display_unit_price — 단골품목 화면 표시 가격(판매가·기업회원가)
+
 /** GNB 대분류 id (layout.php GNB·estimate-quick.php 와 동일) */
 const CORP_HOME_ROOT_IDS = [11, 12, 13, 14, 15];
 
@@ -77,7 +79,7 @@ function corp_home_regulars(PDO $pdo, int $userId): array
     $ph = implode(',', array_fill(0, count(CORP_HOME_PURCHASED_STATUSES), '?'));
     try {
         $st = $pdo->prepare(
-            "SELECT f.product_id, f.quantity, p.name, p.spec, p.price_b2c, p.price_b2b, p.image_url,
+            "SELECT f.product_id, f.quantity, p.name, p.spec, p.price_b2c, p.price_b2b, p.cost_price, p.category_id, p.image_url,
                     COALESCE(b.buy_count, 0) AS buy_count, b.last_buy
              FROM favorite_products f
              JOIN products p ON p.id = f.product_id AND p.is_active = 1
@@ -104,6 +106,9 @@ function corp_home_regulars(PDO $pdo, int $userId): array
         'size'       => spec_size_label((string) $r['spec']),
         'unit'       => unit_display_label(parse_spec_field((string) $r['spec'])['unit']),
         'price'      => corp_home_unit_price((int) $r['price_b2b'], (int) $r['price_b2c']),
+        // 화면 표시 가격(추가): 판매가(취소선)·기업회원가 — 상품 상세와 같은 규칙(app/cart.php display_unit_price)
+        'price_list'   => (int) $r['price_b2c'],
+        'price_member' => display_unit_price($r),
         'quantity'   => max(1, (int) $r['quantity']),
         'image_url'  => (string) ($r['image_url'] ?? ''),
         'buy_count'  => (int) $r['buy_count'],
