@@ -87,4 +87,4 @@
 - 1 → 카탈로그 받기 준비 완료: PDF 는 `scripts/external/catalog-extract.php`, 엑셀은 `import.php`, 순서·보내 주실 것은 `external-sources/catalog-intake-2026-11-05.md`. **파일과 허락 기록(날짜·방식·범위)을 기다리는 중.**
 - 2 → 완료(8건, 위 2-2).
 - 3 → 정비안 완료(운영 반영 보류): `data-quality/product-description-cleanup-2026-11-05.md`. 상품 설명은 상담 근거에 계속 쓰지 않는다(정비 후에도 남은 기존 문장은 근거 미확인).
-- 4 → 기존 16개 문서는 2026-11-05 사용자 PC 공식 API 대조 '일치'(`legal-sources/api-sync-report-2026-11-05.md`). 새 13개 문서(V28~V38 의 법령)는 아직 — 브랜치를 받은 뒤 다시 실행이 필요하다.
+- 4 → 완료: 기존 16개 문서 '일치'(`legal-sources/api-sync-report-2026-11-05.md`), 새 13개 문서 일치 8·새 판(감시 조문 동일) 5(`legal-sources/api-sync-report-2026-11-05-b.md`) → V28~V38 모두 운영 활성화 대상(31건, 운영 반영 보류).

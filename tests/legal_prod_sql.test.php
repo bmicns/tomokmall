@@ -106,8 +106,9 @@ echo "[2차 보완 V28~V35 (2026-11-04)]\n";
 $new = array_values(array_filter($verified, static fn($r) => (int) substr((string) $r['id'], 1) >= 28 && (int) substr((string) $r['id'], 1) <= 35));
 $newIds = array_map(static fn($r) => (string) $r['id'], $new);
 ok('8건(V28~V35)', $newIds === ['V28', 'V29', 'V30', 'V31', 'V32', 'V33', 'V34', 'V35']);
-ok('공식 API 대조 전 — 전부 확인 필요 집합(활성화 SQL 제외)', !array_diff($newIds, $ids($c['check'])) && !array_intersect($newIds, $ready) && !array_filter($newIds, static fn($id) => str_contains($act, "/* {$id} */")));
-ok('확인 수준 원문 미러 조문(api_text_verified)·확인일·적용 범위·주의·출처 URL 있음', !array_filter($new, static fn($r) => $r['verify_level'] !== 'api_text_verified' || $r['checked_at'] !== '2026-11-04'
+ok('2026-11-05 공식 API 대조 후 — 전부 활성화 준비 집합·활성화 SQL 에 포함', !array_diff($newIds, $ready) && !array_intersect($newIds, $ids($c['check'])) && !array_filter($newIds, static fn($id) => !str_contains($act, "/* {$id} */")));
+ok('확인 수준 원문 미러 조문(api_text_verified)·확인일(공식 대조일)·적용 범위·주의·출처 URL 있음', !array_filter($new, static fn($r) => $r['verify_level'] !== 'api_text_verified' || $r['checked_at'] !== '2026-11-05'
+    || !str_contains($r['verify_source'], '2026-11-05 법제처 OPEN API 공식 대조') || str_contains($r['verify_source'], '직접 대조 전')
     || trim($r['applies_to']) === '' || trim($r['not_for']) === '' || !str_starts_with($r['official_url'], 'https://www.law.go.kr/') || !$r['conditions']));
 ok('적용 범위 표시(@scope) 없음 — 공공도로 차도 판정과 무관하게 태그로만 연결', !array_filter($new, static fn($r) => str_contains($r['tags'], '@')));
 $targets = json_decode((string) file_get_contents("{$src}/api_targets.json"), true)['documents'];
@@ -144,7 +145,28 @@ ok('KS D 4040 출처는 한국표준협회 KSSN(사용자 캡처)', str_contains
 echo "[3차 보완 V36~V38 (2026-11-05) — 용어 정의·하천 수로]\n";
 $new3 = array_values(array_filter($verified, static fn($r) => (int) substr((string) $r['id'], 1) >= 36));
 ok('3건(V36~V38)·확인일 2026-11-05·조문 미러 확인', array_column($new3, 'id') === ['V36', 'V37', 'V38'] && !array_filter($new3, static fn($r) => $r['checked_at'] !== '2026-11-05' || $r['verify_level'] !== 'api_text_verified'));
-ok('V36(하수도법 제2조 — 공식 API 대조 일치한 감시 조문)은 활성화 준비, V37·V38 은 공식 대조 대기', in_array('V36', $ready, true) && !array_diff(['V37', 'V38'], $ids($c['check'])));
+ok('V36~V38 모두 활성화 준비(V36 은 2026-10-28, V37·V38 은 2026-11-05 공식 API 대조 일치)', !array_diff(['V36', 'V37', 'V38'], $ready));
+
+echo "[공식 API 대조 2회(2026-11-05-b) — 새 문서 13개]\n";
+$byKey = array_column($targets, null, 'key');
+$new13 = ['bldg_law', 'bldg_decree', 'bldg_rule', 'plan_law', 'plan_decree', 'river_law', 'sriver_law', 'road_law', 'road_decree', 'ks_law', 'road_safety', 'parking_law', 'river_occupy'];
+ok('13개 문서 api_check: 일치 8 · 새 판(감시 조문 동일) 5, 보고서 b', count(array_filter($new13, static fn($k) => ($byKey[$k]['api_check']['report'] ?? '') === 'api-sync-report-2026-11-05-b.md')) === 13
+    && count(array_filter($new13, static fn($k) => $byKey[$k]['api_check']['status'] === 'same')) === 8
+    && count(array_filter($new13, static fn($k) => $byKey[$k]['api_check']['status'] === 'new_version_same')) === 5);
+$nv = array_values(array_filter($new13, static fn($k) => $byKey[$k]['api_check']['status'] === 'new_version_same'));
+ok('새 판 5개: 기준값 번호·시행일 = 공식 현행판, 이전 값은 baseline_prev, 감시 조문 해시 유지', $nv === ['bldg_law', 'plan_law', 'plan_decree', 'road_law', 'road_decree']
+    && !array_filter($nv, static fn($k) => $byKey[$k]['baseline']['number'] !== $byKey[$k]['api_check']['api_number'] || $byKey[$k]['baseline']['effective'] !== $byKey[$k]['api_check']['api_effective']
+        || empty($byKey[$k]['baseline_prev']['number']) || count((array) $byKey[$k]['baseline']['articles']) !== count($byKey[$k]['watch_articles'])));
+ok('갱신한 기준값으로 같은 API 결과를 다시 비교하면 same(새 판 표시가 다시 나오지 않음)', !array_filter($nv, static function ($k) use ($byKey, $today) {
+    $b = $byKey[$k]['baseline'];
+    $api = ['meta' => ['number' => $byKey[$k]['api_check']['api_number'], 'effective' => $byKey[$k]['api_check']['api_effective']], 'articles' => []];
+    return law_api_compare(['number' => $b['number'], 'effective' => $b['effective'], 'articles' => []], $api, $today)['status'] !== 'same';
+}));
+ok('V35(지침 — API 는 번호·시행일만): 공식 첨부 PDF 본문 대조 기록', str_contains((string) ($byKey['road_safety']['api_check']['body_check']['source'] ?? ''), 'law.go.kr') && str_contains($byId['V35']['verify_source'], '공식 첨부 PDF'));
+ok('V30·V33 문서 표기 = 공식 현행판(시행령 36587·도로법 21480, 시행 2026-09-18)', $byId['V30']['doc_kind'] === '대통령령 제36587호' && $byId['V30']['effective'] === '2026-09-18'
+    && $byId['V33']['doc_kind'] === '법률 제21480호' && $byId['V33']['effective'] === '2026-09-18');
+ok('V28 별표 6 은 석축 옹벽 기준(공식 별표 PDF) — 미확보 표시 없음', !array_filter($byId['V28']['conditions'], static fn($t) => str_contains($t, '미확보')) && isset($byId['V28']['values']['별표6_석축_멧쌓기_경사도']));
+ok('공식 확인 대기는 V25·V26 만 — 활성화 대상 31건', array_keys(PROD_NEEDS_OFFICIAL_CHECK) === ['V25', 'V26'] && count($ready) === 31);
 $hits3 = static fn(string $q): array => array_values(array_map(static fn($r) => (string) $r['id'], array_filter($new3, static fn($r) => rag_legal_score($r, $q) >= 3)));
 ok('오수·우수 질문 → V36', in_array('V36', $hits3('오수관이랑 빗물관을 따로 묻어야 하나요? 분류식이 뭐예요?'), true));
 ok('부설주차장 질문 → V37', in_array('V37', $hits3('우리 집 마당 주차 공간도 부설주차장인가요?'), true));

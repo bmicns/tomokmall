@@ -24,8 +24,8 @@ const PROD_NEVER_ACTIVATE = [
 /**
  * 공식 사이트 또는 법제처 OPEN API 에서 사용자 최종 확인이 남은 조문 — 확인 전 활성화하지 않는다.
  * what 은 verified_clauses.json 요약과 대조할 항목(새 수치를 만들지 않음).
- * V28~V35(2026-11-04 추가)는 원문 미러로만 확인 — 사용자 PC 에서 law_api_sync.php 공식 API 대조(same·new_version_same·pending)
- * 결과를 api_targets.json api_check 에 기록한 뒤 이 목록에서 뺀다.
+ * 원문 미러로만 확인한 조문은 사용자 PC 에서 law_api_sync.php 공식 API 대조(same·new_version_same·pending) 결과를
+ * api_targets.json api_check 에 기록한 뒤 이 목록에서 뺀다(V28~V35·V37·V38 은 2026-11-05 대조 후 뺌).
  */
 const PROD_NEEDS_OFFICIAL_CHECK = [
     'V25' => [
@@ -40,67 +40,8 @@ const PROD_NEEDS_OFFICIAL_CHECK = [
         'why'  => '별표 2 는 API 감시 별표 목록에 없고 원문 파일 링크(flSeq)도 기록되지 않음 — 현행판 여부를 API 로 대조하지 않음',
         'what' => '현행 별표 2 의 개정 표시(2021-08-27 이후 개정 여부)와 제2호가목 고원식 횡단보도 평탄부 250cm 이상·제7호 말뚝 높이 80~100cm·지름 10~20cm·간격 1.5m 안팎이 V26 요약과 같은지',
     ],
-    'V28' => [
-        'url'  => 'https://www.law.go.kr/법령/건축법시행규칙/제25조',
-        'site' => '법제처 OPEN API(사용자 PC: law_api_sync.php --only=bldg_law,bldg_rule) 또는 law.go.kr',
-        'why'  => '법제처 원문 미러로만 확인(2026-11-04) — 공식 API 대조 전',
-        'what' => '건축법 제40조제4항·시행규칙 제25조 현행 문구(경사도 1:1.5 이상·높이 1m 이상 옹벽, 2m 이상 콘크리트구조·별표 6 예외, 배수구멍 3㎡마다, 윗가장자리 2m 이내 배수관 주철관·강관·흄관, 성토 0.5m)가 V28 요약과 같은지',
-    ],
-    'V29' => [
-        'url'  => 'https://www.law.go.kr/법령/건축법시행령/제118조',
-        'site' => '법제처 OPEN API(사용자 PC: law_api_sync.php --only=bldg_law,bldg_decree) 또는 law.go.kr',
-        'why'  => '법제처 원문 미러로만 확인(2026-11-04) — 공식 API 대조 전',
-        'what' => '건축법 제83조제1항·시행령 제118조제1항제5호(높이 2m를 넘는 옹벽 또는 담장 — 공작물 축조신고)·제2항이 V29 요약과 같은지',
-    ],
-    'V30' => [
-        'url'  => 'https://www.law.go.kr/법령/국토의계획및이용에관한법률시행령/제53조',
-        'site' => '법제처 OPEN API(사용자 PC: law_api_sync.php --only=plan_law,plan_decree) 또는 law.go.kr',
-        'why'  => '법제처 원문 미러로만 확인(2026-11-04) — 공식 API 대조 전',
-        'what' => '법 제56조제1항제2호·제4항제3호와 시행령 제53조제3호가목(높이·깊이 50cm 이내 누적, 포장 제외)·나목(660㎡)·다목이 V30 요약과 같은지',
-    ],
-    'V31' => [
-        'url'  => 'https://www.law.go.kr/법령/하천법/제33조',
-        'site' => '법제처 OPEN API(사용자 PC: law_api_sync.php --only=river_law) 또는 law.go.kr',
-        'why'  => '법제처 원문 미러로만 확인(2026-11-04) — 공식 API 대조 전',
-        'what' => '제33조제1항 하천점용허가 대상 행위 6가지와 제3항 고려 사항이 V31 요약과 같은지',
-    ],
-    'V32' => [
-        'url'  => 'https://www.law.go.kr/법령/소하천정비법/제14조',
-        'site' => '법제처 OPEN API(사용자 PC: law_api_sync.php --only=sriver_law) 또는 law.go.kr',
-        'why'  => '법제처 원문 미러로만 확인(2026-11-04) — 공식 API 대조 전',
-        'what' => '제14조제1항 허가 대상 행위 7가지와 제6항 20일 통지가 V32 요약과 같은지',
-    ],
-    'V33' => [
-        'url'  => 'https://www.law.go.kr/법령/도로법/제61조',
-        'site' => '법제처 OPEN API(사용자 PC: law_api_sync.php --only=road_law,road_decree) 또는 law.go.kr',
-        'why'  => '법제처 원문 미러로만 확인(2026-11-04) — 공식 API 대조 전',
-        'what' => '도로법 제61조제1항·제52조제1항·제5항, 시행령 제49조(연결허가 대상 도로)·제55조제2호·제3호·제10호가 V33 요약과 같은지',
-    ],
-    'V34' => [
-        'url'  => 'https://www.law.go.kr/법령/산업표준화법/제15조',
-        'site' => '법제처 OPEN API(사용자 PC: law_api_sync.php --only=ks_law) 또는 law.go.kr',
-        'why'  => '법제처 원문 미러로만 확인(2026-11-04) — 공식 API 대조 전',
-        'what' => '제15조제2항·제3항(제품인증표시)·제24조(공공기관 등 한국산업표준 준수)가 V34 요약과 같은지',
-    ],
-    'V35' => [
-        'url'  => 'https://www.law.go.kr/행정규칙/도로안전시설설치및관리지침',
-        'site' => '법제처 OPEN API(사용자 PC: law_api_sync.php --only=road_safety) 또는 law.go.kr',
-        'why'  => '법제처 행정규칙 원문 미러로만 확인(2026-11-04) — 공식 API 대조 전',
-        'what' => '예규 제465호(시행 2026-08-14) 제4편 2. 과속방지턱의 적용 범위·원호형 길이 3.6m·높이 10cm·재료(특수한 경우 고무·플라스틱)·설치 금지 위치가 V35 요약과 같은지',
-    ],
-    // V36(하수도법 제2조 정의)은 같은 제2조가 2026-10-28 공식 API 대조에서 일치(sewer_law) — 확인 대기 아님
-    'V37' => [
-        'url'  => 'https://www.law.go.kr/법령/주차장법/제2조',
-        'site' => '법제처 OPEN API(사용자 PC: law_api_sync.php --only=parking_law) 또는 law.go.kr',
-        'why'  => '법제처 원문 미러로만 확인(2026-11-05) — 공식 API 대조 전',
-        'what' => '주차장법 제2조제1호 가목~다목(노상·노외·부설주차장 정의)·제7호(주차단위구획)가 V37 요약과 같은지',
-    ],
-    'V38' => [
-        'url'  => 'https://www.law.go.kr/행정규칙/하천점용허가세부기준',
-        'site' => '법제처 OPEN API(사용자 PC: law_api_sync.php --only=river_occupy) 또는 law.go.kr',
-        'why'  => '법제처 행정규칙 원문 미러로만 확인(2026-11-05) — 공식 API 대조 전',
-        'what' => '고시 제2026-62호(시행 2026-03-09) 제2조 적용범위·제15조 수로 기준 5개 호가 V38 요약과 같은지',
-    ],
+    // V28~V35·V37·V38: 2026-11-05 사용자 PC 법제처 OPEN API 공식 대조(api-sync-report-2026-11-05-b.md) — 감시 조문 일치 8·새 판(감시 조문 동일) 5,
+    // V35 는 API 가 조 단위 본문을 주지 않아 law.go.kr 공식 첨부 PDF(flSeq=169584827) 본문으로 대조 → 확인 대기에서 뺌(api_targets.json api_check)
 ];
 
 /** 상담 비활성(운영도 비활성 유지) 사유 — verified_clauses.json active=false 항목 */

@@ -973,11 +973,11 @@
             "api_scope": "조문 원문 — 제40조(대지의 안전)·제83조(옹벽 등 공작물). 시행 예정 개정 2건 감시",
             "baseline": {
                 "source": "mirror",
-                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택)",
-                "number": "21065",
-                "promulgated": "2025-10-01",
-                "effective": "2025-10-01",
-                "mst": "276925",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택) · 번호·공포일·시행일·MST 는 2026-11-05 공식 API 현행판으로 갱신(미러 이력 커밋 ab56d6d6 의 같은 판, 감시 조문 해시 동일)",
+                "number": "21035",
+                "promulgated": "2025-08-26",
+                "effective": "2026-02-27",
+                "mst": "273437",
                 "articles": {
                     "40": "b6ae9fe6bb2d4a44",
                     "83": "3c1268301888bd6c"
@@ -985,8 +985,14 @@
                 "annexes": []
             },
             "api_check": {
-                "status": "not_checked",
-                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=bldg_law 로 공식 API 대조 필요"
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "new_version_same",
+                "api_number": "21035",
+                "api_effective": "2026-02-27",
+                "articles": "제40조 일치 제83조 일치",
+                "annex_count": 0,
+                "report": "api-sync-report-2026-11-05-b.md"
             },
             "pending": [
                 {
@@ -999,7 +1005,14 @@
                     "effective": "2027-09-09",
                     "note": "원문 미러 기준 제40조·제83조 동일(빈 건축물 특별법 타법개정). 시행일 이후 재대조"
                 }
-            ]
+            ],
+            "baseline_prev": {
+                "number": "21065",
+                "promulgated": "2025-10-01",
+                "effective": "2025-10-01",
+                "mst": "276925",
+                "note": "2026-11-04 미러 이력에서 고른 판(공포가 가장 늦은 시행판) — 공식 API 현행판은 시행일이 가장 늦은 판이라 다름. 감시 조문 내용은 같음"
+            }
         },
         {
             "key": "bldg_decree",
@@ -1029,8 +1042,14 @@
                 "annexes": []
             },
             "api_check": {
-                "status": "not_checked",
-                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=bldg_decree 로 공식 API 대조 필요"
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "36746",
+                "api_effective": "2026-10-06",
+                "articles": "제118조 일치",
+                "annex_count": 16,
+                "report": "api-sync-report-2026-11-05-b.md"
             }
         },
         {
@@ -1065,8 +1084,20 @@
                 }
             },
             "api_check": {
-                "status": "not_checked",
-                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=bldg_rule 로 공식 API 대조 필요"
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "01567",
+                "api_effective": "2026-02-27",
+                "articles": "제25조 일치",
+                "annex_count": 83,
+                "report": "api-sync-report-2026-11-05-b.md",
+                "annex_check": {
+                    "checked_at": "2026-11-05",
+                    "by": "Claude(공식 별표 PDF 열람)",
+                    "source": "https://www.law.go.kr/LSW/flDownload.do?flSeq=161990051",
+                    "note": "별표 6 옹벽에 관한 기술적 기준(제25조관련, 개정 2014.10.15) — 석축 옹벽의 높이별 경사도·석축용 돌 뒷길이·뒷채움돌 두께·건축물까지 띄우는 거리만 정함(4~6호 삭제). V28 조건에 반영"
+                }
             }
         },
         {
@@ -1086,19 +1117,25 @@
             "api_scope": "조문 원문 — 제56조(개발행위의 허가). 시행 예정 개정 3건 감시",
             "baseline": {
                 "source": "mirror",
-                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택)",
-                "number": "21585",
-                "promulgated": "2026-04-28",
-                "effective": "2026-05-17",
-                "mst": "285657",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택) · 번호·공포일·시행일·MST 는 2026-11-05 공식 API 현행판으로 갱신(미러 이력 커밋 bc6951cd 의 같은 판, 감시 조문 해시 동일)",
+                "number": "21447",
+                "promulgated": "2026-03-05",
+                "effective": "2026-07-01",
+                "mst": "284013",
                 "articles": {
                     "56": "b37847c90fe2d14e"
                 },
                 "annexes": []
             },
             "api_check": {
-                "status": "not_checked",
-                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=plan_law 로 공식 API 대조 필요"
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "new_version_same",
+                "api_number": "21447",
+                "api_effective": "2026-07-01",
+                "articles": "제56조 일치",
+                "annex_count": 0,
+                "report": "api-sync-report-2026-11-05-b.md"
             },
             "pending": [
                 {
@@ -1116,7 +1153,14 @@
                     "effective": "2027-06-17",
                     "note": "원문 미러 기준 제56조 변경 없음. 시행일 이후 재대조"
                 }
-            ]
+            ],
+            "baseline_prev": {
+                "number": "21585",
+                "promulgated": "2026-04-28",
+                "effective": "2026-05-17",
+                "mst": "285657",
+                "note": "2026-11-04 미러 이력에서 고른 판(공포가 가장 늦은 시행판) — 공식 API 현행판은 시행일이 가장 늦은 판이라 다름. 감시 조문 내용은 같음"
+            }
         },
         {
             "key": "plan_decree",
@@ -1135,19 +1179,32 @@
             "api_scope": "조문 원문 — 제53조(허가를 받지 아니하여도 되는 경미한 행위)",
             "baseline": {
                 "source": "mirror",
-                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택)",
-                "number": "36656",
-                "promulgated": "2026-09-08",
-                "effective": "2026-09-08",
-                "mst": "289497",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택) · 번호·공포일·시행일·MST 는 2026-11-05 공식 API 현행판으로 갱신(미러 이력 커밋 84a3aa07 의 같은 판, 감시 조문 해시 동일)",
+                "number": "36587",
+                "promulgated": "2026-08-18",
+                "effective": "2026-09-18",
+                "mst": "288857",
                 "articles": {
                     "53": "90abbd13f0aeb75b"
                 },
                 "annexes": []
             },
             "api_check": {
-                "status": "not_checked",
-                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=plan_decree 로 공식 API 대조 필요"
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "new_version_same",
+                "api_number": "36587",
+                "api_effective": "2026-09-18",
+                "articles": "제53조 일치",
+                "annex_count": 32,
+                "report": "api-sync-report-2026-11-05-b.md"
+            },
+            "baseline_prev": {
+                "number": "36656",
+                "promulgated": "2026-09-08",
+                "effective": "2026-09-08",
+                "mst": "289497",
+                "note": "2026-11-04 미러 이력에서 고른 판(공포가 가장 늦은 시행판) — 공식 API 현행판은 시행일이 가장 늦은 판이라 다름. 감시 조문 내용은 같음"
             }
         },
         {
@@ -1178,8 +1235,14 @@
                 "annexes": []
             },
             "api_check": {
-                "status": "not_checked",
-                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=river_law 로 공식 API 대조 필요"
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "21471",
+                "api_effective": "2026-09-18",
+                "articles": "제33조 일치",
+                "annex_count": 0,
+                "report": "api-sync-report-2026-11-05-b.md"
             }
         },
         {
@@ -1210,8 +1273,14 @@
                 "annexes": []
             },
             "api_check": {
-                "status": "not_checked",
-                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=sriver_law 로 공식 API 대조 필요"
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "21065",
+                "api_effective": "2025-10-01",
+                "articles": "제14조 일치",
+                "annex_count": 0,
+                "report": "api-sync-report-2026-11-05-b.md"
             },
             "pending": [
                 {
@@ -1239,11 +1308,11 @@
             "api_scope": "조문 원문 — 제52조(도로와 다른 시설의 연결)·제61조(도로의 점용 허가). 시행 예정 개정 1건 감시",
             "baseline": {
                 "source": "mirror",
-                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택)",
-                "number": "21738",
-                "promulgated": "2026-06-02",
-                "effective": "2026-06-02",
-                "mst": "286547",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택) · 번호·공포일·시행일·MST 는 2026-11-05 공식 API 현행판으로 갱신(미러 이력 커밋 4f23de5a 의 같은 판, 감시 조문 해시 동일)",
+                "number": "21480",
+                "promulgated": "2026-03-17",
+                "effective": "2026-09-18",
+                "mst": "284465",
                 "articles": {
                     "52": "0d8c46ebd63af26c",
                     "61": "01e0a81d0cfade26"
@@ -1251,8 +1320,14 @@
                 "annexes": []
             },
             "api_check": {
-                "status": "not_checked",
-                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=road_law 로 공식 API 대조 필요"
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "new_version_same",
+                "api_number": "21480",
+                "api_effective": "2026-09-18",
+                "articles": "제52조 일치 제61조 일치",
+                "annex_count": 0,
+                "report": "api-sync-report-2026-11-05-b.md"
             },
             "pending": [
                 {
@@ -1260,7 +1335,14 @@
                     "effective": "2027-03-23",
                     "note": "원문 미러 기준 제52조·제61조 동일. 시행일 이후 재대조"
                 }
-            ]
+            ],
+            "baseline_prev": {
+                "number": "21738",
+                "promulgated": "2026-06-02",
+                "effective": "2026-06-02",
+                "mst": "286547",
+                "note": "2026-11-04 미러 이력에서 고른 판(공포가 가장 늦은 시행판) — 공식 API 현행판은 시행일이 가장 늦은 판이라 다름. 감시 조문 내용은 같음"
+            }
         },
         {
             "key": "road_decree",
@@ -1280,11 +1362,11 @@
             "api_scope": "조문 원문 — 제49조(연결허가 대상 도로)·제55조(점용허가를 받을 수 있는 공작물 등)",
             "baseline": {
                 "source": "mirror",
-                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택)",
-                "number": "36689",
-                "promulgated": "2026-09-15",
-                "effective": "2026-09-15",
-                "mst": "289661",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택) · 번호·공포일·시행일·MST 는 2026-11-05 공식 API 현행판으로 갱신(미러 이력 커밋 c5b876ba 의 같은 판, 감시 조문 해시 동일)",
+                "number": "36587",
+                "promulgated": "2026-08-18",
+                "effective": "2026-09-18",
+                "mst": "288871",
                 "articles": {
                     "49": "0e35099b5c35ee95",
                     "55": "330f4b0d7e19569a"
@@ -1292,8 +1374,21 @@
                 "annexes": []
             },
             "api_check": {
-                "status": "not_checked",
-                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=road_decree 로 공식 API 대조 필요"
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "new_version_same",
+                "api_number": "36587",
+                "api_effective": "2026-09-18",
+                "articles": "제49조 일치 제55조 일치",
+                "annex_count": 7,
+                "report": "api-sync-report-2026-11-05-b.md"
+            },
+            "baseline_prev": {
+                "number": "36689",
+                "promulgated": "2026-09-15",
+                "effective": "2026-09-15",
+                "mst": "289661",
+                "note": "2026-11-04 미러 이력에서 고른 판(공포가 가장 늦은 시행판) — 공식 API 현행판은 시행일이 가장 늦은 판이라 다름. 감시 조문 내용은 같음"
             }
         },
         {
@@ -1326,8 +1421,14 @@
                 "annexes": []
             },
             "api_check": {
-                "status": "not_checked",
-                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=ks_law 로 공식 API 대조 필요"
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "21438",
+                "api_effective": "2026-03-10",
+                "articles": "제15조 일치 제24조 일치",
+                "annex_count": 0,
+                "report": "api-sync-report-2026-11-05-b.md"
             },
             "pending": [
                 {
@@ -1361,8 +1462,20 @@
                 "annexes": []
             },
             "api_check": {
-                "status": "not_checked",
-                "note": "2026-11-04 추가 — 사용자 PC 에서 law_api_sync.php --only=road_safety 로 공식 API 대조 필요"
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "465",
+                "api_effective": "2026-08-14",
+                "articles": "감시 조문 없음(번호·시행일만 — API 본문은 조 단위 아님)",
+                "annex_count": 15,
+                "report": "api-sync-report-2026-11-05-b.md",
+                "body_check": {
+                    "checked_at": "2026-11-05",
+                    "by": "Claude(공식 첨부 PDF 열람)",
+                    "source": "https://law.go.kr/flDownload.do?flSeq=169584827",
+                    "note": "API 보고서의 본문 첨부 (개정전문) 도로안전시설 설치 및 관리지침 일부개정(26.08.14).pdf — 제4편 2. 과속방지턱 2.1.2·2.3·2.4.1~2.4.3·2.5.2 가 V35 요약과 같음(부칙 제465호, 2026.8.14)"
+                }
             }
         },
         {
@@ -1393,8 +1506,14 @@
                 "annexes": []
             },
             "api_check": {
-                "status": "not_checked",
-                "note": "2026-11-05 추가 — 사용자 PC 에서 law_api_sync.php --only=parking_law 로 공식 API 대조 필요"
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "21413",
+                "api_effective": "2026-08-28",
+                "articles": "제2조 일치",
+                "annex_count": 0,
+                "report": "api-sync-report-2026-11-05-b.md"
             }
         },
         {
@@ -1427,8 +1546,14 @@
                 "annexes": []
             },
             "api_check": {
-                "status": "not_checked",
-                "note": "2026-11-05 추가 — 사용자 PC 에서 law_api_sync.php --only=river_occupy 로 공식 API 대조 필요"
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "2026-62",
+                "api_effective": "2026-03-09",
+                "articles": "제2조 일치 제15조 일치",
+                "annex_count": 3,
+                "report": "api-sync-report-2026-11-05-b.md"
             }
         }
     ],
