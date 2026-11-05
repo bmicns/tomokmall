@@ -60,8 +60,12 @@ render_header('즉시견적');
   .prod-card-name{font-size:14px;font-weight:600;color:var(--color-text-primary);line-height:1.3;word-break:keep-all;}
   .prod-card-spec{font-size:13px;color:var(--color-text-secondary);line-height:1.3;}
   .prod-card-price{font-size:12px;color:var(--color-primary);font-weight:700;margin-top:2px;}
-  .prod-card-was{display:block;font-size:11px;font-weight:400;color:#999;text-decoration:line-through;}
-  .prod-card-sale{color:#E12020;}
+  /* 단가: 한 줄로 판매가(취소선·회색) → 기업회원가(빨강) — 기업회원 홈 빠른 견적과 같은 모양, 좁으면 기업회원가만 다음 줄 */
+  .prod-card-pair{display:inline-flex;flex-wrap:wrap;align-items:baseline;gap:0 4px;}
+  .prod-card-was{font-size:11px;font-weight:400;color:#999;text-decoration:line-through;white-space:nowrap;}
+  .prod-card-arrow{font-size:11px;font-weight:400;color:#999;}
+  .prod-card-sale{color:#E12020;white-space:nowrap;}
+  .prod-card-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
   .prod-card-actions{display:flex;gap:4px;margin-top:auto;padding-top:6px;}
   .prod-card-qty{flex:1;min-width:0;text-align:right;background:#EEEEEE;border:1px solid var(--color-border);padding:4px 6px;font-size:11px;font-family:var(--font);}
   .btn-add-card{background:var(--color-primary);color:#fff;border:none;padding:4px 8px;font-size:11px;font-family:var(--font);cursor:pointer;white-space:nowrap;flex-shrink:0;}
@@ -312,10 +316,12 @@ async function loadProducts(catId) {
   if (d.ok && d.products.length) {
     const noImg = `<div class="prod-card-no-img"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`;
     document.getElementById('prod-cards-list').innerHTML = d.products.map(p => {
-      // 단가: 기업회원가가 판매가보다 낮으면 [판매가(취소선)]·[기업회원가(빨강)] — 상품 목록과 같은 모양(price_list·price_member 없으면 기존 단가)
+      // 단가: 기업회원가가 판매가보다 낮으면 한 줄로 [판매가(취소선)] → [기업회원가(빨강)] (price_list·price_member 없으면 기존 단가)
       const member = p.price_member != null ? p.price_member : (p.price_b2b || p.price_b2c);
       const priceHtml = !(member > 0) ? '견적문의'
-        : (p.price_list > member ? `<del class="prod-card-was">${p.price_list.toLocaleString()}</del><span class="prod-card-sale">${member.toLocaleString()}원</span>` : `${member.toLocaleString()}원`);
+        : (p.price_list > member
+            ? `<span class="prod-card-pair"><span class="prod-card-sr">판매가 </span><del class="prod-card-was">${p.price_list.toLocaleString()}</del><span class="prod-card-arrow" aria-hidden="true">→</span><span class="prod-card-sr">기업회원가 </span><span class="prod-card-sale">${member.toLocaleString()}원</span></span>`
+            : `${member.toLocaleString()}원`);
       const imgHtml = p.image_url
         ? `<img src="${escHtml(p.image_url)}" class="prod-card-img" alt="" onerror="imgErr(this)">`
         : noImg;
