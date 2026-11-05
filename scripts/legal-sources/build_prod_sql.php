@@ -6,6 +6,7 @@ declare(strict_types=1);
  *   20_activate_ready.sql     준비 완료 조문만 활성화 — --reviewer·--reviewed-on 필수(없으면 생성 거부)
  *   30_post_check_readonly.sql 사후 확인(읽기 전용, 기대값 주석)
  *   90_rollback.sql           되돌리기
+ *   40_update_ks_metadata.sql·41_update_verified_metadata.sql  이미 등록된 행의 확인 정보만 갱신(KS 후보·1단계 검증 조문)
  *   README.md                 조문 분류표·적용 순서 (<!-- manual:start --> ~ <!-- manual:end --> 사이는 손으로 쓴 내용 — 다시 생성해도 유지)
  * 금지: 운영 DB 접속·실행 없음(파일만 만든다). V21·V22 는 활성화 SQL 에 넣지 않는다(prod_sql_lib.php).
  * 실행:
@@ -51,6 +52,8 @@ if (!is_dir($out) && !mkdir($out, 0777, true)) {
 file_put_contents("{$out}/10_register_inactive.sql", prod_register_sql($candidates, $verified));
 file_put_contents("{$out}/30_post_check_readonly.sql", prod_post_check_sql($candidates, $verified));
 file_put_contents("{$out}/90_rollback.sql", prod_rollback_sql());
+file_put_contents("{$out}/40_update_ks_metadata.sql", prod_ks_metadata_update_sql($candidates));   // 기존 KS 행의 사용자 확인 적용 범위 갱신(2026-11-05)
+file_put_contents("{$out}/41_update_verified_metadata.sql", prod_verified_metadata_update_sql($verified));   // 1단계 등록 행(V25·V26)의 확인 정보 갱신(2026-11-05)
 if ($activate !== null) {
     file_put_contents("{$out}/20_activate_ready.sql", $activate);
 }

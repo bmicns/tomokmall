@@ -37,11 +37,24 @@ function addMsg(role, text) {
   return { bubble, content };
 }
 
+/**
+ * 답변 글 형식 정리 — 말풍선은 글자 그대로 보여 주므로 마크다운 기호가 남지 않게.
+ * 굵게(**…**)·제목(#) 기호 제거, 문장 끝 콜론('…제품입니다:')은 마침표로. 목록의 '제품명: 설명' 은 그대로.
+ * 서버(app/rag.php rag_clean_answer_format)와 같은 규칙 — 이전 상담 복원(서버 정리 전 저장분)에도 적용.
+ */
+function cleanChatText(text) {
+  return String(text ?? '')
+    .replace(/\*\*([^*\n]+?)\*\*/g, '$1')
+    .replace(/\*\*/g, '')
+    .replace(/^[ \t]*#{1,6}[ \t]+/gm, '')
+    .replace(/([다요죠])[ \t]*[:：][ \t]*$/gm, '$1.');
+}
+
 /** 첫 문장(~니다.) 뒤 줄 내림 */
 function formatChatText(text) {
   if (!text) return '';
   // 첫 번째 "니다." 또는 "니다!" 뒤에 줄바꿈이 없으면 추가
-  return text.replace(/^(.*?니다[.!])\s*/, '$1\n\n');
+  return cleanChatText(text).replace(/^(.*?니다[.!])\s*/, '$1\n\n');
 }
 
 /** XSS 방지용 이스케이프 */
@@ -214,48 +227,36 @@ function renderProductCards(products, container) {
     const price   = state === 'ok'
       ? '₩' + fmt(p.price_b2c)
       : (PRICE_STATE_LABEL[state] || PRICE_STATE_LABEL.unknown);
-    // 단위·예상 자재비는 판매가가 있는 상품만(가격 문의·판매 중지·변경 상품에는 금액을 보이지 않음)
+    // 단위·예상 비용은 판매가가 있는 상품만(가격 문의·판매 중지·변경 상품에는 금액을 보이지 않음)
+    // 'AI 상담 답변 개선(After)' 시안: 예상 비용 한 줄만(최저 표시·최저와의 차이·요약 박스·권장수량 계산식은 표시하지 않음 — 수량·자재비 설명은 답변 글에서)
     const unitHtml = (state === 'ok' && p.unit) ? `<span class="compare-unit">/${escHtml(p.unit)}</span>` : '';
     const costHtml = (state === 'ok' && p.est_cost && p.est_cost > 0)
-      ? `<div class="compare-cost">예상 ₩${fmt(p.est_cost)}${p.cost_lowest ? ' <span class="compare-lowest">예상 최저</span>' : ''}${p.cost_diff > 0 ? `<span class="compare-diff">최저보다 +₩${fmt(p.cost_diff)}</span>` : ''}</div>`
+      ? `<div class="compare-cost">예상 비용 ₩${fmt(p.est_cost)}</div>`
       : '';
     const stateNote = state === 'changed'
       ? '<div class="compare-state-note">상담 이후 상품 규격이 바뀌어 담을 수 없습니다. 다시 상담해 주세요.</div>'
       : '';
+    const detailUrl = `/product.php?id=${parseInt(p.id, 10)}`;
+    // 사진·제품명 = 상품 상세 링크(새 창)
     const imgHtml = p.image_url
-      ? `<img class="compare-img" src="${escHtml(p.image_url)}" alt="" loading="lazy" onerror="this.className='compare-img-ph';this.removeAttribute('src')">`
+      ? `<a class="compare-img-link" href="${detailUrl}" target="_blank" rel="noopener" title="제품 상세 보기" tabindex="-1" aria-hidden="true"><img class="compare-img" src="${escHtml(p.image_url)}" alt="" loading="lazy" onerror="this.className='compare-img-ph';this.removeAttribute('src')"></a>`
       : `<div class="compare-img-ph"></div>`;
-    const qtyVal = (p.suggested_qty && p.suggested_qty > 0) ? p.suggested_qty : 1;
-    const basisHtml = p.qty_basis
-      ? `<div class="compare-qtybasis">권장수량 ${p.suggested_qty}: ${escHtml(p.qty_basis)}</div>`
-      : '';
+    // 수량은 1로 시작(권장 수량은 답변 글에서 안내) — 고객이 직접 바꿔 담는다
     return `
       <tr data-pid="${p.id}">
         <td>${imgHtml}</td>
         <td>
-          <div class="compare-name">${escHtml(p.name)} <a class="compare-detail" href="/product.php?id=${parseInt(p.id, 10)}" target="_blank" rel="noopener">상세</a></div>
+          <a class="compare-name" href="${detailUrl}" target="_blank" rel="noopener" title="제품 상세 보기">${escHtml(p.name)}</a>
           ${(p.spec_label || p.spec) ? `<div class="compare-spec">${escHtml(p.spec_label || p.spec)}</div>` : ''}
-          ${(p.guide && p.guide.length) ? `<ul class="compare-guide">${p.guide.map(g => `<li>${escHtml(g)}</li>`).join('')}</ul>` : ''}
-          ${basisHtml}
           ${stateNote}
         </td>
         <td class="compare-price${state === 'ok' ? '' : ' is-state'}">${price}${unitHtml}${costHtml}</td>
-        <td><input type="number" class="compare-qty" value="${qtyVal}" min="1" max="999"${blocked ? ' disabled' : ''}></td>
+        <td><input type="number" class="compare-qty" value="1" min="1" max="999" aria-label="${escHtml(p.name)} 수량"${blocked ? ' disabled' : ''}></td>
         <td><button class="btn-compare-add"${blocked ? ' disabled' : ''}>견적추가</button></td>
       </tr>`;
   }).join('');
 
-  // 예상 자재비 요약: 같은 면적·길이 기준으로 계산된 제품끼리 최저~최고 비교
-  const costs = products.map(p => p.est_cost).filter(c => c && c > 0);
-  let summaryHtml = '';
-  if (costs.length >= 2) {
-    const min = Math.min(...costs), max = Math.max(...costs);
-    summaryHtml = `<div class="compare-summary">입력하신 면적·길이 기준 예상 자재비 <b>₩${fmt(min)}</b>${min !== max ? ` ~ <b>₩${fmt(max)}</b>` : ''}<span>판매가 기준 · 운반비·시공비 별도 · 최종 금액은 견적 요청 후 회신으로 안내</span></div>`;
-  } else if (costs.length === 1) {
-    summaryHtml = `<div class="compare-summary"><span>예상 금액은 판매가 기준 자재비입니다 · 운반비·시공비 별도 · 최종 금액은 견적 요청 후 회신으로 안내</span></div>`;
-  }
-
-  wrap.innerHTML = `${summaryHtml}
+  wrap.innerHTML = `
     <table>
       <thead><tr>
         <th style="width:68px"></th>
@@ -345,9 +346,10 @@ function renderMaterialSources(sources, container) {
   wrap.className = 'legal-sources material-sources';
   const items = sources.slice(0, 5).map(s => {
     const url = /^https?:\/\//.test(s.url || '') ? s.url : '';
-    return `<li>${escHtml(s.maker || '')}${url ? ` · <a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">원문 보기</a>` : ''}</li>`;
+    const cat = /^catalog:.*#p(\d+)$/.exec(s.url || '');   // 허락받은 제조사 카탈로그(scripts/external/catalog-extract.php) — 링크 없이 쪽만
+    return `<li>${escHtml(s.maker || '')}${url ? ` · <a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">원문 보기</a>` : ''}${cat ? ` · 제조사 카탈로그 ${escHtml(cat[1])}쪽` : ''}</li>`;
   }).join('');
-  wrap.innerHTML = `<div class="legal-sources-title">참고 자료 출처 (제조사 공개 자료 · 판매 상품 아님)</div><ul>${items}</ul>`;
+  wrap.innerHTML = `<div class="legal-sources-title">참고 자료 출처 (제조사 자료 · 판매 상품 아님)</div><ul>${items}</ul>`;
   container.appendChild(wrap);
 }
 
@@ -355,14 +357,17 @@ function renderMaterialSources(sources, container) {
 function renderBasicSources(ev, container) {
   const st = (ev.standards || []).slice(0, 3);
   const pr = (ev.products || []).slice(0, 5);
-  if (!st.length && !pr.length) return;
+  const pc = (ev.procurement || []).slice(0, 2);   // 공공조달 등록 현황(조달청 공공데이터 집계) — 다른 회사 품목, 토목몰 상품 인증 아님
+  if (!st.length && !pr.length && !pc.length) return;
   const wrap = document.createElement('div');
   wrap.className = 'legal-sources basic-sources';
   const items = st.map(s => {
     const url = /^https?:\/\//.test(s.url || '') ? s.url : '';
     return `<li>${escHtml(s.ref || '')} ${escHtml(s.name || '')} · 국가표준 목록(표준 번호·이름 확인)${url ? ` · <a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">표준 정보</a>` : ''}</li>`;
-  }).concat(pr.map(p => `<li>${escHtml(p.name || '')} · 토목몰 등록 상품${p.count ? ' ' + (parseInt(p.count, 10) || 0) + '개 규격' : ''}</li>`)).join('');
-  wrap.innerHTML = `<div class="legal-sources-title">확인된 기본 정보 (국가표준 목록 · 토목몰 등록 상품)</div><ul>${items}</ul>`;
+  }).concat(pr.map(p => `<li>${escHtml(p.name || '')} · 토목몰 등록 상품${p.count ? ' ' + (parseInt(p.count, 10) || 0) + '개 규격' : ''}</li>`))
+    .concat(pc.map(c => `<li>${escHtml(c.name || '')} · 조달청 나라장터 쇼핑몰 품목 등록 내역 ${(parseInt(c.items, 10) || 0).toLocaleString('ko-KR')}개 품목${c.as_of ? ' (' + escHtml(c.as_of) + ' 기준)' : ''} · <a href="https://www.data.go.kr/data/15142663/fileData.do" target="_blank" rel="noopener noreferrer">공공데이터</a></li>`)).join('');
+  const kinds = [st.length ? '국가표준 목록' : '', pr.length ? '토목몰 등록 상품' : '', pc.length ? '공공조달 등록 현황' : ''].filter(Boolean).join(' · ');
+  wrap.innerHTML = `<div class="legal-sources-title">확인된 기본 정보 (${kinds})</div><ul>${items}</ul>`;
   container.appendChild(wrap);
 }
 
