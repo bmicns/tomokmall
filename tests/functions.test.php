@@ -422,6 +422,25 @@ ok('카드 있음 → 그대로', rag_strip_dangling_choice("고르는 기준입
 ok('그 문장뿐이면 빈 답변이 되지 않게 그대로, 중간 문장은 손대지 않음', rag_strip_dangling_choice('원하시는 제품을 선택해 주세요.', []) === '원하시는 제품을 선택해 주세요.'
     && rag_strip_dangling_choice('원하시는 제품을 선택해 주세요. 면적도 알려 주세요.', []) === '원하시는 제품을 선택해 주세요. 면적도 알려 주세요.');
 
+echo "[상담: 답변 글 형식 정리 rag_clean_answer_format — ** 굵게·끝 콜론]\n";
+eq('굵게 기호 제거(목록 제품명)', rag_clean_answer_format("- **인터로킹i2형블럭**: 승용차 통행에 적합합니다."), '- 인터로킹i2형블럭: 승용차 통행에 적합합니다.');
+eq('문장 끝 콜론 → 마침표', rag_clean_answer_format("다음은 주차장에 설치할 수 있는 승용차 통행용 그레이팅 제품입니다:\n\n- 중하중그레이팅수로용: 승용차 및 SUV 통행에 적합합니다."),
+    "다음은 주차장에 설치할 수 있는 승용차 통행용 그레이팅 제품입니다.\n\n- 중하중그레이팅수로용: 승용차 및 SUV 통행에 적합합니다.");
+eq('전각 콜론·요 체도 마침표, 뒤 공백 정리', rag_clean_answer_format("이렇게 비교해 볼게요： \n아래와 같습니다 :"), "이렇게 비교해 볼게요.\n아래와 같습니다.");
+eq('줄 중간 콜론·시각·제목 아닌 # 은 그대로', rag_clean_answer_format('상담 시간: 09:00~18:00 · 규격 #3번'), '상담 시간: 09:00~18:00 · 규격 #3번');
+eq('제목 기호(#)·짝 없는 ** 제거', rag_clean_answer_format("### 추천 제품\n**중하중 제품이 적합합니다."), "추천 제품\n중하중 제품이 적합합니다.");
+eq('정리할 것 없는 글은 그대로', rag_clean_answer_format('원하시는 제품을 선택해 주세요.'), '원하시는 제품을 선택해 주세요.');
+
+echo "[상담: 자재 분류 설명 ai_category_brief·화면 카드 ai_cards_for_screen]\n";
+eq('끝의 「전 규격을 공급합니다」 떼고 분류 설명만', ai_category_brief('U형·AN형·벤치플륨관 등 측구 및 배수로용 콘크리트 수로관 전 규격을 공급합니다.'), 'U형·AN형·벤치플륨관 등 측구 및 배수로용 콘크리트 수로관');
+eq('「제품을 공급합니다」도 뗌', ai_category_brief('호안블록·잔디블록 등 법면 보호 및 녹화에 적합한 블록 제품을 공급합니다.'), '호안블록·잔디블록 등 법면 보호 및 녹화에 적합한 블록');
+eq('여러 줄이면 첫 줄만(둘째 줄 홍보 문구 제외)', ai_category_brief("배선 자재부터 조명 기구까지 전기 공사 자재를 공급합니다.\n안전 기준을 충족하는 검증된 제품입니다."), '배선 자재부터 조명 기구까지 전기 공사 자재');
+eq('다른 끝맺음은 그대로, 빈 값은 빈 문자열', [ai_category_brief('200mm~500mm 이상 PE이중벽관을 하수·배수·배관 현장에 공급합니다.'), ai_category_brief(null), ai_category_brief("  \n ")],
+    ['200mm~500mm 이상 PE이중벽관을 하수·배수·배관 현장에 공급합니다.', '', '']);
+ok('120자 넘으면 줄임', mb_strlen(ai_category_brief(str_repeat('가', 200))) === 120);
+$scr = ai_cards_for_screen([['id' => 1, 'name' => 'A', 'guide' => ['g'], 'category_desc' => '설명', 'est_cost' => 10], ['id' => 2, 'name' => 'B']]);
+ok('화면 카드에는 category_desc 없음, 나머지 필드·순서 그대로', !isset($scr[0]['category_desc']) && $scr[0]['guide'] === ['g'] && $scr[0]['est_cost'] === 10 && $scr[1] === ['id' => 2, 'name' => 'B']);
+
 echo "[AI 상담 키 rag_chat_key_*]\n";
 require_once __DIR__ . '/../app/rag.php';
 $_SESSION['chat_keys'] = [];

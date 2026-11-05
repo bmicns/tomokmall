@@ -506,6 +506,12 @@ function tool_search_products(array $input): string
             'spec_label'    => spec_size_label((string) $p['spec']),   // 화면 표시용 규격(치수만) — 운반비·상차수량 같은 부가 표기 제외
         ];
     }, $products);
+    // 자재 분류 설명(운영자가 쓴 카테고리 설명 — 상품 분류, 없으면 상위 분류) — 답변 글의 '자재 설명' 재료. 화면 표에는 보내지 않는다(ai_cards_for_screen)
+    $catDesc = ai_category_descs(array_map(static fn($p) => (int) ($p['category_id'] ?? 0), $products));
+    foreach ($cards as $i => $c) {
+        $d = $catDesc[(int) ($products[$i]['category_id'] ?? 0)] ?? '';
+        if ($d !== '') { $cards[$i]['category_desc'] = $d; }
+    }
 
     // 그래도 0건이면 손님을 위한 대안 안내(모델이 되묻지 말고 이 안내를 전달)
     if (empty($cards) && $specMm > 0 && !empty($input['spec_strict']) && ai_is_paving_query($qText)) {
@@ -531,13 +537,54 @@ function tool_search_products(array $input): string
         'products' => $cards,
         'count'    => count($cards),
         '_sse'     => [
-            ['type' => 'product_cards', 'products' => $cards],
+            ['type' => 'product_cards', 'products' => ai_cards_for_screen($cards)],
         ],
     ];
     if ($costSummary) { $out['cost_summary'] = $costSummary; }   // '어떤 게 더 저렴해?' 답변용 — 도구가 계산한 값만
     if ($note !== null)      { $out['note']      = $note; }      // 교정/규격완화 사유
     if ($corrected !== null) { $out['corrected'] = $corrected; }
     return json_encode($out, JSON_UNESCAPED_UNICODE);
+}
+
+/**
+ * 카테고리 설명 → 상담용 한 줄 (순수 함수): 첫 줄만, 끝의 '…(전 규격·제품)을 공급합니다.'는 떼어 자재 분류 설명으로. 최대 120자.
+ * 예: 'U형·AN형·벤치플륨관 등 측구 및 배수로용 콘크리트 수로관 전 규격을 공급합니다.' → 'U형·AN형·벤치플륨관 등 측구 및 배수로용 콘크리트 수로관'
+ */
+function ai_category_brief(?string $desc): string
+{
+    $lines = preg_split('/\R/u', trim((string) $desc)) ?: [''];
+    $line = trim((string) $lines[0]);
+    $line = trim((string) preg_replace('/\s*(?:전\s*규격|제품)?\s*(?:을|를)\s*공급합니다\.?$/u', '', $line));
+    return mb_strlen($line) > 120 ? mb_substr($line, 0, 119) . '…' : $line;
+}
+
+/** 상품 분류별 설명 [category_id => 한 줄] — 분류에 설명이 없으면 상위 분류 설명. 1회 조회(N+1 없음). 실패하면 빈 배열(설명 없이 기존대로) */
+function ai_category_descs(array $categoryIds): array
+{
+    $ids = array_values(array_unique(array_filter(array_map('intval', $categoryIds))));
+    if (!$ids) {
+        return [];
+    }
+    try {
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $st = db()->prepare("SELECT c.id, c.description AS own_desc, p.description AS parent_desc
+                             FROM categories c LEFT JOIN categories p ON p.id = c.parent_id WHERE c.id IN ({$ph})");
+        $st->execute($ids);
+        $out = [];
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $b = ai_category_brief($r['own_desc'] ?? '') ?: ai_category_brief($r['parent_desc'] ?? '');
+            if ($b !== '') { $out[(int) $r['id']] = $b; }
+        }
+        return $out;
+    } catch (\Throwable $e) {
+        return [];
+    }
+}
+
+/** 화면 비교표 이벤트용 카드 (순수 함수) — 상담 글 재료(category_desc)는 빼고 보낸다(표에 표시하지 않고 상담 기록 용량도 줄임) */
+function ai_cards_for_screen(array $cards): array
+{
+    return array_map(static function (array $c): array { unset($c['category_desc']); return $c; }, $cards);
 }
 
 /** 포장 블록 검색어인지 (순수 함수) — 블록·인터로킹·보도·점토·투수·잔디·평판 등. 호안·축조·옹벽 등 구조용은 제외 */
@@ -777,7 +824,7 @@ function ai_search_compare(array $queries, array $input): string
         'products' => $cards,
         'count'    => count($cards),
         '_sse'     => [
-            ['type' => 'product_cards', 'products' => $cards, 'compare' => true],
+            ['type' => 'product_cards', 'products' => ai_cards_for_screen($cards), 'compare' => true],
         ],
     ];
     if ($costSummary) { $out['cost_summary'] = $costSummary; }

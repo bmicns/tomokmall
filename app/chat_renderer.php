@@ -230,28 +230,25 @@ render_header('AI 자재 상담', 'chat');
   /* ── 비교 테이블 ──────────────────────────────────────────── */
   .compare-table { width: 100%; overflow-x: auto; }
   .compare-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  /* 'AI 상담 답변 개선(After)' 시안: 사진·제품명(상세 링크) → 규격, 가격 아래 예상 비용 한 줄, 수량 1 */
   .compare-table th {
     background: #F5F5F5; padding: 7px 10px; text-align: left;
-    font-size: 11px; font-weight: 600; color: var(--color-text-secondary);
-    border-bottom: 2px solid var(--color-border); white-space: nowrap;
+    font-size: 11.5px; font-weight: 600; color: #777777;
+    border-bottom: 1px solid #DDDDDD; white-space: nowrap;
   }
-  .compare-table td { padding: 8px 10px; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
-  .compare-img { width: 60px; height: 60px; object-fit: cover; background: #F0F0F0; display: block; flex-shrink: 0; }
-  .compare-img-ph { width: 60px; height: 60px; background: #E8E8E8; display: block; }
-  .compare-name { font-size: 13px; font-weight: 500; line-height: 1.4; }
-  .compare-spec { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
-  .compare-detail { font-size: 11px; font-weight: 400; margin-left: 4px; color: var(--color-primary); }
-  .compare-guide { list-style: none; margin: 4px 0 0; padding: 0; font-size: 11px; line-height: 1.5; color: var(--color-text-primary); }
-  .compare-guide li::before { content: '✓ '; color: var(--color-primary); }
-  .compare-qtybasis { font-size: 11px; color: var(--color-primary); font-weight: 600; margin-top: 3px; }
-  .compare-price { font-size: 13px; font-weight: 600; color: var(--color-primary); white-space: nowrap; }
-  .compare-unit { font-size: 11px; font-weight: 400; color: var(--color-text-secondary); }
-  .compare-cost { font-size: 11px; font-weight: 600; color: var(--color-text-primary); margin-top: 3px; }
-  .compare-diff { display: block; font-size: 10px; font-weight: 400; color: var(--color-text-secondary); }
-  .compare-lowest { display: inline-block; padding: 0 5px; margin-left: 2px; font-size: 10px; font-weight: 700; color: #fff; background: var(--color-primary); }
-  .compare-summary { font-size: 12px; line-height: 1.5; padding: 8px 10px; margin-bottom: 6px; background: var(--color-surface); border: 1px solid var(--color-border); }
-  .compare-summary b { color: var(--color-primary); }
-  .compare-summary span { display: block; font-size: 11px; color: var(--color-text-secondary); }
+  .compare-table td { padding: 10px; border-bottom: 1px solid #E5E5E5; vertical-align: middle; }
+  .compare-img-link { display: block; cursor: pointer; }
+  .compare-img { width: 60px; height: 56px; object-fit: contain; background: #F0F0F0; display: block; flex-shrink: 0; }
+  .compare-img-ph { width: 60px; height: 56px; background: #E8E8E8; display: block; }
+  .compare-table a.compare-name {
+    font-size: 14.5px; font-weight: 600; line-height: 1.4; color: #222222;
+    text-decoration: none; word-break: keep-all; overflow-wrap: anywhere;
+  }
+  .compare-table a.compare-name:hover, .compare-table a.compare-name:focus-visible { color: var(--color-primary); text-decoration: underline; }
+  .compare-spec { font-size: 12.5px; color: #777777; margin-top: 3px; }
+  .compare-price { font-size: 14px; font-weight: 700; color: var(--color-primary); white-space: nowrap; }
+  .compare-unit { font-size: 11px; font-weight: 400; color: #555555; }
+  .compare-cost { font-size: 12px; font-weight: 400; color: #222222; margin-top: 4px; }
   .spec-unavailable { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--color-border); border-left: 3px solid var(--color-text-primary); background: var(--color-surface); font-size: 12px; line-height: 1.55; }
   .spec-unavailable-title { font-weight: 700; color: var(--color-text-primary); margin-bottom: 4px; }
   .spec-unavailable-body { color: var(--color-text-secondary, inherit); word-break: keep-all; }
@@ -266,7 +263,7 @@ render_header('AI 자재 상담', 'chat');
   .compare-state-note { font-size: 11px; color: var(--color-danger); margin-top: 3px; }
   /* 전역 input[type=number](width:100%·padding 8px 12px)가 덮어써 숫자가 안 보이던 문제 방지 — .compare-table 한정 */
   .compare-table input.compare-qty {
-    width: 72px; padding: 4px; border: 1px solid var(--color-border);
+    width: 62px; padding: 4px; border: 1px solid #CCCCCC;
     font-size: 13px; text-align: center; font-family: var(--font); background: #fff;
   }
   .btn-compare-add {
