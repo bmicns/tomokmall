@@ -2094,14 +2094,31 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
    - 본문 좌우 여백: main(32px) + 페이지 래퍼(16~24px)가 겹쳐 글자 폭이 줄던 것을 16px 한 번으로
    - iOS Safari: 글자 16px 미만 입력창은 누르면 화면이 확대됨 → 입력창 글자 16px
    - 헤더: 아래로 스크롤하면 숨김(layout.php 스크립트가 .is-scroll-hidden 부여, 768px 이하·AI 상담 화면 제외)
-   - 메가 패널(데스크톱 hover 전용)은 모바일에서 쓰지 않음 — 대분류는 가로 스크롤 줄에서 바로 이동 */
+   - 대분류(가로 스크롤 줄)를 누르면 바로 이동하지 않고 하위 자재 목록(메가 패널)을 펼침/접음 — 동작은 layout.php 스크립트,
+     여기서는 768px 이하 세로 목록 배치(중분류 제목 + 소분류 2열 이상, 터치 높이 44px) */
 @media (max-width: 768px) {
-  .mega-panel, .mega-item.is-open .mega-panel { display: none; }
+  .mega-panel-inner { display: block; max-width: none; padding: 0 16px 16px; }
+  .mega-col { width: auto !important; min-width: 0 !important; padding: 0; }   /* 데스크톱 균등 너비(인라인 style) 무시 */
+  .mega-col-divider { display: none; }
+  .mega-col-title-link { display: flex; align-items: center; min-height: 48px; margin: 0; padding: 12px 0 8px; font-size: 15px; font-weight: 600; white-space: normal; }
+  .mega-col-title-cont { display: none; }   /* 이어지는 칸(그레이팅 2번째 절반)의 빈 제목 */
+  .mega-col-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0 12px; padding: 4px 0 8px; }
+  .mega-3item { min-height: 44px; font-size: 14px; line-height: 1.35; color: var(--color-text-primary); white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
+  .mega-3item-img, .mega-3item-thumb { width: 24px; height: 24px; }
+  body:not(.mode-corp) .site-header .mega-item.is-open > .mega-tab { color: var(--color-primary); box-shadow: inset 0 -2px 0 var(--color-primary); }
   body:not(.mode-chat):not(.mode-corp) .site-header { transition: transform .22s ease; will-change: transform; }
   body:not(.mode-chat):not(.mode-corp) .site-header.is-scroll-hidden { transform: translateY(-100%); box-shadow: none; }
 }
 @media (max-width: 768px) and (prefers-reduced-motion: reduce) {
   body:not(.mode-chat):not(.mode-corp) .site-header { transition: none; }
+}
+@media (max-width: 768px), (hover: none) {
+  /* 터치 화면에서 펼친 하위 자재 목록이 화면 높이를 넘으면 패널 안에서 스크롤(뒤 화면으로 스크롤이 번지지 않게) */
+  .mega-panel {
+    max-height: calc(100vh - var(--header-h) - var(--gnb-bar-h));
+    max-height: calc(100dvh - var(--header-h) - var(--gnb-bar-h));
+    overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  }
 }
 @media (max-width: 640px) {
   main { padding: 0 16px; }
