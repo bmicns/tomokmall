@@ -20,7 +20,7 @@
 |---|---|---|
 | `spec_code` | 900B | 규격 코드(원문 괄호 속) |
 | `dim_d` `dim_w` `dim_h` `dim_l` `dim_t` `dim_t2` | – · 900 · 800 · 2000 · 85 · – | 축별 숫자. 칸 이름의 뜻은 카테고리 이름표가 정함 |
-| `spec_option` | – | 치수·코드 뒤 나머지(예: `하부구체_KS`, `(5*3)_국산`) |
+| `spec_option` | – | 치수·코드 뒤 나머지(예: `하부구체_KS`, `컬러(보도)`). 저장은 원문, 화면은 밑줄 꼬리를 소괄호로 — `하부구체(KS)` |
 | `spec_dims_src` | `900*800*2000*85T (900B)` | 값을 채울 때 기준이 된 규격 원문. 지금 원문과 다르면 화면은 원문 사용 |
 
 `category_spec_axes` — 한 행 = "이 카테고리 규격의 `seq` 번째 숫자는 `label`(`symbol`)이고 `dim_<axis_key>` 에 담는다".
@@ -44,6 +44,8 @@
 | 59 사각맨홀(집수정) | `300*400*600*150T` | 가로 W × 세로 L × 높이 H × 두께 T |
 | 61 원형맨홀 | `D900*1200*200T` | 내경 D × 높이 H × 두께 T |
 | 50 흄관(B형) | `D600*2500*50T` | 내경 D × 길이 L × 두께 T |
+| 66 조립식원형맨홀(상부.연직.하부구체) | `D600*1000H*150T_하부구체_KS` | 내경 D × 높이 H × 두께 T (+옵션) |
+| 73 다칼라블랜딩블록(투수) | `1200*1000*60_컬러(보도)` | 가로 W × 세로 L × 두께 T (+옵션) |
 
 이름표 추가 예(다른 카테고리 — 이름을 확인한 뒤에만):
 
@@ -68,7 +70,7 @@ INSERT INTO category_spec_axes (category_id, seq, axis_key, label, symbol, unit)
   같은 축 안은 '또는', 축끼리는 '그리고'(기존 필터와 같음). 다른 선택 때문에 0건이 되는 값은 누를 수 없음.
   결과 전체에 값이 하나뿐인 축(예: 길이 2,000)은 선택된 채 고정 표시. URL: `ax_w[]=900`, `ax_type[]=B` (값은 mm).
   `필터 적용` 버튼 방식은 기존과 같음. 적용된 필터 칩은 `폭: 600`·`모델 코드: C형`.
-- **표**: `규격` 묶음 머리글 아래 작은 회색 글씨로 `모델 코드`(spec_code 900B)·축별 칸(`폭 W`, m 인 축만 `폭 W(m)`)·`옵션`(값 있을 때).
+- **표**: `규격` 묶음 머리글 아래 작은 회색 글씨로 `모델 코드`(spec_code 900B)·축별 칸(`폭 W`, m 인 축만 `폭 W(m)`)·`옵션`(값 있을 때, `하부구체(KS)` 처럼 밑줄 꼬리를 소괄호로 표시 — 옵션은 표에만, 필터 없음(사용자 결정)).
   필터에 고정 표시된 축(값 하나뿐)은 표 칸에서 뺌.
   선택한 필터 값은 파란 굵은 글씨. 채운 기준 원문이 지금과 다른 행은 규격 원문을 묶음 칸 전체에 표시.
   모바일(640px 이하) 카드: `모델 코드 900B · 폭 W 900 · 높이 H 800 · 두께 T 85` 로 이어서 표시.
@@ -87,9 +89,9 @@ php scripts/db-tools/spec-axes-fill.php sql --out=<저장소 밖 파일>  # 운�
 
 1. `bash scripts/testdb/devdb.sh restore <최신 스냅샷>` (또는 `up` + 재복제) — 운영과 같은 id
 2. 마이그레이션 적용: `docker exec -i tomok-devdb sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot --default-character-set=utf8mb4 tomokmall_test' < database/20261106_product_spec_axes.sql`
-   → [4] 에서 19행이 들어가야 함(`SELECT COUNT(*) FROM category_spec_axes`)
+   → [4] 에서 25행이 들어가야 함(`SELECT COUNT(*) FROM category_spec_axes`)
 3. `php scripts/db-tools/spec-axes-fill.php report` → `apply`
-4. `php -S 127.0.0.1:8080 -t public/` 후 확인: `/products.php?category=24`(수로관), `21`(개거), `59`(사각맨홀), `61`(원형맨홀), `50`(흄관(B형)),
+4. `php -S 127.0.0.1:8080 -t public/` 후 확인: `/products.php?category=24`(수로관), `21`(개거), `59`(사각맨홀), `61`(원형맨홀), `50`(흄관(B형)), `66`(조립식원형맨홀), `73`(다칼라블랜딩블록),
    중분류 `256`·검색(기존 화면 그대로여야 함), 필터 눌러 보기, 모바일 폭
 
 ## 7. 운영 반영 순서 (각 단계 승인 필요)
@@ -98,7 +100,7 @@ php scripts/db-tools/spec-axes-fill.php sql --out=<저장소 밖 파일>  # 운�
 2. 코드 배포: `app/spec_axes.php`(새 파일) → `app/bootstrap.php`·`app/product_filter_renderer.php`·`public/products.php`·
    `public/api/admin/products.php`·`public/assets/styles.css`. 새 칸이 비어 있어도 화면은 기존과 같음
 3. 값 채우기: 운영 복제 DB 에서 `sql --out=…` 로 만든 파일을 승인 후 실행(새 칸만 UPDATE)
-4. 확인: 이름표를 넣은 5개 카테고리(24·21·59·61·50) 목록·필터, 중분류·검색 화면이 기존과 같은지
+4. 확인: 이름표를 넣은 7개 카테고리(24·21·59·61·50·66·73) 목록·필터, 중분류·검색 화면이 기존과 같은지
 
 되돌리기: 코드는 이전 커밋 파일로 재배포(새 칸·표가 있어도 옛 코드는 무시). DB 는 마이그레이션 [롤백](새 칸·새 표만 삭제 — 기존 데이터 영향 없음).
 `products` 의 DROP COLUMN 은 원격 관리 API 가 막는 작업(가격 보호 표는 ADD 만)이므로 롤백은 phpMyAdmin 에서 한다.

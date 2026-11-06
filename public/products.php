@@ -534,7 +534,7 @@ render_header($pageTitle);
                         <?php if ($axisMode && $axisFresh[$i]): ?>
                             <?php if ($axisHasCode): $tc = spec_code_type(isset($p['spec_code']) ? (string) $p['spec_code'] : null); ?><td class="pt-col-ax pt-col-axcode<?= ($tc !== null && in_array($tc, $filters['ax_type'], true)) ? ' is-hit' : '' ?>" data-label="모델 코드"><?= e((string) ($p['spec_code'] ?? '')) ?></td><?php endif; ?>
                             <?php foreach ($axisCols as $a): $ak = $a['axis_key']; $av = spec_axes_row_value($p, $ak); ?><td class="pt-col-ax<?= ($av !== null && in_array($av, $filters['ax'][$ak] ?? [], true)) ? ' is-hit' : '' ?>" data-label="<?= e(spec_axis_title($a)) ?>"><?= $av !== null ? e(spec_axis_display((float) $av, $a['unit'])) : '' ?></td><?php endforeach; ?>
-                            <?php if ($axisHasOpt): ?><td class="pt-col-ax pt-col-axopt" data-label="옵션"><?= e((string) ($p['spec_option'] ?? '')) ?></td><?php endif; ?>
+                            <?php if ($axisHasOpt): ?><td class="pt-col-ax pt-col-axopt" data-label="옵션"><?= e(spec_option_display((string) ($p['spec_option'] ?? ''))) ?></td><?php endif; ?>
                         <?php elseif ($axisMode): ?><td class="pt-col-spec" colspan="<?= $axisSpan ?>"><?= $hlTerms ? highlight_terms($sp['spec'], $hlTerms) : e($sp['spec']) ?></td>
                         <?php elseif ($hasSpec):    ?><td class="pt-col-spec"><?= $hlTerms ? highlight_terms($sp['spec'], $hlTerms) : e($sp['spec']) ?></td><?php endif; ?>
                         <?php if ($isInternal): ?><td class="pt-col-cost"><?= price_cost_cell($p) ?></td><?php endif; ?>

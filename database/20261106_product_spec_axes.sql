@@ -25,9 +25,9 @@ SELECT COUNT(*) AS category_spec_axes_exists
 FROM information_schema.TABLES
 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'category_spec_axes';
 
--- 1-3) [4] 대상 카테고리: 5행(아래 이름)이 나와야 한다. 이름이 다르면 [4]는 그 카테고리를 건너뛴다(엉뚱한 카테고리에 붙지 않음)
---      21 개거 / 24 수로관(벤치3종) / 50 흄관(B형) / 59 사각맨홀(집수정) / 61 원형맨홀
-SELECT id, name FROM categories WHERE id IN (21, 24, 50, 59, 61) ORDER BY id;
+-- 1-3) [4] 대상 카테고리: 7행(아래 이름)이 나와야 한다. 이름이 다르면 [4]는 그 카테고리를 건너뛴다(엉뚱한 카테고리에 붙지 않음)
+--      21 개거 / 24 수로관(벤치3종) / 50 흄관(B형) / 59 사각맨홀(집수정) / 61 원형맨홀 / 66 조립식원형맨홀(상부.연직.하부구체) / 73 다칼라블랜딩블록(투수)
+SELECT id, name FROM categories WHERE id IN (21, 24, 50, 59, 61, 66, 73) ORDER BY id;
 
 -- [2] products 새 칸 -----------------------------------------------------------
 -- 숫자 칸은 모두 mm 로 저장(규격이 m 표기면 ×1000). 칸 이름의 뜻(폭·가로 등)은 카테고리마다 category_spec_axes 가 정한다.
@@ -68,6 +68,8 @@ CREATE TABLE IF NOT EXISTS category_spec_axes (
 -- 약자 규칙(사용자 결정 2026-11-06): 약자 = 값을 담는 칸의 글자(dim_w W·dim_l L·dim_h H·dim_t T·dim_d D). 뜻은 이름(label)이 구분
 --   61 원형맨홀         'D900*1200*200T'           내경 D × 높이 H × 두께 T
 --   50 흄관(B형)        'D600*2500*50T'            내경 D × 길이 L × 두께 T
+--   66 조립식원형맨홀   'D600*1000H*150T_하부구체_KS' 내경 D × 높이 H × 두께 T (+ 옵션 하부구체_KS 등)
+--   73 다칼라블랜딩블록(투수) '1200*1000*60_컬러(보도)' 가로 W × 세로 L × 두께 T (+ 옵션 컬러(보도) 등)
 -- id 와 이름이 모두 맞는 카테고리에만, 이름표가 아직 없을 때만 넣는다(다시 실행해도 중복 없음).
 INSERT INTO category_spec_axes (category_id, seq, axis_key, label, symbol, show_symbol, unit)
 SELECT c.id, v.seq, v.axis_key, v.label, v.symbol, v.show_symbol, v.unit
@@ -91,12 +93,18 @@ FROM (
     UNION ALL SELECT 50, '흄관(B형)',         1, 'd',  '내경',     'D', 1, 'mm'
     UNION ALL SELECT 50, '흄관(B형)',         2, 'l',  '길이',     'L', 1, 'mm'
     UNION ALL SELECT 50, '흄관(B형)',         3, 't',  '두께',     'T', 1, 'mm'
+    UNION ALL SELECT 66, '조립식원형맨홀(상부.연직.하부구체)', 1, 'd', '내경', 'D', 1, 'mm'
+    UNION ALL SELECT 66, '조립식원형맨홀(상부.연직.하부구체)', 2, 'h', '높이', 'H', 1, 'mm'
+    UNION ALL SELECT 66, '조립식원형맨홀(상부.연직.하부구체)', 3, 't', '두께', 'T', 1, 'mm'
+    UNION ALL SELECT 73, '다칼라블랜딩블록(투수)', 1, 'w',  '가로',     'W', 1, 'mm'
+    UNION ALL SELECT 73, '다칼라블랜딩블록(투수)', 2, 'l',  '세로',     'L', 1, 'mm'
+    UNION ALL SELECT 73, '다칼라블랜딩블록(투수)', 3, 't',  '두께',     'T', 1, 'mm'
 ) v
 JOIN categories c ON c.id = v.cid AND c.name = v.cname
 WHERE NOT EXISTS (SELECT 1 FROM category_spec_axes x WHERE x.category_id = c.id);
 
 -- [5] 확인(읽기 전용) ----------------------------------------------------------
--- SELECT category_id, seq, axis_key, label, symbol, show_symbol, unit FROM category_spec_axes ORDER BY category_id, seq;   -- 19행
+-- SELECT category_id, seq, axis_key, label, symbol, show_symbol, unit FROM category_spec_axes ORDER BY category_id, seq;   -- 25행
 -- SHOW COLUMNS FROM products LIKE 'dim\_%';                                                                     -- 6행
 -- SELECT COUNT(*) FROM products WHERE spec_dims_src IS NOT NULL;                                                -- 채우기 전 0
 

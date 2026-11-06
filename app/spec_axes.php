@@ -113,6 +113,17 @@ function spec_axis_title(array $axis): string
     return trim((string) ($axis['label'] ?? '')) . ($sym !== '' ? ' ' . $sym : '');
 }
 
+/**
+ * 옵션 화면 표시: 밑줄로 이어진 꼬리를 소괄호로(사용자 결정 2026-11-06). 저장값(spec_option)은 원문 그대로.
+ *  '하부구체_KS' → '하부구체(KS)', 'A_B_C' → 'A(B, C)', '컬러(보도)'(밑줄 없음) → 그대로
+ */
+function spec_option_display(string $opt): string
+{
+    $parts = array_values(array_filter(array_map('trim', explode('_', $opt)), static fn($s) => $s !== ''));
+    if (count($parts) <= 1) { return $parts[0] ?? ''; }
+    return array_shift($parts) . '(' . implode(', ', $parts) . ')';
+}
+
 /** 단위 표시 '(mm)' / '(m)' — 필터 그룹 이름 옆(아트보드: 폭 W(mm)), m 축은 표 머리글에도 */
 function spec_axis_unit_label(array $axis): string
 {
