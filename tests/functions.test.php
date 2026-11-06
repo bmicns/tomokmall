@@ -656,7 +656,7 @@ eq('표시 mm 1.6 → 1.6', spec_axis_display(1.6, 'mm'), '1.6');
 eq('표시 m 1500 → 1.5', spec_axis_display(1500.0, 'm'), '1.5');
 eq('표시 m 2000 → 2.0(원문 표기)', spec_axis_display(2000.0, 'm'), '2.0');
 eq('정규 값 900.0 → 900, 1.6 → 1.6', [spec_axis_num(900.0), spec_axis_num(1.6), spec_axis_num((float) '2000.0')], ['900', '1.6', '2000']);
-eq('이름+약자: 폭 W / 세로 H / 약자 없음', [spec_axis_title(['label' => '폭', 'symbol' => 'W']), spec_axis_title(['label' => '세로', 'symbol' => 'H', 'show_symbol' => true]), spec_axis_title(['label' => '기타', 'symbol' => ''])], ['폭 W', '세로 H', '기타']);
+eq('이름+약자: 폭 W / 세로(약자 없음 → 이름만)', [spec_axis_title(['label' => '폭', 'symbol' => 'W']), spec_axis_title(['label' => '세로', 'symbol' => '', 'show_symbol' => true]), spec_axis_title(['label' => '세로', 'symbol' => null])], ['폭 W', '세로', '세로']);
 eq('약자 T 저장·표시 안 함(개거 상하두께) → 이름만', spec_axis_title(['label' => '상하두께', 'symbol' => 'T', 'show_symbol' => false]), '상하두께');
 eq('단위 표시: mm → (mm), m → (m)', [spec_axis_unit_label(['unit' => 'mm']), spec_axis_unit_label(['unit' => 'm'])], ['(mm)', '(m)']);
 eq('약자: 숨김(show_symbol=0)이면 빈 값', [spec_axis_symbol(['symbol' => 'W']), spec_axis_symbol(['symbol' => 'T', 'show_symbol' => false])], ['W', '']);

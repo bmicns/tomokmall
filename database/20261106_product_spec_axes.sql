@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS category_spec_axes (
 -- [4] 확인된 카테고리 이름표(사용자 확인 2026-11-05~06) --------------------------------
 --   24 수로관(벤치3종)  '900*800*2000*85T (900B)'  폭 W × 높이 H × 길이 L × 두께 T (+ 규격 코드)
 --   21 개거             '4.0*1.0*2.0_280T*260T'    폭 W × 높이 H × 길이 L (m) _ 상하두께 × 벽체두께 (mm, 약자 T — 화면엔 이름만)
---   59 사각맨홀(집수정) '300*400*600*150T'         가로 W × 세로 H × 높이 H × 두께 T
+--   59 사각맨홀(집수정) '300*400*600*150T'         가로 W × 세로 × 높이 H × 두께 T (세로는 약자 없음 — 이름만, 값은 dim_l)
 --   61 원형맨홀         'D900*1200*200T'           내경 D × 높이 H × 두께 T
 -- id 와 이름이 모두 맞는 카테고리에만, 이름표가 아직 없을 때만 넣는다(다시 실행해도 중복 없음).
 INSERT INTO category_spec_axes (category_id, seq, axis_key, label, symbol, show_symbol, unit)
@@ -80,7 +80,7 @@ FROM (
     UNION ALL SELECT 21, '개거',              4, 't',  '상하두께', 'T', 0, 'mm'
     UNION ALL SELECT 21, '개거',              5, 't2', '벽체두께', 'T', 0, 'mm'
     UNION ALL SELECT 59, '사각맨홀(집수정)',  1, 'w',  '가로',     'W', 1, 'mm'
-    UNION ALL SELECT 59, '사각맨홀(집수정)',  2, 'l',  '세로',     'H', 1, 'mm'
+    UNION ALL SELECT 59, '사각맨홀(집수정)',  2, 'l',  '세로',     NULL, 1, 'mm'
     UNION ALL SELECT 59, '사각맨홀(집수정)',  3, 'h',  '높이',     'H', 1, 'mm'
     UNION ALL SELECT 59, '사각맨홀(집수정)',  4, 't',  '두께',     'T', 1, 'mm'
     UNION ALL SELECT 61, '원형맨홀',          1, 'd',  '내경',     'D', 1, 'mm'
