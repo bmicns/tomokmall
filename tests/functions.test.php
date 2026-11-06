@@ -658,7 +658,8 @@ eq('표시 m 2000 → 2.0(원문 표기)', spec_axis_display(2000.0, 'm'), '2.0'
 eq('정규 값 900.0 → 900, 1.6 → 1.6', [spec_axis_num(900.0), spec_axis_num(1.6), spec_axis_num((float) '2000.0')], ['900', '1.6', '2000']);
 eq('이름+약자: 폭 W / 세로 H / 약자 없음', [spec_axis_title(['label' => '폭', 'symbol' => 'W']), spec_axis_title(['label' => '세로', 'symbol' => 'H', 'show_symbol' => true]), spec_axis_title(['label' => '기타', 'symbol' => ''])], ['폭 W', '세로 H', '기타']);
 eq('약자 T 저장·표시 안 함(개거 상하두께) → 이름만', spec_axis_title(['label' => '상하두께', 'symbol' => 'T', 'show_symbol' => false]), '상하두께');
-eq('필터 작은 글씨: W · mm / 약자 숨김 → mm / m 단위', [spec_axis_filter_sub(['symbol' => 'W', 'unit' => 'mm']), spec_axis_filter_sub(['symbol' => 'T', 'show_symbol' => false, 'unit' => 'mm']), spec_axis_filter_sub(['symbol' => 'W', 'unit' => 'm'])], ['W · mm', 'mm', 'W · m']);
+eq('단위 표시: mm → (mm), m → (m)', [spec_axis_unit_label(['unit' => 'mm']), spec_axis_unit_label(['unit' => 'm'])], ['(mm)', '(m)']);
+eq('약자: 숨김(show_symbol=0)이면 빈 값', [spec_axis_symbol(['symbol' => 'W']), spec_axis_symbol(['symbol' => 'T', 'show_symbol' => false])], ['W', '']);
 eq('형식(코드 끝 글자): 900B·M1000C·900·null', [spec_code_type('900B'), spec_code_type('M1000C'), spec_code_type('900'), spec_code_type(null)], ['B', 'C', null, null]);
 
 $axRows = [256 => $axFlume, 31 => [['seq' => 0, 'axis_key' => 'none']], 61 => $axRdMh];
@@ -690,8 +691,8 @@ eq('URL 입력 정리(ax_w·ax_type, 잘못된 값 버림)', spec_axes_filter_in
 $axFacet = ['defs' => $AX([['w', '폭', 'W'], ['l', '길이', 'L']]), 'all' => ['w' => ['200', '300'], 'l' => ['2000']],
             'vals' => ['w' => ['200' => 1, '300' => 0], 'l' => ['2000' => 1]], 'type_all' => ['B', 'C'], 'type' => ['B' => 1, 'C' => 1]];
 $g = product_filter_axis_groups($axFacet, []);
-eq('필터 그룹(아트보드 기준): 이름 형식·폭·길이', array_column($g, 'title'), ['형식', '폭', '길이']);
-eq('필터 그룹 작은 글씨: 규격 코드 끝자리 · W · mm · L · mm', array_column($g, 'sub'), ['규격 코드 끝자리', 'W · mm', 'L · mm']);
+eq('필터 그룹(아트보드 기준): 모델 코드·폭·길이', array_column($g, 'title'), ['모델 코드', '폭', '길이']);
+eq('필터 그룹 옆 작은 글씨: 끝자리 표기 / W(mm) / L(mm)', array_map(static fn($x) => $x['sub'] . $x['unit'], $g), ['끝자리 표기', 'W(mm)', 'L(mm)']);
 ok('값이 하나뿐인 축(길이 2,000): 선택된 채 고정', $g[2]['fixed'] && $g[2]['opts'][0]['checked'] && $g[2]['opts'][0]['disabled'] && $g[2]['opts'][0]['label'] === '2,000');
 ok('0건 값은 누를 수 없음(폭 300)', $g[1]['opts'][1]['disabled'] && !$g[1]['opts'][0]['disabled']);
 $g = product_filter_axis_groups($axFacet, ['ax' => ['w' => ['300']]]);
@@ -699,16 +700,6 @@ ok('이미 선택한 0건 값은 해제 가능', $g[1]['opts'][1]['checked'] && 
 ok('형식 값 표시 B형, GET 이름 ax_type', $g[0]['opts'][0]['label'] === 'B형' && $g[0]['field'] === 'ax_type');
 ok('이름표 없으면 그룹 없음', product_filter_axis_groups([], []) === []);
 
-$sumFlume = spec_axes_summary(['defs' => $axFlume, 'variants' => 10, 'type_all' => ['B', 'C'],
-    'all' => ['w' => ['200', '900'], 'h' => ['200', '800'], 'l' => ['2000'], 't' => ['40', '85']]]);
-eq('규격 요약(수로관): 규격 10종 → 형식 → 범위 → 공통값, (단위 mm)', array_map(static fn($p) => $p['k'] . ' ' . $p['v'], $sumFlume['pills']) + ['note' => $sumFlume['note']],
-    ['규격 10종', '형식 B · C', '폭 W 200–900', '높이 H 200–800', '두께 T 40–85', '길이 L 2,000 공통', 'note' => '(단위 mm)']);
-$axGaegeoShown = array_map(static fn($a) => $a + ['show_symbol' => !in_array($a['axis_key'], ['t', 't2'], true)], $axGaegeo);
-$sumGaegeo = spec_axes_summary(['defs' => $axGaegeoShown, 'variants' => 4, 'type_all' => [],
-    'all' => ['w' => ['1500', '4000'], 'h' => ['1000', '2000'], 'l' => ['2000'], 't' => ['160', '280'], 't2' => ['140', '260']]]);
-eq('규격 요약(개거): 단위가 섞이면 값마다 단위, 상하두께는 이름만', array_map(static fn($p) => $p['k'] . ' ' . $p['v'], $sumGaegeo['pills']) + ['note' => $sumGaegeo['note']],
-    ['규격 4종', '폭 W 1.5–4.0 m', '높이 H 1.0–2.0 m', '상하두께 160–280 mm', '벽체두께 140–260 mm', '길이 L 2.0 m 공통', 'note' => '']);
-ok('규격 요약: 이름표 없으면 빈 값', spec_axes_summary([]) === ['pills' => [], 'note' => '']);
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

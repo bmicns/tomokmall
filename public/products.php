@@ -240,14 +240,6 @@ render_header($pageTitle);
             <?php if ($catDesc): ?>
                 <p class="ut-banner-sub"><?= e($catDesc) ?></p>
             <?php endif; ?>
-            <?php // 규격 요약(규격 축 모드일 때만): 규격 N종 · 형식 · 축별 범위 · 공통값 — app/spec_axes.php spec_axes_summary
-            $specSum = spec_axes_summary($facets['axes'] ?? []);
-            if ($specSum['pills']): ?>
-            <ul class="ut-spec-sum" aria-label="규격 요약">
-                <?php foreach ($specSum['pills'] as $sp1): ?><li><span><?= e($sp1['k']) ?></span><b><?= e($sp1['v']) ?></b></li><?php endforeach; ?>
-                <?php if ($specSum['note'] !== ''): ?><li class="ut-spec-note"><?= e($specSum['note']) ?></li><?php endif; ?>
-            </ul>
-            <?php endif; ?>
         </div>
         <?php if ($catImg): ?>
         <img class="ut-banner-side" src="<?= e($catImg) ?>" alt="<?= e($catName) ?>">
@@ -342,7 +334,7 @@ render_header($pageTitle);
                             product_list_url($_GET, ['ax_' . $k => array_values(array_diff($vals, [$v]))])];
             }
         }
-        foreach ($filters['ax_type'] as $v) { $chips[] = ['형식', $v . '형', product_list_url($_GET, ['ax_type' => array_values(array_diff($filters['ax_type'], [$v]))])]; }
+        foreach ($filters['ax_type'] as $v) { $chips[] = ['모델 코드', $v . '형', product_list_url($_GET, ['ax_type' => array_values(array_diff($filters['ax_type'], [$v]))])]; }
         if ($inStock)                     { $chips[] = ['재고', '있는 상품만', product_list_url($_GET, ['instock' => null])]; }
     }
     ?>
@@ -418,7 +410,7 @@ render_header($pageTitle);
         }
     }
 
-    // 규격 축 모드: 결과 카테고리가 모두 같은 이름표(category_spec_axes)를 쓰면 '규격' 한 칸 → 규격 묶음 아래 규격 코드·축별 칸.
+    // 규격 축 모드: 결과 카테고리가 모두 같은 이름표(category_spec_axes)를 쓰면 '규격' 한 칸 → 규격 묶음 아래 모델 코드(spec_code)·축별 칸.
     //  - 결과 전체에 값이 하나뿐인 축은 필터에 고정(선택된 채) 표시되므로 표 칸에서 뺀다(필터에 안 쓰는 축은 표에 남김)
     //  - 축 값은 채운 기준 원문이 지금 규격과 같은 행만(spec_axes_row_fresh). 아니면 그 행은 규격 원문을 묶음 전체 칸에 표시
     $axisDefs = (!$demoMode && !empty($facets['axes']['defs'])) ? $facets['axes']['defs'] : [];
@@ -484,9 +476,9 @@ render_header($pageTitle);
                 </tr>
                 <?php if ($axisMode): ?>
                 <tr class="pt-head-ax">
-                    <?php if ($axisHasCode): ?><th class="pt-col-ax">형식</th><?php endif; ?>
-                    <?php // 단위는 mm 가 기본이라 표시하지 않고, m 로 적는 축(예: 개거 폭·높이)만 머리글 아래에 적는다 ?>
-                    <?php foreach ($axisCols as $a): ?><th class="pt-col-ax"><?= e(spec_axis_title($a)) ?><?php if ($a['unit'] !== 'mm'): ?><span><?= e($a['unit']) ?></span><?php endif; ?></th><?php endforeach; ?>
+                    <?php if ($axisHasCode): ?><th class="pt-col-ax">모델 코드</th><?php endif; ?>
+                    <?php // 단위는 mm 가 기본이라 적지 않고, m 로 적는 축(예: 개거 폭·높이)만 '폭 W(m)' ?>
+                    <?php foreach ($axisCols as $a): ?><th class="pt-col-ax"><?= e(spec_axis_title($a)) ?><?= $a['unit'] !== 'mm' ? e(spec_axis_unit_label($a)) : '' ?></th><?php endforeach; ?>
                     <?php if ($axisHasOpt): ?><th class="pt-col-ax pt-col-axopt">옵션</th><?php endif; ?>
                 </tr>
                 <?php endif; ?>
@@ -540,7 +532,7 @@ render_header($pageTitle);
                         <td class="pt-col-vendor"><?php $vn = render_vendor_names($p['vendor_names'] ?? null); echo $vn !== '' ? $vn : '<span class="pt-vendor-none">-</span>'; ?></td>
                         <?php if ($hasUnit):    ?><td class="pt-col-unit"><?= e($sp['unit']) ?></td><?php endif; ?>
                         <?php if ($axisMode && $axisFresh[$i]): ?>
-                            <?php if ($axisHasCode): $tc = spec_code_type(isset($p['spec_code']) ? (string) $p['spec_code'] : null); ?><td class="pt-col-ax pt-col-axcode<?= ($tc !== null && in_array($tc, $filters['ax_type'], true)) ? ' is-hit' : '' ?>" data-label="형식"><?= e((string) ($p['spec_code'] ?? '')) ?></td><?php endif; ?>
+                            <?php if ($axisHasCode): $tc = spec_code_type(isset($p['spec_code']) ? (string) $p['spec_code'] : null); ?><td class="pt-col-ax pt-col-axcode<?= ($tc !== null && in_array($tc, $filters['ax_type'], true)) ? ' is-hit' : '' ?>" data-label="모델 코드"><?= e((string) ($p['spec_code'] ?? '')) ?></td><?php endif; ?>
                             <?php foreach ($axisCols as $a): $ak = $a['axis_key']; $av = spec_axes_row_value($p, $ak); ?><td class="pt-col-ax<?= ($av !== null && in_array($av, $filters['ax'][$ak] ?? [], true)) ? ' is-hit' : '' ?>" data-label="<?= e(spec_axis_title($a)) ?>"><?= $av !== null ? e(spec_axis_display((float) $av, $a['unit'])) : '' ?></td><?php endforeach; ?>
                             <?php if ($axisHasOpt): ?><td class="pt-col-ax pt-col-axopt" data-label="옵션"><?= e((string) ($p['spec_option'] ?? '')) ?></td><?php endif; ?>
                         <?php elseif ($axisMode): ?><td class="pt-col-spec" colspan="<?= $axisSpan ?>"><?= $hlTerms ? highlight_terms($sp['spec'], $hlTerms) : e($sp['spec']) ?></td>

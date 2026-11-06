@@ -73,15 +73,15 @@ function product_filters_visible(array $facets, array $active): array
 }
 
 /**
- * 규격 축 파세트 → 필터 그룹 목록. 그룹: ['field'=>GET 이름, 'title', 'sub', 'opts'=>[{val,label,cnt,checked,disabled}]]
- *  - 형식(규격 코드 끝 글자)은 코드가 있을 때만, 이어서 이름표 seq 순(use_filter=0 축 제외)
+ * 규격 축 파세트 → 필터 그룹 목록. 그룹: ['field'=>GET 이름, 'title'(이름), 'sub'(약자), 'unit'('(mm)'), 'opts'=>[{val,label,cnt,checked,disabled}]]
+ *  - 모델 코드(규격 코드 끝 글자 B·C)는 코드가 있을 때만, 이어서 이름표 seq 순(use_filter=0 축 제외)
  *  - 결과 전체에 값이 하나뿐인 축: 선택된 채 고정(누를 수 없음, 제출 안 됨 — 좁힐 게 없다는 표시)
  *  - 다른 선택 때문에 0건이 되는 값: 누를 수 없게(이미 선택한 값은 해제 가능)
  */
 function product_filter_axis_groups(array $axes, array $active): array
 {
     if (empty($axes['defs'])) { return []; }
-    $mk = static function (string $field, string $title, string $sub, array $all, array $cnts, array $sel, callable $label): array {
+    $mk = static function (string $field, string $title, string $sub, string $unit, array $all, array $cnts, array $sel, callable $label): array {
         $sel   = array_map('strval', $sel);
         $fixed = count($all) === 1;
         $opts  = [];
@@ -91,19 +91,19 @@ function product_filter_axis_groups(array $axes, array $active): array
             $on  = in_array($v, $sel, true);
             $opts[] = ['val' => $v, 'label' => $label($v), 'cnt' => $cnt, 'checked' => $on || $fixed, 'disabled' => $fixed || ($cnt === 0 && !$on)];
         }
-        return ['field' => $field, 'title' => $title, 'sub' => $sub, 'fixed' => $fixed, 'opts' => $opts];
+        return ['field' => $field, 'title' => $title, 'sub' => $sub, 'unit' => $unit, 'fixed' => $fixed, 'opts' => $opts];
     };
     $groups = [];
-    // 그룹 이름은 한글 이름, 옆 작은 글씨는 '약자 · 단위'(아트보드 '규격 개선안' 기준: 폭  W · mm)
+    // 아트보드 '규격 개선안' 기준: 그룹 이름(한글) 옆에 작은 약자, 더 작은 단위 — 폭 W(mm). 모델 코드는 '끝자리 표기'
     if (!empty($axes['type_all'])) {
-        $groups[] = $mk('ax_' . SPEC_AXIS_TYPE, '형식', '규격 코드 끝자리', $axes['type_all'], $axes['type'] ?? [],
+        $groups[] = $mk('ax_' . SPEC_AXIS_TYPE, '모델 코드', '끝자리 표기', '', $axes['type_all'], $axes['type'] ?? [],
             (array) ($active['ax_type'] ?? []), static fn(string $v): string => $v . '형');
     }
     foreach ($axes['defs'] as $a) {
         $k = (string) $a['axis_key'];
         if (empty($a['use_filter']) || empty($axes['all'][$k])) { continue; }
         $unit = (string) $a['unit'];
-        $groups[] = $mk('ax_' . $k, (string) $a['label'], spec_axis_filter_sub($a), $axes['all'][$k], $axes['vals'][$k] ?? [],
+        $groups[] = $mk('ax_' . $k, (string) $a['label'], spec_axis_symbol($a), spec_axis_unit_label($a), $axes['all'][$k], $axes['vals'][$k] ?? [],
             (array) ($active['ax'][$k] ?? []), static fn(string $v): string => spec_axis_display((float) $v, $unit));
     }
     return $groups;
@@ -167,10 +167,10 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
         <?php endif; ?>
 
         <?php if ($v['axes']): ?>
-        <div class="fgrp fgrp-axes"><b>규격</b>
+        <div class="fgrp fgrp-axes">
           <?php foreach ($v['axes'] as $g): $gid = 'fax-' . $g['field']; ?>
           <div class="fax" role="group" aria-labelledby="<?= e($gid) ?>">
-            <div class="fax-title" id="<?= e($gid) ?>"><?= e($g['title']) ?><?php if ($g['sub'] !== ''): ?> <small><?= e($g['sub']) ?></small><?php endif; ?></div>
+            <div class="fax-title" id="<?= e($gid) ?>"><?= e($g['title']) ?><?php if ($g['sub'] !== '' || $g['unit'] !== ''): ?> <small><?= e($g['sub']) ?><?php if ($g['unit'] !== ''): ?><span><?= e($g['unit']) ?></span><?php endif; ?></small><?php endif; ?></div>
             <div class="fchips">
               <?php foreach ($g['opts'] as $o): ?>
               <label class="fchip"<?= $g['fixed'] ? ' title="모든 상품이 같은 값"' : '' ?>><input type="checkbox" name="<?= e($g['field']) ?>[]" value="<?= e($o['val']) ?>"<?= $o['checked'] ? ' checked' : '' ?><?= $o['disabled'] ? ' disabled' : '' ?>><span class="fchip-box"><?= e($o['label']) ?><small><?= (int) $o['cnt'] ?></small></span></label>
