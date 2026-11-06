@@ -14,6 +14,8 @@ declare(strict_types=1);
  *  rag_extract_legal_citations() — AI 답변의 [L번호] 표시 → 실제 인용한 근거만 추출
  *  rag_road_context()          — 차량 블록 시공 장소 판정(공공도로 차도/공공 보도 차량 출입부/사유지/불명확)
  *  rag_road_context_prompt()   — 판정별 별도 안내 구역(사내 80T 안내 문구는 그대로 두고 공식 기준을 맥락별로 분리)
+ *  rag_drain_notice_keys()     — 배수관 설치 위치·관경 주의 상황 판정(옹벽 배수관 / 공공 도로 횡단배수관)
+ *  rag_drain_notice_prompt()   — 그 상황에서만 붙는 주의 안내 구역(문구는 사용자 확정, 원문 확인한 법령·기준)
  *  rag_build_prompt()          — 상담 시스템 프롬프트·근거 묶음 생성(API 호출 없음, rag_process 가 사용)
  */
 
@@ -785,6 +787,67 @@ function rag_road_context_prompt(string $ctx, bool $hasScopedDocs = true): strin
 }
 
 /**
+ * 배수관 설치 위치·관경 주의 상황 판정 (순수 함수). 고객 발화(user)만 본다.
+ *  wall_drain : 옹벽(보강토·석축 포함) 뒤·주변에 배수관을 묻는 상황 — 건축법 시행규칙 제25조제4호(옹벽 상단 안쪽 2m 이내 배수관 재질)
+ *  cross_drain: 도로를 가로질러 배수관을 묻는 상황 — KDS 44 40 15:2026 횡단배수관 최소관경(1,000mm, 부득이 800mm)
+ * 화면(메인 작업 패널·상품 목록)에는 표시하지 않고 AI 상담 답변에서만 안내한다(사용자 결정 2026-11-05, docs/03-analysis/work-types-v5.md 3-4·3-8).
+ * 판정은 안내를 붙일지 고르는 데만 쓰고, 법적 적용 여부를 확정하지 않는다(답변에서 조건부로 말함).
+ * @return list<string>
+ */
+function rag_drain_notice_keys(array $messages): array
+{
+    $text = '';
+    foreach ($messages as $m) {
+        if (($m['role'] ?? '') === 'user') {
+            $text .= ' ' . ($m['content'] ?? '');
+        }
+    }
+    $t = mb_strtolower(preg_replace('/\s+/u', ' ', $text) ?? '');
+    $pipe = preg_match('/배수\s*관|유공\s*관|이중\s*벽\s*관|주름\s*관|pe\s*관|흄\s*관|파형\s*강관|맹암거|배수\s*파이프|관로|수로\s*관|우수\s*관|하수\s*관/u', $t) === 1;
+    $keys = [];
+    // 옹벽 + (배수관 또는 옹벽 배수·물빼기 문맥)
+    if (preg_match('/옹벽|보강토|석축/u', $t) === 1
+        && ($pipe || preg_match('/배수|물\s*빼|물\s*빠|물이\s*고/u', $t) === 1)) {
+        $keys[] = 'wall_drain';
+    }
+    // '횡배수관·횡단 배수'를 직접 말했거나, 도로 + 가로지르기 + 배수관
+    $crossWord = preg_match('/횡\s*배수|횡단\s*배수|횡단\s*관|횡단\s*수로/u', $t) === 1;
+    $road      = preg_match('/도로|차도|찻길|국도|지방도|군도|도로법/u', $t) === 1;
+    $across    = preg_match('/가로질|가로\s*질러|횡단|건너|밑으로|아래로|밑에\s*(?:묻|매설|놓)|아래에\s*(?:묻|매설|놓)/u', $t) === 1;
+    if ($crossWord || ($road && $across && $pipe)) {
+        $keys[] = 'cross_drain';
+    }
+    return $keys;
+}
+
+/**
+ * 배수관 주의 안내 구역 (순수 함수). 해당 상황이 없으면 빈 문자열(기존 프롬프트 그대로).
+ * 안내 문구는 사용자 확정 문장이고, 근거는 원문 확인한 건축법 시행규칙 제25조제4호·KDS 44 40 15:2026 이다.
+ * 법령 근거 DB([L번호]) 밖의 고정 안내라 출처 카드는 붙지 않는다.
+ */
+function rag_drain_notice_prompt(array $keys): string
+{
+    if (!$keys) {
+        return '';
+    }
+    $out = "\n\n=== 배수관 설치 위치·관경 주의 안내 (확인된 안내 문구) ===\n"
+        . "- 아래 안내는 원문을 확인한 법령·기준을 바탕으로 정한 문구다. 고객 상황이 조건에 맞으면 답변 끝에 한 번만, 문구를 거의 그대로 전한다.\n"
+        . "- 위 '근거 구분' 규칙의 예외로, 이 문구 안의 법령·기준 이름과 수치는 그대로 써도 된다. [L번호]는 붙이지 않고, 이 구역에 없는 법령·조항·수치는 덧붙이지 않는다.\n"
+        . "- 이 안내 때문에 상품 추천·검색을 멈추거나 빼지 않는다. '적용될 수 있습니다'·'요구될 수 있습니다' 표현을 지키고 의무·불법으로 단정하지 않는다.\n"
+        . "- 같은 대화에서 이미 전한 안내는 고객이 다시 묻지 않는 한 되풀이하지 않는다.";
+    if (in_array('wall_drain', $keys, true)) {
+        $out .= "\n\n[옹벽 배수관] 조건: 옹벽(보강토·블록·석축 옹벽 포함) 뒤나 위쪽 땅에 배수관(유공관·PE관 등)을 묻는 경우.\n"
+            . "안내: \"옹벽 배수에는 현장 설계에 따라 유공관 등의 배수 자재를 사용할 수 있습니다. 다만 옹벽 상단에서 대지 안쪽 2m 이내에 매설하는 배수관은 「건축법 시행규칙」 제25조의 재질 제한이 적용될 수 있습니다. 설치 위치와 설계도면을 확인한 후 적합한 배수관을 선택해 주세요.\"";
+    }
+    if (in_array('cross_drain', $keys, true)) {
+        $out .= "\n\n[도로 횡단배수관] 조건: 공공 도로(국도·지방도·시도·군도 등 도로법상 도로)를 가로질러 배수관을 묻는 경우. 개인 마당·진입로·사유 농로처럼 공공 도로가 아닌 것이 분명하면 이 안내를 하지 않고, 불분명하면 '공공 도로를 가로지르는 경우'라는 조건을 붙여 말한다.\n"
+            . "안내: \"공공 도로를 가로지르는 횡단배수관은 국가건설기준(KDS 44 40 15)상 관경 1,000mm 이상(부득이한 경우 800mm)이 요구될 수 있습니다. 설계도면의 관경을 확인해 주세요.\"\n"
+            . "- 판매 상품 규격이 이 관경보다 작아도 '쓸 수 없다'고 단정하지 말고, 설계도면의 관경을 먼저 확인하도록 안내한다.";
+    }
+    return $out;
+}
+
+/**
  * AI 답변의 [L번호] 표시 처리 (순수 함수).
  * 이번 질문에 넣은 근거 번호만 인정하고(지어낸 번호는 버림) 표시는 본문에서 지운다.
  *
@@ -931,12 +994,12 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "- 고객 대부분은 자재를 처음 사보는 개인이다. 전문용어는 괄호로 쉽게 풀어 쓴다. 예: '투수블록(빗물이 스며드는 블록)'.\n"
         . "- '~하면 뭐가 좋아?', '어떤 게 나아?' 같은 일반 질문에는 되묻기 전에 먼저 답한다:\n"
         . "  쓸 만한 선택지 2~4가지를 '- 이름: 장점 / 주의점' 형식으로 한 줄씩 비교하고, 그다음 추천에 꼭 필요한 질문 1~2개만 한다.\n"
-        . "- 일반 설명에서 가격·강도·법정 기준 같은 구체 숫자를 지어내지 않는다. 숫자는 아래 [참조 문서]에 있는 것만 인용하고, 가격·수량은 검색 결과 표로 보여준다.\n"
+        . "- 일반 설명에서 가격·강도·법정 기준 같은 구체 숫자를 지어내지 않는다. 숫자는 아래 [참조 문서]에 있는 것만 인용하고, 가격·수량·자재비는 search_products 결과 값만 쓴다.\n"
         . "- 면적을 모르면 '가로 몇 m × 세로 몇 m인지' 물어보고, 답을 받으면 직접 곱해 area_m2로 넘긴다(예: 5m×4m → 20). 대략값도 괜찮다고 안내한다.\n"
         . "- 자재 종류의 차이·특징·물빠짐·주의사항·KS(인증) 질문과, 사용 조건(유모차·휠체어·미끄럼·오염·차량 통행 등)에 맞는 자재를 고르는 질문에는 material_info 를 먼저 호출하고, 돌려준 원문 문장을 그 문장의 maker(제조사 이름)를 그대로 밝혀(예: maker 가 'A산업'이면 'A산업 자료에 따르면') 그 제조사 제품 설명으로 쉬운 말로 전한다(출처끼리 다르면 단정하지 않음, 공식 기준 수치는 [L번호] 근거만).\n"
         . "  원문 문장의 제품명(예: '안전 중하중 그레이팅')을 더 넓은 종류('중하중 그레이팅' 전체)로 바꿔 말하지 않는다. 원문에 없는 성능·용도·비교·수치(중장비 통과, 'n톤 이상', 다른 제품도 같다 등)를 덧붙이거나, 한 제조사의 제품 표기를 '이걸 쓰면 된다'는 일반 선택 기준으로 단정하지 않는다. KS·표준 번호는 [참조 문서]·material_info 원문에 있는 것만 쓴다. material_info 결과가 비어 있으면 '제조사 자료에 따르면'이라고 말하지 말고, 수치 없는 일반 설명임을 밝힌다.\n"
         . "- 선택지를 비교한 뒤 면적·길이가 확인되면 search_products의 queries로 종류별 제품을 한 표에 모아 보여준다.\n"
-        . "  표에는 제품별 필요 수량과 예상 자재비(" . (price_basis_label() !== '' ? price_basis_label() . ' 기준, ' : '') . "운반·시공비 별도)가 자동 계산되어 차이를 바로 비교할 수 있다.\n"
+        . "  도구가 제품별 권장 수량(suggested_qty)과 예상 자재비(est_cost, " . (price_basis_label() !== '' ? price_basis_label() . ' 기준·' : '') . "운반·시공비 별도)를 계산해 준다. 그 비교는 답변 글에서 아래 [검색 결과 답변 형식]대로 한다.\n"
         // 로그인 회원: 표·도구 금액이 할인 적용 금액 — 그 금액 그대로 말하되 '회원가'·'판매가' 같은 이름은 붙이지 않게(비회원 프롬프트는 기존 그대로)
         . (price_basis_label() === ''
             ? "- 이 고객은 로그인 회원이다. 표·도구 결과의 금액(price_member·예상 자재비·cost_summary·직전 추천표·장바구니)은 할인이 적용된 금액이다. 금액은 그 값 그대로 말하고 '회원가'·'판매가' 같은 가격 이름을 붙이지 않는다. 판매가(price_b2c)는 말하지 않는다.\n"
@@ -945,6 +1008,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "=== 근거 구분 (출처 종류를 섞지 않는다) ===\n"
         . "- 공식 기준: 아래 '공식 법령 근거'에 [L번호]로 들어온 법령·KDS·KCS 조항만. 기준 이름과 함께 말하고 [L번호]를 붙인다. 들어오지 않았으면 '공식 기준에 따르면'이라고 말하지 않는다.\n"
         . "- 제조사 자료: material_info 의 원문 문장(facts)만, 'maker 자료에 따르면'으로. 국가표준·등록 규격: material_info 의 basics(표준 번호·이름, 토목몰 등록 상품 규격)만, 요구 수치를 덧붙이지 않는다.\n"
+        . "- 공공조달 등록 현황: 도구 결과 basics.procurement 의 summary 만, '조달청 품목 등록 내역에 따르면'으로 한 문장. 다른 회사 품목의 집계이므로 토목몰 상품이 KS 인증·조달 등록 제품이라고 말하지 않는다.\n"
         . "- 저희 권장 기준: [참조 문서](사내 기준)의 내용은 '저희 권장 기준'으로 말하고 법정 의무처럼 말하지 않는다.\n"
         . "- 시공 조건 질문(예: '집 앞에 블록 깔면 차 지나가도 돼요?')은 ① 조건을 쉬운 말로 정리 ② 위 근거를 종류별로 한두 문장씩 ③ 필요한 확인(면적 등)을 물어 비교표(필요 수량·예상 자재비)로 이어 간다.\n"
         . "\n"
@@ -955,19 +1019,27 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "\n"
         . "=== 절대 금지 ===\n"
         . "- 아래 [카테고리별 필수 확인 항목]이 모두 충족되지 않은 상태에서 search_products 호출 금지.\n"
-        . "- search_products 호출 후 상품명·규격·가격·설명을 텍스트로 출력 금지. 결과는 화면에 카드로 자동 표시됨.\n"
-        . "- search_products 호출 후에는 표에 나온 상품명·규격·가격·수량·금액을 텍스트로 다시 적지 않는다.\n"
-        . "  허용: 고르는 기준을 쉬운 말 1~2문장(숫자 없이, 예: '물이 잘 고이는 곳이면 투수 제품이 좋습니다.') + 마지막 줄 '원하시는 제품을 선택해 주세요.'\n"
-        . "  표의 상품마다 guide(두께·투수·재질 등 고르는 기준)가 함께 보인다. 고객 상황에 맞는 기준 하나를 골라 쉬운 말로 짚어 준다(guide 에 없는 성능·수치는 덧붙이지 않는다).\n"
-        . "  추천 이유는 guide 의 기준으로 말하고, 주의할 점은 고객 조건과 맞지 않는 것만 짚는다(예: 차량이 올라가는데 60mm 제품).\n"
-        . "  효과·성능을 덧붙이지 않는다(예: '강도 우수'·'튼튼'·'견고'·'균열 방지'·'오래 사용 보장'·'불투수형은 비가 많이 오는 곳에 적합'). 투수·불투수는 guide 문구 그대로만 말한다.\n"
-        . "  guide 의 '참고 자료(판매 상품 아님)' 줄은 공공데이터·제조사 자료로 확인한 정보다. 판매 상품이나 가격처럼 말하지 않고 출처와 함께 참고로만 언급한다.\n"
-        . "  예외① 고객이 '어떤 게 더 저렴해?'처럼 가격 차이를 물으면 도구 결과 cost_summary 의 상품명·예상 금액·차이만 인용해 1~2문장으로 답한다(cost_summary 가 없으면 금액을 말하지 않는다).\n"
-        . "  예외② '몇 개 필요해?'처럼 개수를 물으면 해당 상품 qty_basis(면적→장수 계산 근거)를 인용한다. ㎡ 단위 판매 제품은 ㎡ 로 주문하고 장수는 참고라고 덧붙인다.\n"
-        . "  단, 도구 결과에 note 필드가 있으면 그 note 문장을 먼저 그대로 한 줄 전하고, 이어서 '원하시는 제품을 선택해 주세요.'를 붙인다(교정·대안 안내).\n"
+        . "- search_products 결과를 표 순서대로 상품명·규격·가격만 나열하지 않는다(답변 글은 아래 [검색 결과 답변 형식]).\n"
         . "- DB에 없는 상품 추천·언급 금지.\n"
         . "- 상품 없이 문의를 받거나 담당자가 따로 연락하는 창구는 없다. '문의 주시면 찾아드리겠습니다'·'연락드리겠습니다' 같은 약속 금지(견적요청하기 버튼 안내는 허용).\n"
         . "- '[도구 호출]', '[search_products(...)]' 같은 tool 호출 사실을 텍스트로 언급 금지.\n"
+        . "\n"
+        . "=== 검색 결과 답변 형식 (search_products 호출 후) ===\n"
+        . "- 검색 결과는 화면에 비교표(사진·제품명·규격·" . (price_basis_label() ?: '가격') . "·예상 비용·수량·견적추가)로 자동 표시된다. 답변 글은 표가 보여 주지 않는 자재 설명·제품 간 비교·추천 근거를 맡는다.\n"
+        . "- 순서는 이것만: ① 첫 문장 — 고객 조건(장소·차량·면적 등)을 짧게 정리하고 '…제품입니다.'로 맺는다.\n"
+        . "  ② 제품마다 한 줄씩 '- 제품명: 설명. 권장 수량은 N개이며, 예상 자재비는 약 X원입니다.' — 설명은 그 자재가 무엇이고 어디에 쓰는지, 함께 나온 다른 제품과 무엇이 다른지 1~2문장.\n"
+        . "  ③ 마지막 문단 — 고객 조건과 근거(공식 기준 [L번호] / 제조사 자료 / 저희 권장 기준 / 등록 규격)를 밝혀 어떤 제품을 왜 추천하는지 1~2문장, 이어서 '원하시는 제품을 선택해 주세요.'\n"
+        . "- 설명 재료는 도구 결과 제품별 category_desc(토목몰 자재 분류 설명)·guide(규격에서 읽은 고르는 기준)·규격 표기·weight_kg·standard 와 [참조 문서]·material_info 원문뿐이다. 여기에 없는 용도·성능·수치는 지어내지 않는다.\n"
+        . "  weight_kg 는 등록 규격의 판매 단위(unit — 본·개·㎡ 등) 1개당 중량이다. 단위와 함께 그대로 쓴다(예: '흄관 1본 194kg', '인터로킹 블록 1㎡당 164kg'). 무게로 강도·내구성을 짐작해 말하지 않는다.\n"
+        . "  standard 는 그 제품 종류가 대상인 국가표준 번호·이름이다. 'KS F 4403(원심력 철근 콘크리트관) 표준 대상 종류'처럼만 말하고, 이 상품이 KS 인증을 받았다고 말하지 않는다(인증 여부는 상품명 표기·제조사 자료로만). 도구 결과 basics.standards 에 scope(사람이 표준 상세 화면에서 확인한 적용 범위)가 있으면 '이 표준은 ~을 대상으로 한다'처럼 그 문구만 쓴다.\n"
+        . "  guide 는 화면에 보이지 않으므로 쉬운 말로 풀어 설명에 넣는다. 주의할 점은 고객 조건과 맞지 않는 것만 짚는다(예: 차량이 올라가는데 60mm 제품).\n"
+        . "- 수량·금액: 권장 수량은 suggested_qty(단위 포함), 예상 자재비는 est_cost 를 그대로 쓴다(직접 계산·반올림·합계 금지, 예: '약 1,074,000원'). 계산식(qty_basis)은 고객이 계산 방법을 물을 때만 쓴다.\n"
+        . "  est_cost 가 없으면 수량·금액을 말하지 말고 '면적(또는 길이)을 알려 주시면 수량과 자재비를 계산해 드립니다'라고 한다. 판매가가 0원인 제품은 '가격 문의'라고 한다. ㎡ 단위 판매 제품은 ㎡ 로 주문하고 장수는 참고라고 덧붙인다.\n"
+        . "- 효과·성능을 덧붙이지 않는다(예: '강도 우수'·'튼튼'·'견고'·'균열 방지'·'오래 사용 보장'·'불투수형은 비가 많이 오는 곳에 적합'). 투수·불투수는 guide 문구 그대로만 말한다.\n"
+        . "- guide 의 '참고 자료(판매 상품 아님)' 줄은 공공데이터·제조사 자료로 확인한 정보다. 판매 상품이나 가격처럼 말하지 않고 출처와 함께 참고로만 언급한다.\n"
+        . "- 고객이 '어떤 게 더 저렴해?'처럼 가격 차이를 물으면 도구 결과 cost_summary 의 상품명·예상 금액·차이만 인용해 1~2문장으로 답한다(cost_summary 가 없으면 금액을 말하지 않는다).\n"
+        . "- 도구 결과에 note 필드가 있으면 그 note 문장을 첫 문장 다음에 그대로 한 줄 전한다(교정·대안 안내).\n"
+        . "- 글 형식: 마크다운 기호(굵게 **…**, 제목 #)를 쓰지 않는다. 문장 끝을 콜론(:)으로 맺지 않는다(목록의 '제품명: 설명'은 괜찮다).\n"
         . "\n"
         . "=== 카테고리별 필수 확인 항목 (모두 확인 후 search_products 호출) ===\n"
         . "\n"
@@ -1023,7 +1095,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "【세트 추천 (여러 품목이 함께 필요한 요청)】\n"
         . "- '수로 설치/제작', '덮개 포함', '수로관+그레이팅' 처럼 한 공사에 여러 품목이 필요하면, 한 턴에서 search_products를 품목별로 여러 번 호출해 함께 제시한다.\n"
         . "  예) 폭500·50m 차량통행 수로 → ①본체: query '측구 수로관', spec_mm 500, length_m 50 (약 25본)  ②덮개: query '그레이팅 수로용 중하중', spec_mm 500, length_m 50 (약 50개).\n"
-        . "- 본체(2m/본)와 덮개(1m/개)는 단위가 달라 수량이 다르게 나오는 게 정상이다. 둘 다 카드로 보여준 뒤 '원하시는 제품을 선택해 주세요.' 만 출력.\n"
+        . "- 본체(2m/본)와 덮개(1m/개)는 단위가 달라 수량이 다르게 나오는 게 정상이다. 둘 다 카드로 보여준 뒤 [검색 결과 답변 형식]대로 본체·덮개를 각각 설명한다(단위가 달라 수량이 다르다고 짚어 준다).\n"
         . "【2단계: 검색】\n"
         . "- 모든 필수 항목 확인 완료 → search_products 호출. 되묻지 말고 그 턴에서 바로 호출한다.\n"
         . "- '찾아 드릴게요'·'잠시만 기다려 주세요'라고 말만 하고 답변을 끝내지 않는다. 검색할 때는 같은 응답에서 search_products 를 호출한다.\n"
@@ -1036,7 +1108,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "  → note가 없을 때만: '해당 조건의 제품을 찾지 못했습니다. 용도나 재질을 알려주시면 다시 찾아드리겠습니다.' 후 검색어를 바꿔 1회 재시도.\n"
         . "  → 결과에 alternatives(같은 두께로 등록된 다른 포장 블록 이름)가 있으면, 같은 턴에서 그 이름들을 queries 로 같은 spec_mm·spec_strict·area_m2 와 함께 search_products 를 다시 호출해 표를 보여준다(더 얇은 두께로 바꾸지 않는다).\n"
         . "【3단계: 견적 안내】\n"
-        . "- 고객이 담기 원하면 add_to_cart 호출. quantity 는 표의 권장 수량(suggested_qty)을 쓰고, 고객이 다른 수량을 말하면 그 수량.\n"
+        . "- 고객이 담기 원하면 add_to_cart 호출. quantity 는 답변에서 안내한 권장 수량(suggested_qty)을 쓰고, 고객이 다른 수량을 말하면 그 수량.\n"
         . "- 완료 후: '견적요청하기 버튼을 눌러 신청해 주세요.' 한 줄만 출력.\n"
         . "- 연관 제품이 더 필요할 것 같으면 추가 검색 제안.";
 
@@ -1056,6 +1128,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
     $scopedHit = (bool) array_filter($legalDocs, static fn($d) => array_intersect(rag_legal_doc_scopes($d), $legalIn['scopes']));
     $system .= rag_road_context_prompt($roadCtx, $scopedHit);
     $system .= rag_legal_prompt_section($legalDocs);
+    $system .= rag_drain_notice_prompt(rag_drain_notice_keys($messages)); // 옹벽 배수관·도로 횡단배수관 주의(해당 상황만, 없으면 빈 문자열)
     $system .= rag_recent_cards_prompt($recentCards, price_basis_label());   // 이 상담에서 고객 화면에 보인 직전 추천표(담기·비교 질문용) — 없으면 빈 문자열(기존과 같음)
 
     return [
@@ -1178,16 +1251,21 @@ function rag_guard_unverified_ks(string $text, string $known): array
 }
 
 /**
- * 답에 실제로 쓴 기본 정보만 고르기 (순수 함수) — 국가표준은 번호(띄어쓰기 무시)가, 등록 상품은 이름이 답에 있을 때만.
- * @param list<array{standards:list<array>, products:list<array>}> $basicsList material_info 결과의 basics 들
- * @return array{standards:list<array>, products:list<array>}
+ * 답에 실제로 쓴 기본 정보만 고르기 (순수 함수) — 국가표준은 번호(띄어쓰기 무시)가, 등록 상품은 이름이 답에 있을 때만,
+ * 공공조달 등록 현황은 답에 '조달'이 있을 때 그 자재 이름(괄호 앞)도 답에 있으면(없으면 첫 항목만).
+ * @param list<array{standards:list<array>, products:list<array>, procurement?:list<array>}> $basicsList material_info·search_products 결과의 basics 들
+ * @return array{standards:list<array>, products:list<array>, procurement:list<array>}
  */
 function rag_basic_sources_used(string $text, array $basicsList): array
 {
     $flat = strtoupper((string) preg_replace('/\s+/u', '', $text));
-    $out = ['standards' => [], 'products' => []];
+    $out = ['standards' => [], 'products' => [], 'procurement' => []];
     $seen = [];
+    $procAll = [];
     foreach ($basicsList as $b) {
+        foreach ($b['procurement'] ?? [] as $pc) {
+            $procAll[(string) ($pc['name'] ?? '')] ??= $pc;
+        }
         foreach ($b['standards'] ?? [] as $st) {
             $k = strtoupper((string) preg_replace('/\s+/u', '', (string) ($st['ref'] ?? '')));
             if ($k !== '' && !isset($seen[$k]) && str_contains($flat, $k)) {
@@ -1201,6 +1279,15 @@ function rag_basic_sources_used(string $text, array $basicsList): array
                 $seen[$k] = true;
                 $out['products'][] = ['name' => (string) $p['name'], 'count' => (int) ($p['count'] ?? 0)];
             }
+        }
+    }
+    if ($procAll && str_contains($flat, '조달')) {
+        $named = array_values(array_filter($procAll, static function ($pc) use ($flat) {
+            $base = strtoupper((string) preg_replace('/\s+|\(.*$/u', '', (string) ($pc['name'] ?? '')));
+            return $base !== '' && str_contains($flat, $base);
+        }));
+        foreach (array_slice($named ?: [reset($procAll)], 0, 2) as $pc) {
+            $out['procurement'][] = ['name' => (string) $pc['name'], 'items' => (int) ($pc['items'] ?? 0), 'as_of' => (string) ($pc['as_of'] ?? '')];
         }
     }
     return $out;
@@ -1219,7 +1306,8 @@ function rag_tool_summary(string $name, array $d): string
     if ($name === 'material_info') {
         $b = $d['basics'] ?? ['standards' => [], 'products' => []];
         return '제조사 문장 ' . count($d['facts'] ?? []) . '개' . (($d['facts'] ?? []) ? '(' . implode(', ', array_unique(array_column($d['facts'], 'maker'))) . ')' : '')
-            . ' · 국가표준 ' . (implode(', ', array_column($b['standards'] ?? [], 'ref')) ?: '없음') . ' · 등록 상품 ' . count($b['products'] ?? []) . '종';
+            . ' · 국가표준 ' . (implode(', ', array_column($b['standards'] ?? [], 'ref')) ?: '없음') . ' · 등록 상품 ' . count($b['products'] ?? []) . '종'
+            . (!empty($b['procurement']) ? ' · 조달 현황 ' . implode(', ', array_column($b['procurement'], 'name')) : '');
     }
     if ($name === 'add_to_cart') {
         return !empty($d['success']) || !empty($d['ok']) ? '담기 성공' : '담기 실패: ' . mb_substr((string) ($d['error'] ?? json_encode($d, JSON_UNESCAPED_UNICODE)), 0, 60);
@@ -1235,6 +1323,19 @@ function rag_is_search_promise(string $text): bool
         return false;   // '면적을 알려 주시면 찾아 드리겠습니다' — 고객 답을 기다리는 조건부 안내(지금 검색할 수 없음)
     }
     return preg_match('/(찾아|검색해|보여|알아봐)\s*(드릴게요|드리겠습니다|드릴께요|볼게요|보겠습니다)|잠시만\s*기다려/u', $tail) === 1;
+}
+
+/**
+ * 답변 글 형식 정리 (순수 함수) — 상담 말풍선은 글자 그대로 표시하므로 마크다운 기호가 남지 않게.
+ * 굵게(**…**)·제목(#) 기호 제거, 문장 끝 콜론('…제품입니다:')은 마침표로. 목록의 '- 제품명: 설명' 처럼 줄 중간 콜론은 그대로.
+ * 화면(public/assets/chat-ai.js cleanChatText)과 같은 규칙.
+ */
+function rag_clean_answer_format(string $text): string
+{
+    $t = (string) preg_replace('/\*\*([^*\n]+?)\*\*/u', '$1', $text);
+    $t = str_replace('**', '', $t);
+    $t = (string) preg_replace('/^[ \t]*#{1,6}[ \t]+/mu', '', $t);
+    return (string) preg_replace('/([다요죠])[ \t]*[:：][ \t]*$/mu', '$1.', $t);
 }
 
 /** 상품 카드가 없는 답의 끝 '원하시는 제품을 선택해 주세요.' 제거 (순수 함수) — 고를 카드가 없는데 선택하라는 안내가 붙지 않게 */
@@ -1283,7 +1384,7 @@ function rag_process(array $messages, string $sid): array
     $toolLog      = [];      // 부른 도구 이름·인자·결과 요약(시험 결과 기록용 — chat.php 는 화면에 보내지 않음)
     $turnCards    = [];      // 이번 턴 검색 결과 카드(동률 최저가 안내용)
     $preToolText  = '';      // 도구 호출과 함께 온 중간 글(최종 답이 없을 때만 사용)
-    $basicsSeen   = [];      // material_info 가 준 확인된 기본 정보(국가표준·등록 상품) — 답에 실제로 쓴 것만 출처 카드로
+    $basicsSeen   = [];      // material_info·search_products 가 준 확인된 기본 정보(국가표준·등록 상품) — 답에 실제로 쓴 것만 출처 카드로
     $known        = $system . ' ' . implode(' ', array_map(static fn($m) => (string) ($m['content'] ?? ''), $messages));   // 답에 나올 수 있는 확인된 글(KS 번호 대조용)
 
     for ($iter = 0; $iter < $maxIter; $iter++) {
@@ -1354,7 +1455,7 @@ function rag_process(array $messages, string $sid): array
             $toolData = json_decode($output, true) ?? [];
             $toolLog[] = ['name' => (string) ($tc['function']['name'] ?? ''), 'input' => $input, 'summary' => rag_tool_summary((string) ($tc['function']['name'] ?? ''), $toolData)];
             $known   .= ' ' . $output;
-            if (($tc['function']['name'] ?? '') === 'material_info' && !empty($toolData['basics'])) { $basicsSeen[] = $toolData['basics']; }
+            if (in_array($tc['function']['name'] ?? '', ['material_info', 'search_products'], true) && !empty($toolData['basics'])) { $basicsSeen[] = $toolData['basics']; }   // 검색 결과의 국가표준도 답에 쓰면 출처 카드
             if (($tc['function']['name'] ?? '') === 'search_products') { $turnCards = array_merge($turnCards, (array) ($toolData['products'] ?? [])); }
 
             foreach ($toolData['_sse'] ?? [] as $sseEvent) {
@@ -1388,7 +1489,7 @@ function rag_process(array $messages, string $sid): array
     }
     // 실제로 인용한 법령 근거만 출처로 표시(지어낸 번호는 버리고 표시는 본문에서 제거)
     $cit = rag_extract_legal_citations($responseText, $legalDocs);
-    $responseText = rag_strip_dangling_choice($cit['text'], $events);
+    $responseText = rag_strip_dangling_choice(rag_clean_answer_format($cit['text']), $events);   // ** 굵게·끝 콜론 정리 — 화면·저장·로그 모두 정리된 글
     if ($cit['sources']) {
         $events[] = ['type' => 'legal_sources', 'sources' => $cit['sources']];
     }
@@ -1396,7 +1497,7 @@ function rag_process(array $messages, string $sid): array
     $added = array_map(static fn($t) => (int) ($t['input']['product_id'] ?? 0), array_values(array_filter($toolLog, static fn($t) => $t['name'] === 'add_to_cart')));
     $responseText .= rag_tie_note($responseText, $added, $turnCards, $recentCards);
     $basicSrc = rag_basic_sources_used($responseText, $basicsSeen);
-    if ($basicSrc['standards'] || $basicSrc['products']) {
+    if ($basicSrc['standards'] || $basicSrc['products'] || $basicSrc['procurement']) {
         $events[] = ['type' => 'basic_sources'] + $basicSrc;
     }
     // 확인된 자료(프롬프트·도구 결과·고객 발화)에 없는 KS 번호 → 답 끝에 확인 필요 안내(본문은 고치지 않음)

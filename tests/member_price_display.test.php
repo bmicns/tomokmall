@@ -338,11 +338,11 @@ $_SESSION['user'] = ['role' => 'customer', 'email' => 'mprice-cust@mock.test'];
 $rp = rag_recent_cards_prompt(rag_recent_cards('mock-mprice-chat'), price_basis_label());
 ok('직전 추천표(개인회원): \'단가 8,400원/본\' · 예상 자재비 168,000원 · \'회원가\'·\'판매가\' 없음', str_contains($rp, '단가 8,400원/본') && str_contains($rp, '예상 자재비 168,000원') && !str_contains($rp, '판매가') && !str_contains($rp, ' · 회원가 ') && !str_contains($rp, '회원가 기준') && str_contains($rp, '현재 가격 기준'));   // 상품명 '[MOCK] 회원가 상품'은 제외하고 금액 이름표만 검사
 $sys = rag_build_prompt([['role' => 'user', 'content' => '수로관 50m 필요해요']])['system'];
-ok('시스템 프롬프트(회원): 금액 이름 없이 + \'회원가\'라고 말하지 말라는 규칙', str_contains($sys, '예상 자재비(운반·시공비 별도)') && str_contains($sys, '이 고객은 로그인 회원이다') && str_contains($sys, "'회원가'·'판매가' 같은 가격 이름을 붙이지 않는다") && !str_contains($sys, '회원가 기준'));
+ok('시스템 프롬프트(회원): 금액 이름 없이 + \'회원가\'라고 말하지 말라는 규칙', str_contains($sys, '예상 자재비(est_cost, 운반·시공비 별도)') && str_contains($sys, '규격·가격·예상 비용') && str_contains($sys, '이 고객은 로그인 회원이다') && str_contains($sys, "'회원가'·'판매가' 같은 가격 이름을 붙이지 않는다") && !str_contains($sys, '회원가 기준'));
 $_SESSION['user'] = null;
 $rp = rag_recent_cards_prompt(rag_recent_cards('mock-mprice-chat'), price_basis_label());
 $sys = rag_build_prompt([['role' => 'user', 'content' => '수로관 50m 필요해요']])['system'];
-ok('비회원: 직전 추천표 \'판매가 10,000원/본\' · 프롬프트 \'판매가 기준\'·회원 규칙 없음(기존과 같음)', str_contains($rp, '판매가 10,000원/본') && str_contains($sys, '예상 자재비(판매가 기준') && !str_contains($sys, '이 고객은 로그인 회원이다'));
+ok('비회원: 직전 추천표 \'판매가 10,000원/본\' · 프롬프트 \'판매가 기준\'·회원 규칙 없음(기존과 같음)', str_contains($rp, '판매가 10,000원/본') && str_contains($sys, '예상 자재비(est_cost, 판매가 기준·운반·시공비 별도)') && str_contains($sys, '규격·판매가·예상 비용') && !str_contains($sys, '이 고객은 로그인 회원이다'));
 $_SESSION['user'] = null;
 
 echo "[장바구니 비우기 — POST 만]\n";

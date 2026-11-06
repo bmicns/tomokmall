@@ -307,6 +307,16 @@ ok('통합 전 작업명 없음(배수시설·노면배수·지하배수관·집
     !array_intersect($names, ['배수시설 설치·정비', '도로·진입로 노면 배수 정비', '지하 배수관 매설', '집수정·맨홀 설치',
         '도로 밑 횡단 배수로 놓기', '도로·단지 안전시설 설치', '주차장 만들기·정비', '담장 쌓기', '건물 기초·바닥 콘크리트',
         '전기·통신·가로등 지중시설', '수도 급수관 연결']));
+// v5 근거 기반 재선정(docs/03-analysis/work-types-v5.md)
+$wtKeys = array_column($wt, 'key');
+ok('v5: 논밭 수로 정비(farm) 추가, 담장(fence)은 정원·담장 꾸미기(garden)로 통합',
+    in_array('farm', $wtKeys, true) && !in_array('fence', $wtKeys, true)
+    && work_type_has_material(work_type_find('garden'), 102) && work_type_has_material(work_type_find('garden'), 101));
+ok('v5: 지하 배수에 침투시설(38 침투측구·63 침투집수정) 미연결 — 빗물을 넣는 시설이라 목적이 반대',
+    !work_type_has_material(work_type_find('subdrain'), 38) && !work_type_has_material(work_type_find('subdrain'), 63));
+$descOk = true;
+foreach ($wt as $t) { foreach ($t['materials'] as $mm) { $len = mb_strlen((string) ($mm[2] ?? '')); if ($len < 1 || $len > 14) { $descOk = false; } } }
+ok('v5: 대표 자재 용도 설명 1~14자(카드 한 줄)', $descOk);
 $bad = [['key' => 'x', 'name' => 'X', 'materials' => array_map(static fn($i) => [$i, 'n', 'd'], range(30, 40))]];
 ok('11개 연결 시 위반 검출', count(work_types_validate($bad)) === 1);
 $bad = [['key' => 'x', 'name' => 'X', 'materials' => [[203, 'PE망', ''], [1, '철근/시멘트', ''], [24, 'a', ''], [24, 'a', '']]]];
@@ -326,6 +336,21 @@ ok('work_type_has_material: 대표 자재만 true', work_type_has_material($dr, 
 $imgOk = true;
 foreach (work_types() as $t) { foreach (array_filter([$t['img'] ?? null, $t['banner'] ?? null]) as $im) { if (!is_file(__DIR__ . '/../public' . $im)) { $imgOk = false; } } }
 ok('작업 카드·배너 이미지 파일 존재', $imgOk);
+// 2026-11-05: 사구석(157) 정원 추가·수목보호틀(인조석, 104) 제외. 배수관 주의 안내는 화면에 없음(AI 상담 답변에서만)
+$gd = work_type_find('garden');
+ok('정원: 사구석(157) 포함, 수목보호틀(인조석, 104) 제외', work_type_has_material($gd, 157) && !work_type_has_material($gd, 104));
+$sw = work_type_find('sewer');
+ok('배수관 묻기: 파형강관(269) 역할 \'도로 횡배수관\'', in_array([269, '파형강관', '도로 횡배수관'], $sw['materials'], true));
+$noteFns = ['work_type_note', 'work_type_note_html', 'work_type_wall_drain_note', 'work_type_cross_drain_note'];
+ok('AI 상담 밖 배수관 안내 없음(작업 설정 notes·안내 함수 없음)', !array_filter($wt, static fn($t) => isset($t['notes'])) && !array_filter($noteFns, 'function_exists'));
+$bp = rag_build_prompt([['role' => 'user', 'content' => '보강토 옹벽 뒤에 PE 유공관 묻을 건데 어떤 거 써요?']])['system'];
+$bq = rag_build_prompt([['role' => 'user', 'content' => '차도 밑으로 파형강관 넣으려는데 관경 몇 mm 써야 하나요']])['system'];
+$bn = rag_build_prompt([['role' => 'user', 'content' => '사람만 다니는 정원 길에 블록 깔고 싶어요']])['system'];
+ok('AI 상담 프롬프트: 옹벽 배수관·도로 횡단배수관 질문에만 주의 안내 구역', str_contains($bp, '[옹벽 배수관]') && !str_contains($bp, '[도로 횡단배수관]')
+    && str_contains($bq, '[도로 횡단배수관]') && !str_contains($bn, '배수관 설치 위치·관경 주의 안내'));
+$descs = [];
+foreach ($wt as $t) { foreach ($t['materials'] as $mm) { $descs[] = $mm[2]; } }
+ok('용도 설명에 근거 없는 \'대구경\' 없음(50 흄관·137·269 파형강관)', !array_filter($descs, static fn($d) => str_contains($d, '대구경')));
 
 echo "[작업별 목록 필터 = 기존 products.php 필터 render_product_filters]\n";
 $fc = ['mat' => [11 => 28, 13 => 10], 'shape' => ['U형' => 2], 'load' => [], 'spec' => ['200*200' => 3, '300*300' => 1], 'total' => 38];
@@ -422,6 +447,71 @@ ok('카드 있음 → 그대로', rag_strip_dangling_choice("고르는 기준입
 ok('그 문장뿐이면 빈 답변이 되지 않게 그대로, 중간 문장은 손대지 않음', rag_strip_dangling_choice('원하시는 제품을 선택해 주세요.', []) === '원하시는 제품을 선택해 주세요.'
     && rag_strip_dangling_choice('원하시는 제품을 선택해 주세요. 면적도 알려 주세요.', []) === '원하시는 제품을 선택해 주세요. 면적도 알려 주세요.');
 
+echo "[상담: 답변 글 형식 정리 rag_clean_answer_format — ** 굵게·끝 콜론]\n";
+eq('굵게 기호 제거(목록 제품명)', rag_clean_answer_format("- **인터로킹i2형블럭**: 승용차 통행에 적합합니다."), '- 인터로킹i2형블럭: 승용차 통행에 적합합니다.');
+eq('문장 끝 콜론 → 마침표', rag_clean_answer_format("다음은 주차장에 설치할 수 있는 승용차 통행용 그레이팅 제품입니다:\n\n- 중하중그레이팅수로용: 승용차 및 SUV 통행에 적합합니다."),
+    "다음은 주차장에 설치할 수 있는 승용차 통행용 그레이팅 제품입니다.\n\n- 중하중그레이팅수로용: 승용차 및 SUV 통행에 적합합니다.");
+eq('전각 콜론·요 체도 마침표, 뒤 공백 정리', rag_clean_answer_format("이렇게 비교해 볼게요： \n아래와 같습니다 :"), "이렇게 비교해 볼게요.\n아래와 같습니다.");
+eq('줄 중간 콜론·시각·제목 아닌 # 은 그대로', rag_clean_answer_format('상담 시간: 09:00~18:00 · 규격 #3번'), '상담 시간: 09:00~18:00 · 규격 #3번');
+eq('제목 기호(#)·짝 없는 ** 제거', rag_clean_answer_format("### 추천 제품\n**중하중 제품이 적합합니다."), "추천 제품\n중하중 제품이 적합합니다.");
+eq('정리할 것 없는 글은 그대로', rag_clean_answer_format('원하시는 제품을 선택해 주세요.'), '원하시는 제품을 선택해 주세요.');
+
+echo "[상담: 자재 분류 설명 ai_category_brief·화면 카드 ai_cards_for_screen]\n";
+eq('끝의 「전 규격을 공급합니다」 떼고 분류 설명만', ai_category_brief('U형·AN형·벤치플륨관 등 측구 및 배수로용 콘크리트 수로관 전 규격을 공급합니다.'), 'U형·AN형·벤치플륨관 등 측구 및 배수로용 콘크리트 수로관');
+eq('「제품을 공급합니다」도 뗌', ai_category_brief('호안블록·잔디블록 등 법면 보호 및 녹화에 적합한 블록 제품을 공급합니다.'), '호안블록·잔디블록 등 법면 보호 및 녹화에 적합한 블록');
+eq('여러 줄이면 첫 줄만(둘째 줄 홍보 문구 제외)', ai_category_brief("배선 자재부터 조명 기구까지 전기 공사 자재를 공급합니다.\n안전 기준을 충족하는 검증된 제품입니다."), '배선 자재부터 조명 기구까지 전기 공사 자재');
+eq('다른 끝맺음은 그대로, 빈 값은 빈 문자열', [ai_category_brief('200mm~500mm 이상 PE이중벽관을 하수·배수·배관 현장에 공급합니다.'), ai_category_brief(null), ai_category_brief("  \n ")],
+    ['200mm~500mm 이상 PE이중벽관을 하수·배수·배관 현장에 공급합니다.', '', '']);
+ok('120자 넘으면 줄임', mb_strlen(ai_category_brief(str_repeat('가', 200))) === 120);
+$scr = ai_cards_for_screen([['id' => 1, 'name' => 'A', 'guide' => ['g'], 'category_desc' => '설명', 'weight_kg' => 18.0, 'standard' => 'KS F 4403 원심력 철근 콘크리트관', 'est_cost' => 10], ['id' => 2, 'name' => 'B']]);
+ok('화면 카드에는 상담 글 재료(category_desc·weight_kg·standard) 없음, 나머지 필드·순서 그대로', !isset($scr[0]['category_desc']) && !isset($scr[0]['weight_kg']) && !isset($scr[0]['standard'])
+    && $scr[0]['guide'] === ['g'] && $scr[0]['est_cost'] === 10 && $scr[1] === ['id' => 2, 'name' => 'B']);
+
+echo "[상담: 등록 규격 중량 ai_spec_weight_kg·국가표준 연결 ai_name_ks_ref]\n";
+eq('규격 칸 중량(판매 단위당) — kg·㎏·소수·천 단위 쉼표', [ai_spec_weight_kg('규격: D250*2500*28T | 중량: 166kg | 단위: 본'), ai_spec_weight_kg('규격: 220*110*80T_회색 | 중량: 164kg | 단위: m 2'),
+    ai_spec_weight_kg('중량 : 1,250 ㎏'), ai_spec_weight_kg('중량: 12.5kg')], [166.0, 164.0, 1250.0, 12.5]);
+eq('중량 표기 없거나 0이면 null(추정하지 않음)', [ai_spec_weight_kg('규격: 400*500*50*3T_우수_국산 | 단위: 개'), ai_spec_weight_kg('중량: 0kg'), ai_spec_weight_kg('중량: 약간')], [null, null, null]);
+eq('확인된 KS 적용 범위: 사용자 확인·공식 상세 확인 표시만, 표시 괄호는 뗌, 검색 요약은 null', [ai_ks_confirmed_scope('주로 도로 측구에 쓰는 철근 콘크리트 U형의 몸체 및 뚜껑 (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)'),
+    ai_ks_confirmed_scope('콘크리트 경계 블록 (e나라표준인증 적용 범위, 사용자 확인)'), ai_ks_confirmed_scope('보도 및 차도에 평행 설치(검색 요약)'), ai_ks_confirmed_scope('')],
+    ['주로 도로 측구에 쓰는 철근 콘크리트 U형의 몸체 및 뚜껑', '콘크리트 경계 블록', null, null]);
+// 공공조달 등록 현황(app/procurement_summary.php 형식 — 테스트용 데이터 주입)
+ai_procurement_data(['as_of' => '2026-11-05', 'groups' => [
+    'hume_pipe' => ['label' => '원심력 철근콘크리트관(흄관)', 'words' => ['흄관', '원심력'], 'items' => 176, 'makers' => 9, 'certs' => ['ks' => 146, 'group_standard' => 0, 'excellent' => 0]],
+    'manhole_block' => ['label' => '콘크리트 맨홀블록', 'words' => ['맨홀블록', '맨홀'], 'items' => 1968, 'makers' => 18, 'certs' => ['ks' => 906, 'group_standard' => 0, 'excellent' => 0]],
+    'manhole_cover' => ['label' => '주철 맨홀뚜껑', 'words' => ['맨홀뚜껑', '주철뚜껑'], 'items' => 190, 'makers' => 8, 'certs' => ['ks' => 0, 'group_standard' => 169, 'excellent' => 0]],
+    'grating_cover' => ['label' => '그레이팅덮개', 'words' => ['그레이팅덮개'], 'items' => 103, 'makers' => 15, 'certs' => ['ks' => 0, 'group_standard' => 0, 'excellent' => 0]],
+]]);
+$pc = ai_procurement_summary('흄관 KS 인증 제품인가요?');
+eq('공공조달 현황: 질문 자재만, 출처·기준일 있는 한 문장(가격·업체 이름 없음)', [count($pc), $pc[0]['summary'] ?? ''],
+    [1, '공공 조달몰(나라장터 쇼핑몰)에 등록된 원심력 철근콘크리트관(흄관) 176개 품목(9개 업체) 중 KS 표시 146개 (조달청 품목 등록 내역, 2026-11-05 기준)']);
+eq('긴 낱말 우선(맨홀블록 4글자 > 흄관 2글자), 그 일부로만 걸린 종류는 뺌(맨홀뚜껑 → 맨홀블록 제외)·인증 없는 종류 문구·해당 없음', [array_column(ai_procurement_summary('주철 맨홀뚜껑 크기'), 'name'),
+    ai_procurement_summary('그레이팅 덮개')[0]['summary'] ?? '', ai_procurement_summary('잔디 깎는 기계'), array_column(ai_procurement_summary('맨홀 블럭이랑 흄관'), 'name')],
+    [['주철 맨홀뚜껑'], '공공 조달몰(나라장터 쇼핑몰)에 등록된 그레이팅덮개 103개 품목(15개 업체) 중 KS 표시·단체표준인증 품목 없음 (조달청 품목 등록 내역, 2026-11-05 기준)', [],
+     ['콘크리트 맨홀블록', '원심력 철근콘크리트관(흄관)']]);
+$bl = [['standards' => [], 'products' => [], 'procurement' => ai_procurement_summary('흄관')]];
+eq('출처 카드: 답에 \'조달\'이 있을 때만 공공조달 현황(이름·품목 수·기준일)', [rag_basic_sources_used('흄관은 KS F 4403 대상입니다.', $bl)['procurement'],
+    rag_basic_sources_used('조달청 품목 등록 내역에 따르면 흄관 176개 품목 중 146개가 KS 표시 제품입니다.', $bl)['procurement']],
+    [[], [['name' => '원심력 철근콘크리트관(흄관)', 'items' => 176, 'as_of' => '2026-11-05']]]);
+ai_procurement_data(is_file(__DIR__ . '/../app/procurement_summary.php') ? (array) require __DIR__ . '/../app/procurement_summary.php' : []);   // 실제 데이터로 되돌림
+eq('실제 데이터 파일: 출처 조달청·흄관 집계 있음·가격 칸 없음', [str_contains((string) (ai_procurement_data()['source'] ?? ''), '조달청'), isset(ai_procurement_data()['groups']['hume_pipe']),
+    str_contains((string) file_get_contents(__DIR__ . '/../app/procurement_summary.php'), '단가')], [true, true, false]);
+$m3401 = '유체 수송용 수도·배수·하수·우수 용도의 압력용 경질 PVC관(공식 표준명: 압력용 경질 폴리염화비닐관 — 목록의 수도용은 이전 명칭) (e나라표준인증 적용 범위, 공식 상세 확인 2026-11-05)';
+eq('공식 표준명 표시가 있으면 그 이름(옛 등록 이름 대신), 적용 범위 문구에서는 뺌 — 확인 표시 없으면 원래 이름', [ai_ks_display_name('수도용 경질 폴리염화비닐관', $m3401), ai_ks_confirmed_scope($m3401),
+    ai_ks_display_name('A', '범위(공식 표준명: B)(검색 요약)'), ai_ks_display_name('콘크리트 경계 블록', '콘크리트 경계 블록 (e나라표준인증 적용 범위, 사용자 확인)')],
+    ['압력용 경질 폴리염화비닐관', '유체 수송용 수도·배수·하수·우수 용도의 압력용 경질 PVC관', 'A', '콘크리트 경계 블록']);
+// 운영 상품명(2026-11-05 읽기 전용 조회)으로 — 표준 적용 범위와 이름이 분명히 맞는 제품군만
+$ksYes = ['흄관(A형)' => 'KS F 4403', '흄관(B형)' => 'KS F 4403', '접속흄관(B형)' => 'KS F 4403', 'PE이중벽관(KS)' => 'KS M 3500-1',
+          '고강성PVC이중벽관' => 'KS M 3600', '인터로킹U형블럭' => 'KS F 4419', '인터로킹i2형블럭' => 'KS F 4419',
+          '장애인사각블럭(점자블럭)' => 'KS F 4561', '파형강관' => 'KS D 3590', 'U형플륨관(벤치1종)' => 'KS F 4010', '벤치플륨관(벤치2종)' => 'KS F 4010',
+          '주철뚜껑(우수/오수/전기/통신)' => 'KS D 4040', '조립식원형맨홀(상부.연직.하부구체)' => 'KS F 4012', '콘크리트경계석' => 'KS F 4006', '인조화강경계석' => 'KS F 4006'];
+ok('표준 대상 제품군 15종 → 해당 KS 번호', !array_filter($ksYes, static fn($ref, $nm) => ai_name_ks_ref($nm) !== $ref, ARRAY_FILTER_USE_BOTH));
+$ksNo = ['VR관(흄관대용)', '유공흄관', '흄관분기구', 'PE이중벽관2종(유공관)', 'HDPE이중벽관(유공관)', 'PE이중벽관분기구', 'PVC이중벽관분기구', 'PVC관VN(구VG1)', 'PVC소형맨홀',
+         'PVC오수받이', '고강성PVC이경소켓', '파형강관(유공관)', '파형강관(내면피복)', '플륨관/수로관뚜껑', '플륨관/수로관집게', '그레이팅맨홀(집수정)용', '사각맨홀(집수정)',
+         '원형노바시(원형인상맨홀)', '조화(디자인)맨홀뚜껑', '화강경계도로', '경계석집게', '점토블럭', '인조화강블록(투수)', '중하중그레이팅수로용', '측구수로관B형(앵글부착)',
+         'PE이중벽관1종', 'HDPE이중벽관(직관)'];   // KS M 3500-1 적용 범위(관 내·외면 평활, 사용자 확인 2026-11-05) — 이름만으로 구조 확인 불가
+ok('부속·유공관·대용품·재질이 다른 제품·범위가 애매한 제품 27종은 연결 안 함', !array_filter($ksNo, static fn($nm) => ai_name_ks_ref($nm) !== ''));
+ok('rag_process 가 검색 결과의 국가표준도 출처 카드 후보(basicsSeen)에 넣음', (bool) preg_match("/in_array\(\\\$tc\['function'\]\['name'\] \?\? '', \['material_info', 'search_products'\], true\) && !empty\(\\\$toolData\['basics'\]\)\) \{ \\\$basicsSeen\[\] = \\\$toolData\['basics'\];/", (string) file_get_contents(__DIR__ . '/../app/rag.php')));
+
 echo "[AI 상담 키 rag_chat_key_*]\n";
 require_once __DIR__ . '/../app/rag.php';
 $_SESSION['chat_keys'] = [];
@@ -514,8 +604,8 @@ ok('도구 요약: 검색 결과 수·수량·금액', str_contains(rag_tool_sum
 ok('도구 요약: 자재 자료 출처·국가표준', rag_tool_summary('material_info', ['facts' => [['maker' => 'A산업']], 'basics' => ['standards' => [['ref' => 'KS F 4010']], 'products' => [[], []]]]) === '제조사 문장 1개(A산업) · 국가표준 KS F 4010 · 등록 상품 2종');
 
 ok('기본 정보 출처: 답에 쓴 표준 번호·상품 이름만', rag_basic_sources_used('KS F4010 대상이며 벤치플륨관(벤치2종) 규격이 있습니다.', [['standards' => [['ref' => 'KS F 4010', 'name' => '플룸'], ['ref' => 'KS F 4016', 'name' => 'U형']], 'products' => [['name' => '벤치플륨관(벤치2종)', 'count' => 6], ['name' => '환경수로관', 'count' => 3]]]])
-    === ['standards' => [['ref' => 'KS F 4010', 'name' => '플룸', 'url' => '']], 'products' => [['name' => '벤치플륨관(벤치2종)', 'count' => 6]]]);
-ok('기본 정보 출처: 답에 없으면 빈 목록', rag_basic_sources_used('일반 설명입니다.', [['standards' => [['ref' => 'KS F 4010']], 'products' => []]]) === ['standards' => [], 'products' => []]);
+    === ['standards' => [['ref' => 'KS F 4010', 'name' => '플룸', 'url' => '']], 'products' => [['name' => '벤치플륨관(벤치2종)', 'count' => 6]], 'procurement' => []]);
+ok('기본 정보 출처: 답에 없으면 빈 목록', rag_basic_sources_used('일반 설명입니다.', [['standards' => [['ref' => 'KS F 4010']], 'products' => []]]) === ['standards' => [], 'products' => [], 'procurement' => []]);
 
 ok('직전 추천표: 최저 동률이면 같은 금액 제품도 알리라는 줄', str_contains(rag_recent_cards_prompt([['id' => 1, 'name' => 'A', 'spec' => '', 'price' => 100, 'qty' => 2, 'unit' => '㎡'], ['id' => 2, 'name' => 'B', 'spec' => '', 'price' => 100, 'qty' => 2, 'unit' => '㎡']]), '같은 금액의 다른 제품')
     && !str_contains(rag_recent_cards_prompt([['id' => 1, 'name' => 'A', 'spec' => '', 'price' => 100, 'qty' => 2, 'unit' => '㎡'], ['id' => 2, 'name' => 'B', 'spec' => '', 'price' => 120, 'qty' => 2, 'unit' => '㎡']]), '같은 금액의 다른 제품'));
