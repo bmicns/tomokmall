@@ -89,14 +89,14 @@ function spec_axis_num(float $mm): string
     return rtrim(rtrim(number_format($mm, 1, '.', ''), '0'), '.');
 }
 
-/** mm 값 → 화면 표시(이름표 단위). mm: '2,000' '1.6' / m: '1.5' '2.0' */
+/** mm 값 → 화면 표시(이름표 단위). mm: '2000' '1.6'(천 단위 쉼표 없음 — 사용자 결정 2026-11-06) / m: '1.5' '2.0' */
 function spec_axis_display(float $mm, string $unit): string
 {
     if ($unit === 'm') {
         $s = rtrim(rtrim(number_format($mm / 1000, 3, '.', ''), '0'), '.');
         return strpos($s, '.') === false ? $s . '.0' : $s;
     }
-    return number_format($mm, abs($mm - round($mm)) < 1e-9 ? 0 : 1);
+    return number_format($mm, abs($mm - round($mm)) < 1e-9 ? 0 : 1, '.', '');
 }
 
 /** 화면에 보일 약자('W') — 약자가 없거나 show_symbol=0 이면 '' */

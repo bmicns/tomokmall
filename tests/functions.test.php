@@ -658,7 +658,8 @@ ok('글자로 시작(수로관집게_800A) → null', spec_axes_parse('수로관
 ok('빈 값·이름표 없음 → null', spec_axes_parse('', $axFlume) === null && spec_axes_parse('900*800*2000*85T', []) === null);
 ok('none 행만 → null', spec_axes_parse('900*800', [['seq' => 0, 'axis_key' => 'none', 'unit' => 'mm']]) === null);
 ok('mm 소수 1자리 초과 → null(1.23456m)', spec_axes_parse('1.23456*1.0*2.0_280T*260T', $axGaegeo) === null);
-eq('표시 mm 2000 → 2,000', spec_axis_display(2000.0, 'mm'), '2,000');
+eq('표시 mm 2000 → 2000(천 단위 쉼표 없음)', spec_axis_display(2000.0, 'mm'), '2000');
+eq('표시 mm 12500.5 → 12500.5', spec_axis_display(12500.5, 'mm'), '12500.5');
 eq('표시 mm 1.6 → 1.6', spec_axis_display(1.6, 'mm'), '1.6');
 eq('표시 m 1500 → 1.5', spec_axis_display(1500.0, 'm'), '1.5');
 eq('표시 m 2000 → 2.0(원문 표기)', spec_axis_display(2000.0, 'm'), '2.0');
@@ -700,7 +701,7 @@ $axFacet = ['defs' => $AX([['w', '폭', 'W'], ['l', '길이', 'L']]), 'all' => [
 $g = product_filter_axis_groups($axFacet, []);
 eq('필터 그룹(아트보드 기준): 모델 코드·폭·길이', array_column($g, 'title'), ['모델 코드', '폭', '길이']);
 eq('필터 그룹 옆 작은 글씨: 끝자리 표기 / W(mm) / L(mm)', array_map(static fn($x) => $x['sub'] . $x['unit'], $g), ['끝자리 표기', 'W(mm)', 'L(mm)']);
-ok('값이 하나뿐인 축(길이 2,000): 선택된 채 고정', $g[2]['fixed'] && $g[2]['opts'][0]['checked'] && $g[2]['opts'][0]['disabled'] && $g[2]['opts'][0]['label'] === '2,000');
+ok('값이 하나뿐인 축(길이 2000): 선택된 채 고정', $g[2]['fixed'] && $g[2]['opts'][0]['checked'] && $g[2]['opts'][0]['disabled'] && $g[2]['opts'][0]['label'] === '2000');
 ok('0건 값은 누를 수 없음(폭 300)', $g[1]['opts'][1]['disabled'] && !$g[1]['opts'][0]['disabled']);
 $g = product_filter_axis_groups($axFacet, ['ax' => ['w' => ['300']]]);
 ok('이미 선택한 0건 값은 해제 가능', $g[1]['opts'][1]['checked'] && !$g[1]['opts'][1]['disabled']);
@@ -716,13 +717,23 @@ $rf = static function (array $a, bool $collapsible, bool $inStock = false): stri
 };
 $h = $rf([], true);
 ok('상황별 비로그인·개인: 접을 수 있는 필터 "자재 규격", 적용 없으면 접힌 채 시작', str_contains($h, 'class="fltbox is-collapsible">') && str_contains($h, '<span class="flt-sum-title">자재 규격</span>') && str_contains($h, 'flt-sum-state') && !str_contains($h, 'flt-sum-cnt'));
+ok('접는 필터: 위 "필터로 좁히기·초기화" 줄 없음, 맨 아래 초기화 버튼(적용 없으면 비활성) + 필터 적용', !str_contains($h, 'class="flt-top"') && str_contains($h, '<div class="flt-actions">') && str_contains($h, 'class="flt-reset" href="/products.php?category=24" role="button" aria-disabled="true" tabindex="-1"') && str_contains($h, 'data-applied="0"'));
 $h = $rf(['ax' => ['w' => ['600']]], true, true);
-ok('적용된 필터가 있으면 펼친 채 + "2개 적용"', str_contains($h, 'class="fltbox is-collapsible" open>') && str_contains($h, '2개 적용'));
+ok('적용된 필터가 있으면 펼친 채 시작, "N개 적용" 글자 없음, 초기화 켜짐', str_contains($h, 'class="fltbox is-collapsible" open>') && !str_contains($h, '개 적용') && !str_contains($h, 'flt-sum-cnt') && str_contains($h, 'role="button"><svg') && str_contains($h, 'data-applied="1"'));
 $h = $rf([], false);
-ok('그 밖의 목록·기업회원: 지금처럼 항상 펼침, 제목 "필터로 좁히기"', str_contains($h, 'class="fltbox" open>') && !str_contains($h, 'flt-sum-state') && str_contains($h, '<span class="flt-sum-title">필터로 좁히기</span>'));
+ok('그 밖의 목록·기업회원: 지금처럼 항상 펼침, 제목 "필터로 좁히기", 위 초기화 링크 유지', str_contains($h, 'class="fltbox" open>') && !str_contains($h, 'flt-sum-state') && str_contains($h, '<span class="flt-sum-title">필터로 좁히기</span>') && str_contains($h, '<div class="flt-top"><b>필터로 좁히기</b><a href="/products.php?category=24">초기화</a></div>') && !str_contains($h, 'flt-actions') && !str_contains($h, 'data-applied'));
 $hx = (static function (): string { ob_start(); render_product_filters([], null, 24, '', ['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 10,
     'axes' => ['defs' => [['seq' => 1, 'axis_key' => 'w', 'label' => '폭', 'symbol' => 'W', 'unit' => 'mm', 'use_filter' => true]], 'all' => ['w' => ['200', '300']], 'vals' => ['w' => ['200' => 4, '300' => 6]], 'type_all' => [], 'type' => []]]); return (string) ob_get_clean(); })();
 ok('규격 값 버튼에 개수 표시 없음(값만)', str_contains($hx, '<span class="fchip-box">200</span>') && !str_contains($hx, '<small>4</small>'));
+ok('기업회원·일반 목록(접지 않는 필터): 누르는 즉시 비활성 데이터 없음', !str_contains($hx, 'flt-combos') && !str_contains($hx, 'data-live'));
+$axLive = ['defs' => [['seq' => 1, 'axis_key' => 'w', 'label' => '폭', 'symbol' => 'W', 'unit' => 'mm', 'use_filter' => true], ['seq' => 2, 'axis_key' => 'l', 'label' => '길이', 'symbol' => 'L', 'unit' => 'mm', 'use_filter' => true]],
+    'all' => ['w' => ['200', '300'], 'l' => ['2000']], 'vals' => ['w' => ['200' => 4, '300' => 6], 'l' => ['2000' => 10]], 'type_all' => [], 'type' => [],
+    'combos' => ['keys' => ['w', 'l', 'type'], 'rows' => [['200', '2000', '', 1], ['300', '2000', '', 0]]]];
+$hl = (static function (array $ax): string { ob_start(); render_product_filters([], null, 24, '', ['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 10, 'axes' => $ax], false, [], true); return (string) ob_get_clean(); })($axLive);
+ok('접는 필터: 값 조합(JSON)·data-live 를 넣어 누르는 즉시 0건 값 비활성', str_contains($hl, 'data-live="1"') && str_contains($hl, '<script type="application/json" class="flt-combos">{"keys":["w","l","type"],"rows":[["200","2000","",1],["300","2000","",0]]}</script>'));
+ok('값이 하나뿐인 축 버튼은 data-fixed(즉시 계산에서 제외)', str_contains($hl, 'value="2000" checked disabled data-fixed="1"') && !str_contains($hl, 'value="200" data-fixed'));
+$hs = (static function (): string { ob_start(); render_product_filters([], null, 24, '', ['mat' => [], 'shape' => [], 'load' => [], 'spec' => ['300*300' => 3, '400*400' => 2], 'total' => 5, 'axes' => []]); return (string) ob_get_clean(); })();
+ok('규격 원문 목록(이름표 없는 카테고리): 값 옆 개수 없음', str_contains($hs, '<span class="fopt-lbl">300×300</span></label>') && !str_contains($hs, 'class="fcnt"'));
 
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";

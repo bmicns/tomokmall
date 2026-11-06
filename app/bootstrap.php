@@ -487,7 +487,8 @@ function spec_variant_count(array $specs): int
  *        'axes'=>[] 또는 축 모드 정보(아래)]
  *   축 모드: 결과의 카테고리가 모두 같은 규격 이름표(category_spec_axes)를 쓸 때만.
  *     'axes' => ['defs'=>이름표 목록, 'vals'=>[축키=>[값=>cnt]], 'all'=>[축키=>[값…]](필터 무관 전체 값),
- *                'type'=>[끝자리=>cnt], 'type_all'=>[끝자리…]]
+ *                'type'=>[끝자리=>cnt], 'type_all'=>[끝자리…],
+ *                'combos'=>['keys'=>[축키…], 'rows'=>[[값…, 재고1/0]…]] 또는 null(축 외 적용 필터만 반영한 값 조합)]
  *                — 개수는 다른 필터와 같은 '자기 축 제외' 기준
  */
 function product_facets(?int $categoryId, ?string $query, array $active = []): array
@@ -552,12 +553,12 @@ function product_facets(?int $categoryId, ?string $query, array $active = []): a
     $axUse = array_values(array_unique(array_merge($axKeys, array_keys($selAx))));
 
     $matched = 0;
+    $combos  = [];   // 축 값 조합(+재고 여부) — 화면에서 값 버튼을 누르는 즉시 0건 값을 비활성할 때 씀(재고 체크·축 선택은 화면 쪽에서 계산)
     foreach ($rows as $p) {
         $axv = [];
         foreach ($axUse as $k) { $axv[$k] = spec_axes_row_value($p, $k); }
         foreach ($axKeys as $k) { if ($axv[$k] !== null) { $axAll[$k][$axv[$k]] = true; } }
 
-        if ($inStockOnly && (int) ($p['stock_qty'] ?? 0) <= 0) { continue; }
         $name = (string) ($p['name'] ?? '');
         $spec = (string) ($p['spec'] ?? '');
         $root = category_root_of((int) ($p['category_id'] ?? 0));
@@ -567,6 +568,15 @@ function product_facets(?int $categoryId, ?string $query, array $active = []): a
         $mSpec  = !$selSpec || ($sv !== '' && in_array($sv, $selSpec, true));
         $mShape = $nameHas($name, $selShape);
         $mLoad  = $nameHas($name, $selLoad);
+        $hasStock = (int) ($p['stock_qty'] ?? 0) > 0;
+        if ($axKeys && $mMat && $mSpec && $mShape && $mLoad) {
+            $tuple = [];
+            foreach ($axKeys as $k) { $tuple[] = $axv[$k] ?? ''; }
+            $tuple[] = $hasStock ? 1 : 0;
+            $combos[implode("\x1f", $tuple)] = $tuple;
+        }
+
+        if ($inStockOnly && !$hasStock) { continue; }
         $mAx    = [];
         foreach ($selAx as $k => $sel) { $mAx[$k] = $axv[$k] !== null && in_array($axv[$k], $sel, true); }
         $mAxAll = !in_array(false, $mAx, true);
@@ -604,7 +614,9 @@ function product_facets(?int $categoryId, ?string $query, array $active = []): a
         $typeAll = $keysOf($axAll[SPEC_AXIS_TYPE], null);
         $typeCnt = [];
         foreach ($typeAll as $v) { $typeCnt[$v] = (int) ($axCnt[SPEC_AXIS_TYPE][$v] ?? 0); }
-        $axes = ['defs' => $axDefs, 'vals' => $vals, 'all' => $all, 'type' => $typeCnt, 'type_all' => $typeAll];
+        $axes = ['defs' => $axDefs, 'vals' => $vals, 'all' => $all, 'type' => $typeCnt, 'type_all' => $typeAll,
+                 // 'keys' 순서의 축 값 + 마지막 칸 재고(1/0). 너무 많으면 생략(화면은 '필터 적용' 후 서버 계산만 사용)
+                 'combos' => count($combos) <= 3000 ? ['keys' => $axKeys, 'rows' => array_values($combos)] : null];
     }
 
     return [
