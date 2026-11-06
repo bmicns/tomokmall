@@ -3,6 +3,7 @@ declare(strict_types=1);
 require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/auth.php';
 require __DIR__ . '/../app/layout.php';
+require_once __DIR__ . '/../app/cart.php';   // estimate_display_totals — 이전주문 금액(회원 할인가)
 
 if (!is_logged_in()) {
     redirect('/login.php?redirect=' . urlencode('/mypage.php'));
@@ -31,6 +32,11 @@ try {
     );
     $st->execute(['uid' => $uid]);
     $orders = $st->fetchAll();
+    // 회원 화면 금액: 회원 등급별 할인가 합계(표시 전용 — 저장 단가·관리자 화면은 원래대로)
+    $dispTotals = estimate_display_totals(array_column($orders, 'id'));
+    foreach ($orders as $i => $row) {
+        if (isset($dispTotals[(int) $row['id']])) { $orders[$i]['total_amount'] = $dispTotals[(int) $row['id']]; }
+    }
 } catch (\Throwable $e) { $orders = []; }
 
 $activeTab = $_GET['tab'] ?? 'info';
@@ -42,7 +48,8 @@ render_header('마이페이지');
     <div class="mp-userbar">
         <div>
             <div class="mp-username"><?= e($user['name']) ?></div>
-            <div class="mp-userrole"><?= e($user['company_name'] ?? '') ?><?= $user['company_name'] ? ' · ' : '' ?><?= e($user['role']) ?></div>
+            <?php // 회원 구분: 내부 코드(customer 등) 대신 화면 이름 — 디자인 '마이페이지 정보수정(After)'. 회사명은 아래 '회사명' 칸에 표시 ?>
+            <div class="mp-userrole"><?= e(['customer' => '개인회원', 'corporate' => '기업회원', 'staff' => '직원', 'admin' => '관리자'][$user['role']] ?? $user['role']) ?></div>
         </div>
     </div>
 
@@ -73,8 +80,9 @@ render_header('마이페이지');
                 <input id="p-company" class="info-input" type="text" value="<?= e($user['company_name'] ?? '') ?>" maxlength="120">
             </div>
             <div class="info-field">
-                <label class="info-label">전화번호</label>
-                <input id="p-phone" class="info-input" type="tel" value="" maxlength="40" placeholder="불러오는 중...">
+                <label class="info-label" for="p-phone">전화번호</label>
+                <input id="p-phone" class="info-input" type="tel" value="" maxlength="40" placeholder="예: 010-1234-5678" autocomplete="tel" aria-describedby="p-phone-hint">
+                <p class="info-hint" id="p-phone-hint" hidden>전화번호를 입력해 주세요.</p>
             </div>
             <div class="info-field">
                 <label class="info-label">주소</label>

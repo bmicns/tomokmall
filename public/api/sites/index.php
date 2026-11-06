@@ -15,6 +15,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../../../app/bootstrap.php';
 require __DIR__ . '/../../../app/auth.php';
+require_once __DIR__ . '/../../../app/cart.php';   // estimate_display_totals — 현장 주문 금액(회원 할인가)
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -55,6 +56,11 @@ if ($method === 'GET') {
         $stat = $st2->fetch();
         $s['order_count'] = (int) ($stat['cnt'] ?? 0);
         $s['total_amount'] = (int) ($stat['total'] ?? 0);
+        // 회원 화면 금액: 현장에 연결된 견적들의 회원 등급별 할인가 합계(표시 전용 — 저장 단가·관리자 화면은 원래대로)
+        $st3 = $pdo->prepare('SELECT so.estimate_id FROM site_orders so JOIN estimates e ON e.id = so.estimate_id WHERE so.site_id = :sid');
+        $st3->execute(['sid' => $s['id']]);
+        $dispTotals = estimate_display_totals(array_map('intval', $st3->fetchAll(PDO::FETCH_COLUMN)));
+        if ($dispTotals) { $s['total_amount'] = array_sum($dispTotals); }
     }
     unset($s);
 

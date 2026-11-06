@@ -14,6 +14,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../../../app/bootstrap.php';
 require __DIR__ . '/../../../app/auth.php';
+require_once __DIR__ . '/../../../app/cart.php';   // estimate_display_totals — 현장 주문 금액(회원 할인가)
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -57,8 +58,14 @@ if ($method === 'GET') {
          ORDER BY e.id DESC'
     );
     $st->execute(['sid' => $siteId]);
+    $orders = $st->fetchAll();
+    // 회원 화면 금액: 회원 등급별 할인가 합계(표시 전용 — 저장 단가·관리자 화면은 원래대로)
+    $dispTotals = estimate_display_totals(array_column($orders, 'id'));
+    foreach ($orders as $i => $row) {
+        if (isset($dispTotals[(int) $row['id']])) { $orders[$i]['total_amount'] = $dispTotals[(int) $row['id']]; }
+    }
 
-    echo json_encode(['ok' => true, 'orders' => $st->fetchAll()], JSON_UNESCAPED_UNICODE);
+    echo json_encode(['ok' => true, 'orders' => $orders], JSON_UNESCAPED_UNICODE);
     exit;
 }
 

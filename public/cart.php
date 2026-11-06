@@ -5,15 +5,15 @@ require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/layout.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // 비우기: 상태를 바꾸는 요청이라 POST 만(예전 GET ?clear=1 은 링크를 열기만 해도 비워졌음)
+    if (($_POST['action'] ?? '') === 'clear') {
+        unset($_SESSION['cart']);
+        redirect('/cart.php');
+    }
     $productId = max(0, (int) ($_POST['product_id'] ?? 0));
     if ($productId > 0) {
         $_SESSION['cart'][$productId] = ($_SESSION['cart'][$productId] ?? 0) + 1;
     }
-    redirect('/cart.php');
-}
-
-if (isset($_GET['clear'])) {
-    unset($_SESSION['cart']);
     redirect('/cart.php');
 }
 
@@ -34,7 +34,12 @@ render_header('장바구니');
 <section class="section narrow">
     <div class="section-title">
         <h1>장바구니</h1>
-        <?php if ($items): ?><a href="/cart.php?clear=1">비우기</a><?php endif; ?>
+        <?php if ($items): ?>
+        <form method="post" action="/cart.php" class="cart-clear-form">
+            <input type="hidden" name="action" value="clear">
+            <button type="submit" class="cart-clear-btn">비우기</button>
+        </form>
+        <?php endif; ?>
     </div>
     <?php if (!$products): ?>
         <p class="empty">담긴 상품이 없습니다.</p>

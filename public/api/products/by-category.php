@@ -15,6 +15,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../../../app/bootstrap.php';
 require __DIR__ . '/../../../app/auth.php';
+require_once __DIR__ . '/../../../app/cart.php';   // display_unit_price (화면 표시용 회원가)
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -46,7 +47,7 @@ if (!$catStmt->fetch()) {
 }
 
 $stmt = $pdo->prepare(
-    'SELECT id, name, spec, price_b2c, price_b2b, stock_qty, image_url
+    'SELECT id, category_id, name, spec, price_b2c, price_b2b, cost_price, stock_qty, image_url
      FROM products
      WHERE category_id = :cid AND is_active = 1
      ORDER BY name, id'
@@ -67,6 +68,9 @@ $products = array_map(function ($row) use ($isCorporate) {
         // 기업회원 메인 표시용(추가 필드 — 기존 호출자 영향 없음): 규격 치수(×)·단위
         'size'      => spec_size_label((string) $row['spec']),
         'unit'      => unit_display_label(parse_spec_field((string) $row['spec'])['unit']),
+        // 화면 표시 가격(추가 필드): 판매가와 로그인 등급의 회원가(상품 상세와 같은 규칙, 0=견적문의). 매입가는 내보내지 않음
+        'price_list'   => (int) $row['price_b2c'],
+        'price_member' => display_unit_price($row),
     ];
     if ($isCorporate) {
         // price_b2b = 0이면 price_b2c로 폴백

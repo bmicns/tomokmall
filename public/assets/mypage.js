@@ -23,6 +23,14 @@ function switchTab(tab) {
             document.getElementById('p-zip').value          = d.profile.address_zip || '';
             document.getElementById('p-addr').value         = d.profile.address || '';
             document.getElementById('p-addr-detail').value  = d.profile.address_detail || '';
+            // 전화번호가 비어 있으면 입력 안내(불러온 뒤에만 — 불러오기 실패 시에는 비었는지 알 수 없으므로 표시하지 않음)
+            const phoneEl = document.getElementById('p-phone');
+            const hintEl  = document.getElementById('p-phone-hint');
+            if (phoneEl && hintEl) {
+                const syncHint = () => { hintEl.hidden = phoneEl.value.trim() !== ''; };
+                syncHint();
+                phoneEl.addEventListener('input', syncHint);
+            }
         }
     } catch {}
 })();

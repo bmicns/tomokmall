@@ -220,18 +220,23 @@ function renderProductCards(products, container) {
   wrap.className = 'compare-table';
 
   const fmt = n => new Intl.NumberFormat('ko-KR').format(n);
+  // 화면 단가: 서버가 넣은 price_member(로그인 등급 단가 — 회원은 할인가, 비회원은 판매가)가 있으면 그 값, 없으면 판매가.
+  // 예상 비용도 같은 단가 × 권장 수량(이전 상담 복원 화면에서 단가가 현재 기준으로 바뀌어도 표 금액이 서로 맞게)
+  const viewPrice = p => (p.price_member != null ? Number(p.price_member) : Number(p.price_b2c));
+  const viewCost  = p => (p.est_cost && p.est_cost > 0 && p.suggested_qty > 0) ? p.suggested_qty * viewPrice(p) : null;
   const rows = products.map(p => {
     // 가격 상태: 이전 상담 복원 시 서버가 현재가 기준 price_state를 넣음. 실시간 상담은 0원만 '가격 문의'
     const state   = p.price_state || (Number(p.price_b2c) > 0 ? 'ok' : 'inquiry');
     const blocked = state === 'stopped' || state === 'changed';
     const price   = state === 'ok'
-      ? '₩' + fmt(p.price_b2c)
+      ? '₩' + fmt(viewPrice(p))
       : (PRICE_STATE_LABEL[state] || PRICE_STATE_LABEL.unknown);
     // 단위·예상 비용은 판매가가 있는 상품만(가격 문의·판매 중지·변경 상품에는 금액을 보이지 않음)
     // 'AI 상담 답변 개선(After)' 시안: 예상 비용 한 줄만(최저 표시·최저와의 차이·요약 박스·권장수량 계산식은 표시하지 않음 — 수량·자재비 설명은 답변 글에서)
     const unitHtml = (state === 'ok' && p.unit) ? `<span class="compare-unit">/${escHtml(p.unit)}</span>` : '';
-    const costHtml = (state === 'ok' && p.est_cost && p.est_cost > 0)
-      ? `<div class="compare-cost">예상 비용 ₩${fmt(p.est_cost)}</div>`
+    const cost     = state === 'ok' ? viewCost(p) : null;   // 화면 단가(회원은 할인가) × 권장 수량
+    const costHtml = (cost && cost > 0)
+      ? `<div class="compare-cost">예상 비용 ₩${fmt(cost)}</div>`
       : '';
     const stateNote = state === 'changed'
       ? '<div class="compare-state-note">상담 이후 상품 규격이 바뀌어 담을 수 없습니다. 다시 상담해 주세요.</div>'
