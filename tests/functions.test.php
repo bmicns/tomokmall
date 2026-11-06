@@ -624,7 +624,7 @@ echo "[규격 축 spec_axes_parse·표시·이름표 상속·갱신 계획 (app/
 $AX = static fn(array $defs): array => array_map(static fn($d, $i) => ['seq' => $i + 1, 'axis_key' => $d[0], 'label' => $d[1], 'symbol' => $d[2] ?? '', 'unit' => $d[3] ?? 'mm', 'use_filter' => true], $defs, array_keys($defs));
 $axFlume  = $AX([['w', '폭', 'W'], ['h', '높이', 'H'], ['l', '길이', 'L'], ['t', '두께', 'T']]);                       // 24 수로관(벤치3종)
 $axGaegeo = $AX([['w', '폭', 'W', 'm'], ['h', '높이', 'H', 'm'], ['l', '길이', 'L', 'm'], ['t', '상하두께'], ['t2', '벽체두께']]); // 21 개거
-$axSqMh   = $AX([['w', '가로', 'W'], ['l', '세로'], ['h', '높이', 'H'], ['t', '두께', 'T']]);                         // 59 사각맨홀
+$axSqMh   = $AX([['w', '가로', 'W'], ['l', '세로', 'L'], ['h', '높이', 'H'], ['t', '두께', 'T']]);                         // 59 사각맨홀
 $axRdMh   = $AX([['d', '내경', 'D'], ['h', '높이', 'H'], ['t', '두께', 'T']]);                                       // 61 원형맨홀
 eq('수로관 900*800*2000*85T (900B) → 코드·폭·높이·길이·두께', spec_axes_parse('900*800*2000*85T (900B)', $axFlume),
     ['spec_code' => '900B', 'dims' => ['w' => 900.0, 'h' => 800.0, 'l' => 2000.0, 't' => 85.0], 'option' => null]);
@@ -658,7 +658,7 @@ eq('표시 mm 1.6 → 1.6', spec_axis_display(1.6, 'mm'), '1.6');
 eq('표시 m 1500 → 1.5', spec_axis_display(1500.0, 'm'), '1.5');
 eq('표시 m 2000 → 2.0(원문 표기)', spec_axis_display(2000.0, 'm'), '2.0');
 eq('정규 값 900.0 → 900, 1.6 → 1.6', [spec_axis_num(900.0), spec_axis_num(1.6), spec_axis_num((float) '2000.0')], ['900', '1.6', '2000']);
-eq('이름+약자: 폭 W / 세로(약자 없음 → 이름만)', [spec_axis_title(['label' => '폭', 'symbol' => 'W']), spec_axis_title(['label' => '세로', 'symbol' => '', 'show_symbol' => true]), spec_axis_title(['label' => '세로', 'symbol' => null])], ['폭 W', '세로', '세로']);
+eq('이름+약자: 폭 W / 세로 L / 약자 없음 → 이름만', [spec_axis_title(['label' => '폭', 'symbol' => 'W']), spec_axis_title(['label' => '세로', 'symbol' => 'L', 'show_symbol' => true]), spec_axis_title(['label' => '기타', 'symbol' => null])], ['폭 W', '세로 L', '기타']);
 eq('약자 T 저장·표시 안 함(개거 상하두께) → 이름만', spec_axis_title(['label' => '상하두께', 'symbol' => 'T', 'show_symbol' => false]), '상하두께');
 eq('단위 표시: mm → (mm), m → (m)', [spec_axis_unit_label(['unit' => 'mm']), spec_axis_unit_label(['unit' => 'm'])], ['(mm)', '(m)']);
 eq('약자: 숨김(show_symbol=0)이면 빈 값', [spec_axis_symbol(['symbol' => 'W']), spec_axis_symbol(['symbol' => 'T', 'show_symbol' => false])], ['W', '']);
