@@ -7,7 +7,7 @@
 --   '높이(I-BAR)' 는 높이, '_파형' 은 숫자가 아닌 옵션 자리, '외경(…)'·'내경(…)' 묶음은 안쪽 이름으로 읽음.
 -- 성격: category_spec_axes 데이터 추가만(가격·기존 칸 변경 없음). id 와 이름이 모두 맞고 이름표가 아직 없는 카테고리에만 넣는다(다시 실행해도 중복 없음).
 -- 실행: 사용자 승인 후, 20261106_product_spec_axes.sql 다음에. 새 칸 값 채우기는 scripts/db-tools/spec-axes-fill.php(별도 승인).
--- 대상: 103개 카테고리 · 312행
+-- 대상: [2] 103개 카테고리 · 312행 + [2-2] 10개 카테고리 · 46행(표기 모양이 다른 곳 — 사용자 지정)
 
 -- [1] 사전 확인(읽기 전용): 아래 목록과 id·이름이 같은 카테고리 수(103이어야 함 — 다르면 그 카테고리는 [2]에서 건너뜀)
 SELECT COUNT(*) AS matched_categories FROM categories WHERE 
@@ -538,8 +538,74 @@ FROM (
 JOIN categories c ON c.id = v.cid AND c.name = v.cname
 WHERE NOT EXISTS (SELECT 1 FROM category_spec_axes x WHERE x.category_id = c.id);
 
+-- [2-2] 규격 표기 모양이 다른 카테고리(사용자 결정 2026-11-06 — 이름·칸 지정): 읽는 형식(parse_fmt)·고정값(fixed_value)·skip 사용
+--   사전 확인(읽기 전용, 10 이어야 함):
+-- SELECT COUNT(*) FROM categories WHERE (id = 32 AND name = '플륨관/수로관뚜껑') OR (id = 39 AND name = '원형사각수로관(RDG형)') OR (id = 40 AND name = '돌무늬원형사각수로관NS-02') OR (id = 41 AND name = '돌무늬원형사각수로관NS-03') OR (id = 48 AND name = '원심력사각수로관(무개)') OR (id = 49 AND name = '원심력사각수로관(유개)') OR (id = 88 AND name = '그리드') OR (id = 100 AND name = '디자인블록(큐블록)') OR (id = 144 AND name = '와이어메쉬') OR (id = 151 AND name = '화강경계경사');
+INSERT INTO category_spec_axes (category_id, seq, axis_key, label, symbol, show_symbol, unit, use_filter, parse_fmt, fixed_value)
+SELECT c.id, v.seq, v.axis_key, v.label, v.symbol, 1, v.unit, v.use_filter, v.parse_fmt, v.fixed_value
+FROM (
+    -- 32 플륨관/수로관뚜껑: 사이트 '(외경 폭X길이X두께)' · 예 빗물받이용 (400*500*80T_유공) → 옵션 빗물받이용/유공
+              SELECT 32 AS cid, '플륨관/수로관뚜껑' AS cname, 1 AS seq, 'd_o' AS axis_key, '외경' AS label, 'D' AS symbol, 'mm' AS unit, 1 AS use_filter, 'paren' AS parse_fmt, NULL AS fixed_value
+    UNION ALL SELECT 32, '플륨관/수로관뚜껑', 2, 'l', '길이', 'L', 'mm', 1, 'paren', NULL
+    UNION ALL SELECT 32, '플륨관/수로관뚜껑', 3, 't', '두께', 'T', 'mm', 1, 'paren', NULL
+    -- 39 원형사각수로관(RDG형): 사이트 'D내경 (외경 폭X깊이X길이X두께)' · 예 D200*2M (320*320*2000*60T) — 2M 는 길이(m), 괄호 안 길이 2000 은 같은 값이라 skip
+    UNION ALL SELECT 39, '원형사각수로관(RDG형)', 1, 'd_i', '내경', 'D', 'mm', 1, 'paren', NULL
+    UNION ALL SELECT 39, '원형사각수로관(RDG형)', 2, 'l', '길이', 'L', 'm', 1, 'paren', NULL
+    UNION ALL SELECT 39, '원형사각수로관(RDG형)', 3, 'd_o', '외경', 'D', 'mm', 1, 'paren', NULL
+    UNION ALL SELECT 39, '원형사각수로관(RDG형)', 4, 'depth', '깊이', 'D', 'mm', 1, 'paren', NULL
+    UNION ALL SELECT 39, '원형사각수로관(RDG형)', 5, 'skip', NULL, NULL, 'mm', 0, 'paren', NULL
+    UNION ALL SELECT 39, '원형사각수로관(RDG형)', 6, 't', '두께', 'T', 'mm', 1, 'paren', NULL
+    -- 40 돌무늬원형사각수로관NS-02: 사이트 'D내경 (외경 폭X깊이X길이X두께)' · 예 D200*2M (320*320*2000*60T) — 2M 는 길이(m), 괄호 안 길이 2000 은 같은 값이라 skip
+    UNION ALL SELECT 40, '돌무늬원형사각수로관NS-02', 1, 'd_i', '내경', 'D', 'mm', 1, 'paren', NULL
+    UNION ALL SELECT 40, '돌무늬원형사각수로관NS-02', 2, 'l', '길이', 'L', 'm', 1, 'paren', NULL
+    UNION ALL SELECT 40, '돌무늬원형사각수로관NS-02', 3, 'd_o', '외경', 'D', 'mm', 1, 'paren', NULL
+    UNION ALL SELECT 40, '돌무늬원형사각수로관NS-02', 4, 'depth', '깊이', 'D', 'mm', 1, 'paren', NULL
+    UNION ALL SELECT 40, '돌무늬원형사각수로관NS-02', 5, 'skip', NULL, NULL, 'mm', 0, 'paren', NULL
+    UNION ALL SELECT 40, '돌무늬원형사각수로관NS-02', 6, 't', '두께', 'T', 'mm', 1, 'paren', NULL
+    -- 41 돌무늬원형사각수로관NS-03: 사이트 'D내경 (외경 폭X깊이X길이X두께)' · 예 D200*2M (320*320*2000*60T) — 2M 는 길이(m), 괄호 안 길이 2000 은 같은 값이라 skip
+    UNION ALL SELECT 41, '돌무늬원형사각수로관NS-03', 1, 'd_i', '내경', 'D', 'mm', 1, 'paren', NULL
+    UNION ALL SELECT 41, '돌무늬원형사각수로관NS-03', 2, 'l', '길이', 'L', 'm', 1, 'paren', NULL
+    UNION ALL SELECT 41, '돌무늬원형사각수로관NS-03', 3, 'd_o', '외경', 'D', 'mm', 1, 'paren', NULL
+    UNION ALL SELECT 41, '돌무늬원형사각수로관NS-03', 4, 'depth', '깊이', 'D', 'mm', 1, 'paren', NULL
+    UNION ALL SELECT 41, '돌무늬원형사각수로관NS-03', 5, 'skip', NULL, NULL, 'mm', 0, 'paren', NULL
+    UNION ALL SELECT 41, '돌무늬원형사각수로관NS-03', 6, 't', '두께', 'T', 'mm', 1, 'paren', NULL
+    -- 48 원심력사각수로관(무개): 사이트 '내경 (외경 폭X높이X길이X두께)' · 예 D250 (340*330*2500*40T)
+    UNION ALL SELECT 48, '원심력사각수로관(무개)', 1, 'd_i', '내경', 'D', 'mm', 1, 'paren', NULL
+    UNION ALL SELECT 48, '원심력사각수로관(무개)', 2, 'd_o', '외경', 'D', 'mm', 1, 'paren', NULL
+    UNION ALL SELECT 48, '원심력사각수로관(무개)', 3, 'h', '높이', 'H', 'mm', 1, 'paren', NULL
+    UNION ALL SELECT 48, '원심력사각수로관(무개)', 4, 'l', '길이', 'L', 'mm', 1, 'paren', NULL
+    UNION ALL SELECT 48, '원심력사각수로관(무개)', 5, 't', '두께', 'T', 'mm', 1, 'paren', NULL
+    -- 49 원심력사각수로관(유개): 사이트 '내경 (외경 폭X높이X길이X두께)' · 예 D250 (340*330*2500*40T)
+    UNION ALL SELECT 49, '원심력사각수로관(유개)', 1, 'd_i', '내경', 'D', 'mm', 1, 'paren', NULL
+    UNION ALL SELECT 49, '원심력사각수로관(유개)', 2, 'd_o', '외경', 'D', 'mm', 1, 'paren', NULL
+    UNION ALL SELECT 49, '원심력사각수로관(유개)', 3, 'h', '높이', 'H', 'mm', 1, 'paren', NULL
+    UNION ALL SELECT 49, '원심력사각수로관(유개)', 4, 'l', '길이', 'L', 'mm', 1, 'paren', NULL
+    UNION ALL SELECT 49, '원심력사각수로관(유개)', 5, 't', '두께', 'T', 'mm', 1, 'paren', NULL
+    -- 88 그리드: 사이트 '(폭X길이X인장강도)' · 예 6T (2m*50m 1롤) — 인장강도 6(t/m)·폭 2m·길이 50m, '1롤' 은 단위(롤)라 버림
+    UNION ALL SELECT 88, '그리드', 1, 'ts', '인장강도', NULL, 't/m', 1, 'paren', NULL
+    UNION ALL SELECT 88, '그리드', 2, 'w', '폭', 'W', 'm', 1, 'paren', NULL
+    UNION ALL SELECT 88, '그리드', 3, 'l', '길이', 'L', 'm', 1, 'paren', NULL
+    -- 100 디자인블록(큐블록): 사이트 '(모델명_가로X세로X깊이)' · 예 K2_390*120*120 — K2 는 모델 코드
+    UNION ALL SELECT 100, '디자인블록(큐블록)', 1, 'w', '가로', 'W', 'mm', 1, 'lead_code', NULL
+    UNION ALL SELECT 100, '디자인블록(큐블록)', 2, 'l', '세로', 'L', 'mm', 1, 'lead_code', NULL
+    UNION ALL SELECT 100, '디자인블록(큐블록)', 3, 'depth', '깊이', 'D', 'mm', 1, 'lead_code', NULL
+    -- 144 와이어메쉬: 사이트 '(가로X세로X망눈간격_#품번(Ø두께))' · 예 1800*1800_150각_#8(Ø3.5)BS — BS 는 모델 코드
+    UNION ALL SELECT 144, '와이어메쉬', 1, 'w', '가로', 'W', 'mm', 1, 'mesh', NULL
+    UNION ALL SELECT 144, '와이어메쉬', 2, 'l', '세로', 'L', 'mm', 1, 'mesh', NULL
+    UNION ALL SELECT 144, '와이어메쉬', 3, 'mesh', '망 간격', 'M', 'mm', 1, 'mesh', NULL
+    UNION ALL SELECT 144, '와이어메쉬', 4, 'wire_no', '철선 번호', NULL, 'no', 1, 'mesh', NULL
+    UNION ALL SELECT 144, '와이어메쉬', 5, 'wire_d', '철선 직경', 'D', 'mm', 1, 'mesh', NULL
+    -- 151 화강경계경사: 사이트 '(폭X높이/높이)' · 예 150*200/100_#377 — 폭·상단 높이/하단 높이, #377 은 모델 코드, 길이 1000 은 사용자 지정 고정값
+    UNION ALL SELECT 151, '화강경계경사', 1, 'w', '폭', 'W', 'mm', 1, 'slash', NULL
+    UNION ALL SELECT 151, '화강경계경사', 2, 'h_high', '상단 높이', 'H', 'mm', 1, 'slash', NULL
+    UNION ALL SELECT 151, '화강경계경사', 3, 'h_low', '하단 높이', 'H', 'mm', 1, 'slash', NULL
+    UNION ALL SELECT 151, '화강경계경사', 4, 'l', '길이', 'L', 'mm', 1, 'slash', 1000
+) v
+JOIN categories c ON c.id = v.cid AND c.name = v.cname
+WHERE NOT EXISTS (SELECT 1 FROM category_spec_axes x WHERE x.category_id = c.id);
+
 -- [3] 확인(읽기 전용)
--- SELECT COUNT(DISTINCT category_id) FROM category_spec_axes;   -- 확정 7 + 103
+-- SELECT COUNT(DISTINCT category_id) FROM category_spec_axes;   -- 확정 7 + 103 + 10 = 120
 
 -- [롤백] 이 파일로 넣은 행만 지움(승인 후에만). category_spec_axes 는 가격 칸 없음
--- DELETE FROM category_spec_axes WHERE category_id IN (22, 23, 25, 26, 27, 28, 29, 30, 33, 34, 35, 36, 37, 38, 42, 43, 44, 45, 46, 51, 52, 53, 54, 55, 56, 57, 58, 60, 63, 64, 65, 69, 70, 71, 72, 74, 75, 77, 78, 80, 81, 83, 84, 85, 86, 87, 91, 92, 93, 95, 96, 99, 101, 102, 103, 105, 106, 107, 115, 116, 117, 118, 120, 121, 123, 124, 125, 126, 127, 137, 138, 139, 140, 141, 142, 150, 152, 162, 163, 164, 165, 166, 167, 168, 169, 172, 173, 174, 176, 182, 183, 187, 188, 189, 190, 191, 194, 195, 204, 205, 269, 272, 275);
+-- DELETE FROM category_spec_axes WHERE category_id IN (32, 39, 40, 41, 48, 49, 88, 100, 144, 151, 22, 23, 25, 26, 27, 28, 29, 30, 33, 34, 35, 36, 37, 38, 42, 43, 44, 45, 46, 51, 52, 53, 54, 55, 56, 57, 58, 60, 63, 64, 65, 69, 70, 71, 72, 74, 75, 77, 78, 80, 81, 83, 84, 85, 86, 87, 91, 92, 93, 95, 96, 99, 101, 102, 103, 105, 106, 107, 115, 116, 117, 118, 120, 121, 123, 124, 125, 126, 127, 137, 138, 139, 140, 141, 142, 150, 152, 162, 163, 164, 165, 166, 167, 168, 169, 172, 173, 174, 176, 182, 183, 187, 188, 189, 190, 191, 194, 195, 204, 205, 269, 272, 275);

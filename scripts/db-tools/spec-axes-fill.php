@@ -60,7 +60,8 @@ $fmtDims = static function (array $plan, array $axes): string {
     $out = [];
     if ($plan['spec_code'] !== null) { $out[] = '규격 코드 ' . $plan['spec_code']; }
     foreach ($axes as $a) {
-        $v = $plan[SPEC_AXIS_COLUMNS[$a['axis_key']]] ?? null;
+        $col = SPEC_AXIS_COLUMNS[$a['axis_key']] ?? null;   // skip(저장 안 하는 숫자 자리)는 칸 없음
+        $v   = $col !== null ? ($plan[$col] ?? null) : null;
         if ($v !== null) { $out[] = spec_axis_title($a) . ' ' . spec_axis_display((float) $v, $a['unit']); }
     }
     if ($plan['spec_option'] !== null) { $out[] = '옵션 ' . $plan['spec_option']; }
@@ -94,7 +95,7 @@ foreach ($axesOf as $cid => $axes) {
     if ($n === 0) { continue; }
     foreach ($tot as $t => $_) { $tot[$t] += count($k[$t] ?? []); }
     tdb_line();
-    tdb_line(sprintf('[%d] %s — 이름표: %s', $cid, $names[$cid] ?? '?', implode(' × ', array_map('spec_axis_title', $axes))));
+    tdb_line(sprintf('[%d] %s — 이름표: %s', $cid, $names[$cid] ?? '?', implode(' × ', array_map('spec_axis_title', array_filter($axes, static fn($a) => $a['axis_key'] !== SPEC_AXIS_SKIP)))));
     tdb_line(sprintf('    상품 %d: 채움 %d · 그대로 %d · 수동값 유지 %d · 못 읽음 %d',
         $n, count($k['fill'] ?? []), count($k['same'] ?? []), count($k['manual'] ?? []), count($k['fail'] ?? [])));
     foreach (array_slice($k['fill'] ?? [], 0, 3) as $r) {

@@ -706,8 +706,40 @@ eq('축 키 → 칸: 내경·외경·하부폭·뒷폭·상부폭·깊이', [SPE
     ['dim_d_i', 'dim_d_o', 'dim_w_b', 'dim_w_r', 'dim_w_t', 'dim_depth']);
 eq('URL 입력: 새 축 키(ax_d_i·ax_w_b·ax_depth)', spec_axes_filter_input(['ax_d_i' => ['150'], 'ax_w_b' => ['170'], 'ax_depth' => ['400'], 'ax_d' => ['1']])['ax'], ['d_i' => ['150'], 'w_b' => ['170'], 'depth' => ['400']]);
 
+
+// 표기 모양이 다른 카테고리(사용자 결정 2026-11-06) — parse_fmt·fixed_value·skip
+$AXF = static fn(string $fmt, array $defs): array => array_map(static fn($r) => $r + ['parse_fmt' => $fmt], $AX($defs));
+$axRing = $AXF('paren', [['d_i', '내경', 'D'], ['l', '길이', 'L', 'm'], ['d_o', '외경', 'D'], ['depth', '깊이', 'D'], ['skip', '', ''], ['t', '두께', 'T']]);
+eq('paren 원형사각수로관 D200*2M (320*360*2000*60T)_곡선_타공 → 내경·길이(m)·외경·깊이·두께, 괄호 안 길이는 skip', spec_axes_parse('D200*2M (320*360*2000*60T)_곡선_타공', $axRing),
+    ['spec_code' => null, 'dims' => ['d_i' => 200.0, 'l' => 2000.0, 'd_o' => 320.0, 'depth' => 360.0, 't' => 60.0], 'option' => '곡선_타공']);
+eq('paren 0.5M → 길이 500', spec_axes_parse('D300*0.5M (460*470*500*80T)', $axRing)['dims']['l'] ?? null, 500.0);
+eq('paren 앞 글자는 옵션: 빗물받이용 (400*500*80T_유공) → 옵션 빗물받이용_유공(화면 빗물받이용/유공)', spec_axes_parse('빗물받이용 (400*500*80T_유공)', $AXF('paren', [['d_o', '외경', 'D'], ['l', '길이', 'L'], ['t', '두께', 'T']])),
+    ['spec_code' => null, 'dims' => ['d_o' => 400.0, 'l' => 500.0, 't' => 80.0], 'option' => '빗물받이용_유공']);
+eq('paren 숫자로 시작하는 글자(300측구용)도 옵션', spec_axes_parse('300측구용 (395*500*50T_무공)', $AXF('paren', [['d_o', '외경', 'D'], ['l', '길이', 'L'], ['t', '두께', 'T']]))['option'] ?? null, '300측구용_무공');
+eq('paren 그리드 6T (2m*50m 1롤) → 인장강도 6(t/m 그대로)·폭 2m·길이 50m, 1롤은 버림', spec_axes_parse('6T (2m*50m 1롤)', $AXF('paren', [['ts', '인장강도', '', 't/m'], ['w', '폭', 'W', 'm'], ['l', '길이', 'L', 'm']])),
+    ['spec_code' => null, 'dims' => ['ts' => 6.0, 'w' => 2000.0, 'l' => 50000.0], 'option' => null]);
+eq('paren 원심력사각수로관 D250 (340*330*2500*40T)', spec_axes_parse('D250 (340*330*2500*40T)', $AXF('paren', [['d_i', '내경', 'D'], ['d_o', '외경', 'D'], ['h', '높이', 'H'], ['l', '길이', 'L'], ['t', '두께', 'T']]))['dims'] ?? null,
+    ['d_i' => 250.0, 'd_o' => 340.0, 'h' => 330.0, 'l' => 2500.0, 't' => 40.0]);
+eq('lead_code 디자인블록 K3MB_120*120*120 → 모델 코드 K3MB', spec_axes_parse('K3MB_120*120*120', $AXF('lead_code', [['w', '가로', 'W'], ['l', '세로', 'L'], ['depth', '깊이', 'D']])),
+    ['spec_code' => 'K3MB', 'dims' => ['w' => 120.0, 'l' => 120.0, 'depth' => 120.0], 'option' => null]);
+$axMesh = $AXF('mesh', [['w', '가로', 'W'], ['l', '세로', 'L'], ['mesh', '망 간격', 'M'], ['wire_no', '철선 번호', '', 'no'], ['wire_d', '철선 직경', 'D']]);
+eq('mesh 와이어메쉬 1800*1800_150각_#8(Ø3.5)BS', spec_axes_parse('1800*1800_150각_#8(Ø3.5)BS', $axMesh),
+    ['spec_code' => 'BS', 'dims' => ['w' => 1800.0, 'l' => 1800.0, 'mesh' => 150.0, 'wire_no' => 8.0, 'wire_d' => 3.5], 'option' => null]);
+$axSlash = $AXF('slash', [['w', '폭', 'W'], ['h_high', '상단 높이', 'H'], ['h_low', '하단 높이', 'H'], ['l', '길이', 'L']]);
+$axSlash[3]['fixed_value'] = 1000;
+eq('slash 화강경계경사 150*200/100_곡선_#377 → 폭·상단/하단 높이·길이 1000(고정)·모델 코드 #377', spec_axes_parse('150*200/100_곡선_#377', $axSlash),
+    ['spec_code' => '#377', 'dims' => ['w' => 150.0, 'h_high' => 200.0, 'h_low' => 100.0, 'l' => 1000.0], 'option' => '곡선']);
+$pk = spec_axes_parse('150*200/100(국산)_곡선', $axSlash);
+eq('slash (국산)_곡선 → 코드 없음, 옵션 표시 국산/곡선', [is_array($pk) && array_key_exists('spec_code', $pk) ? $pk['spec_code'] : 'x', spec_option_display((string) ($pk['option'] ?? ''))], [null, '국산/곡선']);
+ok('형식이 안 맞으면 null(lead_code 에 코드 없음, mesh 에 각 없음)', spec_axes_parse('390*120*120', $AXF('lead_code', [['w', '가로'], ['l', '세로'], ['depth', '깊이']])) === null
+    && spec_axes_parse('1800*1800_150_#8(Ø3.5)BS', $axMesh) === null);
+eq('표시: 철선 번호 #8, 인장강도 단위 (t/m), 번호는 단위 없음', [spec_axis_display(8.0, 'no'), spec_axis_unit_label(['unit' => 't/m']), spec_axis_unit_label(['unit' => 'no'])], ['#8', '(t/m)', '']);
+eq('모델 코드 필터 방식: 끝 글자(default) / 코드 전체(lead_code·mesh·slash)', [spec_axes_code_key($axFlume), spec_axes_code_key($axMesh), spec_axes_code_key($axRing)], ['type', 'code', 'type']);
+eq('URL 입력: 모델 코드 전체 ax_code(K2·#377), 이상한 값 버림', spec_axes_filter_input(['ax_code' => ['K2', '#377', 'a b', str_repeat('x', 31)]])['ax_code'], ['K2', '#377']);
+eq('옵션 표시: 통째 괄호 조각은 괄호 뗌, 글자에 붙은 괄호는 그대로', [spec_option_display('(B)'), spec_option_display('(SA)_곡선'), spec_option_display('(고강도콘크리트_점형_KS)'), spec_option_display('(7*4)_국산'), spec_option_display('컬러(보도)'), spec_option_display('0RS(유공)')],
+    ['B', 'SA/곡선', '고강도콘크리트/점형/KS', '7*4/국산', '컬러(보도)', '0RS(유공)']);
 eq('URL 입력 정리(ax_w·ax_type, 잘못된 값 버림)', spec_axes_filter_input(['ax_w' => ['900', '900.0', 'abc', '1.6'], 'ax_type' => ['b', 'BB', 'C'], 'ax_x' => ['1']]),
-    ['ax' => ['w' => ['900', '1.6']], 'ax_type' => ['B', 'C']]);
+    ['ax' => ['w' => ['900', '1.6']], 'ax_type' => ['B', 'C'], 'ax_code' => []]);
 
 $axFacet = ['defs' => $AX([['w', '폭', 'W'], ['l', '길이', 'L']]), 'all' => ['w' => ['200', '300'], 'l' => ['2000']],
             'vals' => ['w' => ['200' => 1, '300' => 0], 'l' => ['2000' => 1]], 'type_all' => ['B', 'C'], 'type' => ['B' => 1, 'C' => 1]];

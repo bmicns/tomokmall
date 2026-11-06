@@ -11,7 +11,7 @@ $query      = trim((string) ($_GET['q'] ?? ''));
 $search     = trim((string) ($_GET['s'] ?? ''));
 
 // 목록 필터 · 정렬
-$axIn    = spec_axes_filter_input($_GET);   // 규격 축 필터(ax_w[]=900 …, ax_type[]=B) — app/spec_axes.php
+$axIn    = spec_axes_filter_input($_GET);   // 규격 축 필터(ax_w[]=900 …, ax_type[]=B, ax_code[]=K2) — app/spec_axes.php
 $filters = [
     'mat'   => array_values(array_filter(array_map('intval', (array) ($_GET['mat'] ?? [])))),
     'spec'  => array_values(array_filter(array_map('strval', (array) ($_GET['spec'] ?? [])))),
@@ -21,6 +21,7 @@ $filters = [
     'instock' => isset($_GET['instock']) && $_GET['instock'] === '1',
     'ax'      => $axIn['ax'],
     'ax_type' => $axIn['ax_type'],
+    'ax_code' => $axIn['ax_code'],
 ];
 $inStock    = $filters['instock'];
 $sort       = (string) ($_GET['sort'] ?? '');
@@ -336,6 +337,7 @@ render_header($pageTitle);
             }
         }
         foreach ($filters['ax_type'] as $v) { $chips[] = ['모델 코드', $v . '형', product_list_url($_GET, ['ax_type' => array_values(array_diff($filters['ax_type'], [$v]))])]; }
+        foreach ($filters['ax_code'] as $v) { $chips[] = ['모델 코드', $v, product_list_url($_GET, ['ax_code' => array_values(array_diff($filters['ax_code'], [$v]))])]; }
         if ($inStock)                     { $chips[] = ['재고', '있는 상품만', product_list_url($_GET, ['instock' => null])]; }
     }
     ?>
@@ -531,7 +533,7 @@ render_header($pageTitle);
                         <td class="pt-col-vendor"><?php $vn = render_vendor_names($p['vendor_names'] ?? null); echo $vn !== '' ? $vn : '<span class="pt-vendor-none">-</span>'; ?></td>
                         <?php if ($hasUnit):    ?><td class="pt-col-unit"><?= e($sp['unit']) ?></td><?php endif; ?>
                         <?php if ($axisMode && $axisFresh[$i]): ?>
-                            <?php if ($axisHasCode): $tc = spec_code_type(isset($p['spec_code']) ? (string) $p['spec_code'] : null); ?><td class="pt-col-ax pt-col-axcode<?= ($tc !== null && in_array($tc, $filters['ax_type'], true)) ? ' is-hit' : '' ?>" data-label="모델 코드"><?= e((string) ($p['spec_code'] ?? '')) ?></td><?php endif; ?>
+                            <?php if ($axisHasCode): $tc = spec_code_type(isset($p['spec_code']) ? (string) $p['spec_code'] : null); $hitCode = ($tc !== null && in_array($tc, $filters['ax_type'], true)) || in_array((string) ($p['spec_code'] ?? ''), $filters['ax_code'], true); ?><td class="pt-col-ax pt-col-axcode<?= $hitCode ? ' is-hit' : '' ?>" data-label="모델 코드"><?= e((string) ($p['spec_code'] ?? '')) ?></td><?php endif; ?>
                             <?php foreach ($axisCols as $a): $ak = $a['axis_key']; $av = spec_axes_row_value($p, $ak); ?><td class="pt-col-ax<?= ($av !== null && in_array($av, $filters['ax'][$ak] ?? [], true)) ? ' is-hit' : '' ?>" data-label="<?= e(spec_axis_title($a)) ?>"><?= $av !== null ? e(spec_axis_display((float) $av, $a['unit'])) : '' ?></td><?php endforeach; ?>
                             <?php if ($axisHasOpt): ?><td class="pt-col-ax pt-col-axopt" data-label="옵션"><?= e(spec_option_display((string) ($p['spec_option'] ?? ''))) ?></td><?php endif; ?>
                         <?php elseif ($axisMode): ?><td class="pt-col-spec" colspan="<?= $axisSpan ?>"><?= $hlTerms ? highlight_terms($sp['spec'], $hlTerms) : e($sp['spec']) ?></td>

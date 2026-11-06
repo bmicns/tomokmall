@@ -487,7 +487,7 @@ function spec_variant_count(array $specs): int
  *        'axes'=>[] 또는 축 모드 정보(아래)]
  *   축 모드: 결과의 카테고리가 모두 같은 규격 이름표(category_spec_axes)를 쓸 때만.
  *     'axes' => ['defs'=>이름표 목록, 'vals'=>[축키=>[값=>cnt]], 'all'=>[축키=>[값…]](필터 무관 전체 값),
- *                'type'=>[끝자리=>cnt], 'type_all'=>[끝자리…],
+ *                'type'=>[모델 코드 값=>cnt], 'type_all'=>[값…], 'code_key'=>'type'(끝 글자 B·C)|'code'(코드 전체 K2·BS),
  *                'combos'=>['keys'=>[축키…], 'rows'=>[[값…, 재고1/0]…]] 또는 null(축 외 적용 필터만 반영한 값 조합)]
  *                — 개수는 다른 필터와 같은 '자기 축 제외' 기준
  */
@@ -540,13 +540,16 @@ function product_facets(?int $categoryId, ?string $query, array $active = []): a
 
     // 규격 축(spec_code·dim_*): 결과 카테고리가 모두 같은 이름표일 때만 축 모드(섞이면 기존 규격 원문 필터).
     // 선택된 축 값은 모드와 관계없이 SQL(spec_axes_filter_sql)과 같은 기준으로 개수에 반영한다.
-    $axDefs = spec_axes_ready() ? spec_axes_common(array_map('intval', array_column($rows, 'category_id'))) : [];
-    $axKeys = array_column($axDefs, 'axis_key');
-    if ($axDefs) { $axKeys[] = SPEC_AXIS_TYPE; }
+    $axFull  = spec_axes_ready() ? spec_axes_common(array_map('intval', array_column($rows, 'category_id'))) : [];
+    $codeKey = $axFull ? spec_axes_code_key($axFull) : SPEC_AXIS_TYPE;   // 모델 코드 필터: 끝 글자(B·C) 또는 코드 전체(K2·BS·#377)
+    $axDefs  = array_values(array_filter($axFull, static fn($a) => $a['axis_key'] !== SPEC_AXIS_SKIP));   // skip(저장 안 하는 숫자 자리)은 화면에 없음
+    $axKeys  = array_column($axDefs, 'axis_key');
+    if ($axDefs) { $axKeys[] = $codeKey; }
     $selAx = [];
     if (spec_axes_ready()) {   // 새 칸이 없으면 SQL 도 축 조건을 무시하므로 개수에도 넣지 않는다
         foreach ((array) ($active['ax'] ?? []) as $k => $vals) { if ($vals) { $selAx[(string) $k] = array_map('strval', (array) $vals); } }
         if (!empty($active['ax_type'])) { $selAx[SPEC_AXIS_TYPE] = array_map('strval', (array) $active['ax_type']); }
+        if (!empty($active['ax_code'])) { $selAx[SPEC_AXIS_CODE] = array_map('strval', (array) $active['ax_code']); }
     }
     $axCnt = array_fill_keys($axKeys, []);   // 축 => [값 => 개수] (자기 축 제외 기준)
     $axAll = array_fill_keys($axKeys, []);   // 축 => [값 => true] (필터·재고 무관 전체 — 값이 하나뿐인 축 판단용)
@@ -611,10 +614,10 @@ function product_facets(?int $categoryId, ?string $query, array $active = []): a
             $vals[$k] = [];
             foreach ($all[$k] as $v) { $vals[$k][$v] = (int) ($axCnt[$k][$v] ?? 0); }
         }
-        $typeAll = $keysOf($axAll[SPEC_AXIS_TYPE], null);
+        $typeAll = $keysOf($axAll[$codeKey], $codeKey === SPEC_AXIS_CODE ? 'strnatcmp' : null);
         $typeCnt = [];
-        foreach ($typeAll as $v) { $typeCnt[$v] = (int) ($axCnt[SPEC_AXIS_TYPE][$v] ?? 0); }
-        $axes = ['defs' => $axDefs, 'vals' => $vals, 'all' => $all, 'type' => $typeCnt, 'type_all' => $typeAll,
+        foreach ($typeAll as $v) { $typeCnt[$v] = (int) ($axCnt[$codeKey][$v] ?? 0); }
+        $axes = ['defs' => $axDefs, 'vals' => $vals, 'all' => $all, 'type' => $typeCnt, 'type_all' => $typeAll, 'code_key' => $codeKey,
                  // 'keys' 순서의 축 값 + 마지막 칸 재고(1/0). 너무 많으면 생략(화면은 '필터 적용' 후 서버 계산만 사용)
                  'combos' => count($combos) <= 3000 ? ['keys' => $axKeys, 'rows' => array_values($combos)] : null];
     }
@@ -632,7 +635,7 @@ function product_facets(?int $categoryId, ?string $query, array $active = []): a
 /**
  * 목록 필터 → SQL 조각(AND ...) + 바인딩 파라미터(참조).
  * 지원: mat(재질=루트), spec[](규격 선택), shape[](형상/옵션 상품명), load[](하중 상품명),
- *       instock(재고 있는 상품만: stock_qty > 0), ax[축]=[값](규격 축 dim_*), ax_type[](규격 코드 끝 글자).
+ *       instock(재고 있는 상품만: stock_qty > 0), ax[축]=[값](규격 축 dim_*), ax_type[](규격 코드 끝 글자), ax_code[](규격 코드 전체).
  * 상품 테이블 별칭은 p. 로 가정.
  */
 function product_filter_sql(array $f, array &$params): string

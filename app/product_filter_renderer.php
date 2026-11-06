@@ -74,7 +74,7 @@ function product_filters_visible(array $facets, array $active): array
 
 /**
  * 규격 축 파세트 → 필터 그룹 목록. 그룹: ['field'=>GET 이름, 'title'(이름), 'sub'(약자), 'unit'('(mm)'), 'opts'=>[{val,label,cnt,checked,disabled}]]
- *  - 모델 코드(규격 코드 끝 글자 B·C)는 코드가 있을 때만, 이어서 이름표 seq 순(use_filter=0 축 제외)
+ *  - 모델 코드는 코드가 있을 때만: 끝 글자(B·C → B형) 또는 코드 전체(K2·BS·#377 — 읽는 형식 lead_code·mesh·slash). 이어서 이름표 seq 순(use_filter=0 축 제외)
  *  - 결과 전체에 값이 하나뿐인 축: 선택된 채 고정(누를 수 없음, 제출 안 됨 — 좁힐 게 없다는 표시)
  *  - 다른 선택 때문에 0건이 되는 값: 누를 수 없게(이미 선택한 값은 해제 가능)
  */
@@ -96,8 +96,14 @@ function product_filter_axis_groups(array $axes, array $active): array
     $groups = [];
     // 아트보드 '규격 개선안' 기준: 그룹 이름(한글) 옆에 작은 약자, 더 작은 단위 — 폭 W(mm). 모델 코드는 '끝자리 표기'
     if (!empty($axes['type_all'])) {
-        $groups[] = $mk('ax_' . SPEC_AXIS_TYPE, '모델 코드', '끝자리 표기', '', $axes['type_all'], $axes['type'] ?? [],
-            (array) ($active['ax_type'] ?? []), static fn(string $v): string => $v . '형');
+        if (($axes['code_key'] ?? SPEC_AXIS_TYPE) === SPEC_AXIS_CODE) {
+            // 코드 전체(디자인블록 K2·와이어메쉬 BS·화강경계경사 #377): 값 그대로
+            $groups[] = $mk('ax_' . SPEC_AXIS_CODE, '모델 코드', '', '', $axes['type_all'], $axes['type'] ?? [],
+                (array) ($active['ax_code'] ?? []), static fn(string $v): string => $v);
+        } else {
+            $groups[] = $mk('ax_' . SPEC_AXIS_TYPE, '모델 코드', '끝자리 표기', '', $axes['type_all'], $axes['type'] ?? [],
+                (array) ($active['ax_type'] ?? []), static fn(string $v): string => $v . '형');
+        }
     }
     foreach ($axes['defs'] as $a) {
         $k = (string) $a['axis_key'];
@@ -130,7 +136,7 @@ function product_list_url(array $get, array $set = []): string
 function product_filters_applied_count(array $a, bool $inStock = false): int
 {
     $n = 0;
-    foreach (['mat', 'spec', 'shape', 'load', 'ax_type'] as $k) { $n += count((array) ($a[$k] ?? [])); }
+    foreach (['mat', 'spec', 'shape', 'load', 'ax_type', 'ax_code'] as $k) { $n += count((array) ($a[$k] ?? [])); }
     foreach ((array) ($a['ax'] ?? []) as $vals) { $n += count((array) $vals); }
     return $n + ($inStock ? 1 : 0);
 }

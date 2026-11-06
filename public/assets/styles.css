@@ -1401,8 +1401,9 @@ a.pt-name-text:hover { color: var(--color-primary); }
 .product-table thead tr + tr th { border-top: 0; }
 .product-table tr.pt-head-ax th { padding: 8px 6px; font-size: 12px; font-weight: 400; color: #6B6B6B; }
 .product-table th.pt-col-specgrp { padding: 6px 8px; }
-.pt-col-ax      { width: 64px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.pt-col-axopt   { width: auto; min-width: 80px; white-space: normal; text-align: left; }
+.pt-col-ax      { width: 76px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* 옵션 칸: 남는 폭을 혼자 다 가져가 치수 칸이 좁아 보이지 않게 폭을 정해 둠(긴 옵션은 줄바꿈) — 사용자 요청 2026-11-06 */
+.pt-col-axopt   { width: 120px; min-width: 80px; white-space: normal; text-align: left; word-break: keep-all; }
 .product-table td.pt-col-ax.is-hit { color: var(--color-primary); font-weight: 700; }
 @media (max-width: 640px) {
   /* 카드형: 축 칸을 '이름 값'으로 이어서 표시(값 없는 칸은 숨김) */
