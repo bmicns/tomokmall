@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS category_spec_axes (
     axis_key    ENUM('d','w','h','l','t','t2','none') NOT NULL         COMMENT '값을 담을 products 칸(dim_d … dim_t2). none = 숫자 읽지 않음',
     label       VARCHAR(20) NULL                                       COMMENT '화면 이름(예: 폭, 내경, 상하두께)',
     symbol      VARCHAR(4)  NULL                                       COMMENT '약자(예: W, D) — 없으면 이름만 표시',
+    show_symbol TINYINT(1) NOT NULL DEFAULT 1                          COMMENT '화면에 약자 표시(0이면 이름만 — 예: 개거 상하두께·벽체두께)',
     unit        ENUM('mm','m') NOT NULL DEFAULT 'mm'                   COMMENT '규격 원문·화면의 단위(저장은 항상 mm)',
     use_filter  TINYINT(1) NOT NULL DEFAULT 1                          COMMENT '좌측 필터에 보일지(0이면 표에만)',
     is_active   TINYINT(1) NOT NULL DEFAULT 1,
@@ -62,36 +63,35 @@ CREATE TABLE IF NOT EXISTS category_spec_axes (
 
 -- [4] 확인된 카테고리 이름표(사용자 확인 2026-11-05~06) --------------------------------
 --   24 수로관(벤치3종)  '900*800*2000*85T (900B)'  폭 W × 높이 H × 길이 L × 두께 T (+ 규격 코드)
---   21 개거             '4.0*1.0*2.0_280T*260T'    폭 W × 높이 H × 길이 L _ 상하두께 × 벽체두께 (내경 기준, 폭·높이·길이는 m 표기)
---   59 사각맨홀(집수정) '300*400*600*150T'         가로 W × 세로 × 높이 H × 두께 T
+--   21 개거             '4.0*1.0*2.0_280T*260T'    폭 W × 높이 H × 길이 L (m) _ 상하두께 × 벽체두께 (mm, 약자 T — 화면엔 이름만)
+--   59 사각맨홀(집수정) '300*400*600*150T'         가로 W × 세로 H × 높이 H × 두께 T
 --   61 원형맨홀         'D900*1200*200T'           내경 D × 높이 H × 두께 T
--- 이름이 확인되지 않은 약자(세로·상하두께·벽체두께)는 비워 둔다(이름만 표시).
 -- id 와 이름이 모두 맞는 카테고리에만, 이름표가 아직 없을 때만 넣는다(다시 실행해도 중복 없음).
-INSERT INTO category_spec_axes (category_id, seq, axis_key, label, symbol, unit)
-SELECT c.id, v.seq, v.axis_key, v.label, v.symbol, v.unit
+INSERT INTO category_spec_axes (category_id, seq, axis_key, label, symbol, show_symbol, unit)
+SELECT c.id, v.seq, v.axis_key, v.label, v.symbol, v.show_symbol, v.unit
 FROM (
-              SELECT 24 AS cid, '수로관(벤치3종)' AS cname, 1 AS seq, 'w' AS axis_key, '폭' AS label, 'W' AS symbol, 'mm' AS unit
-    UNION ALL SELECT 24, '수로관(벤치3종)',   2, 'h',  '높이',     'H',  'mm'
-    UNION ALL SELECT 24, '수로관(벤치3종)',   3, 'l',  '길이',     'L',  'mm'
-    UNION ALL SELECT 24, '수로관(벤치3종)',   4, 't',  '두께',     'T',  'mm'
-    UNION ALL SELECT 21, '개거',              1, 'w',  '폭',       'W',  'm'
-    UNION ALL SELECT 21, '개거',              2, 'h',  '높이',     'H',  'm'
-    UNION ALL SELECT 21, '개거',              3, 'l',  '길이',     'L',  'm'
-    UNION ALL SELECT 21, '개거',              4, 't',  '상하두께', NULL, 'mm'
-    UNION ALL SELECT 21, '개거',              5, 't2', '벽체두께', NULL, 'mm'
-    UNION ALL SELECT 59, '사각맨홀(집수정)',  1, 'w',  '가로',     'W',  'mm'
-    UNION ALL SELECT 59, '사각맨홀(집수정)',  2, 'l',  '세로',     NULL, 'mm'
-    UNION ALL SELECT 59, '사각맨홀(집수정)',  3, 'h',  '높이',     'H',  'mm'
-    UNION ALL SELECT 59, '사각맨홀(집수정)',  4, 't',  '두께',     'T',  'mm'
-    UNION ALL SELECT 61, '원형맨홀',          1, 'd',  '내경',     'D',  'mm'
-    UNION ALL SELECT 61, '원형맨홀',          2, 'h',  '높이',     'H',  'mm'
-    UNION ALL SELECT 61, '원형맨홀',          3, 't',  '두께',     'T',  'mm'
+              SELECT 24 AS cid, '수로관(벤치3종)' AS cname, 1 AS seq, 'w' AS axis_key, '폭' AS label, 'W' AS symbol, 1 AS show_symbol, 'mm' AS unit
+    UNION ALL SELECT 24, '수로관(벤치3종)',   2, 'h',  '높이',     'H', 1, 'mm'
+    UNION ALL SELECT 24, '수로관(벤치3종)',   3, 'l',  '길이',     'L', 1, 'mm'
+    UNION ALL SELECT 24, '수로관(벤치3종)',   4, 't',  '두께',     'T', 1, 'mm'
+    UNION ALL SELECT 21, '개거',              1, 'w',  '폭',       'W', 1, 'm'
+    UNION ALL SELECT 21, '개거',              2, 'h',  '높이',     'H', 1, 'm'
+    UNION ALL SELECT 21, '개거',              3, 'l',  '길이',     'L', 1, 'm'
+    UNION ALL SELECT 21, '개거',              4, 't',  '상하두께', 'T', 0, 'mm'
+    UNION ALL SELECT 21, '개거',              5, 't2', '벽체두께', 'T', 0, 'mm'
+    UNION ALL SELECT 59, '사각맨홀(집수정)',  1, 'w',  '가로',     'W', 1, 'mm'
+    UNION ALL SELECT 59, '사각맨홀(집수정)',  2, 'l',  '세로',     'H', 1, 'mm'
+    UNION ALL SELECT 59, '사각맨홀(집수정)',  3, 'h',  '높이',     'H', 1, 'mm'
+    UNION ALL SELECT 59, '사각맨홀(집수정)',  4, 't',  '두께',     'T', 1, 'mm'
+    UNION ALL SELECT 61, '원형맨홀',          1, 'd',  '내경',     'D', 1, 'mm'
+    UNION ALL SELECT 61, '원형맨홀',          2, 'h',  '높이',     'H', 1, 'mm'
+    UNION ALL SELECT 61, '원형맨홀',          3, 't',  '두께',     'T', 1, 'mm'
 ) v
 JOIN categories c ON c.id = v.cid AND c.name = v.cname
 WHERE NOT EXISTS (SELECT 1 FROM category_spec_axes x WHERE x.category_id = c.id);
 
 -- [5] 확인(읽기 전용) ----------------------------------------------------------
--- SELECT category_id, seq, axis_key, label, symbol, unit FROM category_spec_axes ORDER BY category_id, seq;   -- 16행
+-- SELECT category_id, seq, axis_key, label, symbol, show_symbol, unit FROM category_spec_axes ORDER BY category_id, seq;   -- 16행
 -- SHOW COLUMNS FROM products LIKE 'dim\_%';                                                                     -- 6행
 -- SELECT COUNT(*) FROM products WHERE spec_dims_src IS NOT NULL;                                                -- 채우기 전 0
 

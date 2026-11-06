@@ -487,7 +487,8 @@ function spec_variant_count(array $specs): int
  *        'axes'=>[] 또는 축 모드 정보(아래)]
  *   축 모드: 결과의 카테고리가 모두 같은 규격 이름표(category_spec_axes)를 쓸 때만.
  *     'axes' => ['defs'=>이름표 목록, 'vals'=>[축키=>[값=>cnt]], 'all'=>[축키=>[값…]](필터 무관 전체 값),
- *                'type'=>[형식=>cnt], 'type_all'=>[형식…]]  — 개수는 다른 필터와 같은 '자기 축 제외' 기준
+ *                'type'=>[형식=>cnt], 'type_all'=>[형식…], 'variants'=>규격 원문 종류 수]
+ *                — 개수는 다른 필터와 같은 '자기 축 제외' 기준
  */
 function product_facets(?int $categoryId, ?string $query, array $active = []): array
 {
@@ -549,12 +550,14 @@ function product_facets(?int $categoryId, ?string $query, array $active = []): a
     $axCnt = array_fill_keys($axKeys, []);   // 축 => [값 => 개수] (자기 축 제외 기준)
     $axAll = array_fill_keys($axKeys, []);   // 축 => [값 => true] (필터·재고 무관 전체 — 값이 하나뿐인 축 판단용)
     $axUse = array_values(array_unique(array_merge($axKeys, array_keys($selAx))));
+    $specAll = [];                           // 규격 원문 종류(목록 상단 '규격 N종' — 필터·재고 무관)
 
     $matched = 0;
     foreach ($rows as $p) {
         $axv = [];
         foreach ($axUse as $k) { $axv[$k] = spec_axes_row_value($p, $k); }
         foreach ($axKeys as $k) { if ($axv[$k] !== null) { $axAll[$k][$axv[$k]] = true; } }
+        if ($axDefs) { $sva = parse_spec_field((string) ($p['spec'] ?? ''))['spec']; if ($sva !== '') { $specAll[$sva] = true; } }
 
         if ($inStockOnly && (int) ($p['stock_qty'] ?? 0) <= 0) { continue; }
         $name = (string) ($p['name'] ?? '');
@@ -603,7 +606,7 @@ function product_facets(?int $categoryId, ?string $query, array $active = []): a
         $typeAll = $keysOf($axAll[SPEC_AXIS_TYPE], null);
         $typeCnt = [];
         foreach ($typeAll as $v) { $typeCnt[$v] = (int) ($axCnt[SPEC_AXIS_TYPE][$v] ?? 0); }
-        $axes = ['defs' => $axDefs, 'vals' => $vals, 'all' => $all, 'type' => $typeCnt, 'type_all' => $typeAll];
+        $axes = ['defs' => $axDefs, 'vals' => $vals, 'all' => $all, 'type' => $typeCnt, 'type_all' => $typeAll, 'variants' => count($specAll)];
     }
 
     return [

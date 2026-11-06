@@ -94,15 +94,16 @@ function product_filter_axis_groups(array $axes, array $active): array
         return ['field' => $field, 'title' => $title, 'sub' => $sub, 'fixed' => $fixed, 'opts' => $opts];
     };
     $groups = [];
+    // 그룹 이름은 한글 이름, 옆 작은 글씨는 '약자 · 단위'(아트보드 '규격 개선안' 기준: 폭  W · mm)
     if (!empty($axes['type_all'])) {
-        $groups[] = $mk('ax_' . SPEC_AXIS_TYPE, '형식', '규격 코드 끝 글자', $axes['type_all'], $axes['type'] ?? [],
+        $groups[] = $mk('ax_' . SPEC_AXIS_TYPE, '형식', '규격 코드 끝자리', $axes['type_all'], $axes['type'] ?? [],
             (array) ($active['ax_type'] ?? []), static fn(string $v): string => $v . '형');
     }
     foreach ($axes['defs'] as $a) {
         $k = (string) $a['axis_key'];
         if (empty($a['use_filter']) || empty($axes['all'][$k])) { continue; }
         $unit = (string) $a['unit'];
-        $groups[] = $mk('ax_' . $k, spec_axis_title($a), $unit, $axes['all'][$k], $axes['vals'][$k] ?? [],
+        $groups[] = $mk('ax_' . $k, (string) $a['label'], spec_axis_filter_sub($a), $axes['all'][$k], $axes['vals'][$k] ?? [],
             (array) ($active['ax'][$k] ?? []), static fn(string $v): string => spec_axis_display((float) $v, $unit));
     }
     return $groups;

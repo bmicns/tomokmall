@@ -99,11 +99,52 @@ function spec_axis_display(float $mm, string $unit): string
     return number_format($mm, abs($mm - round($mm)) < 1e-9 ? 0 : 1);
 }
 
-/** 이름표 → 화면 이름('폭 W', '세로') */
+/** 화면에 보일 약자('W') — 약자가 없거나 show_symbol=0 이면 '' */
+function spec_axis_symbol(array $axis): string
+{
+    $show = $axis['show_symbol'] ?? true;
+    return ($show === false || $show === 0 || $show === '0') ? '' : trim((string) ($axis['symbol'] ?? ''));
+}
+
+/** 이름표 → 표 머리글·카드 이름('폭 W', '상하두께') */
 function spec_axis_title(array $axis): string
 {
-    $sym = trim((string) ($axis['symbol'] ?? ''));
+    $sym = spec_axis_symbol($axis);
     return trim((string) ($axis['label'] ?? '')) . ($sym !== '' ? ' ' . $sym : '');
+}
+
+/** 필터 그룹 이름 옆 작은 글씨('W · mm', 약자를 안 보이면 'mm') */
+function spec_axis_filter_sub(array $axis): string
+{
+    $sym = spec_axis_symbol($axis);
+    return ($sym !== '' ? $sym . ' · ' : '') . (($axis['unit'] ?? 'mm') === 'm' ? 'm' : 'mm');
+}
+
+/**
+ * 목록 상단 규격 요약(아트보드 '규격 개선안' 기준): [['k'=>이름, 'v'=>값]…] + 단위 안내.
+ *  규격 N종 → 형식(코드 끝 글자) → 값이 여러 개인 축(최소–최대) → 값이 하나뿐인 축('X 공통').
+ *  모든 축이 mm 면 끝에 '(단위 mm)', 단위가 섞이면 값마다 단위를 붙인다.
+ *
+ * @param array $axes product_facets()['axes'] (defs·all·type_all·variants)
+ * @return array{pills: list<array{k:string, v:string}>, note: string}
+ */
+function spec_axes_summary(array $axes): array
+{
+    if (empty($axes['defs'])) { return ['pills' => [], 'note' => '']; }
+    $mixed = count(array_unique(array_column($axes['defs'], 'unit'))) > 1;
+    $pills = [];
+    if (!empty($axes['variants'])) { $pills[] = ['k' => '규격', 'v' => (int) $axes['variants'] . '종']; }
+    if (!empty($axes['type_all'])) { $pills[] = ['k' => '형식', 'v' => implode(' · ', $axes['type_all'])]; }
+    $fixed = [];
+    foreach ($axes['defs'] as $a) {
+        $vals = $axes['all'][$a['axis_key']] ?? [];
+        if (!$vals) { continue; }
+        $unit = $mixed ? ' ' . $a['unit'] : '';
+        $lo   = spec_axis_display((float) $vals[0], $a['unit']);
+        if (count($vals) === 1) { $fixed[] = ['k' => spec_axis_title($a), 'v' => $lo . $unit . ' 공통']; continue; }
+        $pills[] = ['k' => spec_axis_title($a), 'v' => $lo . '–' . spec_axis_display((float) $vals[count($vals) - 1], $a['unit']) . $unit];
+    }
+    return ['pills' => array_merge($pills, $fixed), 'note' => $mixed ? '' : '(단위 mm)'];
 }
 
 /** 규격 코드 → 형식(끝 대문자 1자). '900B' → 'B', 'M1000C' → 'C', 없으면 null */
@@ -196,16 +237,17 @@ function spec_axes_rows(): array
     $map = [];
     if (!spec_axes_ready()) { return $map; }
     try {
-        $rs = db()->query('SELECT category_id, seq, axis_key, label, symbol, unit, use_filter
+        $rs = db()->query('SELECT category_id, seq, axis_key, label, symbol, show_symbol, unit, use_filter
                              FROM category_spec_axes WHERE is_active = 1 ORDER BY category_id, seq');
         foreach ($rs->fetchAll() as $r) {
             $map[(int) $r['category_id']][] = [
-                'seq'        => (int) $r['seq'],
-                'axis_key'   => (string) $r['axis_key'],
-                'label'      => (string) ($r['label'] ?? ''),
-                'symbol'     => (string) ($r['symbol'] ?? ''),
-                'unit'       => $r['unit'] === 'm' ? 'm' : 'mm',
-                'use_filter' => (int) $r['use_filter'] === 1,
+                'seq'         => (int) $r['seq'],
+                'axis_key'    => (string) $r['axis_key'],
+                'label'       => (string) ($r['label'] ?? ''),
+                'symbol'      => (string) ($r['symbol'] ?? ''),
+                'show_symbol' => (int) $r['show_symbol'] === 1,
+                'unit'        => $r['unit'] === 'm' ? 'm' : 'mm',
+                'use_filter'  => (int) $r['use_filter'] === 1,
             ];
         }
     } catch (\Throwable $e) {
@@ -242,7 +284,7 @@ function spec_axes_for_category(int $categoryId): array
 function spec_axes_signature(array $axes): string
 {
     return (string) json_encode(array_map(static fn($a) => [
-        (int) $a['seq'], (string) $a['axis_key'], (string) $a['label'], (string) $a['symbol'], (string) $a['unit'], (bool) $a['use_filter'],
+        (int) $a['seq'], (string) $a['axis_key'], (string) $a['label'], spec_axis_symbol($a), (string) $a['unit'], (bool) $a['use_filter'],
     ], $axes), JSON_UNESCAPED_UNICODE);
 }
 

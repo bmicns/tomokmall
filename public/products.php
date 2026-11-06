@@ -240,6 +240,14 @@ render_header($pageTitle);
             <?php if ($catDesc): ?>
                 <p class="ut-banner-sub"><?= e($catDesc) ?></p>
             <?php endif; ?>
+            <?php // 규격 요약(규격 축 모드일 때만): 규격 N종 · 형식 · 축별 범위 · 공통값 — app/spec_axes.php spec_axes_summary
+            $specSum = spec_axes_summary($facets['axes'] ?? []);
+            if ($specSum['pills']): ?>
+            <ul class="ut-spec-sum" aria-label="규격 요약">
+                <?php foreach ($specSum['pills'] as $sp1): ?><li><span><?= e($sp1['k']) ?></span><b><?= e($sp1['v']) ?></b></li><?php endforeach; ?>
+                <?php if ($specSum['note'] !== ''): ?><li class="ut-spec-note"><?= e($specSum['note']) ?></li><?php endif; ?>
+            </ul>
+            <?php endif; ?>
         </div>
         <?php if ($catImg): ?>
         <img class="ut-banner-side" src="<?= e($catImg) ?>" alt="<?= e($catName) ?>">
@@ -330,7 +338,7 @@ render_header($pageTitle);
         foreach ($filters['ax'] as $k => $vals) {
             $ad = $axDefByKey[$k] ?? null;
             foreach ($vals as $v) {
-                $chips[] = [$ad ? spec_axis_title($ad) : '규격', $ad ? spec_axis_display((float) $v, $ad['unit']) : $v,
+                $chips[] = [$ad ? (string) $ad['label'] : '규격', $ad ? spec_axis_display((float) $v, $ad['unit']) : $v,
                             product_list_url($_GET, ['ax_' . $k => array_values(array_diff($vals, [$v]))])];
             }
         }
@@ -476,8 +484,9 @@ render_header($pageTitle);
                 </tr>
                 <?php if ($axisMode): ?>
                 <tr class="pt-head-ax">
-                    <?php if ($axisHasCode): ?><th class="pt-col-ax">규격 코드</th><?php endif; ?>
-                    <?php foreach ($axisCols as $a): ?><th class="pt-col-ax"><?= e(spec_axis_title($a)) ?><span><?= e($a['unit']) ?></span></th><?php endforeach; ?>
+                    <?php if ($axisHasCode): ?><th class="pt-col-ax">형식</th><?php endif; ?>
+                    <?php // 단위는 mm 가 기본이라 표시하지 않고, m 로 적는 축(예: 개거 폭·높이)만 머리글 아래에 적는다 ?>
+                    <?php foreach ($axisCols as $a): ?><th class="pt-col-ax"><?= e(spec_axis_title($a)) ?><?php if ($a['unit'] !== 'mm'): ?><span><?= e($a['unit']) ?></span><?php endif; ?></th><?php endforeach; ?>
                     <?php if ($axisHasOpt): ?><th class="pt-col-ax pt-col-axopt">옵션</th><?php endif; ?>
                 </tr>
                 <?php endif; ?>
@@ -531,7 +540,7 @@ render_header($pageTitle);
                         <td class="pt-col-vendor"><?php $vn = render_vendor_names($p['vendor_names'] ?? null); echo $vn !== '' ? $vn : '<span class="pt-vendor-none">-</span>'; ?></td>
                         <?php if ($hasUnit):    ?><td class="pt-col-unit"><?= e($sp['unit']) ?></td><?php endif; ?>
                         <?php if ($axisMode && $axisFresh[$i]): ?>
-                            <?php if ($axisHasCode): $tc = spec_code_type(isset($p['spec_code']) ? (string) $p['spec_code'] : null); ?><td class="pt-col-ax pt-col-axcode<?= ($tc !== null && in_array($tc, $filters['ax_type'], true)) ? ' is-hit' : '' ?>" data-label="규격 코드"><?= e((string) ($p['spec_code'] ?? '')) ?></td><?php endif; ?>
+                            <?php if ($axisHasCode): $tc = spec_code_type(isset($p['spec_code']) ? (string) $p['spec_code'] : null); ?><td class="pt-col-ax pt-col-axcode<?= ($tc !== null && in_array($tc, $filters['ax_type'], true)) ? ' is-hit' : '' ?>" data-label="형식"><?= e((string) ($p['spec_code'] ?? '')) ?></td><?php endif; ?>
                             <?php foreach ($axisCols as $a): $ak = $a['axis_key']; $av = spec_axes_row_value($p, $ak); ?><td class="pt-col-ax<?= ($av !== null && in_array($av, $filters['ax'][$ak] ?? [], true)) ? ' is-hit' : '' ?>" data-label="<?= e(spec_axis_title($a)) ?>"><?= $av !== null ? e(spec_axis_display((float) $av, $a['unit'])) : '' ?></td><?php endforeach; ?>
                             <?php if ($axisHasOpt): ?><td class="pt-col-ax pt-col-axopt" data-label="옵션"><?= e((string) ($p['spec_option'] ?? '')) ?></td><?php endif; ?>
                         <?php elseif ($axisMode): ?><td class="pt-col-spec" colspan="<?= $axisSpan ?>"><?= $hlTerms ? highlight_terms($sp['spec'], $hlTerms) : e($sp['spec']) ?></td>
