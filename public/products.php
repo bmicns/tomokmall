@@ -398,7 +398,8 @@ render_header($pageTitle);
 
     // DB 모드: spec 미리 파싱 + 유효 컬럼 파악
     $parsedSpecs = [];
-    $hasUnit = $hasSpec = $hasWeight = $hasLoad = false;
+    // 상차수량(spec '상차수량:')은 목록 표에 표시하지 않음(사용자 결정 2026-11-06 — DB 값은 그대로)
+    $hasUnit = $hasSpec = $hasWeight = false;
     if (!$demoMode) {
         foreach ($products as $i => $p) {
             $sp = parse_spec_field($p['spec'] ?? '');
@@ -407,7 +408,6 @@ render_header($pageTitle);
             if ($sp['unit'])   $hasUnit   = true;
             if ($sp['spec'])   $hasSpec   = true;
             if ($sp['weight']) $hasWeight = true;
-            if ($sp['load'])   $hasLoad   = true;
         }
     }
 
@@ -473,7 +473,6 @@ render_header($pageTitle);
                     <?php if ($isInternal && !$demoMode): ?><th class="pt-col-cost"<?= $axRs ?>>매입가<span>내부용</span></th><?php endif; ?>
                     <th class="pt-col-price"<?= $axRs ?>>판매가<span>부가세별도</span></th>
                     <?php if ($demoMode || $hasWeight):  ?><th class="pt-col-weight"<?= $axRs ?>>중량<span>kg/m²</span></th><?php endif; ?>
-                    <?php if ($demoMode || $hasLoad):    ?><th class="pt-col-load"<?= $axRs ?>>상차수량<span>본/25톤</span></th><?php endif; ?>
                 </tr>
                 <?php if ($axisMode): ?>
                 <tr class="pt-head-ax">
@@ -514,7 +513,6 @@ render_header($pageTitle);
                             <strong class="pt-price-val"><?= number_format($p['price']) ?></strong>
                         </td>
                         <td class="pt-col-weight"><?= $p['weight'] ?></td>
-                        <td class="pt-col-load"><?= $p['load'] ?></td>
                     </tr>
                     <?php endforeach; ?>
                 <?php else: ?>
@@ -541,7 +539,6 @@ render_header($pageTitle);
                         <?php if ($isInternal): ?><td class="pt-col-cost"><?= price_cost_cell($p) ?></td><?php endif; ?>
                         <td class="pt-col-price"><?= price_tag_list($p) ?></td>
                         <?php if ($hasWeight):  ?><td class="pt-col-weight"><?= e($sp['weight']) ?></td><?php endif; ?>
-                        <?php if ($hasLoad):    ?><td class="pt-col-load"><?= e($sp['load']) ?></td><?php endif; ?>
                     </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>

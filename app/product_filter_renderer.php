@@ -140,8 +140,8 @@ function product_filters_applied_count(array $a, bool $inStock = false): int
  * $collapsible: 상황별 자재 목록(‘자재 종류’ 패널이 함께 보이는 화면)의 비로그인·개인회원 — 데스크톱에서도 제목줄
  *               '자재 규격'으로 펼치기/접기(기본 접힘, 적용된 필터가 있으면 펼친 채 시작). 그 밖의 목록·기업회원은 false
  *               (지금처럼 데스크톱은 항상 펼침). 모바일(760px 이하)은 모두 접힌 채 시작.
- *               이 필터만: 초기화는 맨 아래 '필터 적용' 옆 버튼(고른 값이 없으면 비활성),
- *               규격 값 버튼은 누르는 즉시(적용 전) 함께 고른 값·재고 체크와 맞는 상품이 없는 값을 비활성(아트보드 기준).
+ *               이 필터만: 초기화는 맨 아래 '필터 적용' 옆 버튼(고른 값이 없으면 비활성). 그 밖의 필터는 위 초기화 링크 유지.
+ * 규격 값 버튼(모든 필터 — 기업회원 포함): 누르는 즉시(적용 전) 함께 고른 값·재고 체크와 맞는 상품이 없는 값을 비활성.
  */
 function render_product_filters(array $a, ?string $q, ?int $categoryId, string $sort = '', ?array $facets = null, bool $inStock = false, array $keep = [], bool $collapsible = false): void
 {
@@ -165,8 +165,8 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
         <label class="fopt"><input type="checkbox" name="<?= e($field) ?>[]" value="<?= e((string) $val) ?>" <?= $active ? 'checked' : '' ?>><span class="fopt-lbl"><?= e($label) ?></span><?php if ($cnt !== null && $cnt > 0): ?><span class="fcnt"><?= $cnt ?></span><?php endif; ?></label>
     <?php };
     $nApplied = product_filters_applied_count($a, $inStock);
-    // 누르는 즉시 비활성(접는 필터의 규격 값 버튼): 축 외 적용 필터만 반영한 값 조합(product_facets 'combos')
-    $combos = ($collapsible && $v['axes']) ? ($facets['axes']['combos'] ?? null) : null;
+    // 누르는 즉시 비활성(규격 값 버튼, 모든 필터 — 사용자 결정 2026-11-06): 축 외 적용 필터만 반영한 값 조합(product_facets 'combos')
+    $combos = $v['axes'] ? ($facets['axes']['combos'] ?? null) : null;
     ?>
     <details class="fltbox<?= $collapsible ? ' is-collapsible' : '' ?>"<?= (!$collapsible || $nApplied > 0) ? ' open' : '' ?>>
       <?php // 접는 필터(상황별 목록)는 위 '자재 종류' 제목과 같은 모양의 '자재 규격' + 화살표(⚙·'펼치기'·'N개 적용' 글자 없음) ?>
@@ -270,28 +270,20 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
         window.addEventListener('pageshow', sync); // 뒤로가기(bfcache) 복원 시 재계산
     })();
     </script>
-    <?php if ($collapsible): ?>
+    <?php if ($combos): ?>
     <script>
-    // 접는 필터(상황별 목록 비로그인·개인회원) 전용
-    //  1) 규격 값 버튼: 누르는 즉시(적용 전) 다른 축에서 고른 값·재고 체크와 함께 맞는 상품이 없는 값은 비활성.
-    //     같은 축 안은 '또는', 축끼리는 '그리고'(서버 product_facets 와 같은 기준). 이미 고른 값은 해제할 수 있게 둔다.
-    //  2) 초기화 버튼: 적용된 필터가 있으면 처음 목록으로 이동(펼친 채 다시 열림), 없으면 고른 값만 지움. 둘 다 없으면 비활성.
+    // 규격 값 버튼(모든 필터): 누르는 즉시(적용 전) 다른 축에서 고른 값·재고 체크와 함께 맞는 상품이 없는 값은 비활성.
+    // 같은 축 안은 '또는', 축끼리는 '그리고'(서버 product_facets 와 같은 기준). 이미 고른 값은 해제할 수 있게 둔다.
     (function () {
-        var form = document.querySelector('.fltbox.is-collapsible form.flt-body');
-        if (!form) { return; }
-        var box = form.parentNode;
-        var OPEN_KEY = 'tm-flt-reopen';
-        try { if (sessionStorage.getItem(OPEN_KEY) === '1') { sessionStorage.removeItem(OPEN_KEY); box.open = true; } } catch (e) {}
-
+        var form = document.querySelector('form.flt-body[data-live]');
+        var dataEl = form && form.querySelector('script.flt-combos');
+        if (!dataEl) { return; }
+        var keys = [], rows = [];
+        try { var d = JSON.parse(dataEl.textContent); keys = d.keys || []; rows = d.rows || []; } catch (e) { return; }
+        if (!keys.length) { return; }
         var stock = form.querySelector('input[name="instock"]');
-        var keys = [], rows = [], groups = [];
-        var dataEl = form.querySelector('script.flt-combos');
-        if (dataEl) {
-            try { var d = JSON.parse(dataEl.textContent); keys = d.keys || []; rows = d.rows || []; } catch (e) { keys = []; }
-            groups = keys.map(function (k) { return Array.prototype.slice.call(form.querySelectorAll('input[name="ax_' + k + '[]"]')); });
-        }
+        var groups = keys.map(function (k) { return Array.prototype.slice.call(form.querySelectorAll('input[name="ax_' + k + '[]"]')); });
         function live() {
-            if (!keys.length) { return; }
             var sel = groups.map(function (ins) {
                 return ins.filter(function (i) { return i.checked && !i.hasAttribute('data-fixed'); }).map(function (i) { return i.value; });
             });
@@ -312,31 +304,43 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
                 });
             });
         }
-
+        form.addEventListener('change', live);
+        window.addEventListener('pageshow', live);
+        live();
+    })();
+    </script>
+    <?php endif; ?>
+    <?php if ($collapsible): ?>
+    <script>
+    // 접는 필터(상황별 목록 비로그인·개인회원) 전용 초기화 버튼: 적용된 필터가 있으면 처음 목록으로 이동(펼친 채 다시 열림),
+    // 없으면 고른 값만 지움. 둘 다 없으면 비활성. (값 비활성 계산은 위 스크립트가 먼저 처리 — change 리스너 등록 순서)
+    (function () {
+        var form = document.querySelector('.fltbox.is-collapsible form.flt-body');
+        if (!form) { return; }
+        var box = form.parentNode;
+        var OPEN_KEY = 'tm-flt-reopen';
+        try { if (sessionStorage.getItem(OPEN_KEY) === '1') { sessionStorage.removeItem(OPEN_KEY); box.open = true; } } catch (e) {}
         var reset = form.querySelector('.flt-reset');
+        if (!reset) { return; }
         var applied = form.getAttribute('data-applied') === '1';
         function picked() {
             return Array.prototype.some.call(form.querySelectorAll('input[type="checkbox"]'), function (i) { return i.checked && !i.disabled; });
         }
         function syncReset() {
-            if (!reset) { return; }
             var off = !applied && !picked();
             if (off) { reset.setAttribute('aria-disabled', 'true'); reset.setAttribute('tabindex', '-1'); }
             else { reset.removeAttribute('aria-disabled'); reset.removeAttribute('tabindex'); }
         }
-        if (reset) {
-            reset.addEventListener('click', function (ev) {
-                if (reset.getAttribute('aria-disabled') === 'true') { ev.preventDefault(); return; }
-                if (applied) { try { sessionStorage.setItem(OPEN_KEY, '1'); } catch (e) {} return; }  // 링크로 이동(적용 해제)
-                ev.preventDefault();
-                Array.prototype.forEach.call(form.querySelectorAll('input[type="checkbox"]'), function (i) { if (!i.hasAttribute('data-fixed')) { i.checked = false; } });
-                form.dispatchEvent(new Event('change', { bubbles: true }));
-            });
-        }
-        function syncAll() { live(); syncReset(); }
-        form.addEventListener('change', syncAll);
-        window.addEventListener('pageshow', syncAll);
-        syncAll();
+        reset.addEventListener('click', function (ev) {
+            if (reset.getAttribute('aria-disabled') === 'true') { ev.preventDefault(); return; }
+            if (applied) { try { sessionStorage.setItem(OPEN_KEY, '1'); } catch (e) {} return; }  // 링크로 이동(적용 해제)
+            ev.preventDefault();
+            Array.prototype.forEach.call(form.querySelectorAll('input[type="checkbox"]'), function (i) { if (!i.hasAttribute('data-fixed')) { i.checked = false; } });
+            form.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        form.addEventListener('change', syncReset);
+        window.addEventListener('pageshow', syncReset);
+        syncReset();
     })();
     </script>
     <?php endif; ?>

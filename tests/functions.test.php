@@ -725,13 +725,15 @@ ok('그 밖의 목록·기업회원: 지금처럼 항상 펼침, 제목 "필터�
 $hx = (static function (): string { ob_start(); render_product_filters([], null, 24, '', ['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 10,
     'axes' => ['defs' => [['seq' => 1, 'axis_key' => 'w', 'label' => '폭', 'symbol' => 'W', 'unit' => 'mm', 'use_filter' => true]], 'all' => ['w' => ['200', '300']], 'vals' => ['w' => ['200' => 4, '300' => 6]], 'type_all' => [], 'type' => []]]); return (string) ob_get_clean(); })();
 ok('규격 값 버튼에 개수 표시 없음(값만)', str_contains($hx, '<span class="fchip-box">200</span>') && !str_contains($hx, '<small>4</small>'));
-ok('기업회원·일반 목록(접지 않는 필터): 누르는 즉시 비활성 데이터 없음', !str_contains($hx, 'flt-combos') && !str_contains($hx, 'data-live'));
+ok('값 조합 데이터가 없으면 즉시 계산 안 함(적용 후 서버 계산만)', !str_contains($hx, 'flt-combos') && !str_contains($hx, 'data-live'));
 $axLive = ['defs' => [['seq' => 1, 'axis_key' => 'w', 'label' => '폭', 'symbol' => 'W', 'unit' => 'mm', 'use_filter' => true], ['seq' => 2, 'axis_key' => 'l', 'label' => '길이', 'symbol' => 'L', 'unit' => 'mm', 'use_filter' => true]],
     'all' => ['w' => ['200', '300'], 'l' => ['2000']], 'vals' => ['w' => ['200' => 4, '300' => 6], 'l' => ['2000' => 10]], 'type_all' => [], 'type' => [],
     'combos' => ['keys' => ['w', 'l', 'type'], 'rows' => [['200', '2000', '', 1], ['300', '2000', '', 0]]]];
 $hl = (static function (array $ax): string { ob_start(); render_product_filters([], null, 24, '', ['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 10, 'axes' => $ax], false, [], true); return (string) ob_get_clean(); })($axLive);
 ok('접는 필터: 값 조합(JSON)·data-live 를 넣어 누르는 즉시 0건 값 비활성', str_contains($hl, 'data-live="1"') && str_contains($hl, '<script type="application/json" class="flt-combos">{"keys":["w","l","type"],"rows":[["200","2000","",1],["300","2000","",0]]}</script>'));
 ok('값이 하나뿐인 축 버튼은 data-fixed(즉시 계산에서 제외)', str_contains($hl, 'value="2000" checked disabled data-fixed="1"') && !str_contains($hl, 'value="200" data-fixed'));
+$hc = (static function (array $ax): string { ob_start(); render_product_filters([], null, 24, '', ['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 10, 'axes' => $ax]); return (string) ob_get_clean(); })($axLive);
+ok('기업회원·그 밖의 목록(접지 않는 필터)도 누르는 즉시 비활성, 초기화는 위 링크 그대로', str_contains($hc, 'data-live="1"') && str_contains($hc, 'class="flt-combos"') && str_contains($hc, '<div class="flt-top"><b>필터로 좁히기</b><a href="/products.php?category=24">초기화</a></div>') && !str_contains($hc, 'flt-actions') && !str_contains($hc, 'flt-reset'));
 $hs = (static function (): string { ob_start(); render_product_filters([], null, 24, '', ['mat' => [], 'shape' => [], 'load' => [], 'spec' => ['300*300' => 3, '400*400' => 2], 'total' => 5, 'axes' => []]); return (string) ob_get_clean(); })();
 ok('규격 원문 목록(이름표 없는 카테고리): 값 옆 개수 없음', str_contains($hs, '<span class="fopt-lbl">300×300</span></label>') && !str_contains($hs, 'class="fcnt"'));
 
