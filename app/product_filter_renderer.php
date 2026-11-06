@@ -8,6 +8,7 @@ declare(strict_types=1);
  *  현재 결과 집합에 실제 존재하는 옵션만 개수와 함께 노출한다.
  *  0건 옵션·단일값 수렴(비선택·옵션1개·전체차지) 그룹은 숨긴다 → 결과와 무관한 필터 노출 방지.
  *  재고(instock) 섹션은 항상 표시. 모든 체크박스는 '필터 적용' 버튼으로만 반영된다(즉시 제출 없음).
+ *  규격: 결과 카테고리가 같은 규격 이름표(category_spec_axes)를 쓰면 원문 목록 대신 축별 값 버튼(product_filter_axis_groups).
  */
 
 const FLT_MAT_LABELS = [11 => '철근콘크리트', 12 => '콘크리트', 13 => '스틸', 14 => '석재', 15 => 'PE/PVC', 16 => '기타'];
@@ -56,14 +57,55 @@ function product_filters_visible(array $facets, array $active): array
         $specOpts = array_merge($sel, $rest);
     }
 
+    // 규격 축 모드(카테고리 이름표 category_spec_axes): 규격 원문 목록 대신 축(형식·폭 W·높이 H…)별 값 버튼
+    $axGroups = product_filter_axis_groups($facets['axes'] ?? [], $active);
+    if ($axGroups) { $specOpts = []; }
+
     return [
         'mat'       => $matOpts,
         'shape'     => $shOpts,
         'load'      => $ldOpts,
         'spec'      => $specOpts,
+        'axes'      => $axGroups,
         'total'     => $total,
-        'any'       => (bool) ($matOpts || $shOpts || $ldOpts || $specOpts),
+        'any'       => (bool) ($matOpts || $shOpts || $ldOpts || $specOpts || $axGroups),
     ];
+}
+
+/**
+ * 규격 축 파세트 → 필터 그룹 목록. 그룹: ['field'=>GET 이름, 'title', 'sub', 'opts'=>[{val,label,cnt,checked,disabled}]]
+ *  - 형식(규격 코드 끝 글자)은 코드가 있을 때만, 이어서 이름표 seq 순(use_filter=0 축 제외)
+ *  - 결과 전체에 값이 하나뿐인 축: 선택된 채 고정(누를 수 없음, 제출 안 됨 — 좁힐 게 없다는 표시)
+ *  - 다른 선택 때문에 0건이 되는 값: 누를 수 없게(이미 선택한 값은 해제 가능)
+ */
+function product_filter_axis_groups(array $axes, array $active): array
+{
+    if (empty($axes['defs'])) { return []; }
+    $mk = static function (string $field, string $title, string $sub, array $all, array $cnts, array $sel, callable $label): array {
+        $sel   = array_map('strval', $sel);
+        $fixed = count($all) === 1;
+        $opts  = [];
+        foreach ($all as $v) {
+            $v   = (string) $v;
+            $cnt = (int) ($cnts[$v] ?? 0);
+            $on  = in_array($v, $sel, true);
+            $opts[] = ['val' => $v, 'label' => $label($v), 'cnt' => $cnt, 'checked' => $on || $fixed, 'disabled' => $fixed || ($cnt === 0 && !$on)];
+        }
+        return ['field' => $field, 'title' => $title, 'sub' => $sub, 'fixed' => $fixed, 'opts' => $opts];
+    };
+    $groups = [];
+    if (!empty($axes['type_all'])) {
+        $groups[] = $mk('ax_' . SPEC_AXIS_TYPE, '형식', '규격 코드 끝 글자', $axes['type_all'], $axes['type'] ?? [],
+            (array) ($active['ax_type'] ?? []), static fn(string $v): string => $v . '형');
+    }
+    foreach ($axes['defs'] as $a) {
+        $k = (string) $a['axis_key'];
+        if (empty($a['use_filter']) || empty($axes['all'][$k])) { continue; }
+        $unit = (string) $a['unit'];
+        $groups[] = $mk('ax_' . $k, spec_axis_title($a), $unit, $axes['all'][$k], $axes['vals'][$k] ?? [],
+            (array) ($active['ax'][$k] ?? []), static fn(string $v): string => spec_axis_display((float) $v, $unit));
+    }
+    return $groups;
 }
 
 /**
@@ -120,6 +162,21 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
         <?php if ($v['mat']): ?>
         <div class="fgrp"><b>재질</b>
           <?php foreach ($v['mat'] as $o) { $opt('mat', $o['val'], FLT_MAT_LABELS[$o['val']] ?? (string) $o['val'], $o['cnt'], $o['active']); } ?>
+        </div>
+        <?php endif; ?>
+
+        <?php if ($v['axes']): ?>
+        <div class="fgrp fgrp-axes"><b>규격</b>
+          <?php foreach ($v['axes'] as $g): $gid = 'fax-' . $g['field']; ?>
+          <div class="fax" role="group" aria-labelledby="<?= e($gid) ?>">
+            <div class="fax-title" id="<?= e($gid) ?>"><?= e($g['title']) ?><?php if ($g['sub'] !== ''): ?> <small><?= e($g['sub']) ?></small><?php endif; ?></div>
+            <div class="fchips">
+              <?php foreach ($g['opts'] as $o): ?>
+              <label class="fchip"<?= $g['fixed'] ? ' title="모든 상품이 같은 값"' : '' ?>><input type="checkbox" name="<?= e($g['field']) ?>[]" value="<?= e($o['val']) ?>"<?= $o['checked'] ? ' checked' : '' ?><?= $o['disabled'] ? ' disabled' : '' ?>><span class="fchip-box"><?= e($o['label']) ?><small><?= (int) $o['cnt'] ?></small></span></label>
+              <?php endforeach; ?>
+            </div>
+          </div>
+          <?php endforeach; ?>
         </div>
         <?php endif; ?>
 
