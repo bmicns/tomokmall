@@ -189,7 +189,8 @@ foreach ($keys as $k) {
     $perm = $srcs[$k]['permission'] ?? '(등록부에 없음)';
     $sum[] = "| {$k} " . ($srcs[$k]['name'] ?? '') . " | {$perm} | " . count($rows) . ' | ' . ($status['pending'] ?? 0) . '·' . ($status['approved'] ?? 0) . '·' . ($status['rejected'] ?? 0)
         . ' | ' . count($ok) . '/' . count($j) . " | {$withFact} | " . count($issues) . ' | ' . count($mrows) . "({$diffN}) |";
-    $body .= "\n## {$k} " . ($srcs[$k]['name'] ?? '') . "\n\n- 재사용: 등록부 권한 `{$perm}` — 사실 정보·짧은 원문 문장 + 출처 URL 만, 이미지·가격·설명 전문 없음, 별도 이용 허락은 받지 않음\n"
+    $permNote = $perm === 'allowed' ? '이용 허락 기록: ' . ($srcs[$k]['basis'] ?? '-') : '별도 이용 허락은 받지 않음';   // 허락받은 제조사 카탈로그(catalog-extract.php)는 허락 근거를 보여 준다
+    $body .= "\n## {$k} " . ($srcs[$k]['name'] ?? '') . "\n\n- 재사용: 등록부 권한 `{$perm}` — 사실 정보·짧은 원문 문장 + 출처 URL 만, 이미지·가격·설명 전문 없음, {$permNote}\n"
         . '- 종류: ' . implode(', ', array_map(static fn($t, $c) => "{$t} {$c}", array_keys(array_slice($types, 0, 8, true)), array_slice($types, 0, 8, true))) . "\n"
         . "- 승인하면: 승인 후보 문장이 있는 {$withFact}행이 상담 참고 자료가 된다(나머지 행은 검토 대기 유지)\n\n### 원문 문장 — 승인 후보 " . count($ok) . "\n\n";
     foreach ($ok as $t => [$kind]) { $body .= "- ✅ [" . ($kindKo[$kind] ?? $kind) . "] {$t}\n"; }

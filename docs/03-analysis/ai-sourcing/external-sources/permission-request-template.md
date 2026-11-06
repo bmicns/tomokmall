@@ -1,5 +1,7 @@
 # 제조사 자료 이용 허락 요청 — 보내는 글 틀 (2026-11-02)
 
+> **보류 — 사용자 결정 2026-11-05: 거래 제조사에 직접 연락해 카탈로그를 요청하거나 이용 허락을 받는 작업은 현실적으로 어려워 남은 작업에서 제외.** 이 문서는 나중에 제조사가 스스로 자료를 보내 오는 경우에만 쓰는 참고용이다(도구·테스트는 유지).
+
 > 목적: 승인 자료(현재 14행 — 가야스틸·선로드·동양콘크리트)를 넘어서 **허락받은 카탈로그·규격표**로 AI 상담 근거를 늘린다. 지금 자료는 공개 페이지의 사실 정보·짧은 원문 문장만, 별도 허락 없이 쓰고 있다(요청 시 즉시 제외).
 > 우선순위: 운영 상담 모니터링(`prod-apply/consult-monitor_readonly.sql` ③ 자료 공백 주제 TOP)을 기준으로 정한다. 아래는 현재 판단.
 
@@ -37,5 +39,5 @@
 ## 허락을 받으면 (사용자 PC)
 
 1. `data/external/sources.json` 에서 해당 출처 `permission` 을 `allowed` 로, `basis` 에 허락 근거(회신 날짜·담당자 직함, 개인 연락처 제외)를 적는다.
-2. 받은 엑셀·CSV 는 `scripts/external/import.php --source=<키> --file=<파일>`, 카탈로그 PDF 문장은 사람이 골라 같은 형식으로.
+2. 받은 엑셀·CSV 는 `scripts/external/import.php --source=<키> --file=<파일>`(가격 열은 뺀 사본으로), 카탈로그 PDF 는 `scripts/external/catalog-extract.php --source=<키> --file=<파일>` — 순서 전체는 [`catalog-intake-2026-11-05.md`](catalog-intake-2026-11-05.md).
 3. `approve-crawled.php` 보고서로 문장 단위 검토·승인 → `export-approved.php --expect=<승인 행 수>` → 리허설(`rehearse-prod-apply.sh --real-export=…`) → 운영 반영 승인 요청.

@@ -148,13 +148,14 @@ function tool_material_info(array $input): string
         $info['note'] .= ' by_product 는 같은 문장을 제품별로 묶은 것이다. 답할 때도 제품별로 나눠 쓰고, 고객이 묻지 않은 제품(예: 안전 중하중 그레이팅)의 문장은 그 제품 이름을 밝혀 따로 한 줄로만 쓴다.';
     }
     // 확인된 기본 정보(국가표준 번호·이름, 토목몰 등록 규격) — 제조사 자료가 없을 때 일반 지식으로 사양을 지어내지 않게 실제 근거를 준다
-    $basics = ai_material_basics($topic);
-    if ($basics['standards'] || $basics['products']) {
+    $basics = ai_material_basics($topic) + ['procurement' => ai_procurement_summary($topic)];
+    if ($basics['standards'] || $basics['products'] || $basics['procurement']) {
         $info['basics'] = $basics;
         $info['basics_note'] = 'basics 는 확인된 사실만 담았다: standards = 국가표준 목록에서 확인한 표준 번호·이름(요구 수치·조항은 미확인 — 수치를 말하지 않음), '
             . 'products = 토목몰에 등록된 상품 이름과 규격 표기 그대로. 제품 설명은 이 둘에서 바로 읽히는 것(종류 이름·등록 규격·중량·판매 단위)만 말한다. '
             . '국가표준은 \'KS F 4010(철근 콘크리트 플룸 및 벤치 플룸) 표준의 대상 종류\'처럼만 말하고 \'이 표준에 따라 제조된다\'·\'이 번호 제품을 고르면 된다\'고 단정하지 않는다(개별 상품의 KS 인증 여부는 상품 표기·제조사 자료로 확인). '
-            . '규격은 표기 그대로(예: 200*150*2000*35T) 쓰고 각 숫자가 폭·높이·길이 중 무엇인지, 단위(cm·mm)를 풀어 쓰지 않는다. 구조(개거·폐쇄형 등)·성능·용도는 이름에 없으면 덧붙이지 않는다. 출처는 \'국가표준 목록\'·\'토목몰 등록 상품\'으로 밝힌다.';
+            . '규격은 표기 그대로(예: 200*150*2000*35T) 쓰고 각 숫자가 폭·높이·길이 중 무엇인지, 단위(cm·mm)를 풀어 쓰지 않는다. 구조(개거·폐쇄형 등)·성능·용도는 이름에 없으면 덧붙이지 않는다. 출처는 \'국가표준 목록\'·\'토목몰 등록 상품\'으로 밝힌다. '
+            . AI_PROCUREMENT_NOTE;
     }
     return json_encode($info, JSON_UNESCAPED_UNICODE);
 }
@@ -227,6 +228,101 @@ function ai_spec_brief(string $spec): string
 }
 
 /**
+ * 확인된 KS 적용 범위 (순수 함수) — applies_to(=candidates.json scope_note) 끝의 확인 표시 괄호가 있을 때만 그 앞 문구, 없으면 null.
+ * 확인 표시: '사용자 확인'(사용자가 e나라표준인증·KSSN 상세 화면 캡처) 또는 '공식 상세 확인'(e나라표준인증 상세 페이지를 직접 열람, 2026-11-05~).
+ * 검색 요약에서 온 적용 범위는 표시가 없으므로 쓰지 않는다.
+ */
+function ai_ks_confirmed_scope(string $appliesTo): ?string
+{
+    if (!preg_match('/(사용자 확인|공식 상세 확인)/u', $appliesTo)) {
+        return null;
+    }
+    $scope = trim((string) preg_replace('/\s*\([^)]*(?:사용자 확인|공식 상세 확인)[^)]*\)\s*$/u', '', $appliesTo));
+    $scope = trim((string) preg_replace('/\s*\(공식 표준명:[^)]*\)/u', '', $scope));   // 공식 표준명 표시는 이름으로 쓰고(ai_ks_display_name) 적용 범위 문구에서는 뺀다
+    return $scope !== '' ? $scope : null;
+}
+
+/**
+ * 상담에 보이는 KS 표준명 (순수 함수) — 등록 제목에서 온 이름이 옛 이름·검색 요약 이름일 수 있어, 적용 범위에 확인 표시와 함께
+ * '(공식 표준명: …)'이 있으면 그 이름을 쓴다(예: KS M 3401 '수도용 …' → '압력용 경질 폴리염화비닐관'). 운영 행 제목은 바꾸지 않는다(title 로 맞추므로).
+ */
+function ai_ks_display_name(string $name, string $appliesTo): string
+{
+    if (ai_ks_confirmed_scope($appliesTo) !== null && preg_match('/\(공식 표준명:\s*([^)—]+?)\s*(?:—[^)]*)?\)/u', $appliesTo, $m)) {
+        return trim($m[1]);
+    }
+    return $name;
+}
+
+/** 공공조달 등록 현황(basics.procurement)을 답에 쓰는 규칙 — material_info·search_products 공통 */
+const AI_PROCUREMENT_NOTE = 'procurement = 조달청 나라장터 쇼핑몰(공공기관 구매용)에 등록된 같은 종류 품목의 집계다. 인증을 설명하거나 제품을 고르는 기준을 말할 때 summary 를 \'공공 조달몰에 등록된 흄관 176개 품목 중 146개가 KS 표시 제품\'처럼 출처(조달청 품목 등록 내역)와 함께 한 문장으로만 쓴다. 토목몰 상품이 KS 인증·조달 등록 제품이라고 말하지 않고, 비율로 품질을 단정하지 않는다(\'KS 표시 제품이 많은 자재라 표기를 확인해 보시면 좋습니다\' 정도).';
+
+/**
+ * 자재 종류별 공공조달 등록 현황 데이터(app/procurement_summary.php — scripts/external/g2b_summary.php 가 조달청 공공데이터에서 생성). 파일이 없으면 [].
+ * $override: 테스트용 데이터 주입.
+ */
+function ai_procurement_data(?array $override = null): array
+{
+    static $data = null;
+    if ($override !== null) {
+        $data = $override;
+    }
+    if ($data === null) {
+        $f = __DIR__ . '/procurement_summary.php';
+        $data = is_file($f) ? (array) require $f : [];
+    }
+    return $data;
+}
+
+/**
+ * 질문·상품명 → 해당 자재의 공공조달 등록 현황(최대 $limit 종) — 공공기관 구매용 조달몰에 등록된 다른 회사 품목의 집계일 뿐,
+ * 토목몰 상품의 인증·조달 여부가 아니다. 더 긴 낱말로 걸린 종류가 먼저(예: '맨홀뚜껑' → 주철 맨홀뚜껑).
+ * @return list<array{name:string, items:int, makers:int, ks:int, group_standard:int, excellent:int, as_of:string, summary:string}>
+ */
+function ai_procurement_summary(string $text, int $limit = 2): array
+{
+    $data = ai_procurement_data();
+    $t = ai_material_norm($text);
+    if ($t === '' || empty($data['groups'])) {
+        return [];
+    }
+    $hits = [];
+    foreach ($data['groups'] as $g) {
+        $best = '';
+        foreach ((array) $g['words'] as $w) {
+            $nw = ai_material_norm((string) $w);
+            if ($nw !== '' && str_contains($t, $nw) && mb_strlen($nw) > mb_strlen($best)) {
+                $best = $nw;
+            }
+        }
+        if ($best !== '') {
+            $hits[] = [mb_strlen($best), (int) $g['items'], $g, $best];
+        }
+    }
+    usort($hits, static fn($a, $b) => [$b[0], $b[1]] <=> [$a[0], $a[1]]);
+    $kept = [];
+    foreach ($hits as $h) {   // 더 긴 낱말의 일부로만 걸린 종류는 뺀다('맨홀뚜껑' 질문의 '맨홀' → 맨홀블록 제외)
+        if (!array_filter($kept, static fn($k) => $k[3] !== $h[3] && str_contains($k[3], $h[3]))) {
+            $kept[] = $h;
+        }
+    }
+    $hits = $kept;
+    $asOf = (string) ($data['as_of'] ?? '');
+    return array_map(static function ($h) use ($asOf) {
+        $g = $h[2];
+        $c = (array) $g['certs'];
+        $certs = array_filter(['KS 표시' => (int) ($c['ks'] ?? 0), '단체표준인증' => (int) ($c['group_standard'] ?? 0)]);
+        return [
+            'name' => (string) $g['label'], 'items' => (int) $g['items'], 'makers' => (int) $g['makers'],
+            'ks' => (int) ($c['ks'] ?? 0), 'group_standard' => (int) ($c['group_standard'] ?? 0), 'excellent' => (int) ($c['excellent'] ?? 0), 'as_of' => $asOf,
+            'summary' => "공공 조달몰(나라장터 쇼핑몰)에 등록된 {$g['label']} {$g['items']}개 품목({$g['makers']}개 업체) 중 "
+                . ($certs ? implode('·', array_map(static fn($k, $v) => "{$k} {$v}개", array_keys($certs), $certs)) : 'KS 표시·단체표준인증 품목 없음')
+                . " (조달청 품목 등록 내역, {$asOf} 기준)",
+        ];
+    }, array_slice($hits, 0, $limit));
+}
+
+/**
  * 자재 기본 정보 — 국가표준 번호·이름(rag_documents 의 KS 메타데이터 확인 행) + 토목몰 등록 상품 이름·규격(판매 중).
  * 둘 다 저장된 사실만 돌려준다(설명문 생성 없음). 운영 DB 에 근거 칸이 없으면 standards 는 빈 배열.
  * @return array{standards: list<array>, products: list<array>}
@@ -248,8 +344,9 @@ function ai_material_basics(string $topic): array
         foreach ($rows as $r) {
             $name = trim((string) preg_replace('/^\[KS\]\s*|\s*\(KS[^)]*\)\s*$/u', '', (string) $r['title']));
             $s = ['ref' => (string) $r['source_ref'], 'name' => $name, 'basis' => '국가표준 목록(표준 번호·이름 확인, 본문 수치 미확인)', 'url' => (string) ($r['source_url'] ?? '')];
-            if (str_contains((string) $r['applies_to'], '사용자 확인')) {   // e나라표준인증 상세 페이지를 사람이 확인한 적용 범위만
-                $s['scope'] = trim((string) preg_replace('/\s*\([^)]*사용자 확인[^)]*\)\s*$/u', '', (string) $r['applies_to']));
+            if (($scope = ai_ks_confirmed_scope((string) $r['applies_to'])) !== null) {   // 공식 표준 상세 페이지에서 확인한 적용 범위만
+                $s['scope'] = $scope;
+                $s['name'] = ai_ks_display_name($s['name'], (string) $r['applies_to']);
             }
             $items[] = [$name . ',' . $r['tags'], $s];
         }
@@ -482,21 +579,25 @@ function tool_search_products(array $input): string
 
     // 고르는 기준(초보 고객용 쉬운 설명) — 상품 규격 + 사람이 확정한 외부 자료(제조사·KS 표기, 가격 제외). 외부 테이블이 없으면 상품 규격만
     $knowledge = ext_knowledge_for_products(array_column($products, 'id'));
-    $cards = array_map(function ($p) use ($lengthM, $specMm, $areaM2, $knowledge) {
+    // 로그인 등급 단가(회원은 할인가, 비회원은 판매가 — app/cart.php display_unit_price). 표·AI 답변 금액이 같도록
+    $memberMap = display_price_map(array_column($products, 'id'));
+    $cards = array_map(function ($p) use ($lengthM, $specMm, $areaM2, $knowledge, $memberMap) {
         [$qty, $basis] = ai_estimate_quantity(
             $p,
             $lengthM,
             $specMm > 0 ? (float) $specMm : null,
             $areaM2 > 0 ? $areaM2 : null
         );
-        $price = (int) $p['price_b2c'];
+        $price  = (int) $p['price_b2c'];
+        $member = $memberMap[(int) $p['id']]['price'] ?? $price;
         return [
             'id'            => (int)  $p['id'],
             'name'          =>        $p['name'],
             'spec'          =>        $p['spec'],
-            'price_b2c'     => $price,
+            'price_b2c'     => $price,    // 판매가(화면 대체값·이전 상담 복원 비교용)
+            'price_member'  => $member,   // 로그인 등급 단가 — 회원은 할인가, 비회원은 판매가와 같음
             'unit'          => ai_unit_label((string) $p['spec']),
-            'est_cost'      => ($qty !== null && $price > 0) ? $qty * $price : null, // 판매가 기준 자재비(운반·시공비 별도)
+            'est_cost'      => ($qty !== null && $member > 0) ? $qty * $member : null, // 로그인 등급 단가 기준 자재비(운반·시공비 별도) — 비회원은 판매가 기준(기존과 같음)
             'category_name' =>        $p['category_name'],
             'image_url'     =>        $p['image_url']  ?? null,
             'stock_qty'     => (int)  $p['stock_qty'],
@@ -506,6 +607,22 @@ function tool_search_products(array $input): string
             'spec_label'    => spec_size_label((string) $p['spec']),   // 화면 표시용 규격(치수만) — 운반비·상차수량 같은 부가 표기 제외
         ];
     }, $products);
+    // 자재 분류 설명(운영자가 쓴 카테고리 설명 — 상품 분류, 없으면 상위 분류) — 답변 글의 '자재 설명' 재료. 화면 표에는 보내지 않는다(ai_cards_for_screen)
+    $catDesc = ai_category_descs(array_map(static fn($p) => (int) ($p['category_id'] ?? 0), $products));
+    // 등록 규격의 실제 사실(1개 중량)과 그 제품 종류의 국가표준(KS 확인 행) — 제품 간 비교·설명 재료(화면 표에는 보내지 않음)
+    $ksInfo = ai_ks_standards(array_map(static fn($c) => ai_name_ks_ref((string) $c['name']), $cards));
+    $standards = [];
+    foreach ($cards as $i => $c) {
+        $d = $catDesc[(int) ($products[$i]['category_id'] ?? 0)] ?? '';
+        if ($d !== '') { $cards[$i]['category_desc'] = $d; }
+        $w = ai_spec_weight_kg((string) $c['spec']);
+        if ($w !== null) { $cards[$i]['weight_kg'] = $w; }
+        $ref = ai_name_ks_ref((string) $c['name']);
+        if ($ref !== '' && isset($ksInfo[$ref])) {
+            $cards[$i]['standard'] = $ksInfo[$ref]['ref'] . ' ' . $ksInfo[$ref]['name'];
+            $standards[$ref] = $ksInfo[$ref];
+        }
+    }
 
     // 그래도 0건이면 손님을 위한 대안 안내(모델이 되묻지 말고 이 안내를 전달)
     if (empty($cards) && $specMm > 0 && !empty($input['spec_strict']) && ai_is_paving_query($qText)) {
@@ -526,18 +643,136 @@ function tool_search_products(array $input): string
         return json_encode($out, JSON_UNESCAPED_UNICODE);
     }
 
-    [$cards, $costSummary] = ai_cost_summary($cards);
+    [$cards, $costSummary] = ai_cost_summary($cards, price_basis_label());
     $out = [
         'products' => $cards,
         'count'    => count($cards),
         '_sse'     => [
-            ['type' => 'product_cards', 'products' => $cards],
+            ['type' => 'product_cards', 'products' => ai_cards_for_screen(ai_cards_with_member_price($cards))],   // 화면용: 회원은 할인가
         ],
     ];
     if ($costSummary) { $out['cost_summary'] = $costSummary; }   // '어떤 게 더 저렴해?' 답변용 — 도구가 계산한 값만
+    $procurement = ai_procurement_summary($qText . ' ' . implode(' ', array_slice(array_column($cards, 'name'), 0, 3)));   // 질문·상위 결과 자재의 공공조달 등록 현황
+    if ($standards || $procurement) {   // 답에 표준 번호·'조달'을 쓰면 '확인된 기본 정보' 출처 카드(rag_process)
+        $out['basics'] = ['standards' => array_values($standards), 'products' => [], 'procurement' => $procurement];
+        if ($procurement) { $out['procurement_note'] = AI_PROCUREMENT_NOTE; }
+    }
     if ($note !== null)      { $out['note']      = $note; }      // 교정/규격완화 사유
     if ($corrected !== null) { $out['corrected'] = $corrected; }
     return json_encode($out, JSON_UNESCAPED_UNICODE);
+}
+
+/**
+ * 카테고리 설명 → 상담용 한 줄 (순수 함수): 첫 줄만, 끝의 '…(전 규격·제품)을 공급합니다.'는 떼어 자재 분류 설명으로. 최대 120자.
+ * 예: 'U형·AN형·벤치플륨관 등 측구 및 배수로용 콘크리트 수로관 전 규격을 공급합니다.' → 'U형·AN형·벤치플륨관 등 측구 및 배수로용 콘크리트 수로관'
+ */
+function ai_category_brief(?string $desc): string
+{
+    $lines = preg_split('/\R/u', trim((string) $desc)) ?: [''];
+    $line = trim((string) $lines[0]);
+    $line = trim((string) preg_replace('/\s*(?:전\s*규격|제품)?\s*(?:을|를)\s*공급합니다\.?$/u', '', $line));
+    return mb_strlen($line) > 120 ? mb_substr($line, 0, 119) . '…' : $line;
+}
+
+/** 상품 분류별 설명 [category_id => 한 줄] — 분류에 설명이 없으면 상위 분류 설명. 1회 조회(N+1 없음). 실패하면 빈 배열(설명 없이 기존대로) */
+function ai_category_descs(array $categoryIds): array
+{
+    $ids = array_values(array_unique(array_filter(array_map('intval', $categoryIds))));
+    if (!$ids) {
+        return [];
+    }
+    try {
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $st = db()->prepare("SELECT c.id, c.description AS own_desc, p.description AS parent_desc
+                             FROM categories c LEFT JOIN categories p ON p.id = c.parent_id WHERE c.id IN ({$ph})");
+        $st->execute($ids);
+        $out = [];
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $b = ai_category_brief($r['own_desc'] ?? '') ?: ai_category_brief($r['parent_desc'] ?? '');
+            if ($b !== '') { $out[(int) $r['id']] = $b; }
+        }
+        return $out;
+    } catch (\Throwable $e) {
+        return [];
+    }
+}
+
+/** 화면 비교표 이벤트용 카드 (순수 함수) — 상담 글 재료(category_desc·weight_kg·standard)는 빼고 보낸다(표에 표시하지 않고 상담 기록 용량도 줄임) */
+function ai_cards_for_screen(array $cards): array
+{
+    return array_map(static function (array $c): array { unset($c['category_desc'], $c['weight_kg'], $c['standard']); return $c; }, $cards);
+}
+
+/** 규격 칸의 판매 단위 1개당 중량 kg (순수 함수) — 등록 규격의 '중량: 40kg' 표기만 읽는다(단위가 ㎡면 1㎡당, 본이면 1본당). 없으면 null(추정하지 않음) */
+function ai_spec_weight_kg(string $spec): ?float
+{
+    if (!preg_match('/중량\s*[:：]\s*([\d,]+(?:\.\d+)?)\s*(?:kg|㎏)/iu', $spec, $m)) {
+        return null;
+    }
+    $v = (float) str_replace(',', '', $m[1]);
+    return $v > 0 ? $v : null;
+}
+
+/**
+ * 상품 이름 → 그 제품 종류의 국가표준(KS) 번호 규칙. 국가표준 목록에서 확인한 표준의 적용 범위(rag_documents KS 행)와
+ * 이름이 분명히 맞는 제품군만 — 부속(분기구·소켓·뚜껑·집게)·유공관·대용품(VR관)·범위가 애매한 제품은 넣지 않는다(틀린 연결 방지).
+ * 이 연결은 '표준의 대상 종류'라는 뜻이고 개별 상품의 KS 인증 여부가 아니다.
+ */
+const AI_KS_NAME_RULES = [
+    'KS F 4403'   => '/^(흄관\([AB]형\)|접속흄관)/u',                        // 원심력 철근 콘크리트관
+    'KS M 3500-1' => '/^PE이중벽관\(KS\)$/u',                                 // 배수·하수용 구조형 PE관 — 이중벽관. 적용 범위(사용자 확인 2026-11-05)가 '관 내·외면 평활'이라 이름에 KS 가 표기된 상품만(1~3종·HDPE 는 구조 미확인)
+    'KS M 3600'   => '/^고강성PVC이중벽관$/u',                                 // 배수·하수용 구조형 PVC관 — 이중벽관·리브관
+    'KS F 4419'   => '/^인터로킹/u',                                           // 보차도용 콘크리트 인터로킹 블록
+    'KS F 4561'   => '/점자블[록럭]/u',                                        // 시각장애인용 점자블록
+    'KS D 3590'   => '/^파형강관$/u',                                          // 파형 강관 및 파형 섹션
+    'KS F 4010'   => '/^(U형플륨관|벤치플륨관)/u',                             // 철근 콘크리트 플룸 및 벤치 플룸
+    'KS D 4040'   => '/^주철뚜껑/u',                                           // 주철(강)재 맨홀 뚜껑 및 틀
+    'KS F 4012'   => '/^조립식원형맨홀/u',                                     // 하수도용 콘크리트 맨홀 블록
+    'KS F 4006'   => '/^(콘크리트경계석|고강도콘크리트경계석|인조화강경계석)$/u', // 콘크리트 경계 블록(인조석 표면층 포함)
+];
+
+/** 상품 이름 → 해당 국가표준 번호 (순수 함수). 규칙에 없으면 '' */
+function ai_name_ks_ref(string $name): string
+{
+    $n = trim($name);
+    foreach (AI_KS_NAME_RULES as $ref => $re) {
+        if (preg_match($re, $n) === 1) {
+            return $ref;
+        }
+    }
+    return '';
+}
+
+/**
+ * 국가표준 번호 → 확인된 표준 정보 [ref => {ref, name, basis, url, scope?}] — rag_documents 의 KS 확인 행(국가표준 목록에서 번호·이름 확인)만.
+ * ai_material_basics 의 standards 와 같은 형식(출처 카드 rag_basic_sources_used 가 그대로 쓴다). 근거 칸이 없는 DB 면 빈 배열.
+ */
+function ai_ks_standards(array $refs): array
+{
+    $refs = array_values(array_unique(array_filter($refs)));
+    if (!$refs || !function_exists('rag_documents_has_source_columns') || !rag_documents_has_source_columns()) {
+        return [];
+    }
+    try {
+        $ph = implode(',', array_fill(0, count($refs), '?'));
+        $st = db()->prepare("SELECT source_ref, title, applies_to, source_url FROM rag_documents
+                             WHERE source_type = 'ks' AND verify_level IN ('metadata_confirmed', 'original_verified', 'api_text_verified')
+                               AND legal_status <> 'repealed' AND source_ref IN ({$ph})");
+        $st->execute($refs);
+        $out = [];
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $name = trim((string) preg_replace('/^\[KS\]\s*|\s*\(KS[^)]*\)\s*$/u', '', (string) $r['title']));
+            $s = ['ref' => (string) $r['source_ref'], 'name' => $name, 'basis' => '국가표준 목록(표준 번호·이름 확인, 본문 수치 미확인)', 'url' => (string) ($r['source_url'] ?? '')];
+            if (($scope = ai_ks_confirmed_scope((string) $r['applies_to'])) !== null) {   // 공식 표준 상세 페이지에서 확인한 적용 범위만
+                $s['scope'] = $scope;
+                $s['name'] = ai_ks_display_name($s['name'], (string) $r['applies_to']);
+            }
+            $out[$s['ref']] = $s;
+        }
+        return $out;
+    } catch (\Throwable $e) {
+        return [];
+    }
 }
 
 /** 포장 블록 검색어인지 (순수 함수) — 블록·인터로킹·보도·점토·투수·잔디·평판 등. 호안·축조·옹벽 등 구조용은 제외 */
@@ -688,9 +923,10 @@ function ai_unit_label(string $spec): string
 
 /**
  * 예상 자재비 비교 요약 (순수 함수) — 같은 면적·길이로 계산된 카드가 2개 이상일 때만.
- * 가장 낮은 카드에 cost_lowest 표시. [카드 목록, 요약|null]. 금액은 판매가 기준 자재비(운반·시공비 별도) — 지어낸 값이 아니라 카드의 est_cost.
+ * 가장 낮은 카드에 cost_lowest 표시. [카드 목록, 요약|null]. 금액은 카드의 est_cost(로그인 등급 단가 기준 자재비, 운반·시공비 별도) — 지어낸 값이 아님.
+ * $priceLabel: 요약 근거 문구의 금액 이름(비회원 '판매가', 회원은 '' — 이름 없이 — price_basis_label()).
  */
-function ai_cost_summary(array $cards): array
+function ai_cost_summary(array $cards, string $priceLabel = '판매가'): array
 {
     $priced = array_values(array_filter($cards, static fn($c) => ($c['est_cost'] ?? 0) > 0));
     if (count($priced) < 2) {
@@ -710,11 +946,33 @@ function ai_cost_summary(array $cards): array
         'lowest'  => ['name' => $lo['name'], 'spec' => spec_size_label((string) $lo['spec']), 'est_cost' => $lo['est_cost']],
         'highest' => ['name' => $hi['name'], 'spec' => spec_size_label((string) $hi['spec']), 'est_cost' => $hi['est_cost']],
         'difference' => $hi['est_cost'] - $lo['est_cost'],
-        'basis' => '같은 면적·길이 기준 판매가 자재비(운반·시공비 별도)',
+        'basis' => '같은 면적·길이 기준 ' . ($priceLabel !== '' ? $priceLabel . ' ' : '') . '자재비(운반·시공비 별도)',
     ] + (count($tied) > 1 ? [
         'lowest_tied' => array_map(static fn($t) => $t['name'] . ' ' . spec_size_label((string) $t['spec']), $tied),
         'tie_note'    => '최저 예상 자재비가 같은 제품이 ' . count($tied) . '개입니다. 가장 저렴한 것을 말하거나 담을 때 같은 금액 제품이 여럿이라고 함께 알리고, 고객이 고르지 않았으면 표에서 먼저 나온 제품으로 하되 다른 제품도 같은 금액이라고 안내하세요.',
     ] : [])];
+}
+
+/**
+ * 추천표(화면) 카드에 로그인 등급의 표시 단가 price_member 를 (다시) 넣는다 — 회원(개인·기업)은 판매가 대신 할인가
+ * (app/cart.php display_unit_price, 비회원은 판매가 그대로). 검색 카드는 이미 price_member·est_cost 를 로그인 등급 단가로
+ * 만들므로(GPT 답변 금액도 같음) 여기서는 화면 사본의 값을 현재 기준으로 맞춘다. 저장 금액·관리자 화면은 그대로.
+ */
+function ai_cards_with_member_price(array $cards): array
+{
+    try {
+        $map = display_price_map(array_column($cards, 'id'));
+    } catch (\Throwable $e) {
+        return $cards;
+    }
+    foreach ($cards as &$c) {
+        $id = (int) ($c['id'] ?? 0);
+        if (isset($map[$id])) {
+            $c['price_member'] = $map[$id]['price'];
+        }
+    }
+    unset($c);
+    return $cards;
 }
 
 /**
@@ -728,6 +986,7 @@ function ai_search_compare(array $queries, array $input): string
     $seen  = [];
     $notes = [];
     $missing = [];
+    $standards = [];   // 종류별 검색 결과의 국가표준(확인된 기본 정보) — 합쳐서 출처 카드 후보로
     $specMm = (int) ($input['spec_mm'] ?? 0);
     foreach ($queries as $q) {
         $one = $input;
@@ -743,6 +1002,9 @@ function ai_search_compare(array $queries, array $input): string
         }
         if (!empty($res['note'])) {
             $notes[] = "'{$q}': " . $res['note'];
+        }
+        foreach ((array) ($res['basics']['standards'] ?? []) as $st) {
+            $standards[(string) $st['ref']] = $st;
         }
         foreach ($res['products'] as $c) {
             if (isset($seen[$c['id']])) {
@@ -772,15 +1034,16 @@ function ai_search_compare(array $queries, array $input): string
             '_sse'     => [],
         ], JSON_UNESCAPED_UNICODE);
     }
-    [$cards, $costSummary] = ai_cost_summary($cards);
+    [$cards, $costSummary] = ai_cost_summary($cards, price_basis_label());
     $out = [
         'products' => $cards,
         'count'    => count($cards),
         '_sse'     => [
-            ['type' => 'product_cards', 'products' => $cards, 'compare' => true],
+            ['type' => 'product_cards', 'products' => ai_cards_for_screen(ai_cards_with_member_price($cards)), 'compare' => true],   // 화면용: 회원은 할인가
         ],
     ];
     if ($costSummary) { $out['cost_summary'] = $costSummary; }
+    if ($standards) { $out['basics'] = ['standards' => array_values($standards), 'products' => []]; }
     if ($notes) { $out['note'] = implode(' ', $notes); }
     return json_encode($out, JSON_UNESCAPED_UNICODE);
 }
@@ -837,7 +1100,7 @@ function tool_add_to_cart(array $input, string $sid): string
 function tool_get_cart(string $sid): string
 {
     $cart  = cart_session_read();
-    $items = cart_fetch_items($cart);
+    $items = items_with_display_prices(cart_fetch_items($cart));   // 견적서 패널·견적 저장과 같은 회원 등급별 단가
     [$count, $total] = cart_summary_from_items($items);
 
     return json_encode([

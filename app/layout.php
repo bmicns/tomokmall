@@ -101,7 +101,8 @@ function render_header(string $title, string $mode = 'normal'): void
                     <div class="mega-col">
                         <?php foreach ($group as $gi => $midEntry): ?>
                         <?php if ($gi > 0): ?><hr class="mega-col-divider"><?php endif; ?>
-                        <a href="/products.php?category=<?= $midEntry['mid']['id'] ?>" class="mega-col-title-link" <?= !empty($midEntry['hide_title']) ? 'style="visibility:hidden"' : '' ?>><?= e($midEntry['mid']['name']) ?></a>
+                        <?php // 이어지는 칸(그레이팅 2번째 절반)의 제목: 데스크톱은 자리만 차지(visibility:hidden), 모바일 세로 목록은 숨김(display:none) — styles.css .mega-col-title-cont ?>
+                        <a href="/products.php?category=<?= $midEntry['mid']['id'] ?>" class="mega-col-title-link<?= !empty($midEntry['hide_title']) ? ' mega-col-title-cont' : '' ?>"><?= e($midEntry['mid']['name']) ?></a>
                         <div class="mega-col-items">
                             <?php foreach ($midEntry['subs'] as $sub): ?>
                             <a href="/products.php?category=<?= $sub['id'] ?>" class="mega-3item">
@@ -465,31 +466,53 @@ function render_footer(): void
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // 컬럼 너비 균등 조정
-    document.querySelectorAll('.mega-panel').forEach(panel => {
-        panel.style.cssText = 'display:block;visibility:hidden;pointer-events:none';
-        let maxW = 0;
-        panel.querySelectorAll('.mega-col').forEach(col => {
-            maxW = Math.max(maxW, col.offsetWidth);
-        });
-        panel.style.cssText = '';
-        if (maxW > 0) {
+    // 컬럼 너비 균등 조정 — 데스크톱 가로 배치 기준. 768px 이하는 세로 목록(styles.css)이라 재지 않고, 넓어지면(가로 회전 등) 그때 1회
+    function equalizeMegaCols() {
+        document.querySelectorAll('.mega-panel').forEach(panel => {
+            panel.style.cssText = 'display:block;visibility:hidden;pointer-events:none';
+            let maxW = 0;
             panel.querySelectorAll('.mega-col').forEach(col => {
-                col.style.width  = maxW + 'px';
-                col.style.minWidth = maxW + 'px';
+                maxW = Math.max(maxW, col.offsetWidth);
             });
-        }
-    });
+            panel.style.cssText = '';
+            if (maxW > 0) {
+                panel.querySelectorAll('.mega-col').forEach(col => {
+                    col.style.width  = maxW + 'px';
+                    col.style.minWidth = maxW + 'px';
+                });
+            }
+        });
+    }
+    var megaNarrow = window.matchMedia ? window.matchMedia('(max-width: 768px)') : { matches: false };
+    if (!megaNarrow.matches) {
+        equalizeMegaCols();
+    } else if (megaNarrow.addEventListener) {
+        megaNarrow.addEventListener('change', function onWide() {
+            if (megaNarrow.matches) return;
+            megaNarrow.removeEventListener('change', onWide);
+            equalizeMegaCols();
+        });
+    }
 
     // 메가메뉴 hover 딜레이 — 대각선 이동 시 패널이 바로 닫히는 문제 해결
-    // 모바일(768px 이하)은 패널을 쓰지 않는다(CSS로 숨김): 터치 시 mouseenter 로 패널이 열리면 iOS 에서 탭 한 번에 링크로 이동하지 않음
-    var megaMobile = window.matchMedia ? window.matchMedia('(max-width: 768px)') : { matches: false };
+    // 터치 화면(768px 이하 또는 hover 가 없는 기기)은 hover 로 열지 않고, 대분류를 누르면 하위 자재 목록을 펼치고/접는다(아래 click).
+    // (탭 때 mouseenter 로 패널이 바뀌면 iOS 는 click 을 보내지 않아 두 번 눌러야 하고, Android 는 바로 첫 하위 카테고리로 이동해 버림)
+    var megaTouch = window.matchMedia ? window.matchMedia('(max-width: 768px), (hover: none)') : { matches: false };
     var allItems = Array.from(document.querySelectorAll('.mega-item'));
+    function closeAllMega() {
+        allItems.forEach(function(it) {
+            clearTimeout(it._mTimer);
+            it.classList.remove('is-open');
+            var t = it.querySelector('.mega-tab[aria-expanded]');
+            if (t) t.setAttribute('aria-expanded', 'false');
+        });
+    }
     allItems.forEach(function(item) {
         var panel = item.querySelector('.mega-panel');
+        var tab   = item.querySelector('.mega-tab');
 
         function open() {
-            if (megaMobile.matches) return;
+            if (megaTouch.matches) return;
             // 다른 항목 닫기 (타이머 취소 포함)
             allItems.forEach(function(other) {
                 if (other !== item) {
@@ -501,6 +524,7 @@ document.addEventListener('DOMContentLoaded', () => {
             item.classList.add('is-open');
         }
         function startClose() {
+            if (megaTouch.matches) return;   // 터치 화면은 바깥 누르기·Esc·대분류 다시 누르기로 닫음
             item._mTimer = setTimeout(function() {
                 item.classList.remove('is-open');
             }, 200);
@@ -512,10 +536,33 @@ document.addEventListener('DOMContentLoaded', () => {
             panel.addEventListener('mouseenter', open);
             panel.addEventListener('mouseleave', startClose);
         }
+
+        // 터치 화면: 대분류 누르기 = 하위 자재 목록 펼치기/접기 (마우스 화면은 기존처럼 링크 이동)
+        if (panel && tab) {
+            if (megaTouch.matches) tab.setAttribute('aria-expanded', 'false');
+            tab.addEventListener('click', function(e) {
+                if (!megaTouch.matches) return;
+                e.preventDefault();
+                var willOpen = !item.classList.contains('is-open');
+                closeAllMega();
+                if (willOpen) {
+                    item.classList.add('is-open');
+                    tab.setAttribute('aria-expanded', 'true');
+                    panel.scrollTop = 0;
+                }
+            });
+        }
+    });
+    // 터치 화면: 펼친 목록 밖을 누르거나 Esc → 닫기
+    document.addEventListener('click', function(e) {
+        if (megaTouch.matches && !(e.target.closest && e.target.closest('.mega-item.is-open'))) closeAllMega();
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && megaTouch.matches) closeAllMega();
     });
 
     // 모바일(768px 이하): 아래로 스크롤하면 상단 헤더(로고·메뉴·대분류 2~3줄)를 숨겨 본문을 넓게, 위로 스크롤하면 다시 표시.
-    // 검색 줄·로그인 창이 열려 있으면 숨기지 않는다. AI 상담 화면(mode-chat)은 화면 고정 배치라 제외(CSS도 제외).
+    // 검색 줄·로그인 창·대분류 하위 목록이 열려 있으면 숨기지 않는다. AI 상담 화면(mode-chat)은 화면 고정 배치라 제외(CSS도 제외).
     (function () {
         var header = document.querySelector('.site-header');
         if (!header || document.body.classList.contains('mode-chat') || !window.matchMedia) return;
@@ -523,7 +570,7 @@ document.addEventListener('DOMContentLoaded', () => {
         var lastY = window.scrollY, ticking = false;
         function busy() {
             var sw = document.getElementById('header-search-wrap');
-            return (sw && sw.classList.contains('open')) || document.querySelector('.auth-overlay.open');
+            return (sw && sw.classList.contains('open')) || document.querySelector('.auth-overlay.open') || document.querySelector('.mega-item.is-open');
         }
         function update() {
             ticking = false;

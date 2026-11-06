@@ -1,6 +1,6 @@
 {
     "_about": "2-1단계 병행 전략 — 39건을 국가법령정보 OPEN API 로 확보 가능한 것과 별도 수집이 필요한 것으로 분류. documents[].baseline 은 scripts/legal-sources/build_api_baseline.php 가 원문 미러에서 계산(조문 정규화 해시·공포번호·시행일). 동기화: scripts/legal-sources/law_api_sync.php. 어떤 결과도 자동 활성화하지 않는다.",
-    "updated": "2026-10-28",
+    "updated": "2026-11-05",
     "coverage_legend": {
         "law_text": "법령 조문 원문·공포번호·시행일·개정 이력을 API 로 수집·대조",
         "law_text+annex_link": "조문은 API, 별표는 제목·HWP/PDF 링크만 API(별표 내용은 파일 — 사람 확인)",
@@ -55,6 +55,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "01604",
+                    "api_effective": "2026-07-27",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -103,6 +111,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "20594",
+                    "api_effective": "2025-12-21",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             },
             "pending": [
@@ -165,6 +181,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "01166",
+                    "api_effective": "2026-07-02",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -213,6 +237,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "35947",
+                    "api_effective": "2026-01-02",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -224,15 +256,19 @@
             "candidates": [
                 4
             ],
-            "clauses": [],
+            "clauses": [
+                "V25",
+                "V26"
+            ],
             "watch_articles": [
                 "2"
             ],
             "watch_annexes": [
-                "이동편의시설의 구조ㆍ재질 등에 관한 세부기준(제2조제1항 관련)"
+                "이동편의시설의 구조ㆍ재질 등에 관한 세부기준(제2조제1항 관련)",
+                "보행안전시설물의 구조 시설기준(제9조 관련)"
             ],
             "mirror_file": "legalize/kr/mobility_rule.md",
-            "api_scope": "조문 원문 + 별표 1 제목·파일 링크(내용은 파일 확인)",
+            "api_scope": "조문 원문 + 별표 1 제목·파일 링크(내용은 파일 확인) · 2026-11-05 별표 2(보행안전시설물) 감시 추가(V26)",
             "baseline": {
                 "source": "mirror",
                 "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-10-27 스냅샷)",
@@ -244,7 +280,8 @@
                     "2": "0b958f20deee94a5"
                 },
                 "annexes": {
-                    "이동편의시설의 구조ㆍ재질 등에 관한 세부기준(제2조제1항 관련)": true
+                    "이동편의시설의 구조ㆍ재질 등에 관한 세부기준(제2조제1항 관련)": true,
+                    "보행안전시설물의 구조 시설기준(제9조 관련)": true
                 }
             },
             "api_check": {
@@ -261,6 +298,28 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "01558",
+                    "api_effective": "2026-02-01",
+                    "report": "api-sync-report-2026-11-05.md"
+                }
+            },
+            "annex_files": {
+                "이동편의시설의 구조ㆍ재질 등에 관한 세부기준(제2조제1항 관련)": {
+                    "pdf": "https://www.law.go.kr/LSW/flDownload.do?flSeq=164257997",
+                    "pdf_mirror": "https://www.law.go.kr/LSW/flDownload.do?flSeq=161303961",
+                    "revision": "개정 2024. 12. 26.",
+                    "md5": "816eb691999a4cd0cd29dfbee8bcbb4d",
+                    "checked_at": "2026-11-05"
+                },
+                "보행안전시설물의 구조 시설기준(제9조 관련)": {
+                    "pdf": "https://www.law.go.kr/LSW/flDownload.do?flSeq=161304041",
+                    "revision": "개정 2021. 8. 27.",
+                    "checked_at": "2026-11-05"
                 }
             }
         },
@@ -311,6 +370,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "00344",
+                    "api_effective": "2022-07-12",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -352,6 +419,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "321",
+                    "api_effective": "2021-07-23",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -404,6 +479,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "01588",
+                    "api_effective": "2026-06-03",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -454,6 +537,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "00882",
+                    "api_effective": "2021-08-27",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -467,7 +558,8 @@
             ],
             "clauses": [
                 "V07",
-                "V09"
+                "V09",
+                "V36"
             ],
             "watch_articles": [
                 "2",
@@ -505,6 +597,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "21065",
+                    "api_effective": "2025-10-01",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -551,6 +651,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "36338",
+                    "api_effective": "2026-06-03",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -570,7 +678,8 @@
                 "23"
             ],
             "watch_annexes": [
-                "공공하수도의 구조에 관한 기술적 기준(제6조 관련)"
+                "공공하수도의 구조에 관한 기술적 기준(제6조 관련)",
+                "배수설비의 설치기준(제23조제2항 관련)"
             ],
             "mirror_file": "legalize/kr/sewer_rule.md",
             "api_scope": "조문 원문 + 별표 5 제목·파일 링크(구조 기준 내용은 파일 확인)",
@@ -586,7 +695,8 @@
                     "23": "8b0bf560fc9a83da"
                 },
                 "annexes": {
-                    "공공하수도의 구조에 관한 기술적 기준(제6조 관련)": true
+                    "공공하수도의 구조에 관한 기술적 기준(제6조 관련)": true,
+                    "배수설비의 설치기준(제23조제2항 관련)": true
                 }
             },
             "api_check": {
@@ -603,6 +713,21 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "00042",
+                    "api_effective": "2026-06-22",
+                    "report": "api-sync-report-2026-11-05.md"
+                }
+            },
+            "annex_files": {
+                "배수설비의 설치기준(제23조제2항 관련)": {
+                    "pdf": "https://www.law.go.kr/LSW/flDownload.do?flSeq=165912267",
+                    "revision": "개정 2019. 12. 20.",
+                    "checked_at": "2026-11-05"
                 }
             }
         },
@@ -657,6 +782,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "2025-165",
+                    "api_effective": "2025-10-01",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -708,6 +841,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "2025-165",
+                    "api_effective": "2025-10-01",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             }
         },
@@ -752,6 +893,14 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "2023-907",
+                    "api_effective": "2023-01-12",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
             },
             "notice_versions": [
@@ -822,7 +971,617 @@
                     "by": "기업용 OC(사용자 PC, --check 정상 후 전체 대조)",
                     "status": "same",
                     "report": "api-sync-report-2026-10-28-company.md"
+                },
+                "recheck_2026_11_05": {
+                    "checked_at": "2026-11-05",
+                    "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                    "status": "same",
+                    "api_number": "2024-743",
+                    "api_effective": "2024-12-16",
+                    "report": "api-sync-report-2026-11-05.md"
                 }
+            }
+        },
+        {
+            "key": "bldg_law",
+            "target": "law",
+            "name": "건축법",
+            "kind": "법률",
+            "candidates": [],
+            "clauses": [
+                "V28",
+                "V29"
+            ],
+            "watch_articles": [
+                "40",
+                "83"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/bldg_law.md",
+            "api_scope": "조문 원문 — 제40조(대지의 안전)·제83조(옹벽 등 공작물). 시행 예정 개정 2건 감시",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택) · 번호·공포일·시행일·MST 는 2026-11-05 공식 API 현행판으로 갱신(미러 이력 커밋 ab56d6d6 의 같은 판, 감시 조문 해시 동일)",
+                "number": "21035",
+                "promulgated": "2025-08-26",
+                "effective": "2026-02-27",
+                "mst": "273437",
+                "articles": {
+                    "40": "b6ae9fe6bb2d4a44",
+                    "83": "3c1268301888bd6c"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "new_version_same",
+                "api_number": "21035",
+                "api_effective": "2026-02-27",
+                "articles": "제40조 일치 제83조 일치",
+                "annex_count": 0,
+                "report": "api-sync-report-2026-11-05-b.md"
+            },
+            "pending": [
+                {
+                    "number": "21880",
+                    "effective": "2027-02-12",
+                    "note": "원문 미러 기준 제40조·제83조 해시가 현재 시행판과 같음(일부 조항은 시행일이 따로 있음 — 인용 조문 아님). 시행 후 새 판(감시 조문 동일) 예상"
+                },
+                {
+                    "number": "21901",
+                    "effective": "2027-09-09",
+                    "note": "원문 미러 기준 제40조·제83조 동일(빈 건축물 특별법 타법개정). 시행일 이후 재대조"
+                }
+            ],
+            "baseline_prev": {
+                "number": "21065",
+                "promulgated": "2025-10-01",
+                "effective": "2025-10-01",
+                "mst": "276925",
+                "note": "2026-11-04 미러 이력에서 고른 판(공포가 가장 늦은 시행판) — 공식 API 현행판은 시행일이 가장 늦은 판이라 다름. 감시 조문 내용은 같음"
+            }
+        },
+        {
+            "key": "bldg_decree",
+            "target": "law",
+            "name": "건축법 시행령",
+            "kind": "대통령령",
+            "candidates": [],
+            "clauses": [
+                "V29"
+            ],
+            "watch_articles": [
+                "118"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/bldg_decree.md",
+            "api_scope": "조문 원문 — 제118조(옹벽 등의 공작물에의 준용)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택)",
+                "number": "36746",
+                "promulgated": "2026-10-06",
+                "effective": "2026-10-06",
+                "mst": "290833",
+                "articles": {
+                    "118": "e2d6f83cfd07dcec"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "36746",
+                "api_effective": "2026-10-06",
+                "articles": "제118조 일치",
+                "annex_count": 16,
+                "report": "api-sync-report-2026-11-05-b.md"
+            }
+        },
+        {
+            "key": "bldg_rule",
+            "target": "law",
+            "name": "건축법 시행규칙",
+            "kind": "국토교통부령",
+            "candidates": [],
+            "clauses": [
+                "V28"
+            ],
+            "watch_articles": [
+                "25"
+            ],
+            "watch_annexes": [
+                "옹벽에 관한 기술적 기준(제25조관련)"
+            ],
+            "mirror_file": "legalize/kr/bldg_rule.md",
+            "api_scope": "조문 원문 — 제25조(대지의 조성), 별표 6 제목·링크(별표 내용은 파일 — 사람 확인)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택)",
+                "number": "01567",
+                "promulgated": "2026-02-27",
+                "effective": "2026-02-27",
+                "mst": "283727",
+                "articles": {
+                    "25": "7ae86efbeac3eacb"
+                },
+                "annexes": {
+                    "옹벽에 관한 기술적 기준(제25조관련)": true
+                }
+            },
+            "api_check": {
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "01567",
+                "api_effective": "2026-02-27",
+                "articles": "제25조 일치",
+                "annex_count": 83,
+                "report": "api-sync-report-2026-11-05-b.md",
+                "annex_check": {
+                    "checked_at": "2026-11-05",
+                    "by": "Claude(공식 별표 PDF 열람)",
+                    "source": "https://www.law.go.kr/LSW/flDownload.do?flSeq=161990051",
+                    "note": "별표 6 옹벽에 관한 기술적 기준(제25조관련, 개정 2014.10.15) — 석축 옹벽의 높이별 경사도·석축용 돌 뒷길이·뒷채움돌 두께·건축물까지 띄우는 거리만 정함(4~6호 삭제). V28 조건에 반영"
+                }
+            }
+        },
+        {
+            "key": "plan_law",
+            "target": "law",
+            "name": "국토의 계획 및 이용에 관한 법률",
+            "kind": "법률",
+            "candidates": [],
+            "clauses": [
+                "V30"
+            ],
+            "watch_articles": [
+                "56"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/plan_law.md",
+            "api_scope": "조문 원문 — 제56조(개발행위의 허가). 시행 예정 개정 3건 감시",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택) · 번호·공포일·시행일·MST 는 2026-11-05 공식 API 현행판으로 갱신(미러 이력 커밋 bc6951cd 의 같은 판, 감시 조문 해시 동일)",
+                "number": "21447",
+                "promulgated": "2026-03-05",
+                "effective": "2026-07-01",
+                "mst": "284013",
+                "articles": {
+                    "56": "b37847c90fe2d14e"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "new_version_same",
+                "api_number": "21447",
+                "api_effective": "2026-07-01",
+                "articles": "제56조 일치",
+                "annex_count": 0,
+                "report": "api-sync-report-2026-11-05-b.md"
+            },
+            "pending": [
+                {
+                    "number": "21812",
+                    "effective": "2026-12-17",
+                    "note": "원문 미러 기준 제56조는 21626 의 제3항 문구 변경만 포함(인용하지 않는 항). 제1항·제4항 동일"
+                },
+                {
+                    "number": "21626",
+                    "effective": "2027-05-13",
+                    "note": "임도의 설치 및 관리에 관한 법률 타법개정 — 제56조제3항 법률명 변경(인용 안 함). 시행 후 감시 조문 해시가 바뀌므로 제1항·제4항 동일 확인 후 기준값 갱신"
+                },
+                {
+                    "number": "21796",
+                    "effective": "2027-06-17",
+                    "note": "원문 미러 기준 제56조 변경 없음. 시행일 이후 재대조"
+                }
+            ],
+            "baseline_prev": {
+                "number": "21585",
+                "promulgated": "2026-04-28",
+                "effective": "2026-05-17",
+                "mst": "285657",
+                "note": "2026-11-04 미러 이력에서 고른 판(공포가 가장 늦은 시행판) — 공식 API 현행판은 시행일이 가장 늦은 판이라 다름. 감시 조문 내용은 같음"
+            }
+        },
+        {
+            "key": "plan_decree",
+            "target": "law",
+            "name": "국토의 계획 및 이용에 관한 법률 시행령",
+            "kind": "대통령령",
+            "candidates": [],
+            "clauses": [
+                "V30"
+            ],
+            "watch_articles": [
+                "53"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/plan_decree.md",
+            "api_scope": "조문 원문 — 제53조(허가를 받지 아니하여도 되는 경미한 행위)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택) · 번호·공포일·시행일·MST 는 2026-11-05 공식 API 현행판으로 갱신(미러 이력 커밋 84a3aa07 의 같은 판, 감시 조문 해시 동일)",
+                "number": "36587",
+                "promulgated": "2026-08-18",
+                "effective": "2026-09-18",
+                "mst": "288857",
+                "articles": {
+                    "53": "90abbd13f0aeb75b"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "new_version_same",
+                "api_number": "36587",
+                "api_effective": "2026-09-18",
+                "articles": "제53조 일치",
+                "annex_count": 32,
+                "report": "api-sync-report-2026-11-05-b.md"
+            },
+            "baseline_prev": {
+                "number": "36656",
+                "promulgated": "2026-09-08",
+                "effective": "2026-09-08",
+                "mst": "289497",
+                "note": "2026-11-04 미러 이력에서 고른 판(공포가 가장 늦은 시행판) — 공식 API 현행판은 시행일이 가장 늦은 판이라 다름. 감시 조문 내용은 같음"
+            }
+        },
+        {
+            "key": "river_law",
+            "target": "law",
+            "name": "하천법",
+            "kind": "법률",
+            "candidates": [],
+            "clauses": [
+                "V31"
+            ],
+            "watch_articles": [
+                "33"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/river_law.md",
+            "api_scope": "조문 원문 — 제33조(하천의 점용허가 등)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택)",
+                "number": "21471",
+                "promulgated": "2026-03-17",
+                "effective": "2026-09-18",
+                "mst": "284435",
+                "articles": {
+                    "33": "0c1fc1792ee9c657"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "21471",
+                "api_effective": "2026-09-18",
+                "articles": "제33조 일치",
+                "annex_count": 0,
+                "report": "api-sync-report-2026-11-05-b.md"
+            }
+        },
+        {
+            "key": "sriver_law",
+            "target": "law",
+            "name": "소하천정비법",
+            "kind": "법률",
+            "candidates": [],
+            "clauses": [
+                "V32"
+            ],
+            "watch_articles": [
+                "14"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/sriver_law.md",
+            "api_scope": "조문 원문 — 제14조(소하천등의 점용 등). 시행 예정 개정 1건 감시",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택)",
+                "number": "21065",
+                "promulgated": "2025-10-01",
+                "effective": "2025-10-01",
+                "mst": "276319",
+                "articles": {
+                    "14": "6c0110533aec25a5"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "21065",
+                "api_effective": "2025-10-01",
+                "articles": "제14조 일치",
+                "annex_count": 0,
+                "report": "api-sync-report-2026-11-05-b.md"
+            },
+            "pending": [
+                {
+                    "number": "21733",
+                    "effective": "2026-12-03",
+                    "note": "원문 미러 기준 제14조 동일. 시행 후 새 판(감시 조문 동일) 예상"
+                }
+            ]
+        },
+        {
+            "key": "road_law",
+            "target": "law",
+            "name": "도로법",
+            "kind": "법률",
+            "candidates": [],
+            "clauses": [
+                "V33"
+            ],
+            "watch_articles": [
+                "52",
+                "61"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/road_law.md",
+            "api_scope": "조문 원문 — 제52조(도로와 다른 시설의 연결)·제61조(도로의 점용 허가). 시행 예정 개정 1건 감시",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택) · 번호·공포일·시행일·MST 는 2026-11-05 공식 API 현행판으로 갱신(미러 이력 커밋 4f23de5a 의 같은 판, 감시 조문 해시 동일)",
+                "number": "21480",
+                "promulgated": "2026-03-17",
+                "effective": "2026-09-18",
+                "mst": "284465",
+                "articles": {
+                    "52": "0d8c46ebd63af26c",
+                    "61": "01e0a81d0cfade26"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "new_version_same",
+                "api_number": "21480",
+                "api_effective": "2026-09-18",
+                "articles": "제52조 일치 제61조 일치",
+                "annex_count": 0,
+                "report": "api-sync-report-2026-11-05-b.md"
+            },
+            "pending": [
+                {
+                    "number": "21965",
+                    "effective": "2027-03-23",
+                    "note": "원문 미러 기준 제52조·제61조 동일. 시행일 이후 재대조"
+                }
+            ],
+            "baseline_prev": {
+                "number": "21738",
+                "promulgated": "2026-06-02",
+                "effective": "2026-06-02",
+                "mst": "286547",
+                "note": "2026-11-04 미러 이력에서 고른 판(공포가 가장 늦은 시행판) — 공식 API 현행판은 시행일이 가장 늦은 판이라 다름. 감시 조문 내용은 같음"
+            }
+        },
+        {
+            "key": "road_decree",
+            "target": "law",
+            "name": "도로법 시행령",
+            "kind": "대통령령",
+            "candidates": [],
+            "clauses": [
+                "V33"
+            ],
+            "watch_articles": [
+                "49",
+                "55"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/road_decree.md",
+            "api_scope": "조문 원문 — 제49조(연결허가 대상 도로)·제55조(점용허가를 받을 수 있는 공작물 등)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택) · 번호·공포일·시행일·MST 는 2026-11-05 공식 API 현행판으로 갱신(미러 이력 커밋 c5b876ba 의 같은 판, 감시 조문 해시 동일)",
+                "number": "36587",
+                "promulgated": "2026-08-18",
+                "effective": "2026-09-18",
+                "mst": "288871",
+                "articles": {
+                    "49": "0e35099b5c35ee95",
+                    "55": "330f4b0d7e19569a"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "new_version_same",
+                "api_number": "36587",
+                "api_effective": "2026-09-18",
+                "articles": "제49조 일치 제55조 일치",
+                "annex_count": 7,
+                "report": "api-sync-report-2026-11-05-b.md"
+            },
+            "baseline_prev": {
+                "number": "36689",
+                "promulgated": "2026-09-15",
+                "effective": "2026-09-15",
+                "mst": "289661",
+                "note": "2026-11-04 미러 이력에서 고른 판(공포가 가장 늦은 시행판) — 공식 API 현행판은 시행일이 가장 늦은 판이라 다름. 감시 조문 내용은 같음"
+            }
+        },
+        {
+            "key": "ks_law",
+            "target": "law",
+            "name": "산업표준화법",
+            "kind": "법률",
+            "candidates": [],
+            "clauses": [
+                "V34"
+            ],
+            "watch_articles": [
+                "15",
+                "24"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/ks_law.md",
+            "api_scope": "조문 원문 — 제15조(제품의 인증)·제24조(한국산업표준의 준수). 시행 예정 개정 1건 감시",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-04 열람 — 이력에서 현재 시행판 선택)",
+                "number": "21438",
+                "promulgated": "2026-03-10",
+                "effective": "2026-03-10",
+                "mst": "283931",
+                "articles": {
+                    "15": "fb0278e10bb7d9b2",
+                    "24": "c9a4af6c25093e74"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "21438",
+                "api_effective": "2026-03-10",
+                "articles": "제15조 일치 제24조 일치",
+                "annex_count": 0,
+                "report": "api-sync-report-2026-11-05-b.md"
+            },
+            "pending": [
+                {
+                    "number": "21925",
+                    "effective": "2027-03-16",
+                    "note": "제15조제1항 인증 대상자 문구 변경(인용하지 않는 항) — 시행 후 감시 조문 해시가 바뀌므로 제2항·제3항 동일 확인 후 기준값 갱신. 제24조 동일"
+                }
+            ]
+        },
+        {
+            "key": "road_safety",
+            "target": "admrul",
+            "name": "도로안전시설 설치 및 관리 지침",
+            "kind": "예규",
+            "candidates": [],
+            "clauses": [
+                "V35"
+            ],
+            "watch_articles": [],
+            "watch_annexes": [],
+            "mirror_file": "admrule/road_safety.md",
+            "api_scope": "발령번호·시행일 — 본문(편별 지침)은 API 본문 텍스트(조 단위 아님, 감시 조문 없음)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/admrule-kr (법제처 OPEN API 행정규칙 원문 미러, 2026-11-04 열람)",
+                "number": "465",
+                "promulgated": "2026-08-14",
+                "effective": "2026-08-14",
+                "mst": "2100000283726",
+                "articles": [],
+                "annexes": []
+            },
+            "api_check": {
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "465",
+                "api_effective": "2026-08-14",
+                "articles": "감시 조문 없음(번호·시행일만 — API 본문은 조 단위 아님)",
+                "annex_count": 15,
+                "report": "api-sync-report-2026-11-05-b.md",
+                "body_check": {
+                    "checked_at": "2026-11-05",
+                    "by": "Claude(공식 첨부 PDF 열람)",
+                    "source": "https://law.go.kr/flDownload.do?flSeq=169584827",
+                    "note": "API 보고서의 본문 첨부 (개정전문) 도로안전시설 설치 및 관리지침 일부개정(26.08.14).pdf — 제4편 2. 과속방지턱 2.1.2·2.3·2.4.1~2.4.3·2.5.2 가 V35 요약과 같음(부칙 제465호, 2026.8.14)"
+                }
+            }
+        },
+        {
+            "key": "parking_law",
+            "target": "law",
+            "name": "주차장법",
+            "kind": "법률",
+            "candidates": [],
+            "clauses": [
+                "V37"
+            ],
+            "watch_articles": [
+                "2"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "legalize/kr/parking_law.md",
+            "api_scope": "조문 원문 — 제2조(정의: 노상·노외·부설주차장)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/legalize-kr (법제처 OPEN API 원문 미러, 2026-11-05 열람 — 최신판 = 현행판)",
+                "number": "21413",
+                "promulgated": "2026-02-27",
+                "effective": "2026-08-28",
+                "mst": "283743",
+                "articles": {
+                    "2": "fb60945e2f1d1d5d"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "21413",
+                "api_effective": "2026-08-28",
+                "articles": "제2조 일치",
+                "annex_count": 0,
+                "report": "api-sync-report-2026-11-05-b.md"
+            }
+        },
+        {
+            "key": "river_occupy",
+            "target": "admrul",
+            "name": "하천점용허가 세부기준",
+            "kind": "고시",
+            "candidates": [],
+            "clauses": [
+                "V38"
+            ],
+            "watch_articles": [
+                "2",
+                "15"
+            ],
+            "watch_annexes": [],
+            "mirror_file": "admrule/river_occupy.md",
+            "api_scope": "행정규칙 조문 원문 — 제2조(적용범위)·제15조(수로)",
+            "baseline": {
+                "source": "mirror",
+                "source_note": "legalize-kr/admrule-kr (법제처 OPEN API 행정규칙 원문 미러, 2026-11-05 열람)",
+                "number": "2026-62",
+                "promulgated": "2026-03-09",
+                "effective": "2026-03-09",
+                "mst": "2100000275882",
+                "articles": {
+                    "2": "cfae782f525b230a",
+                    "15": "0e6c2081f300fc9c"
+                },
+                "annexes": []
+            },
+            "api_check": {
+                "checked_at": "2026-11-05",
+                "by": "사용자 PC 실행(law_api_sync.php, 공식 API)",
+                "status": "same",
+                "api_number": "2026-62",
+                "api_effective": "2026-03-09",
+                "articles": "제2조 일치 제15조 일치",
+                "annex_count": 3,
+                "report": "api-sync-report-2026-11-05-b.md"
             }
         }
     ],
@@ -1293,5 +2052,89 @@
             "collect_channel": "e나라표준인증(standard.go.kr) 표준 상세 — 번호·표준명·적용범위·개정일(메타데이터). 목록 대조: 공공데이터포털 국가표준 CSV(15131276). 원문은 KSA 유료 PDF — 저장·재게시 안 함",
             "api_note": ""
         }
-    ]
+    ],
+    "kcsc_documents": [
+        {
+            "type": "KDS",
+            "code": "118010",
+            "name": "보강토옹벽",
+            "version": "2025",
+            "updated": "2025-12-29",
+            "clauses": [
+                "V39"
+            ]
+        },
+        {
+            "type": "KCS",
+            "code": "118010",
+            "name": "보강토옹벽공사",
+            "version": "2025",
+            "updated": "2025-12-30",
+            "clauses": [
+                "V39"
+            ]
+        },
+        {
+            "type": "KDS",
+            "code": "118025",
+            "name": "돌(블록)쌓기옹벽",
+            "version": "2025",
+            "updated": "2025-12-29",
+            "clauses": [
+                "V40"
+            ]
+        },
+        {
+            "type": "KDS",
+            "code": "117010",
+            "name": "비탈면 보호공법",
+            "version": "2025",
+            "updated": "2025-12-29",
+            "clauses": [
+                "V41"
+            ]
+        },
+        {
+            "type": "KDS",
+            "code": "614000",
+            "name": "관로시설 설계기준",
+            "version": "2025",
+            "updated": "2026-08-03",
+            "clauses": [
+                "V42",
+                "V43"
+            ]
+        },
+        {
+            "type": "KDS",
+            "code": "444020",
+            "name": "도시지역 도로배수",
+            "version": "2026",
+            "updated": "2026-10-07",
+            "clauses": [
+                "V23"
+            ]
+        },
+        {
+            "type": "KDS",
+            "code": "445025",
+            "name": "차도용 블록포장설계",
+            "version": "2026",
+            "updated": "2026-10-07",
+            "clauses": [
+                "V21"
+            ]
+        },
+        {
+            "type": "KCS",
+            "code": "445025",
+            "name": "차도용 블록포장 공사",
+            "version": "2026",
+            "updated": "2026-10-07",
+            "clauses": [
+                "V22"
+            ]
+        }
+    ],
+    "kcsc_note": "국가건설기준센터 OpenAPI 목록(CodeList)의 판(version)·갱신일(updateDate) 기준값(2026-11-05). 재확인: php scripts/legal-sources/kcsc_fetch.php --recheck (KCSC_API_KEY 필요)"
 }

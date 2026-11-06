@@ -18,7 +18,8 @@
     "출처 표시: 조달청·공공데이터포털",
     "가격은 조달 계약단가 — 우리 판매가로 쓰지 않음(참고가)"
    ],
-   "url": "https://www.data.go.kr/data/15142663/fileData.do"
+   "url": "https://www.data.go.kr/data/15142663/fileData.do",
+   "used_2026_11_05": "사용자가 조달데이터허브 보고서(UI-ADOXFA-183R, 대분류 토목/건축/자재, 쇼핑몰 계약 해당, 출력 2026-11-05) 제공 → scripts/external/g2b_summary.php 로 자재 종류별 품목·업체 수·인증 표시 품목 수만 집계(app/procurement_summary.php). 가격·사업자등록번호·업체 이름·원본은 저장소에 넣지 않음"
   },
   {
    "key": "g2b_mall_api",
@@ -42,12 +43,12 @@
   },
   {
    "key": "manufacturer_catalog",
-   "name": "제조사 제공 카탈로그(허락받은 엑셀·CSV)",
+   "name": "제조사 제공 카탈로그(허락받은 PDF·엑셀·CSV) — 틀(2026-11-05 사용자 결정: 제조사 연락·허락 요청은 하지 않음 — 제조사가 자료를 보내 오는 경우에만)",
    "domain": "",
    "kind": "제조사 제공 파일",
    "priority": 0,
    "permission": "pending",
-   "basis": "제조사별 허락 메일·계약을 받으면 출처 키를 따로 추가하고 allowed 로 바꾼다",
+   "basis": "제조사별 허락 메일·계약을 받으면 출처 키를 따로(<제조사키>_catalog) 추가하고 allowed 로, basis 에 허락 날짜·방식·범위·허락한 분 직함(개인 연락처 제외)을 적는다. PDF 는 scripts/external/catalog-extract.php, 엑셀·CSV 는 import.php — 순서: docs/03-analysis/ai-sourcing/external-sources/catalog-intake-2026-11-05.md",
    "methods": [
     "file"
    ],
@@ -142,7 +143,8 @@
    ],
    "crawl_priority": 7,
    "ai_value": "중(흄관·VR관 KS, 보도블럭)",
-   "difficulty": "중"
+   "difficulty": "중",
+   "note_2026_11_05": "https://kr-con.co.kr/robots.txt 가 User-agent:* Disallow:/ (Yeti·Googlebot·Daumoa 만 허용) — 우리 수집기는 수집하지 않음(crawl-sources.php 가 robots 확인으로 건너뜀). 10-29 302 반복과 별개"
   },
   {
    "key": "dhconc",

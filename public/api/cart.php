@@ -41,7 +41,7 @@ $cart = cart_session_read();
 
 // ─── get ────────────────────────────────────────────────────────────────────
 if ($action === 'get') {
-    $items = cart_fetch_items($cart);
+    $items = items_with_display_prices(cart_fetch_items($cart));   // 회원 등급별 단가(견적 요청 화면·저장과 같은 금액)
     [$count, $total] = cart_summary_from_items($items);
     echo json_encode(['ok' => true, 'cart' => compact('items', 'count', 'total')]);
     exit;
@@ -63,7 +63,7 @@ if ($action === 'remove') {
     }
     unset($cart[$productId]);
     cart_session_write($cart);
-    $items = cart_fetch_items($cart);
+    $items = items_with_display_prices(cart_fetch_items($cart));   // 회원 등급별 단가(견적 요청 화면·저장과 같은 금액)
     [$count, $total] = cart_summary_from_items($items);
     echo json_encode(['ok' => true, 'cart' => compact('items', 'count', 'total')]);
     exit;
@@ -116,6 +116,6 @@ if ($action === 'add') {
 }
 
 cart_session_write($cart);
-$items = cart_fetch_items($cart);
+$items = items_with_display_prices(cart_fetch_items($cart));   // 회원 등급별 단가(견적 요청 화면·저장과 같은 금액)
 [$count, $total] = cart_summary_from_items($items);
 echo json_encode(['ok' => true, 'cart' => compact('items', 'count', 'total')]);

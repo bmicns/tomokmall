@@ -60,6 +60,12 @@ render_header('즉시견적');
   .prod-card-name{font-size:14px;font-weight:600;color:var(--color-text-primary);line-height:1.3;word-break:keep-all;}
   .prod-card-spec{font-size:13px;color:var(--color-text-secondary);line-height:1.3;}
   .prod-card-price{font-size:12px;color:var(--color-primary);font-weight:700;margin-top:2px;}
+  /* 단가: 한 줄로 판매가(취소선·회색) → 기업회원가(빨강) — 기업회원 홈 빠른 견적과 같은 모양, 좁으면 기업회원가만 다음 줄 */
+  .prod-card-pair{display:inline-flex;flex-wrap:wrap;align-items:baseline;gap:0 4px;}
+  .prod-card-was{font-size:11px;font-weight:400;color:#999;text-decoration:line-through;white-space:nowrap;}
+  .prod-card-arrow{font-size:11px;font-weight:400;color:#999;}
+  .prod-card-sale{color:#E12020;white-space:nowrap;}
+  .prod-card-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
   .prod-card-actions{display:flex;gap:4px;margin-top:auto;padding-top:6px;}
   .prod-card-qty{flex:1;min-width:0;text-align:right;background:#EEEEEE;border:1px solid var(--color-border);padding:4px 6px;font-size:11px;font-family:var(--font);}
   .btn-add-card{background:var(--color-primary);color:#fff;border:none;padding:4px 8px;font-size:11px;font-family:var(--font);cursor:pointer;white-space:nowrap;flex-shrink:0;}
@@ -91,6 +97,47 @@ render_header('즉시견적');
   .btn-submit{background:var(--color-primary);color:#fff;border:none;padding:8px 20px;font-size:13px;font-family:var(--font);font-weight:500;cursor:pointer;}
   .btn-submit:disabled{opacity:.4;cursor:not-allowed;}
   .empty-msg{color:var(--color-text-secondary);font-size:12px;padding:12px 0;}
+
+  /* ── 모바일(640px 이하) ─────────────────────────────────────
+     화면 높이 고정 배치(위 선택 영역·아래 품목 표가 한 화면을 나눠 상품 카드가 잘림, 아래 빈 공간)
+     → 위에서 아래로 이어지는 문서 흐름. 상품 카드 5열 → 2열, 품목 표 → 품목마다 카드, 터치 크기 키움 */
+  @media (max-width: 640px) {
+    main{height:auto;overflow:visible;display:block;}
+    .est-main{overflow:visible;}
+    .tab-content{padding:16px;overflow:visible;}
+    .tab-btn{flex:1;min-height:44px;padding:0 8px;font-size:14px;}
+    .step-row{flex-direction:column;gap:6px;}
+    .step-label{padding-top:0;font-size:12px;}
+    .cat-chips{gap:6px;}
+    .cat-chip{min-height:36px;padding:0 12px;font-size:13px;}
+    #prod-cards-list{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .prod-card-price{font-size:14px;}
+    .prod-card-qty{height:36px;font-size:16px;}
+    .btn-add-card{height:36px;padding:0 10px;font-size:13px;}
+    .list-card-name{font-size:14px;}
+    .list-card-sub{font-size:12px;}
+    .btn-sm{min-height:36px;padding:0 12px;font-size:13px;}
+    .est-footer{padding:12px 16px 20px;}
+    #items-table,#items-table tbody{display:block;}
+    #items-table thead{display:none;}
+    #items-table tr{display:grid;grid-template-columns:auto minmax(0,1fr) 44px;grid-template-areas:"name name rm" "spec spec spec" "qty price price" "qty sub sub";align-items:center;gap:2px 12px;padding:12px 0;border-bottom:1px solid var(--color-border);}
+    #items-table td{display:block;padding:0;border:0;min-width:0;text-align:left;}
+    #items-table td:nth-child(1){grid-area:name;font-size:14px;font-weight:600;overflow-wrap:anywhere;}
+    #items-table td:nth-child(2){grid-area:spec;font-size:12px;color:var(--color-text-secondary);overflow-wrap:anywhere;}
+    #items-table td:nth-child(3){grid-area:qty;margin-top:6px;}
+    #items-table td:nth-child(3)::before{content:'수량';margin-right:8px;font-size:12px;color:var(--color-text-secondary);}
+    #items-table td:nth-child(4){grid-area:price;align-self:end;margin-top:6px;text-align:right;font-size:12px;color:var(--color-text-secondary);}
+    #items-table td:nth-child(5){grid-area:sub;align-self:start;text-align:right;font-size:15px;font-weight:600;}
+    #items-table td:nth-child(4)::before{content:'단가 ';}
+    #items-table td:nth-child(5)::before{content:'소계 ';font-size:12px;font-weight:400;color:var(--color-text-secondary);}
+    #items-table td:nth-child(6){grid-area:rm;justify-self:end;margin-right:-10px;}
+    #items-table .qty-inp{width:64px;height:40px;font-size:16px;text-align:center;}
+    .btn-remove{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;}
+    .total-label{font-size:13px;}
+    .total-amount{font-size:18px;}
+    .btn-clear,.btn-submit{min-height:44px;font-size:14px;}
+    .btn-submit{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;}
+  }
 </style>
 
 <div class="tabs">
@@ -169,23 +216,27 @@ async function quickItems(action, productId, qty) {
   if (productId) body.product_id = +productId;
   if (qty != null) body.quantity = +qty;
   const d = await API.post('/api/estimate/quick-items.php', body);
-  if (d.ok) renderItems(d.items, d.total);
+  if (d.ok) renderItems(d.items, d.total, d.display_total);
   else if (action !== 'get') alert(d.error || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.');
   return d;
 }
 
-function renderItems(items, total) {
+function renderItems(items, total, displayTotal) {
+  // 화면 금액은 기업회원가(API display_price·display_subtotal·display_total — 상품 상세와 같은 규칙).
+  // unit_price·subtotal·total(기업가 컬럼 price_b2b 값)은 표시하지 않는다 — 표시 전용(저장 단가·관리자 화면은 원래대로). 필드가 없으면(이전 API·재구매 응답) 기존 값
+  items = items.map(it => it.display_price != null ? Object.assign({}, it, {unit_price: it.display_price, subtotal: it.display_subtotal}) : it);
+  if (displayTotal != null) total = displayTotal;
   const tbody  = document.getElementById('items-body');
   const emptyEl = document.getElementById('empty-items');
   const submitBtn = document.getElementById('btn-submit');
   tbody.innerHTML = items.map(it => `
     <tr>
       <td>${escHtml(it.name)}</td>
-      <td>${escHtml(it.spec||'-')}</td>
+      <td>${escHtml(it.size||'-')}</td>
       <td><input class="qty-inp" type="number" value="${it.quantity}" min="1" max="999"
         onchange="quickItems('update',${it.product_id},this.value)"></td>
-      <td>${it.unit_price.toLocaleString()}원</td>
-      <td>${it.subtotal.toLocaleString()}원</td>
+      <td>${it.unit_price > 0 ? it.unit_price.toLocaleString() + '원' : '문의'}</td>
+      <td>${it.unit_price > 0 ? it.subtotal.toLocaleString() + '원' : '문의'}</td>
       <td><button class="btn-remove" onclick="quickItems('remove',${it.product_id})"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>
     </tr>`).join('');
   document.getElementById('total-amount').textContent = (total||0).toLocaleString() + '원';
@@ -265,7 +316,12 @@ async function loadProducts(catId) {
   if (d.ok && d.products.length) {
     const noImg = `<div class="prod-card-no-img"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`;
     document.getElementById('prod-cards-list').innerHTML = d.products.map(p => {
-      const price = (p.price_b2b || p.price_b2c).toLocaleString();
+      // 단가: 기업회원가가 판매가보다 낮으면 한 줄로 [판매가(취소선)] → [기업회원가(빨강)] (price_list·price_member 없으면 기존 단가)
+      const member = p.price_member != null ? p.price_member : (p.price_b2b || p.price_b2c);
+      const priceHtml = !(member > 0) ? '견적문의'
+        : (p.price_list > member
+            ? `<span class="prod-card-pair"><span class="prod-card-sr">판매가 </span><del class="prod-card-was">${p.price_list.toLocaleString()}</del><span class="prod-card-arrow" aria-hidden="true">→</span><span class="prod-card-sr">할인가 </span><span class="prod-card-sale">${member.toLocaleString()}원</span></span>`
+            : `${member.toLocaleString()}원`);
       const imgHtml = p.image_url
         ? `<img src="${escHtml(p.image_url)}" class="prod-card-img" alt="" onerror="imgErr(this)">`
         : noImg;
@@ -273,8 +329,8 @@ async function loadProducts(catId) {
         ${imgHtml}
         <div class="prod-card-body">
           <div class="prod-card-name">${escHtml(p.name)}</div>
-          ${p.spec ? `<div class="prod-card-spec">${escHtml(p.spec)}</div>` : ''}
-          <div class="prod-card-price">${price}원</div>
+          ${p.size ? `<div class="prod-card-spec">${escHtml(p.size)}</div>` : ''}
+          <div class="prod-card-price">${priceHtml}</div>
           <div class="prod-card-actions">
             <input type="number" class="prod-card-qty" value="1" min="1" max="999">
             <button class="btn-add-card" onclick="addProductCard(${p.id},this)">+ 추가</button>
@@ -308,8 +364,8 @@ async function loadFavorites() {
   if (!d.ok || !d.favorites.length) { el.innerHTML = '<p class="empty-msg">등록된 단골품목이 없습니다.</p>'; return; }
   el.innerHTML = d.favorites.map(f => `
     <div class="list-card">
-      <div><div class="list-card-name">${escHtml(f.name)}${f.spec?` <span style="color:var(--color-text-secondary)">${escHtml(f.spec)}</span>`:''}</div>
-        <div class="list-card-sub">수량 ${f.quantity}개 · ${f.price_b2b.toLocaleString()}원</div></div>
+      <div><div class="list-card-name">${escHtml(f.name)}${f.size?` <span style="color:var(--color-text-secondary)">${escHtml(f.size)}</span>`:''}</div>
+        <div class="list-card-sub">수량 ${f.quantity}개 · ${(f.price_member != null ? f.price_member : f.price_b2b) > 0 ? (f.price_member != null ? f.price_member : f.price_b2b).toLocaleString() + '원' : '견적문의'}</div></div>
       <div style="display:flex;gap:6px">
         <button class="btn-sm" onclick="quickItems('add',${f.product_id},${f.quantity}).then(()=>showTab('new'))">추가</button>
         <button class="btn-sm danger" onclick="removeFav(${f.product_id})">삭제</button>

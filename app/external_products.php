@@ -315,7 +315,7 @@ function ext_selection_guide(array $productRow, array $knowledge = []): array
     };
     if ($n['product_type'] === 'PE관') {
         $g[] = preg_match('/유공/u', $productRow['name'] ?? '') ? '유공관 — 관에 구멍이 있어 땅속 물을 모아 빼는 용도'
-            : (preg_match('/이중벽/u', $productRow['name'] ?? '') ? '이중벽관 — 바깥은 주름, 안쪽은 매끈한 관' : '');
+            : (preg_match('/이중벽/u', $productRow['name'] ?? '') ? '이중벽관 — 관벽이 두 겹인 구조의 관(바깥 면 모양은 제품마다 다름)' : '');   // 2026-11-05: KS M 3500-1 적용 범위(내·외면 평활)와 맞지 않는 '바깥은 주름' 단정 삭제
     }
     if (preg_match('/\bKS\b/u', (string) ($productRow['name'] ?? '')) && !$n['attrs']['ks']) {
         $g[] = 'KS 표기 제품(상품명 기준)';

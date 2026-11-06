@@ -48,6 +48,21 @@
   function priceHtml(price) {
     return price > 0 ? esc(won(price)) + '원' : '<span class="ch-price--ask">견적문의</span>';
   }
+  // 단가 칸: 기업회원가가 판매가보다 낮으면 한 줄로 [판매가(취소선)] → [기업회원가(빨강)] (단위 '본' 옆 배치가 어색하지 않게 아래로 쌓지 않음).
+  // price_list·price_member: API(by-category)·서버 데이터(단골품목)의 화면 표시 가격(상품 상세와 같은 규칙). 없으면 기존 단가(price)
+  function priceCellHtml(p) {
+    var member = p.price_member != null ? p.price_member : p.price;
+    var list = p.price_list != null ? p.price_list : 0;
+    if (!(member > 0)) return priceHtml(0);
+    if (list > member) {
+      return '<span class="ch-price-pair">' +
+        '<span class="ch-sr">판매가 </span><del class="ch-price-was">' + esc(won(list)) + '</del>' +
+        '<span class="ch-price-arrow" aria-hidden="true">→</span>' +
+        '<span class="ch-sr">할인가 </span><strong class="ch-price-sale">' + esc(won(member)) + '</strong>' +
+      '</span>';
+    }
+    return priceHtml(member);
+  }
 
   // ── 페이지 이동 ─────────────────────────────────────────────
   function renderPager(nav, page, pages, onGo) {
@@ -216,7 +231,7 @@
         '<td>' + thumbHtml(p.image_url) + '</td>' +
         '<td class="ch-name-cell"><div class="ch-name" title="' + esc(p.name) + '">' + esc(p.name) + '</div><div class="ch-spec" title="' + esc(p.size) + '">' + esc(p.size || '-') + '</div></td>' +
         '<td class="ch-unit">' + esc(p.unit || '-') + '</td>' +
-        '<td class="ch-price">' + priceHtml(p.price) + '</td>' +
+        '<td class="ch-price">' + priceCellHtml(p) + '</td>' +
         '<td>' + qtyCell(p.id, 1, label) + '</td>' +
         '<td>' + addCell(p.id, label) + '</td>' +
       '</tr>';
@@ -243,7 +258,8 @@
         products = (d.products || []).map(function (p) {
           return {
             id: p.id, name: p.name, size: p.size || '', unit: p.unit || '',
-            price: p.price_b2b != null ? p.price_b2b : p.price_b2c, image_url: p.image_url || ''
+            price: p.price_b2b != null ? p.price_b2b : p.price_b2c, image_url: p.image_url || '',
+            price_list: p.price_list, price_member: p.price_member
           };
         });
         buildFilters();
@@ -269,7 +285,7 @@
         '<td>' + thumbHtml(p.image_url) + '</td>' +
         '<td class="ch-name-cell"><div class="ch-name" title="' + esc(p.name) + '">' + esc(p.name) + '</div><div class="ch-spec" title="' + esc(p.size) + '">' + esc(p.size || '-') + '</div></td>' +
         '<td class="ch-unit">' + esc(p.unit || '-') + '</td>' +
-        '<td class="ch-price">' + priceHtml(p.price) + '</td>' +
+        '<td class="ch-price">' + priceCellHtml(p) + '</td>' +
         '<td>' + esc(p.buy_count) + '회</td>' +
         '<td>' + esc(p.last_buy || '-') + '</td>' +
         '<td>' + qtyCell(p.product_id, p.quantity || 1, label) + '</td>' +
@@ -284,12 +300,18 @@
   var pendingQty = {}, saveChain = {}; // 담기: 저장 대기 중인 누적 수량(상품별)·저장 순서 보장용
   var cartBody = $('ch-cart-body'), submitBtn = $('ch-submit');
 
+  // 담은 품목 화면 금액은 기업회원가(API display_price·display_subtotal — 상품 상세와 같은 규칙).
+  // API 의 unit_price·subtotal(기업가 컬럼 price_b2b 값)은 화면에 쓰지 않는다 — 표시 전용(저장 단가·관리자 화면은 원래대로). 필드가 없으면(이전 API) 기존 값 그대로
+  function cartViewItem(it) {
+    return it.display_price != null ? Object.assign({}, it, { unit_price: it.display_price, subtotal: it.display_subtotal }) : it;
+  }
+
   function quickItems(body) {
     return fetch('/api/estimate/quick-items.php', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
     }).then(function (r) {
       return r.json().catch(function () { return { ok: false }; }).then(function (d) {
-        if (d && d.ok) { cart = d.items || []; renderCart(); return d; }
+        if (d && d.ok) { cart = (d.items || []).map(cartViewItem); renderCart(); return d; }
         throw new Error((d && d.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.');
       });
     });
