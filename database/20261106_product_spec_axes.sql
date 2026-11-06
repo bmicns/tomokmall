@@ -25,9 +25,9 @@ SELECT COUNT(*) AS category_spec_axes_exists
 FROM information_schema.TABLES
 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'category_spec_axes';
 
--- 1-3) [4] 대상 카테고리: 4행(아래 이름)이 나와야 한다. 이름이 다르면 [4]는 그 카테고리를 건너뛴다(엉뚱한 카테고리에 붙지 않음)
---      21 개거 / 24 수로관(벤치3종) / 59 사각맨홀(집수정) / 61 원형맨홀
-SELECT id, name FROM categories WHERE id IN (21, 24, 59, 61) ORDER BY id;
+-- 1-3) [4] 대상 카테고리: 5행(아래 이름)이 나와야 한다. 이름이 다르면 [4]는 그 카테고리를 건너뛴다(엉뚱한 카테고리에 붙지 않음)
+--      21 개거 / 24 수로관(벤치3종) / 50 흄관(B형) / 59 사각맨홀(집수정) / 61 원형맨홀
+SELECT id, name FROM categories WHERE id IN (21, 24, 50, 59, 61) ORDER BY id;
 
 -- [2] products 새 칸 -----------------------------------------------------------
 -- 숫자 칸은 모두 mm 로 저장(규격이 m 표기면 ×1000). 칸 이름의 뜻(폭·가로 등)은 카테고리마다 category_spec_axes 가 정한다.
@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS category_spec_axes (
 --   21 개거             '4.0*1.0*2.0_280T*260T'    폭 W × 높이 H × 길이 L (m) _ 상하두께 × 벽체두께 (mm, 약자 T — 화면엔 이름만)
 --   59 사각맨홀(집수정) '300*400*600*150T'         가로 W × 세로 × 높이 H × 두께 T (세로는 약자 없음 — 이름만, 값은 dim_l)
 --   61 원형맨홀         'D900*1200*200T'           내경 D × 높이 H × 두께 T
+--   50 흄관(B형)        'D600*2500*50T'            내경 D × 길이 L × 두께 T
 -- id 와 이름이 모두 맞는 카테고리에만, 이름표가 아직 없을 때만 넣는다(다시 실행해도 중복 없음).
 INSERT INTO category_spec_axes (category_id, seq, axis_key, label, symbol, show_symbol, unit)
 SELECT c.id, v.seq, v.axis_key, v.label, v.symbol, v.show_symbol, v.unit
@@ -86,12 +87,15 @@ FROM (
     UNION ALL SELECT 61, '원형맨홀',          1, 'd',  '내경',     'D', 1, 'mm'
     UNION ALL SELECT 61, '원형맨홀',          2, 'h',  '높이',     'H', 1, 'mm'
     UNION ALL SELECT 61, '원형맨홀',          3, 't',  '두께',     'T', 1, 'mm'
+    UNION ALL SELECT 50, '흄관(B형)',         1, 'd',  '내경',     'D', 1, 'mm'
+    UNION ALL SELECT 50, '흄관(B형)',         2, 'l',  '길이',     'L', 1, 'mm'
+    UNION ALL SELECT 50, '흄관(B형)',         3, 't',  '두께',     'T', 1, 'mm'
 ) v
 JOIN categories c ON c.id = v.cid AND c.name = v.cname
 WHERE NOT EXISTS (SELECT 1 FROM category_spec_axes x WHERE x.category_id = c.id);
 
 -- [5] 확인(읽기 전용) ----------------------------------------------------------
--- SELECT category_id, seq, axis_key, label, symbol, show_symbol, unit FROM category_spec_axes ORDER BY category_id, seq;   -- 16행
+-- SELECT category_id, seq, axis_key, label, symbol, show_symbol, unit FROM category_spec_axes ORDER BY category_id, seq;   -- 19행
 -- SHOW COLUMNS FROM products LIKE 'dim\_%';                                                                     -- 6행
 -- SELECT COUNT(*) FROM products WHERE spec_dims_src IS NOT NULL;                                                -- 채우기 전 0
 

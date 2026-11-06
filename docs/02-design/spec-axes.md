@@ -43,12 +43,13 @@
 | 21 개거 | `4.0*1.0*2.0_280T*260T` | 폭 W × 높이 H × 길이 L (m) _ 상하두께 × 벽체두께 (mm, 약자 T·화면엔 이름만) |
 | 59 사각맨홀(집수정) | `300*400*600*150T` | 가로 W × 세로 × 높이 H × 두께 T (세로는 약자 없음, `dim_l`) |
 | 61 원형맨홀 | `D900*1200*200T` | 내경 D × 높이 H × 두께 T |
+| 50 흄관(B형) | `D600*2500*50T` | 내경 D × 길이 L × 두께 T |
 
 이름표 추가 예(다른 카테고리 — 이름을 확인한 뒤에만):
 
 ```sql
 INSERT INTO category_spec_axes (category_id, seq, axis_key, label, symbol, unit) VALUES   -- show_symbol 기본 1
-  (50, 1, 'd', '내경', 'D', 'mm'), (50, 2, 'l', '길이', 'L', 'mm'), (50, 3, 't', '두께', 'T', 'mm');
+  (<카테고리 id>, 1, 'd', '내경', 'D', 'mm'), (<카테고리 id>, 2, 'l', '길이', 'L', 'mm'), (<카테고리 id>, 3, 't', '두께', 'T', 'mm');
 -- 중분류에 넣으면 하위 소분류 전체가 물려받는다. 하위 중 숫자를 읽으면 안 되는 곳: (id, 0, 'none', NULL, NULL, 'mm')
 ```
 
@@ -86,9 +87,9 @@ php scripts/db-tools/spec-axes-fill.php sql --out=<저장소 밖 파일>  # 운�
 
 1. `bash scripts/testdb/devdb.sh restore <최신 스냅샷>` (또는 `up` + 재복제) — 운영과 같은 id
 2. 마이그레이션 적용: `docker exec -i tomok-devdb sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot --default-character-set=utf8mb4 tomokmall_test' < database/20261106_product_spec_axes.sql`
-   → [4] 에서 16행이 들어가야 함(`SELECT COUNT(*) FROM category_spec_axes`)
+   → [4] 에서 19행이 들어가야 함(`SELECT COUNT(*) FROM category_spec_axes`)
 3. `php scripts/db-tools/spec-axes-fill.php report` → `apply`
-4. `php -S 127.0.0.1:8080 -t public/` 후 확인: `/products.php?category=24`(수로관), `21`(개거), `59`(사각맨홀), `61`(원형맨홀),
+4. `php -S 127.0.0.1:8080 -t public/` 후 확인: `/products.php?category=24`(수로관), `21`(개거), `59`(사각맨홀), `61`(원형맨홀), `50`(흄관(B형)),
    중분류 `256`·검색(기존 화면 그대로여야 함), 필터 눌러 보기, 모바일 폭
 
 ## 7. 운영 반영 순서 (각 단계 승인 필요)
@@ -97,7 +98,7 @@ php scripts/db-tools/spec-axes-fill.php sql --out=<저장소 밖 파일>  # 운�
 2. 코드 배포: `app/spec_axes.php`(새 파일) → `app/bootstrap.php`·`app/product_filter_renderer.php`·`public/products.php`·
    `public/api/admin/products.php`·`public/assets/styles.css`. 새 칸이 비어 있어도 화면은 기존과 같음
 3. 값 채우기: 운영 복제 DB 에서 `sql --out=…` 로 만든 파일을 승인 후 실행(새 칸만 UPDATE)
-4. 확인: 위 4개 카테고리 목록·필터, 중분류·검색 화면이 기존과 같은지
+4. 확인: 이름표를 넣은 5개 카테고리(24·21·59·61·50) 목록·필터, 중분류·검색 화면이 기존과 같은지
 
 되돌리기: 코드는 이전 커밋 파일로 재배포(새 칸·표가 있어도 옛 코드는 무시). DB 는 마이그레이션 [롤백](새 칸·새 표만 삭제 — 기존 데이터 영향 없음).
 `products` 의 DROP COLUMN 은 원격 관리 API 가 막는 작업(가격 보호 표는 ADD 만)이므로 롤백은 phpMyAdmin 에서 한다.
