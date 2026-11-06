@@ -16,11 +16,21 @@ declare(strict_types=1);
  * DB 반영: database/20261106_product_spec_axes.sql, 값 채우기: scripts/db-tools/spec-axes-fill.php
  */
 
-/** 축 키 → products 칸 */
-const SPEC_AXIS_COLUMNS = ['d' => 'dim_d', 'w' => 'dim_w', 'h' => 'dim_h', 'l' => 'dim_l', 't' => 'dim_t', 't2' => 'dim_t2'];
+/**
+ * 축 키 → products 칸 (사용자 결정 2026-11-06: 같은 뜻의 다른 치수는 칸을 나눔)
+ *  d_i 내경 · d_o 외경 · w 폭/가로 · w_b 하부폭(밑면) · w_r 뒷폭 · w_t 상부폭(윗면) · h 높이 · depth 깊이 · l 길이/세로 · t 두께 · t2 두 번째 두께
+ */
+const SPEC_AXIS_COLUMNS = [
+    'd_i' => 'dim_d_i', 'd_o' => 'dim_d_o',
+    'w' => 'dim_w', 'w_b' => 'dim_w_b', 'w_r' => 'dim_w_r', 'w_t' => 'dim_w_t',
+    'h' => 'dim_h', 'depth' => 'dim_depth', 'l' => 'dim_l', 't' => 'dim_t', 't2' => 'dim_t2',
+];
+
+/** 지름 축(값 앞 'D' 표기 허용): 내경·외경 */
+const SPEC_AXIS_DIAMETER = ['d_i', 'd_o'];
 
 /** 이 기능이 쓰는 products 새 칸(전부 있어야 사용) */
-const SPEC_AXES_NEW_COLUMNS = ['spec_code', 'dim_d', 'dim_w', 'dim_h', 'dim_l', 'dim_t', 'dim_t2', 'spec_option', 'spec_dims_src'];
+const SPEC_AXES_NEW_COLUMNS = ['spec_code', 'dim_d_i', 'dim_d_o', 'dim_w', 'dim_w_b', 'dim_w_r', 'dim_w_t', 'dim_h', 'dim_depth', 'dim_l', 'dim_t', 'dim_t2', 'spec_option', 'spec_dims_src'];
 
 /** 목록 필터 '모델 코드'(규격 코드 끝 글자 B·C) 축 키 */
 const SPEC_AXIS_TYPE = 'type';
@@ -29,7 +39,7 @@ const SPEC_AXIS_TYPE = 'type';
  * '규격:' 값 → ['spec_code'=>?string, 'dims'=>[축키=>mm(float)], 'option'=>?string]. 규칙에 안 맞으면 null.
  *  - 앞부분 숫자 묶음('*' 또는 '_' 로 이어진 숫자)을 이름표 seq 순서로 읽는다. 숫자 개수가 이름표와 다르면 null.
  *    숫자 뒤 글자는 T·H·M·mm 만 숫자의 일부로 본다(다른 글자가 붙은 '0RS'·'300용' 은 숫자가 아님).
- *  - 'D' 접두는 d(직경) 축만, 'T' 접미는 t·t2 축만, 'H' 접미는 h 축만 허용. 'M'(미터)·'MM' 접미는 단위로 읽는다.
+ *  - 'D' 접두는 지름 축(d_i 내경·d_o 외경)만, 'T' 접미는 t·t2 축만, 'H' 접미는 h 축만 허용. 'M'(미터)·'MM' 접미는 단위로 읽는다.
  *  - 이름표 unit='m' 이면 ×1000 해서 mm 로. mm 소수 1자리를 넘으면 null.
  *  - 숫자 묶음 바로 뒤 괄호 코드('(900B)')는 spec_code, 그 뒤 나머지(앞의 '_'·공백 제거)는 option.
  *
@@ -43,7 +53,8 @@ function spec_axes_parse(string $value, array $axes): ?array
     usort($axes, static fn($a, $b) => (int) $a['seq'] <=> (int) $b['seq']);
 
     // 숫자 1개: D접두? + 숫자 + (T|H|M|mm)? — 바로 뒤에 다른 글자·숫자가 붙어 있으면 숫자로 보지 않음('_0RS', '300용' 등은 옵션)
-    $tok = 'D?\d+(?:\.\d+)?(?:mm|MM|[TtHhMm])?(?![A-Za-z0-9.가-힣])';
+    // 범위 표기('65~125')도 숫자 하나로 읽지 않는다(앞 숫자만 읽어 잘못 채우는 것 방지)
+    $tok = 'D?\d+(?:\.\d+)?(?:mm|MM|[TtHhMm])?(?![A-Za-z0-9.가-힣~])';
     if (!preg_match('/^' . $tok . '(?:[*_]' . $tok . ')*/u', $value, $m)) { return null; }
     $head   = $m[0];
     $rest   = (string) substr($value, strlen($head));
@@ -56,7 +67,7 @@ function spec_axes_parse(string $value, array $axes): ?array
         $key  = (string) $a['axis_key'];
         $unit = (($a['unit'] ?? 'mm') === 'm') ? 'm' : 'mm';
         $suf  = strtoupper($tm[3]);
-        if ($tm[1] === 'D' && $key !== 'd') { return null; }
+        if ($tm[1] === 'D' && !in_array($key, SPEC_AXIS_DIAMETER, true)) { return null; }
         if ($suf === 'T')      { if ($key !== 't' && $key !== 't2') { return null; } }
         elseif ($suf === 'H')  { if ($key !== 'h') { return null; } }
         elseif ($suf === 'M')  { $unit = 'm'; }

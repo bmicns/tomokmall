@@ -12,13 +12,15 @@
 --       새 칸 값 채우기는 이 파일이 아니라 scripts/db-tools/spec-axes-fill.php (별도 승인).
 --       순서: 이 파일 → 코드 배포 → 값 채우기. 코드는 칸·표가 없으면 지금 화면 그대로 동작한다.
 -- 되돌리기: 맨 아래 [롤백] (새 칸·새 표만 지움 — 기존 데이터 영향 없음)
+-- 추가 이름표(원본 사이트 머리글 기준 카테고리): database/20261106_spec_axes_site_seed.sql (이 파일 다음에 실행)
 
 -- [1] 사전 확인(읽기 전용) ------------------------------------------------------
--- 1-1) 0 이면 [2] 필요, 9 이면 이미 있음([2] 생략)
+-- 1-1) 0 이면 [2] 필요, 14 이면 이미 있음([2] 생략)
 SELECT COUNT(*) AS new_product_columns
 FROM information_schema.COLUMNS
 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'
-  AND COLUMN_NAME IN ('spec_code', 'dim_d', 'dim_w', 'dim_h', 'dim_l', 'dim_t', 'dim_t2', 'spec_option', 'spec_dims_src');
+  AND COLUMN_NAME IN ('spec_code', 'dim_d_i', 'dim_d_o', 'dim_w', 'dim_w_b', 'dim_w_r', 'dim_w_t', 'dim_h', 'dim_depth',
+                      'dim_l', 'dim_t', 'dim_t2', 'spec_option', 'spec_dims_src');
 
 -- 1-2) 0 이면 [3] 필요, 1 이면 이미 있음
 SELECT COUNT(*) AS category_spec_axes_exists
@@ -31,12 +33,18 @@ SELECT id, name FROM categories WHERE id IN (21, 24, 50, 59, 61, 66, 73) ORDER B
 
 -- [2] products 새 칸 -----------------------------------------------------------
 -- 숫자 칸은 모두 mm 로 저장(규격이 m 표기면 ×1000). 칸 이름의 뜻(폭·가로 등)은 카테고리마다 category_spec_axes 가 정한다.
+-- 뜻이 다른 치수는 칸을 나눔(사용자 결정 2026-11-06): 내경·외경, 폭·하부폭·뒷폭·상부폭, 높이·깊이.
 ALTER TABLE products
     ADD COLUMN spec_code     VARCHAR(30)  NULL COMMENT '규격 코드(예: 900B) — 규격 원문 괄호 속 코드' AFTER spec,
-    ADD COLUMN dim_d         DECIMAL(8,1) NULL COMMENT '규격 축 d: 직경·내경 D (mm)' AFTER spec_code,
-    ADD COLUMN dim_w         DECIMAL(8,1) NULL COMMENT '규격 축 w: 폭·가로 W (mm)' AFTER dim_d,
-    ADD COLUMN dim_h         DECIMAL(8,1) NULL COMMENT '규격 축 h: 높이 H (mm)' AFTER dim_w,
-    ADD COLUMN dim_l         DECIMAL(8,1) NULL COMMENT '규격 축 l: 길이 L·세로 (mm)' AFTER dim_h,
+    ADD COLUMN dim_d_i       DECIMAL(8,1) NULL COMMENT '규격 축 d_i: 내경 D (mm)' AFTER spec_code,
+    ADD COLUMN dim_d_o       DECIMAL(8,1) NULL COMMENT '규격 축 d_o: 외경 D (mm)' AFTER dim_d_i,
+    ADD COLUMN dim_w         DECIMAL(8,1) NULL COMMENT '규격 축 w: 폭·가로 W (mm)' AFTER dim_d_o,
+    ADD COLUMN dim_w_b       DECIMAL(8,1) NULL COMMENT '규격 축 w_b: 하부폭(밑면) WB (mm)' AFTER dim_w,
+    ADD COLUMN dim_w_r       DECIMAL(8,1) NULL COMMENT '규격 축 w_r: 뒷폭 WR (mm)' AFTER dim_w_b,
+    ADD COLUMN dim_w_t       DECIMAL(8,1) NULL COMMENT '규격 축 w_t: 상부폭(윗면) WT (mm)' AFTER dim_w_r,
+    ADD COLUMN dim_h         DECIMAL(8,1) NULL COMMENT '규격 축 h: 높이 H (mm)' AFTER dim_w_t,
+    ADD COLUMN dim_depth     DECIMAL(8,1) NULL COMMENT '규격 축 depth: 깊이 D (mm)' AFTER dim_h,
+    ADD COLUMN dim_l         DECIMAL(8,1) NULL COMMENT '규격 축 l: 길이 L·세로 (mm)' AFTER dim_depth,
     ADD COLUMN dim_t         DECIMAL(8,1) NULL COMMENT '규격 축 t: 두께 T·상하두께 (mm)' AFTER dim_l,
     ADD COLUMN dim_t2        DECIMAL(8,1) NULL COMMENT '규격 축 t2: 두 번째 두께(예: 개거 벽체두께) (mm)' AFTER dim_t,
     ADD COLUMN spec_option   VARCHAR(80)  NULL COMMENT '규격 원문 중 치수·코드 뒤 나머지(예: 곡선, (유공))' AFTER dim_t2,
@@ -49,9 +57,9 @@ CREATE TABLE IF NOT EXISTS category_spec_axes (
     id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     category_id INT UNSIGNED NOT NULL                                  COMMENT 'categories.id — 하위 카테고리가 물려받음',
     seq         TINYINT UNSIGNED NOT NULL                              COMMENT '규격 표기에서 몇 번째 숫자인지(1부터) = 화면 칸 순서. none 은 0',
-    axis_key    ENUM('d','w','h','l','t','t2','none') NOT NULL         COMMENT '값을 담을 products 칸(dim_d … dim_t2). none = 숫자 읽지 않음',
+    axis_key    ENUM('d_i','d_o','w','w_b','w_r','w_t','h','depth','l','t','t2','none') NOT NULL COMMENT '값을 담을 products 칸(dim_<axis_key>). none = 숫자 읽지 않음',
     label       VARCHAR(20) NULL                                       COMMENT '화면 이름(예: 폭, 내경, 상하두께)',
-    symbol      VARCHAR(4)  NULL                                       COMMENT '약자(예: W, D) — 없으면 이름만 표시',
+    symbol      VARCHAR(4)  NULL                                       COMMENT '약자(예: W, D, WB) — 없으면 이름만 표시',
     show_symbol TINYINT(1) NOT NULL DEFAULT 1                          COMMENT '화면에 약자 표시(0이면 이름만 — 예: 개거 상하두께·벽체두께)',
     unit        ENUM('mm','m') NOT NULL DEFAULT 'mm'                   COMMENT '규격 원문·화면의 단위(저장은 항상 mm)',
     use_filter  TINYINT(1) NOT NULL DEFAULT 1                          COMMENT '좌측 필터에 보일지(0이면 표에만)',
@@ -62,10 +70,10 @@ CREATE TABLE IF NOT EXISTS category_spec_axes (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- [4] 확인된 카테고리 이름표(사용자 확인 2026-11-05~06) --------------------------------
---   24 수로관(벤치3종)  '900*800*2000*85T (900B)'  폭 W × 높이 H × 길이 L × 두께 T (+ 규격 코드)
+--   24 수로관(벤치3종)  '900*800*2000*85T (900B)'  폭 W × 깊이 D × 길이 L × 두께 T (+ 규격 코드) — 원본 사이트 머리글 '폭X깊이X길이X두께'(2026-11-06 높이→깊이)
 --   21 개거             '4.0*1.0*2.0_280T*260T'    폭 W × 높이 H × 길이 L (m) _ 상하두께 T × 벽체두께 T (mm)
 --   59 사각맨홀(집수정) '300*400*600*150T'         가로 W × 세로 L × 높이 H × 두께 T
--- 약자 규칙(사용자 결정 2026-11-06): 약자 = 값을 담는 칸의 글자(dim_w W·dim_l L·dim_h H·dim_t T·dim_d D). 뜻은 이름(label)이 구분
+-- 약자 규칙(사용자 결정 2026-11-06): 폭 W·하부폭 WB·뒷폭 WR·상부폭 WT·길이/세로 L·높이 H·깊이 D·두께 T·내경 D·외경 D. 뜻은 이름(label)이 구분
 --   61 원형맨홀         'D900*1200*200T'           내경 D × 높이 H × 두께 T
 --   50 흄관(B형)        'D600*2500*50T'            내경 D × 길이 L × 두께 T
 --   66 조립식원형맨홀   'D600*1000H*150T_하부구체_KS' 내경 D × 높이 H × 두께 T (+ 옵션 하부구체_KS 등)
@@ -75,7 +83,7 @@ INSERT INTO category_spec_axes (category_id, seq, axis_key, label, symbol, show_
 SELECT c.id, v.seq, v.axis_key, v.label, v.symbol, v.show_symbol, v.unit
 FROM (
               SELECT 24 AS cid, '수로관(벤치3종)' AS cname, 1 AS seq, 'w' AS axis_key, '폭' AS label, 'W' AS symbol, 1 AS show_symbol, 'mm' AS unit
-    UNION ALL SELECT 24, '수로관(벤치3종)',   2, 'h',  '높이',     'H', 1, 'mm'
+    UNION ALL SELECT 24, '수로관(벤치3종)',   2, 'depth', '깊이',  'D', 1, 'mm'
     UNION ALL SELECT 24, '수로관(벤치3종)',   3, 'l',  '길이',     'L', 1, 'mm'
     UNION ALL SELECT 24, '수로관(벤치3종)',   4, 't',  '두께',     'T', 1, 'mm'
     UNION ALL SELECT 21, '개거',              1, 'w',  '폭',       'W', 1, 'm'
@@ -87,13 +95,13 @@ FROM (
     UNION ALL SELECT 59, '사각맨홀(집수정)',  2, 'l',  '세로',     'L', 1, 'mm'
     UNION ALL SELECT 59, '사각맨홀(집수정)',  3, 'h',  '높이',     'H', 1, 'mm'
     UNION ALL SELECT 59, '사각맨홀(집수정)',  4, 't',  '두께',     'T', 1, 'mm'
-    UNION ALL SELECT 61, '원형맨홀',          1, 'd',  '내경',     'D', 1, 'mm'
+    UNION ALL SELECT 61, '원형맨홀',          1, 'd_i', '내경',    'D', 1, 'mm'
     UNION ALL SELECT 61, '원형맨홀',          2, 'h',  '높이',     'H', 1, 'mm'
     UNION ALL SELECT 61, '원형맨홀',          3, 't',  '두께',     'T', 1, 'mm'
-    UNION ALL SELECT 50, '흄관(B형)',         1, 'd',  '내경',     'D', 1, 'mm'
+    UNION ALL SELECT 50, '흄관(B형)',         1, 'd_i', '내경',    'D', 1, 'mm'
     UNION ALL SELECT 50, '흄관(B형)',         2, 'l',  '길이',     'L', 1, 'mm'
     UNION ALL SELECT 50, '흄관(B형)',         3, 't',  '두께',     'T', 1, 'mm'
-    UNION ALL SELECT 66, '조립식원형맨홀(상부.연직.하부구체)', 1, 'd', '내경', 'D', 1, 'mm'
+    UNION ALL SELECT 66, '조립식원형맨홀(상부.연직.하부구체)', 1, 'd_i', '내경', 'D', 1, 'mm'
     UNION ALL SELECT 66, '조립식원형맨홀(상부.연직.하부구체)', 2, 'h', '높이', 'H', 1, 'mm'
     UNION ALL SELECT 66, '조립식원형맨홀(상부.연직.하부구체)', 3, 't', '두께', 'T', 1, 'mm'
     UNION ALL SELECT 73, '다칼라블랜딩블록(투수)', 1, 'w',  '가로',     'W', 1, 'mm'
@@ -105,10 +113,11 @@ WHERE NOT EXISTS (SELECT 1 FROM category_spec_axes x WHERE x.category_id = c.id)
 
 -- [5] 확인(읽기 전용) ----------------------------------------------------------
 -- SELECT category_id, seq, axis_key, label, symbol, show_symbol, unit FROM category_spec_axes ORDER BY category_id, seq;   -- 25행
--- SHOW COLUMNS FROM products LIKE 'dim\_%';                                                                     -- 6행
+-- SHOW COLUMNS FROM products LIKE 'dim\_%';                                                                     -- 11행
 -- SELECT COUNT(*) FROM products WHERE spec_dims_src IS NOT NULL;                                                -- 채우기 전 0
 
 -- [롤백] 되돌리기 — 새 칸·새 표만 지운다(기존 칸·데이터 영향 없음). 승인 후에만
 -- DROP TABLE category_spec_axes;
 -- ALTER TABLE products DROP COLUMN spec_dims_src, DROP COLUMN spec_option, DROP COLUMN dim_t2, DROP COLUMN dim_t,
---     DROP COLUMN dim_l, DROP COLUMN dim_h, DROP COLUMN dim_w, DROP COLUMN dim_d, DROP COLUMN spec_code;
+--     DROP COLUMN dim_l, DROP COLUMN dim_depth, DROP COLUMN dim_h, DROP COLUMN dim_w_t, DROP COLUMN dim_w_r, DROP COLUMN dim_w_b,
+--     DROP COLUMN dim_w, DROP COLUMN dim_d_o, DROP COLUMN dim_d_i, DROP COLUMN spec_code;
