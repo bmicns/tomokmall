@@ -1769,19 +1769,14 @@ mark.hl{background:#fff3b0;color:inherit;padding:0 1px;border-radius:2px;font-we
 .fchip{position:relative;display:inline-flex;cursor:pointer}
 .fchip input{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
 .fchip-box{display:inline-flex;align-items:center;gap:5px;min-height:32px;padding:0 9px;border:1px solid #D5DBE3;border-radius:6px;background:#fff;font-size:12px;color:#37444F;font-variant-numeric:tabular-nums}
-.fchip-box small{font-size:10.5px;color:var(--color-text-secondary)}
 .fchip:hover .fchip-box{border-color:var(--color-primary)}
 .fchip input:checked+.fchip-box{border-color:var(--color-primary);background:#EEF3FA;color:var(--color-primary);font-weight:600}
-.fchip input:checked+.fchip-box small{color:var(--color-primary)}
 .fchip input:focus-visible+.fchip-box{outline:2px solid var(--color-primary);outline-offset:2px}
 .fchip input:disabled+.fchip-box{border-color:#EEEEEE;background:#F7F7F7;color:#B5B5B5;cursor:default}
-.fchip input:disabled+.fchip-box small{color:#B5B5B5}
 /* 값이 하나뿐인 축: 선택된 채 고정 */
 .fchip input:disabled:checked+.fchip-box{border-color:#C9D8EA;background:#F2F6FB;color:#4A6F98;font-weight:600}
-.fchip input:disabled:checked+.fchip-box small{color:#4A6F98}
 @media (max-width:640px){
   .fchip-box{min-height:44px;padding:0 12px;font-size:14px}
-  .fchip-box small{font-size:12px}
 }
 .range{display:flex;align-items:center;gap:6px}
 .range input{width:100%;min-width:0;border:1px solid var(--color-border);border-radius:6px;padding:6px 8px;font-size:12px;font-family:var(--font)}
@@ -1791,11 +1786,12 @@ mark.hl{background:#fff3b0;color:inherit;padding:0 1px;border-radius:2px;font-we
 .pt-head-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .pt-sort{font-size:12.5px;border:1px solid var(--color-border);border-radius:8px;padding:7px 10px;font-family:var(--font);background:#fff;color:var(--color-text-primary)}
 .pt-chip{font-size:11px;background:#EEF3FA;color:var(--color-primary-hover);border:1px solid #D3E2F1;border-radius:100px}
-/* 비로그인·개인회원 필터 펼치기/접기(.is-collapsible): 제목줄에 'N개 적용'·'펼치기/접기', 펼친 안쪽 '필터로 좁히기' 제목은 겹치므로 숨김 */
+/* 상황별 목록 비로그인·개인회원 필터 펼치기/접기(.is-collapsible): 제목줄 '자재 규격'(위 '자재 종류' 제목과 같은 글자 모양)·'N개 적용'·화살표.
+   펼친 안쪽의 겹치는 '필터로 좁히기' 제목은 숨김 */
+.fltbox.is-collapsible>summary{padding:12px 14px 10px;font-size:13px;font-weight:800}
+.fltbox.is-collapsible>summary::before{content:none}
 .flt-sum-cnt{padding:2px 8px;border-radius:10px;background:#EEF3FA;color:var(--color-primary);font-size:11.5px;font-weight:700;white-space:nowrap}
-.flt-sum-state{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--color-primary);white-space:nowrap}
-.flt-sum-state::before{content:"펼치기"}
-.fltbox[open] .flt-sum-state::before{content:"접기"}
+.flt-sum-state{margin-left:auto;display:inline-flex;align-items:center;color:var(--color-primary)}
 .flt-sum-state::after{content:"";width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .15s}
 .fltbox[open] .flt-sum-state::after{transform:rotate(-135deg) translateY(-1px)}
 .fltbox.is-collapsible .flt-top{justify-content:flex-end;padding-top:6px}
@@ -2201,7 +2197,8 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .fltbox > summary { min-height: 48px; font-size: 14px; }
   .fltbox > summary::after { content: ""; width: 8px; height: 8px; margin: 0 4px 0 auto; border-right: 2px solid #8A96A3; border-bottom: 2px solid #8A96A3; transform: rotate(45deg) translateY(-2px); transition: transform .15s; }
   .fltbox[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
-  .fltbox.is-collapsible > summary::after { display: none; }   /* 펼치기/접기 글자 옆 화살표가 따로 있음 */
+  .fltbox.is-collapsible > summary { font-size: 13px; }   /* '자재 종류' 제목과 같은 크기 */
+  .fltbox.is-collapsible > summary::after { display: none; }   /* 화살표는 .flt-sum-state 가 그림 */
   .fopt { min-height: 40px; font-size: 14px; }
   .fopt input { width: 18px; height: 18px; }
   .spec-scroll .fopt { padding: 0; }

@@ -305,8 +305,8 @@ render_header($pageTitle);
           </ul>
         </nav>
         <?php endif; ?>
-        <?php // 비로그인·개인회원은 필터를 펼치기/접기(규격 축 필터로 길어짐 + 상황별 목록은 '자재 종류' 패널과 두 개가 겹침) ?>
-        <?php if ($showFilters) { render_product_filters($filters, $query, $categoryId, $sort, $facets, $inStock, $workType ? ['work' => $workType['key']] : [], in_array(price_tier(), ['guest', 'customer'], true)); } ?>
+        <?php // 상황별 자재 목록의 비로그인·개인회원만 필터 펼치기/접기('자재 종류' 패널과 필터가 함께 있어 길어짐 — 사용자 결정 2026-11-06) ?>
+        <?php if ($showFilters) { render_product_filters($filters, $query, $categoryId, $sort, $facets, $inStock, $workType ? ['work' => $workType['key']] : [], $workType !== null && in_array(price_tier(), ['guest', 'customer'], true)); } ?>
       </aside>
     <?php endif; ?>
     <div class="pt-list-main">
@@ -478,8 +478,8 @@ render_header($pageTitle);
                 <?php if ($axisMode): ?>
                 <tr class="pt-head-ax">
                     <?php if ($axisHasCode): ?><th class="pt-col-ax">모델 코드</th><?php endif; ?>
-                    <?php // 단위는 mm 가 기본이라 적지 않고, m 로 적는 축(예: 개거 폭·높이)만 '폭 W(m)' ?>
-                    <?php foreach ($axisCols as $a): ?><th class="pt-col-ax"><?= e(spec_axis_title($a)) ?><?= $a['unit'] !== 'mm' ? e(spec_axis_unit_label($a)) : '' ?></th><?php endforeach; ?>
+                    <?php // 표 머리글은 이름+약자만(단위는 필터에만 — m 축도 '폭 W', 사용자 결정 2026-11-06) ?>
+                    <?php foreach ($axisCols as $a): ?><th class="pt-col-ax"><?= e(spec_axis_title($a)) ?></th><?php endforeach; ?>
                     <?php if ($axisHasOpt): ?><th class="pt-col-ax pt-col-axopt">옵션</th><?php endif; ?>
                 </tr>
                 <?php endif; ?>

@@ -136,8 +136,9 @@ function product_filters_applied_count(array $a, bool $inStock = false): int
 
 /**
  * $keep: 필터 적용·초기화 후에도 유지할 추가 GET 값(예: 작업별 목록의 ['work' => 키])
- * $collapsible: 비로그인·개인회원 — 데스크톱에서도 제목줄로 펼치기/접기(기본 접힘, 적용된 필터가 있으면 펼친 채 시작).
- *               기업회원·직원은 false(지금처럼 데스크톱은 항상 펼침). 모바일(760px 이하)은 모두 접힌 채 시작.
+ * $collapsible: 상황별 자재 목록(‘자재 종류’ 패널이 함께 보이는 화면)의 비로그인·개인회원 — 데스크톱에서도 제목줄
+ *               '자재 규격'으로 펼치기/접기(기본 접힘, 적용된 필터가 있으면 펼친 채 시작). 그 밖의 목록·기업회원은 false
+ *               (지금처럼 데스크톱은 항상 펼침). 모바일(760px 이하)은 모두 접힌 채 시작.
  */
 function render_product_filters(array $a, ?string $q, ?int $categoryId, string $sort = '', ?array $facets = null, bool $inStock = false, array $keep = [], bool $collapsible = false): void
 {
@@ -162,7 +163,8 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
     ?>
     <?php $nApplied = product_filters_applied_count($a, $inStock); ?>
     <details class="fltbox<?= $collapsible ? ' is-collapsible' : '' ?>"<?= (!$collapsible || $nApplied > 0) ? ' open' : '' ?>>
-      <summary><span class="flt-sum-title">필터로 좁히기</span><?php if ($collapsible && $nApplied > 0): ?><span class="flt-sum-cnt"><?= $nApplied ?>개 적용</span><?php endif; ?><?php if ($collapsible): ?><span class="flt-sum-state" aria-hidden="true"></span><?php endif; ?></summary>
+      <?php // 접는 필터(상황별 목록)는 위 '자재 종류' 제목과 같은 모양의 '자재 규격' + 적용 개수 + 화살표(⚙·'펼치기' 글자 없음) ?>
+      <summary><span class="flt-sum-title"><?= $collapsible ? '자재 규격' : '필터로 좁히기' ?></span><?php if ($collapsible && $nApplied > 0): ?><span class="flt-sum-cnt"><?= $nApplied ?>개 적용</span><?php endif; ?><?php if ($collapsible): ?><span class="flt-sum-state" aria-hidden="true"></span><?php endif; ?></summary>
       <form class="flt-body" method="get" action="/products.php">
         <?php if ($q !== null && $q !== ''): ?>
           <input type="hidden" name="q" value="<?= e($q) ?>">
@@ -187,7 +189,7 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
             <div class="fax-title" id="<?= e($gid) ?>"><?= e($g['title']) ?><?php if ($g['sub'] !== '' || $g['unit'] !== ''): ?> <small><?= e($g['sub']) ?><?php if ($g['unit'] !== ''): ?><span><?= e($g['unit']) ?></span><?php endif; ?></small><?php endif; ?></div>
             <div class="fchips">
               <?php foreach ($g['opts'] as $o): ?>
-              <label class="fchip"<?= $g['fixed'] ? ' title="모든 상품이 같은 값"' : '' ?>><input type="checkbox" name="<?= e($g['field']) ?>[]" value="<?= e($o['val']) ?>"<?= $o['checked'] ? ' checked' : '' ?><?= $o['disabled'] ? ' disabled' : '' ?>><span class="fchip-box"><?= e($o['label']) ?><small><?= (int) $o['cnt'] ?></small></span></label>
+              <label class="fchip"<?= $g['fixed'] ? ' title="모든 상품이 같은 값"' : '' ?>><input type="checkbox" name="<?= e($g['field']) ?>[]" value="<?= e($o['val']) ?>"<?= $o['checked'] ? ' checked' : '' ?><?= $o['disabled'] ? ' disabled' : '' ?>><span class="fchip-box"><?= e($o['label']) ?></span></label>
               <?php endforeach; ?>
             </div>
           </div>

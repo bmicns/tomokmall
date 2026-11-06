@@ -637,7 +637,7 @@ eq('조립식원형맨홀 D600*1000H*150T_하부구체_KS → 옵션 하부구�
     ['spec_code' => null, 'dims' => ['d' => 600.0, 'h' => 1000.0, 't' => 150.0], 'option' => '하부구체_KS']);
 eq('다칼라블랜딩블록 1200*1000*60_컬러(보도) → 가로·세로·두께 + 옵션', spec_axes_parse('1200*1000*60_컬러(보도)', $AX([['w', '가로', 'W'], ['l', '세로', 'L'], ['t', '두께', 'T']])),
     ['spec_code' => null, 'dims' => ['w' => 1200.0, 'l' => 1000.0, 't' => 60.0], 'option' => '컬러(보도)']);
-eq('옵션 표시: 밑줄 → 소괄호', [spec_option_display('하부구체_KS'), spec_option_display('컬러(보도)'), spec_option_display('곡선_타공_KS'), spec_option_display(''), spec_option_display('_국산')], ['하부구체(KS)', '컬러(보도)', '곡선(타공, KS)', '', '국산']);
+eq('옵션 표시: 밑줄 → 슬래시', [spec_option_display('하부구체_KS'), spec_option_display('컬러(보도)'), spec_option_display('곡선_타공_KS'), spec_option_display(''), spec_option_display('_국산')], ['하부구체/KS', '컬러(보도)', '곡선/타공/KS', '', '국산']);
 eq('흄관(B형) D600*2500*50T → 내경·길이·두께', spec_axes_parse('D600*2500*50T', $AX([['d', '내경', 'D'], ['l', '길이', 'L'], ['t', '두께', 'T']])),
     ['spec_code' => null, 'dims' => ['d' => 600.0, 'l' => 2500.0, 't' => 50.0], 'option' => null]);
 eq('H 접미·뒤 옵션: D600*1000H*150T_하부구체_KS', spec_axes_parse('D600*1000H*150T_하부구체_KS', $axRdMh),
@@ -715,11 +715,14 @@ $rf = static function (array $a, bool $collapsible, bool $inStock = false): stri
     return (string) ob_get_clean();
 };
 $h = $rf([], true);
-ok('비로그인·개인: 접을 수 있는 필터, 적용 없으면 접힌 채 시작', str_contains($h, 'class="fltbox is-collapsible">') && str_contains($h, 'flt-sum-state') && !str_contains($h, 'flt-sum-cnt'));
+ok('상황별 비로그인·개인: 접을 수 있는 필터 "자재 규격", 적용 없으면 접힌 채 시작', str_contains($h, 'class="fltbox is-collapsible">') && str_contains($h, '<span class="flt-sum-title">자재 규격</span>') && str_contains($h, 'flt-sum-state') && !str_contains($h, 'flt-sum-cnt'));
 $h = $rf(['ax' => ['w' => ['600']]], true, true);
 ok('적용된 필터가 있으면 펼친 채 + "2개 적용"', str_contains($h, 'class="fltbox is-collapsible" open>') && str_contains($h, '2개 적용'));
 $h = $rf([], false);
-ok('기업회원: 지금처럼 항상 펼침, 펼치기/접기 표시 없음', str_contains($h, 'class="fltbox" open>') && !str_contains($h, 'flt-sum-state'));
+ok('그 밖의 목록·기업회원: 지금처럼 항상 펼침, 제목 "필터로 좁히기"', str_contains($h, 'class="fltbox" open>') && !str_contains($h, 'flt-sum-state') && str_contains($h, '<span class="flt-sum-title">필터로 좁히기</span>'));
+$hx = (static function (): string { ob_start(); render_product_filters([], null, 24, '', ['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 10,
+    'axes' => ['defs' => [['seq' => 1, 'axis_key' => 'w', 'label' => '폭', 'symbol' => 'W', 'unit' => 'mm', 'use_filter' => true]], 'all' => ['w' => ['200', '300']], 'vals' => ['w' => ['200' => 4, '300' => 6]], 'type_all' => [], 'type' => []]]); return (string) ob_get_clean(); })();
+ok('규격 값 버튼에 개수 표시 없음(값만)', str_contains($hx, '<span class="fchip-box">200</span>') && !str_contains($hx, '<small>4</small>'));
 
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";

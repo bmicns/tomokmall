@@ -114,17 +114,15 @@ function spec_axis_title(array $axis): string
 }
 
 /**
- * 옵션 화면 표시: 밑줄로 이어진 꼬리를 소괄호로(사용자 결정 2026-11-06). 저장값(spec_option)은 원문 그대로.
- *  '하부구체_KS' → '하부구체(KS)', 'A_B_C' → 'A(B, C)', '컬러(보도)'(밑줄 없음) → 그대로
+ * 옵션 화면 표시: 밑줄을 슬래시로(사용자 결정 2026-11-06). 저장값(spec_option)은 원문 그대로.
+ *  '하부구체_KS' → '하부구체/KS', '곡선_타공_KS' → '곡선/타공/KS', '컬러(보도)'(밑줄 없음) → 그대로
  */
 function spec_option_display(string $opt): string
 {
-    $parts = array_values(array_filter(array_map('trim', explode('_', $opt)), static fn($s) => $s !== ''));
-    if (count($parts) <= 1) { return $parts[0] ?? ''; }
-    return array_shift($parts) . '(' . implode(', ', $parts) . ')';
+    return implode('/', array_values(array_filter(array_map('trim', explode('_', $opt)), static fn($s) => $s !== '')));
 }
 
-/** 단위 표시 '(mm)' / '(m)' — 필터 그룹 이름 옆(아트보드: 폭 W(mm)), m 축은 표 머리글에도 */
+/** 단위 표시 '(mm)' / '(m)' — 필터 그룹 이름 옆(아트보드: 폭 W(mm)). 표 머리글에는 단위를 쓰지 않는다 */
 function spec_axis_unit_label(array $axis): string
 {
     return (($axis['unit'] ?? 'mm') === 'm') ? '(m)' : '(mm)';
