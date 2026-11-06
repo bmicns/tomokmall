@@ -1791,6 +1791,15 @@ mark.hl{background:#fff3b0;color:inherit;padding:0 1px;border-radius:2px;font-we
 .pt-head-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .pt-sort{font-size:12.5px;border:1px solid var(--color-border);border-radius:8px;padding:7px 10px;font-family:var(--font);background:#fff;color:var(--color-text-primary)}
 .pt-chip{font-size:11px;background:#EEF3FA;color:var(--color-primary-hover);border:1px solid #D3E2F1;border-radius:100px}
+/* 비로그인·개인회원 필터 펼치기/접기(.is-collapsible): 제목줄에 'N개 적용'·'펼치기/접기', 펼친 안쪽 '필터로 좁히기' 제목은 겹치므로 숨김 */
+.flt-sum-cnt{padding:2px 8px;border-radius:10px;background:#EEF3FA;color:var(--color-primary);font-size:11.5px;font-weight:700;white-space:nowrap}
+.flt-sum-state{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--color-primary);white-space:nowrap}
+.flt-sum-state::before{content:"펼치기"}
+.fltbox[open] .flt-sum-state::before{content:"접기"}
+.flt-sum-state::after{content:"";width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .15s}
+.fltbox[open] .flt-sum-state::after{transform:rotate(-135deg) translateY(-1px)}
+.fltbox.is-collapsible .flt-top{justify-content:flex-end;padding-top:6px}
+.fltbox.is-collapsible .flt-top b{display:none}
 @media(min-width:761px){
   .pt-layout{grid-template-columns:224px 1fr;gap:22px;align-items:start}
   .pt-layout.pt-nofilter{grid-template-columns:1fr}
@@ -1798,6 +1807,9 @@ mark.hl{background:#fff3b0;color:inherit;padding:0 1px;border-radius:2px;font-we
   .pt-filter{position:sticky;top:calc(var(--header-h) + var(--gnb-bar-h) + 12px)}
   .fltbox>summary{display:none}
   .flt-body{display:block !important;border-top:0}
+  .fltbox.is-collapsible>summary{display:flex;min-height:44px;box-sizing:border-box}
+  .fltbox.is-collapsible:not([open])>.flt-body{display:none !important}
+  .fltbox.is-collapsible>.flt-body{border-top:1px solid var(--color-border)}
 }
 
 /* ── 접근성: 키보드 포커스 링 (마우스 클릭엔 안 뜨고 Tab 이동 시만) ──── */
@@ -2189,6 +2201,7 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .fltbox > summary { min-height: 48px; font-size: 14px; }
   .fltbox > summary::after { content: ""; width: 8px; height: 8px; margin: 0 4px 0 auto; border-right: 2px solid #8A96A3; border-bottom: 2px solid #8A96A3; transform: rotate(45deg) translateY(-2px); transition: transform .15s; }
   .fltbox[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+  .fltbox.is-collapsible > summary::after { display: none; }   /* 펼치기/접기 글자 옆 화살표가 따로 있음 */
   .fopt { min-height: 40px; font-size: 14px; }
   .fopt input { width: 18px; height: 18px; }
   .spec-scroll .fopt { padding: 0; }

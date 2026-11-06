@@ -125,8 +125,21 @@ function product_list_url(array $get, array $set = []): string
     return '/products.php' . ($qs !== '' ? '?' . $qs : '');
 }
 
-/** $keep: 필터 적용·초기화 후에도 유지할 추가 GET 값(예: 작업별 목록의 ['work' => 키]) */
-function render_product_filters(array $a, ?string $q, ?int $categoryId, string $sort = '', ?array $facets = null, bool $inStock = false, array $keep = []): void
+/** 적용된(URL 에 반영된) 필터 값 개수 — 접을 수 있는 필터의 제목줄 'N개 적용' 표시용 */
+function product_filters_applied_count(array $a, bool $inStock = false): int
+{
+    $n = 0;
+    foreach (['mat', 'spec', 'shape', 'load', 'ax_type'] as $k) { $n += count((array) ($a[$k] ?? [])); }
+    foreach ((array) ($a['ax'] ?? []) as $vals) { $n += count((array) $vals); }
+    return $n + ($inStock ? 1 : 0);
+}
+
+/**
+ * $keep: 필터 적용·초기화 후에도 유지할 추가 GET 값(예: 작업별 목록의 ['work' => 키])
+ * $collapsible: 비로그인·개인회원 — 데스크톱에서도 제목줄로 펼치기/접기(기본 접힘, 적용된 필터가 있으면 펼친 채 시작).
+ *               기업회원·직원은 false(지금처럼 데스크톱은 항상 펼침). 모바일(760px 이하)은 모두 접힌 채 시작.
+ */
+function render_product_filters(array $a, ?string $q, ?int $categoryId, string $sort = '', ?array $facets = null, bool $inStock = false, array $keep = [], bool $collapsible = false): void
 {
     // 하위호환: 파세트 미제공 시 전체 옵션 노출(개수 없음)
     if ($facets === null) {
@@ -147,8 +160,9 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
         <label class="fopt"><input type="checkbox" name="<?= e($field) ?>[]" value="<?= e((string) $val) ?>" <?= $active ? 'checked' : '' ?>><span class="fopt-lbl"><?= e($label) ?></span><?php if ($cnt > 0): ?><span class="fcnt"><?= $cnt ?></span><?php endif; ?></label>
     <?php };
     ?>
-    <details class="fltbox" open>
-      <summary>필터로 좁히기</summary>
+    <?php $nApplied = product_filters_applied_count($a, $inStock); ?>
+    <details class="fltbox<?= $collapsible ? ' is-collapsible' : '' ?>"<?= (!$collapsible || $nApplied > 0) ? ' open' : '' ?>>
+      <summary><span class="flt-sum-title">필터로 좁히기</span><?php if ($collapsible && $nApplied > 0): ?><span class="flt-sum-cnt"><?= $nApplied ?>개 적용</span><?php endif; ?><?php if ($collapsible): ?><span class="flt-sum-state" aria-hidden="true"></span><?php endif; ?></summary>
       <form class="flt-body" method="get" action="/products.php">
         <?php if ($q !== null && $q !== ''): ?>
           <input type="hidden" name="q" value="<?= e($q) ?>">
@@ -215,6 +229,7 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
     <script>
     // 모바일(760px 이하, 필터 제목줄이 보이는 폭): 필터를 접은 상태로 시작 → 상품 목록이 바로 보이게. 제목줄을 누르면 펼침.
     // 데스크톱은 CSS가 제목줄을 숨기고 항상 펼쳐 둔다(open 유지). 적용된 필터는 목록 위 칩으로 표시된다.
+    // 비로그인·개인회원(.is-collapsible)은 데스크톱도 제목줄(펼치기/접기)이 보이고, 기본 접힘(서버가 open 을 정함).
     (function () {
         var box = document.currentScript && document.currentScript.previousElementSibling;
         if (box && box.tagName === 'DETAILS' && window.matchMedia && window.matchMedia('(max-width: 760px)').matches) { box.open = false; }

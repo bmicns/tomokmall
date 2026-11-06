@@ -707,6 +707,20 @@ ok('이미 선택한 0건 값은 해제 가능', $g[1]['opts'][1]['checked'] && 
 ok('형식 값 표시 B형, GET 이름 ax_type', $g[0]['opts'][0]['label'] === 'B형' && $g[0]['field'] === 'ax_type');
 ok('이름표 없으면 그룹 없음', product_filter_axis_groups([], []) === []);
 
+echo "[필터 펼치기/접기(비로그인·개인회원) render_product_filters]\n";
+eq('적용된 필터 개수: 재질1+축2+모델코드1+재고', product_filters_applied_count(['mat' => [11], 'ax' => ['w' => ['600', '700']], 'ax_type' => ['B']], true), 5);
+$rf = static function (array $a, bool $collapsible, bool $inStock = false): string {
+    ob_start();
+    render_product_filters($a, null, 24, '', ['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 0, 'axes' => []], $inStock, [], $collapsible);
+    return (string) ob_get_clean();
+};
+$h = $rf([], true);
+ok('비로그인·개인: 접을 수 있는 필터, 적용 없으면 접힌 채 시작', str_contains($h, 'class="fltbox is-collapsible">') && str_contains($h, 'flt-sum-state') && !str_contains($h, 'flt-sum-cnt'));
+$h = $rf(['ax' => ['w' => ['600']]], true, true);
+ok('적용된 필터가 있으면 펼친 채 + "2개 적용"', str_contains($h, 'class="fltbox is-collapsible" open>') && str_contains($h, '2개 적용'));
+$h = $rf([], false);
+ok('기업회원: 지금처럼 항상 펼침, 펼치기/접기 표시 없음', str_contains($h, 'class="fltbox" open>') && !str_contains($h, 'flt-sum-state'));
+
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

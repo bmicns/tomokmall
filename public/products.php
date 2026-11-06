@@ -305,7 +305,8 @@ render_header($pageTitle);
           </ul>
         </nav>
         <?php endif; ?>
-        <?php if ($showFilters) { render_product_filters($filters, $query, $categoryId, $sort, $facets, $inStock, $workType ? ['work' => $workType['key']] : []); } ?>
+        <?php // 비로그인·개인회원은 필터를 펼치기/접기(규격 축 필터로 길어짐 + 상황별 목록은 '자재 종류' 패널과 두 개가 겹침) ?>
+        <?php if ($showFilters) { render_product_filters($filters, $query, $categoryId, $sort, $facets, $inStock, $workType ? ['work' => $workType['key']] : [], in_array(price_tier(), ['guest', 'customer'], true)); } ?>
       </aside>
     <?php endif; ?>
     <div class="pt-list-main">
