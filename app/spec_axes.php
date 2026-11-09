@@ -20,6 +20,8 @@ declare(strict_types=1);
  * 축 키 → products 칸 (사용자 결정 2026-11-06: 같은 뜻의 다른 치수는 칸을 나눔)
  *  d_i 내경 · d_o 외경 · w 폭/가로 · w_b 하부폭(밑면) · w_r 뒷폭 · w_t 상부폭(윗면) · h 높이 · h_high 상단 높이 · h_low 하단 높이 ·
  *  depth 깊이 · l 길이/세로 · t 두께 · t2 두 번째 두께 · mesh 망 간격 · wire_d 철선 직경 · wire_no 철선 번호 · ts 인장강도(t/m) ·
+ *  t_tb 상하두께 · t_wall 벽체두께(개거) · t_top 상부두께 · t_bottom 하부두께(조경경계블록) — 두께 칸 나눔(사용자 결정 2026-11-09).
+ *  t2 는 예전 개거 벽체두께 칸(이제 이름표에서 안 씀 — 다시 채울 때 비우도록 목록에만 남김) ·
  *  d_connect 접속구 지름 · d_inlet 유입구 지름 · d_outlet 유출구 지름(글자 값 VG150 — SPEC_AXIS_TEXT)
  */
 const SPEC_AXIS_COLUMNS = [
@@ -27,6 +29,7 @@ const SPEC_AXIS_COLUMNS = [
     'w' => 'dim_w', 'w_b' => 'dim_w_b', 'w_r' => 'dim_w_r', 'w_t' => 'dim_w_t',
     'h' => 'dim_h', 'h_high' => 'dim_h_high', 'h_low' => 'dim_h_low', 'depth' => 'dim_depth',
     'l' => 'dim_l', 't' => 'dim_t', 't2' => 'dim_t2',
+    't_tb' => 'dim_t_tb', 't_wall' => 'dim_t_wall', 't_top' => 'dim_t_top', 't_bottom' => 'dim_t_bottom',
     'mesh' => 'dim_mesh', 'wire_d' => 'dim_wire_d', 'wire_no' => 'spec_wire_no', 'ts' => 'dim_ts',
     'd_connect' => 'dim_d_connect', 'd_inlet' => 'dim_d_inlet', 'd_outlet' => 'dim_d_outlet',
 ];
@@ -38,7 +41,7 @@ const SPEC_AXIS_TEXT = ['d_connect', 'd_inlet', 'd_outlet'];
 const SPEC_AXIS_DIAMETER = ['d_i', 'd_o'];
 
 /** 'T' 접미 허용 축(두께·인장강도 톤), 'H' 접미 허용 축(높이) */
-const SPEC_AXIS_T_SUFFIX = ['t', 't2', 'ts'];
+const SPEC_AXIS_T_SUFFIX = ['t', 't2', 't_tb', 't_wall', 't_top', 't_bottom', 'ts'];
 const SPEC_AXIS_H_SUFFIX = ['h', 'h_high', 'h_low'];
 
 /** 길이가 아닌 값(mm 환산·M 접미 없음): 인장강도 t/m, 철선 번호 */
@@ -48,11 +51,11 @@ const SPEC_AXIS_RAW = ['ts', 'wire_no'];
 const SPEC_AXIS_SKIP = 'skip';
 
 /** 읽는 형식(category_spec_axes.parse_fmt) — 'default' 외에는 그 카테고리 규격 표기 모양에 맞춘 것 */
-const SPEC_AXIS_FORMATS = ['default', 'paren', 'lead_code', 'mesh', 'slash', 'hash', 'pipe_port', 'loose'];
+const SPEC_AXIS_FORMATS = ['default', 'paren', 'lead_code', 'mesh', 'slash', 'hash', 'pipe_port', 'loose', 'range'];
 
 /** 이 기능이 쓰는 products 새 칸(전부 있어야 사용) */
 const SPEC_AXES_NEW_COLUMNS = ['spec_code', 'dim_d_i', 'dim_d_o', 'dim_w', 'dim_w_b', 'dim_w_r', 'dim_w_t', 'dim_h', 'dim_h_high', 'dim_h_low', 'dim_depth',
-                               'dim_l', 'dim_t', 'dim_t2', 'dim_mesh', 'dim_wire_d', 'spec_wire_no', 'dim_ts',
+                               'dim_l', 'dim_t', 'dim_t2', 'dim_t_tb', 'dim_t_wall', 'dim_t_top', 'dim_t_bottom', 'dim_mesh', 'dim_wire_d', 'spec_wire_no', 'dim_ts',
                                'dim_d_connect', 'dim_d_inlet', 'dim_d_outlet', 'spec_option', 'spec_dims_src'];
 
 /** 목록 필터 '모델 코드' 축 키: 끝 글자(B·C — 수로관 900B 등) / 코드 전체(K2·BS·#377 — 형식이 lead_code·mesh·slash 인 카테고리) */
@@ -77,6 +80,7 @@ const SPEC_AXIS_TOKEN = 'D?\d+(?:\.\d+)?(?:mm|MM|[TtHhMm])?(?![A-Za-z0-9.가-힣
  *      hash      '100*100_곡선_#377'                default 숫자 묶음 · '#숫자' → spec_code 'G숫자' · 나머지 option(화강경계도로·낮춤)
  *      loose     '900*900*1000H*200T', '220*220*80T', '1000*1000*H100'  default 와 같되 숫자 앞뒤 T·H 표기를 이름표와 맞추지 않음
  *                (원본 사이트 상세 표 기준으로 이름을 정한 카테고리 — 값의 T·H 가 실제 뜻과 다른 곳, H 가 앞에 붙은 곳)
+ *      range     '230*114*65~125_…'                 default 와 같되 숫자 사이 '~'(범위)를 두 칸으로(조경경계블록 하부두께 65·상부두께 125)
  *      pipe_port 'D300*900H*VG200(4구)사각몸통'      내경·높이 · 관 종류+지름(VG150·DC200, '/' 로 유입/유출) → 글자 값 축
  *                'D300*900H*VG100/VG150(유입3구/유출1구)'  option '접속4구(사각몸통)'·'유입3구/유출1구(일반)'(뒤 '사각몸통' 없으면 일반)
  *
@@ -100,11 +104,14 @@ function spec_axes_parse(string $value, array $axes): ?array
         $code  = $lm[1];
         $value = $lm[2];
     }
+    if ($fmt === 'range') {   // '65~125' → 두 숫자(이름표 두 칸)
+        $value = (string) preg_replace('/(\d)~(\d)/', '$1*$2', $value, 1);
+    }
     if ($fmt === 'loose') {   // H 가 숫자 앞에 붙은 표기(H100)도 숫자로
         $tok = '[DH]?\d+(?:\.\d+)?(?:mm|MM|[TtHhMm])?(?![A-Za-z0-9.가-힣~])';
         $run = $tok . '(?:[*_]' . $tok . ')*';
     }
-    if ($fmt === 'default' || $fmt === 'lead_code' || $fmt === 'loose') {
+    if (in_array($fmt, ['default', 'lead_code', 'loose', 'range'], true)) {
         if (!preg_match('/^' . $run . '/u', $value, $m)) { return null; }
         $tokens = preg_split('/[*_]/', $m[0]) ?: [];
         $rest   = (string) substr($value, strlen($m[0]));

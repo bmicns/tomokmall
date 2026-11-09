@@ -759,6 +759,13 @@ eq('loose 조립식사각맨홀 900*900*1000H*200T → 1000 은 깊이', spec_ax
     ['w' => 900.0, 'l' => 900.0, 'depth' => 1000.0, 't' => 200.0]);
 ok('default 는 지금처럼 엄격(80T 를 높이로 읽지 않음, H100 안 읽음)', spec_axes_parse('220*220*80T', $AX([['w', '가로'], ['l', '세로'], ['h', '높이']])) === null && spec_axes_parse('1000*1000*H100', $AX([['w', '가로'], ['l', '세로'], ['h', '높이']])) === null);
 ok('loose 도 D 접두는 지름 축만', spec_axes_parse('D220*220*80', $axLoose) === null);
+// 두께 칸 나눔(사용자 결정 2026-11-09): 상하두께 t_tb·벽체두께 t_wall(개거), 하부·상부두께(조경경계블록, 형식 range)
+eq('개거 새 칸: 상하두께 t_tb·벽체두께 t_wall', spec_axes_parse('1.5*1.5*2.0_160T*140T', $AX([['w', '폭', 'W', 'm'], ['h', '높이', 'H', 'm'], ['l', '길이', 'L', 'm'], ['t_tb', '상하두께', 'T'], ['t_wall', '벽체두께', 'T']]))['dims'] ?? null,
+    ['w' => 1500.0, 'h' => 1500.0, 'l' => 2000.0, 't_tb' => 160.0, 't_wall' => 140.0]);
+eq('range 조경경계블록 230*114*65~125_조경경계블록_레드 → 하부두께 65·상부두께 125', spec_axes_parse('230*114*65~125_조경경계블록_레드', $AXF('range', [['w', '가로', 'W'], ['l', '세로', 'L'], ['t_bottom', '하부두께', 'T'], ['t_top', '상부두께', 'T']])),
+    ['spec_code' => null, 'dims' => ['w' => 230.0, 'l' => 114.0, 't_bottom' => 65.0, 't_top' => 125.0], 'option' => '조경경계블록_레드']);
+eq('갱신 계획: 예전 칸(dim_t2)은 다시 채울 때 비움', (static function () use ($AX) { $p = ['spec' => '규격: 1.5*1.5*2.0_160T*140T', 'dim_t' => '160.0', 'dim_t2' => '140.0'];
+    $n = spec_axes_plan($p, $AX([['w', '폭', 'W', 'm'], ['h', '높이', 'H', 'm'], ['l', '길이', 'L', 'm'], ['t_tb', '상하두께', 'T'], ['t_wall', '벽체두께', 'T']])); return [$n['dim_t'] ?? 'x', $n['dim_t2'] ?? 'x', $n['dim_t_tb'], $n['dim_t_wall']]; })(), ['x', 'x', '160', '140']);
 eq('옵션 표시: 통째 괄호 조각은 괄호 뗌, 글자에 붙은 괄호는 그대로', [spec_option_display('(B)'), spec_option_display('(SA)_곡선'), spec_option_display('(고강도콘크리트_점형_KS)'), spec_option_display('(7*4)_국산'), spec_option_display('컬러(보도)'), spec_option_display('0RS(유공)')],
     ['B', 'SA/곡선', '고강도콘크리트/점형/KS', '7*4/국산', '컬러(보도)', '0RS(유공)']);
 eq('URL 입력 정리(ax_w·ax_type, 잘못된 값 버림)', spec_axes_filter_input(['ax_w' => ['900', '900.0', 'abc', '1.6'], 'ax_type' => ['b', 'BB', 'C'], 'ax_x' => ['1']]),

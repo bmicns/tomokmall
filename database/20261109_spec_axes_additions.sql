@@ -10,22 +10,29 @@
 --     67 조립식사각맨홀 900*900*1000H*200T = 가로·세로·깊이·두께 / 104 수목보호틀 1000*1000*H100 = 가로·세로·높이 /
 --     264 잔디블록 220*220*80T = 가로·세로·높이 / 98 원형잔디블록(사이트에서 상품 삭제 — 잔디블록과 같게, 사용자 결정)
 --     값의 T·H 표기가 상세 표의 뜻과 다르거나(80T=높이, 1000H=깊이) H 가 앞에 붙은 곳(H100)은 읽는 형식 loose
+--   - 두께 칸 나눔: 두께 dim_t(그대로) · 상하두께 dim_t_tb · 벽체두께 dim_t_wall(개거 — 예전 dim_t·dim_t2 에서 옮김) ·
+--     하부두께 dim_t_bottom · 상부두께 dim_t_top(79 조경경계블록 230*114*65~125 = 가로·세로·하부두께 65·상부두께 125, 읽는 형식 range)
+--     약자는 모두 T. 예전 dim_t2 칸은 개거 값 다시 채우기 때 비워지고 더는 쓰지 않음(지우려면 phpMyAdmin — 원격 관리 API 는 가격 보호 표 DROP 불가)
 -- 사용 코드: app/spec_axes.php(SPEC_AXIS_TEXT, 형식 hash·pipe_port). 전제: 20261106_product_spec_axes.sql·20261106_spec_axes_site_seed.sql 반영.
 -- 성격: 추가형. products 는 ADD COLUMN 만(가격 칸 변경 없음). category_spec_axes 는 ENUM 값 추가·행 추가/형식 변경만.
--- 순서: [1] DDL → [2] DML → 코드 배포 → 값 다시 채우기(scripts/db-tools/spec-axes-fill.php — 150·151·152·184·185·47·62·67·98·104·264).
+-- 순서: [1] DDL → [2] DML → 코드 배포 → 값 다시 채우기(scripts/db-tools/spec-axes-fill.php — 150·151·152·184·185·47·62·67·98·104·264·21·79).
 --       코드는 새 칸이 모두 있어야 규격 축 화면을 쓰므로(spec_axes_ready), 코드보다 [1] 을 먼저.
 
 -- [1] 구조(DDL) -------------------------------------------------------------------
 ALTER TABLE products
     ADD COLUMN dim_d_connect VARCHAR(20) NULL COMMENT '규격 축 d_connect: 접속구 지름(관 종류+지름, 예 VG150·DC200) — PVC소형맨홀' AFTER dim_ts,
     ADD COLUMN dim_d_inlet   VARCHAR(20) NULL COMMENT '규격 축 d_inlet: 유입구 지름(예 VG100) — PVC오수받이' AFTER dim_d_connect,
-    ADD COLUMN dim_d_outlet  VARCHAR(20) NULL COMMENT '규격 축 d_outlet: 유출구 지름(예 DC200) — PVC오수받이' AFTER dim_d_inlet;
+    ADD COLUMN dim_d_outlet  VARCHAR(20) NULL COMMENT '규격 축 d_outlet: 유출구 지름(예 DC200) — PVC오수받이' AFTER dim_d_inlet,
+    ADD COLUMN dim_t_tb      DECIMAL(8,1) NULL COMMENT '규격 축 t_tb: 상하두께 T (mm) — 개거' AFTER dim_t2,
+    ADD COLUMN dim_t_wall    DECIMAL(8,1) NULL COMMENT '규격 축 t_wall: 벽체두께 T (mm) — 개거' AFTER dim_t_tb,
+    ADD COLUMN dim_t_top     DECIMAL(8,1) NULL COMMENT '규격 축 t_top: 상부두께 T (mm) — 조경경계블록 125' AFTER dim_t_wall,
+    ADD COLUMN dim_t_bottom  DECIMAL(8,1) NULL COMMENT '규격 축 t_bottom: 하부두께 T (mm) — 조경경계블록 65' AFTER dim_t_top;
 
 ALTER TABLE category_spec_axes
-    MODIFY axis_key ENUM('d_i','d_o','w','w_b','w_r','w_t','h','h_high','h_low','depth','l','t','t2','mesh','wire_d','wire_no','ts',
-                         'd_connect','d_inlet','d_outlet','skip','none') NOT NULL
+    MODIFY axis_key ENUM('d_i','d_o','w','w_b','w_r','w_t','h','h_high','h_low','depth','l','t','t2','t_tb','t_wall','t_top','t_bottom',
+                         'mesh','wire_d','wire_no','ts','d_connect','d_inlet','d_outlet','skip','none') NOT NULL
         COMMENT '값을 담을 products 칸(dim_<axis_key>, wire_no 는 spec_wire_no). skip = 숫자 자리만 차지(저장 안 함), none = 숫자 읽지 않음',
-    MODIFY parse_fmt ENUM('default','paren','lead_code','mesh','slash','hash','pipe_port','loose') NOT NULL DEFAULT 'default'
+    MODIFY parse_fmt ENUM('default','paren','lead_code','mesh','slash','hash','pipe_port','loose','range') NOT NULL DEFAULT 'default'
         COMMENT '규격 표기 모양(카테고리 행에 같은 값): default / paren / lead_code / mesh / slash 150*200/100_#377 / hash 100*100_#377 / pipe_port D300*900H*VG100/VG150(유입3구/유출1구) / loose T·H 표기 무시';
 
 -- [2] 이름표(DML) — id 와 이름이 모두 맞을 때만 ------------------------------------------
@@ -76,10 +83,29 @@ FROM (
 JOIN categories c ON c.id = v.cid AND c.name = v.cname
 WHERE NOT EXISTS (SELECT 1 FROM category_spec_axes x WHERE x.category_id = c.id);
 
+-- 2-4) 개거(21): 상하두께 t → t_tb, 벽체두께 t2 → t_wall
+UPDATE category_spec_axes SET axis_key = 't_tb'
+WHERE axis_key = 't' AND label = '상하두께' AND category_id IN (SELECT id FROM categories WHERE id = 21 AND name = '개거');
+UPDATE category_spec_axes SET axis_key = 't_wall'
+WHERE axis_key = 't2' AND label = '벽체두께' AND category_id IN (SELECT id FROM categories WHERE id = 21 AND name = '개거');
+
+-- 2-5) 조경경계블록(79): 230*114*65~125 = 가로 W · 세로 L · 하부두께 T 65 · 상부두께 T 125 (읽는 형식 range)
+INSERT INTO category_spec_axes (category_id, seq, axis_key, label, symbol, show_symbol, unit, use_filter, parse_fmt, fixed_value)
+SELECT c.id, v.seq, v.axis_key, v.label, v.symbol, 1, 'mm', 1, 'range', NULL
+FROM (
+              SELECT 79 AS cid, '조경경계블록' AS cname, 1 AS seq, 'w' AS axis_key, '가로' AS label, 'W' AS symbol
+    UNION ALL SELECT 79, '조경경계블록', 2, 'l',        '세로',     'L'
+    UNION ALL SELECT 79, '조경경계블록', 3, 't_bottom', '하부두께', 'T'
+    UNION ALL SELECT 79, '조경경계블록', 4, 't_top',    '상부두께', 'T'
+) v
+JOIN categories c ON c.id = v.cid AND c.name = v.cname
+WHERE NOT EXISTS (SELECT 1 FROM category_spec_axes x WHERE x.category_id = c.id);
+
 -- [3] 확인(읽기 전용)
 -- SELECT category_id, seq, axis_key, label, parse_fmt FROM category_spec_axes WHERE category_id IN (150, 152, 184, 185) ORDER BY category_id, seq;  -- 150·152 hash 4행, 184 3행, 185 4행
 
 -- [롤백] 승인 후에만
--- DELETE FROM category_spec_axes WHERE category_id IN (184, 185, 47, 62, 67, 98, 104, 264);
+-- DELETE FROM category_spec_axes WHERE category_id IN (184, 185, 47, 62, 67, 98, 104, 264, 79);
+-- UPDATE category_spec_axes SET axis_key = 't' WHERE category_id = 21 AND axis_key = 't_tb';  UPDATE category_spec_axes SET axis_key = 't2' WHERE category_id = 21 AND axis_key = 't_wall';
 -- UPDATE category_spec_axes SET parse_fmt = 'default' WHERE category_id IN (150, 152);
 -- (ENUM 값·새 칸은 남겨도 이전 코드가 무시. 지우려면 phpMyAdmin: ALTER TABLE products DROP COLUMN dim_d_outlet, DROP COLUMN dim_d_inlet, DROP COLUMN dim_d_connect;)
