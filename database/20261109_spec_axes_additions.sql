@@ -36,8 +36,8 @@ ALTER TABLE category_spec_axes
     MODIFY axis_key ENUM('d','d_base','v','d_i','d_o','w','w_b','w_r','w_t','h','h_high','h_low','depth','l','t','t2','t_tb','t_wall','t_top','t_bottom',
                          'mesh','wire_d','wire_no','ts','d_connect','d_inlet','d_outlet','skip','none') NOT NULL
         COMMENT '값을 담을 products 칸(dim_<axis_key>, wire_no 는 spec_wire_no). skip = 숫자 자리만 차지(저장 안 함), none = 숫자 읽지 않음',
-    MODIFY parse_fmt ENUM('default','paren','lead_code','mesh','slash','hash','pipe_port','loose','range') NOT NULL DEFAULT 'default'
-        COMMENT '규격 표기 모양(카테고리 행에 같은 값): default / paren / lead_code / mesh / slash 150*200/100_#377 / hash 100*100_#377 / pipe_port D300*900H*VG100/VG150(유입3구/유출1구) / loose T·H 표기 무시';
+    MODIFY parse_fmt ENUM('default','paren','lead_code','mesh','slash','hash','pipe_port','loose','range','lead_text','shape') NOT NULL DEFAULT 'default'
+        COMMENT '규격 표기 모양(카테고리 행에 같은 값): default / paren / lead_code / mesh / slash 150*200/100_#377 / hash 100*100_#377 / pipe_port D300*900H*VG100/VG150(유입3구/유출1구) / loose T·H 표기 무시 / range 65~125 / lead_text 버너삼각300*150*1000 / shape 원형 D400*400·사각 400*400*400';
 
 -- [2] 이름표(DML) — id 와 이름이 모두 맞을 때만 ------------------------------------------
 -- 2-1) 화강경계도로(150)·화강경계낮춤(152): 옵션 '#377' → 모델 코드(읽는 형식 hash)
@@ -193,6 +193,46 @@ FROM (
 JOIN categories c ON c.id = v.cid AND c.name = v.cname
 WHERE NOT EXISTS (SELECT 1 FROM category_spec_axes x WHERE x.category_id = c.id);
 
+-- 2-8) 앞뒤 글자가 붙은 카테고리(상품 상세 표 + 사용자 결정 2026-11-09)
+--   앵글 폭 30 고정 · 스텐볼라드 높이 900 고정(상세 표 — 값의 600 은 저장 안 함) · 볼라드 원형/사각은 옵션(형식 shape) ·
+--   부직포 g 는 옵션(부직포(150g) → 150g) · 낙엽방지덮개 두께 2 고정(값 400*500 = 세로·가로) · 스텐바리케이드 폭 2.6m·높이 1.1m
+--   (조화(디자인)맨홀뚜껑·화산석·판석은 모양이 섞여 원문 유지 — 사용자 결정)
+INSERT INTO category_spec_axes (category_id, seq, axis_key, label, symbol, show_symbol, unit, use_filter, parse_fmt, fixed_value, fixed_text)
+SELECT c.id, v.seq, v.axis_key, v.label, v.symbol, 1, v.unit, v.use_filter, v.parse_fmt, v.fixed_value, NULL
+FROM (
+              SELECT 108 AS cid, '주철뚜껑(우수/오수/전기/통신)' AS cname, 1 AS seq, 'd' AS axis_key, '직경' AS label, 'D' AS symbol, 'mm' AS unit, 1 AS use_filter, 'lead_text' AS parse_fmt, NULL AS fixed_value
+    UNION ALL SELECT 108, '주철뚜껑(우수/오수/전기/통신)', 2, 'h', '높이', 'H', 'mm', 1, 'lead_text', NULL
+    UNION ALL SELECT 145, '앵글(직선앵글)', 1, 'w', '폭', 'W', 'mm', 1, 'lead_text', 30
+    UNION ALL SELECT 145, '앵글(직선앵글)', 2, 't', '두께', 'T', 'mm', 1, 'lead_text', NULL
+    UNION ALL SELECT 145, '앵글(직선앵글)', 3, 'l', '길이', 'L', 'mm', 1, 'lead_text', NULL
+    UNION ALL SELECT 147, '스텐바리케이드', 1, 'w', '폭', 'W', 'm', 1, 'lead_text', NULL
+    UNION ALL SELECT 147, '스텐바리케이드', 2, 'h', '높이', 'H', 'm', 1, 'lead_text', NULL
+    UNION ALL SELECT 148, '스텐볼라드', 1, 'd', '직경', 'D', 'mm', 1, 'lead_text', NULL
+    UNION ALL SELECT 148, '스텐볼라드', 2, 'skip', NULL, NULL, 'mm', 0, 'lead_text', NULL
+    UNION ALL SELECT 148, '스텐볼라드', 3, 'h', '높이', 'H', 'mm', 1, 'lead_text', 900
+    UNION ALL SELECT 148, '스텐볼라드', 4, 'l', '길이', 'L', 'mm', 1, 'lead_text', NULL
+    UNION ALL SELECT 149, '낙엽방지덮개', 1, 'v', '세로', 'V', 'mm', 1, 'default', NULL
+    UNION ALL SELECT 149, '낙엽방지덮개', 2, 'w', '가로', 'W', 'mm', 1, 'default', NULL
+    UNION ALL SELECT 149, '낙엽방지덮개', 3, 't', '두께', 'T', 'mm', 1, 'default', 2
+    UNION ALL SELECT 154, '볼라드', 1, 'd', '직경', 'D', 'mm', 1, 'shape', NULL
+    UNION ALL SELECT 154, '볼라드', 2, 'w', '가로', 'W', 'mm', 1, 'shape', NULL
+    UNION ALL SELECT 154, '볼라드', 3, 'v', '세로', 'V', 'mm', 1, 'shape', NULL
+    UNION ALL SELECT 154, '볼라드', 4, 'h', '높이', 'H', 'mm', 1, 'shape', NULL
+    UNION ALL SELECT 155, '계단석', 1, 'w', '폭', 'W', 'mm', 1, 'lead_text', NULL
+    UNION ALL SELECT 155, '계단석', 2, 'v', '세로', 'V', 'mm', 1, 'lead_text', NULL
+    UNION ALL SELECT 155, '계단석', 3, 'l', '길이', 'L', 'mm', 1, 'lead_text', NULL
+    UNION ALL SELECT 157, '사구석/소포석', 1, 'w', '폭', 'W', 'mm', 1, 'lead_text', NULL
+    UNION ALL SELECT 157, '사구석/소포석', 2, 'v', '세로', 'V', 'mm', 1, 'lead_text', NULL
+    UNION ALL SELECT 157, '사구석/소포석', 3, 'l', '길이', 'L', 'mm', 1, 'lead_text', NULL
+    UNION ALL SELECT 203, 'PE망', 1, 'w', '폭', 'W', 'm', 1, 'default', NULL
+    UNION ALL SELECT 203, 'PE망', 2, 'l', '길이', 'L', 'm', 1, 'default', NULL
+    UNION ALL SELECT 203, 'PE망', 3, 't', '두께', 'T', 'mm', 1, 'default', NULL
+    UNION ALL SELECT 207, '부직포', 1, 'w', '폭', 'W', 'm', 1, 'lead_text', NULL
+    UNION ALL SELECT 207, '부직포', 2, 'l', '길이', 'L', 'm', 1, 'lead_text', NULL
+) v
+JOIN categories c ON c.id = v.cid AND c.name = v.cname
+WHERE NOT EXISTS (SELECT 1 FROM category_spec_axes x WHERE x.category_id = c.id);
+
 -- 2-7) 세로를 길이 L 과 나눔: 이름표 '세로'(axis l·약자 L) → axis v·약자 V (운영 22개 + 이 파일에서 넣은 카테고리 전부)
 UPDATE category_spec_axes SET axis_key = 'v', symbol = 'V' WHERE axis_key = 'l' AND label = '세로';
 
@@ -200,7 +240,7 @@ UPDATE category_spec_axes SET axis_key = 'v', symbol = 'V' WHERE axis_key = 'l' 
 -- SELECT category_id, seq, axis_key, label, parse_fmt FROM category_spec_axes WHERE category_id IN (150, 152, 184, 185) ORDER BY category_id, seq;  -- 150·152 hash 4행, 184 3행, 185 4행
 
 -- [롤백] 승인 후에만
--- DELETE FROM category_spec_axes WHERE category_id IN (184, 185, 47, 62, 67, 98, 104, 264, 79, 109, 110, 114, 122, 128, 129, 130, 131, 132, 135, 143, 153, 160, 161, 177, 178, 179, 180, 181, 202, 206, 208, 210, 268, 68);
+-- DELETE FROM category_spec_axes WHERE category_id IN (108, 145, 147, 148, 149, 154, 155, 157, 203, 207, 184, 185, 47, 62, 67, 98, 104, 264, 79, 109, 110, 114, 122, 128, 129, 130, 131, 132, 135, 143, 153, 160, 161, 177, 178, 179, 180, 181, 202, 206, 208, 210, 268, 68);
 -- UPDATE category_spec_axes SET axis_key = 'l', symbol = 'L' WHERE axis_key = 'v' AND label = '세로';
 -- UPDATE category_spec_axes SET axis_key = 't' WHERE category_id = 21 AND axis_key = 't_tb';  UPDATE category_spec_axes SET axis_key = 't2' WHERE category_id = 21 AND axis_key = 't_wall';
 -- UPDATE category_spec_axes SET parse_fmt = 'default' WHERE category_id IN (150, 152);

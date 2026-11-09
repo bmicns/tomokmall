@@ -53,7 +53,7 @@ const SPEC_AXIS_RAW = ['ts', 'wire_no'];
 const SPEC_AXIS_SKIP = 'skip';
 
 /** 읽는 형식(category_spec_axes.parse_fmt) — 'default' 외에는 그 카테고리 규격 표기 모양에 맞춘 것 */
-const SPEC_AXIS_FORMATS = ['default', 'paren', 'lead_code', 'mesh', 'slash', 'hash', 'pipe_port', 'loose', 'range'];
+const SPEC_AXIS_FORMATS = ['default', 'paren', 'lead_code', 'mesh', 'slash', 'hash', 'pipe_port', 'loose', 'range', 'lead_text', 'shape'];
 
 /** 이 기능이 쓰는 products 새 칸(전부 있어야 사용) */
 const SPEC_AXES_NEW_COLUMNS = ['spec_code', 'dim_d', 'dim_d_i', 'dim_d_o', 'dim_d_base', 'dim_w', 'dim_w_b', 'dim_w_r', 'dim_w_t', 'dim_h', 'dim_h_high', 'dim_h_low', 'dim_depth',
@@ -83,6 +83,9 @@ const SPEC_AXIS_TOKEN = 'D?\d+(?:\.\d+)?(?:mm|MM|[TtHhMm])?(?![A-Za-z0-9.가-힣
  *      loose     '900*900*1000H*200T', '220*220*80T', '1000*1000*H100'  default 와 같되 숫자 앞뒤 T·H 표기를 이름표와 맞추지 않음
  *                (원본 사이트 상세 표 기준으로 이름을 정한 카테고리 — 값의 T·H 가 실제 뜻과 다른 곳, H 가 앞에 붙은 곳)
  *      range     '230*114*65~125_…'                 default 와 같되 숫자 사이 '~'(범위)를 두 칸으로(조경경계블록 하부두께 65·상부두께 125)
+ *      lead_text '버너삼각300*150*1000', '25바용*3T*4M', '600Ø*h70_B.S_보도용', '아치형 … 바리케이드 2.6M×H1100', '부직포(150g)_2m*30m'
+ *                앞 글자 → 옵션('이름(내용)' 꼴이면 괄호 안만 — 부직포(150g) → 150g), 숫자 묶음('*'·'×', 600Ø → 지름, h70 → 높이), 나머지 옵션
+ *      shape     '원형 D400*400' · '사각 400*400*400'  lead_text 와 같되 첫 숫자가 D 이면 직경·높이, 아니면 가로·세로·높이(모양은 옵션)
  *      pipe_port 'D300*900H*VG200(4구)사각몸통'      내경·높이 · 관 종류+지름(VG150·DC200, '/' 로 유입/유출) → 글자 값 축
  *                'D300*900H*VG100/VG150(유입3구/유출1구)'  option '접속4구(사각몸통)'·'유입3구/유출1구(일반)'(뒤 '사각몸통' 없으면 일반)
  *
@@ -105,6 +108,29 @@ function spec_axes_parse(string $value, array $axes): ?array
         if (!preg_match('/^([A-Z][A-Z0-9]{0,9})_(.+)$/u', $value, $lm)) { return null; }
         $code  = $lm[1];
         $value = $lm[2];
+    }
+    if ($fmt === 'lead_text' || $fmt === 'shape') {
+        $lt  = '[DHh]?\d+(?:\.\d+)?(?:mm|MM|[TtHhMm]|Ø)?';
+        if (!preg_match('/^(.*?)(' . $lt . '(?:[*×]' . $lt . ')+)(?![A-Za-z0-9.가-힣])(.*)$/su', $value, $lm)
+            && !preg_match('/^(.*?)(' . $lt . ')(?![A-Za-z0-9.가-힣*×])(.*)$/su', $value, $lm)) { return null; }
+        $lead = trim((string) preg_replace('/[\s_*]+$/u', '', $lm[1]));
+        if ($lead !== '') { $opts[] = preg_match('/^[^()]+\(([^()]+)\)$/u', $lead, $pm2) ? $pm2[1] : $lead; }
+        $tokens = array_map(static function (string $t): string {
+            if (preg_match('/^(\d+(?:\.\d+)?)Ø$/u', $t, $x)) { return 'D' . $x[1]; }   // 600Ø → 지름
+            return (string) preg_replace('/^h(?=\d)/', 'H', $t);                          // h70 → 높이
+        }, preg_split('/[*×]/u', $lm[2]) ?: []);
+        $opts[] = $lm[3];
+        $use = $axes;
+        if ($fmt === 'shape') {   // 첫 숫자 D → 직경·높이 / 아니면 가로·세로·높이
+            $round = str_starts_with($tokens[0] ?? '', 'D');
+            $use = array_values(array_filter($axes, static fn($a) => $round ? in_array((string) $a['axis_key'], ['d', 'h'], true) : (string) $a['axis_key'] !== 'd'));
+        }
+        $dims = spec_axes_read_tokens($tokens, $use, true);
+        if ($dims === null) { return null; }
+        $opt = trim(implode('_', array_values(array_filter(array_map(static fn($o) => trim((string) preg_replace('/^[\s_]+/u', '', (string) $o)), $opts), static fn($o) => $o !== ''))));
+        if ($opt === '') { $opt = null; }
+        if ($opt !== null && mb_strlen($opt) > 80) { return null; }
+        return ['spec_code' => null, 'dims' => $dims, 'option' => $opt];
     }
     if ($fmt === 'range') {   // '65~125' → 두 숫자(이름표 두 칸)
         $value = (string) preg_replace('/(\d)~(\d)/', '$1*$2', $value, 1);
@@ -250,6 +276,8 @@ function spec_axes_read_tokens(array $tokens, array $axes, bool $loose = false):
         elseif ($suf !== '')   { return null; }
         if ($key === SPEC_AXIS_SKIP) { continue; }
 
+        // 이름표가 m 단위인데 접미 없는 숫자가 100 이상이면 mm 표기로 봄(스텐바리케이드 2.6M×H1100 의 1100 = 1.1m)
+        if (!$raw && $unit === 'm' && $suf === '' && (float) $tm[2] >= 100 && (($a['unit'] ?? 'mm') === 'm')) { $unit = 'mm'; }
         $val = (float) $tm[2] * (!$raw && $unit === 'm' ? 1000 : 1);
         $x10 = $val * 10;
         if (abs($x10 - round($x10)) > 1e-6) { return null; }      // 소수 1자리까지만(DECIMAL(8,1))
