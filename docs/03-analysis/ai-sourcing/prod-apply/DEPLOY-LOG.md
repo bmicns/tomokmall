@@ -10,6 +10,7 @@
 | 2026-11-03 | 2 코드 | 고객 화면 오류 문구 19 + 화면 3 — [STAGE2-RUNBOOK.md](STAGE2-RUNBOOK.md) | `02a98c2` → main `94bde9a` | 사용자 보고 "2단계 배포했어". 운영 확인(이 환경, 읽기·실패 입력만): 스모크 7/7, 정적 파일 3개 = main, 페이지 6곳 새 코드 표시, API 오류 문구 200+ok:false(로그인·회원가입·장바구니 1000·분류·견적·주문), 비로그인 401·405 는 설계대로, 360/768/1280px 7페이지 가로 스크롤·JS 오류 없음, 로그인 틀린 비밀번호 문구 화면 표시 | **적용** |
 | 2026-11-03 | 상담원 문의 DB | 새 테이블 2개 `consult_requests`·`consult_request_events` — `database/20261103_consult_requests.sql` [1]→[2]→[3] ([consult-request-RUNBOOK.md](../../consult-request-RUNBOOK.md) 1장) | 작업 브랜치 `00324b9` 의 SQL | 사용자 보고 "신규 테이블 2개 생성". [3] 결과값(`consult_tables_exist = 2`)은 사용자 확인 기록 대기 | **적용** |
 | — | 상담원 연결 유도(카카오톡, 디자인만) 코드 | 3개(새 1 + 수정 2, 기준 `a1f0a6e`) — [consult-request-RUNBOOK.md](../../consult-request-RUNBOOK.md). 11-04 문자 발송 제거, 관리자 '상담 요청' 화면 제거(코드 `_archive/consult-request/` 보관). 11-03 테이블 2개는 빈 채로 남음 | — | — | 승인 대기 |
+| — | AI 상담 운영 오류 4건 코드 | 주방에 대형차용 그레이팅·비싼 제품 추천·'다른 거'에 같은 표·비로그인 상담원 유도 안 보임 — 4개(`app/ai_tools.php` `app/rag.php` `app/chat_renderer.php` `public/assets/consult-request.js`), DB 변경 없음 — [ai-consult-fix-2026-11-09.md](../../ai-consult-fix-2026-11-09.md) | 작업 브랜치 `claude/elegant-wozniak-bx9wcp` | — | 승인 대기 |
 | — | 3 코드 | 관리자·직원 14 | — | — | 미승인 |
 
 - **1단계(AI 상담 코드 5개 + 제조사 자료 14행 + 법령 근거 20건) 운영 반영 완료 — 2026-11-02.** 운영 AI 상담이 승인 제조사 자료·검증 법령 근거·국가표준 번호(기본 정보)를 사용한다.
