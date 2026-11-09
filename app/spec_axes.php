@@ -19,7 +19,8 @@ declare(strict_types=1);
 /**
  * 축 키 → products 칸 (사용자 결정 2026-11-06: 같은 뜻의 다른 치수는 칸을 나눔)
  *  d_i 내경 · d_o 외경 · w 폭/가로 · w_b 하부폭(밑면) · w_r 뒷폭 · w_t 상부폭(윗면) · h 높이 · h_high 상단 높이 · h_low 하단 높이 ·
- *  depth 깊이 · l 길이/세로 · t 두께 · t2 두 번째 두께 · mesh 망 간격 · wire_d 철선 직경 · wire_no 철선 번호 · ts 인장강도(t/m)
+ *  depth 깊이 · l 길이/세로 · t 두께 · t2 두 번째 두께 · mesh 망 간격 · wire_d 철선 직경 · wire_no 철선 번호 · ts 인장강도(t/m) ·
+ *  d_connect 접속구 지름 · d_inlet 유입구 지름 · d_outlet 유출구 지름(글자 값 VG150 — SPEC_AXIS_TEXT)
  */
 const SPEC_AXIS_COLUMNS = [
     'd_i' => 'dim_d_i', 'd_o' => 'dim_d_o',
@@ -27,7 +28,11 @@ const SPEC_AXIS_COLUMNS = [
     'h' => 'dim_h', 'h_high' => 'dim_h_high', 'h_low' => 'dim_h_low', 'depth' => 'dim_depth',
     'l' => 'dim_l', 't' => 'dim_t', 't2' => 'dim_t2',
     'mesh' => 'dim_mesh', 'wire_d' => 'dim_wire_d', 'wire_no' => 'spec_wire_no', 'ts' => 'dim_ts',
+    'd_connect' => 'dim_d_connect', 'd_inlet' => 'dim_d_inlet', 'd_outlet' => 'dim_d_outlet',
 ];
+
+/** 글자 값 축(숫자가 아니라 'VG150'·'DC200' 처럼 관 종류+지름 그대로 저장·표시) — PVC소형맨홀 접속구, PVC오수받이 유입구·유출구 */
+const SPEC_AXIS_TEXT = ['d_connect', 'd_inlet', 'd_outlet'];
 
 /** 지름 축(값 앞 'D' 표기 허용): 내경·외경 */
 const SPEC_AXIS_DIAMETER = ['d_i', 'd_o'];
@@ -43,11 +48,12 @@ const SPEC_AXIS_RAW = ['ts', 'wire_no'];
 const SPEC_AXIS_SKIP = 'skip';
 
 /** 읽는 형식(category_spec_axes.parse_fmt) — 'default' 외에는 그 카테고리 규격 표기 모양에 맞춘 것 */
-const SPEC_AXIS_FORMATS = ['default', 'paren', 'lead_code', 'mesh', 'slash'];
+const SPEC_AXIS_FORMATS = ['default', 'paren', 'lead_code', 'mesh', 'slash', 'hash', 'pipe_port'];
 
 /** 이 기능이 쓰는 products 새 칸(전부 있어야 사용) */
 const SPEC_AXES_NEW_COLUMNS = ['spec_code', 'dim_d_i', 'dim_d_o', 'dim_w', 'dim_w_b', 'dim_w_r', 'dim_w_t', 'dim_h', 'dim_h_high', 'dim_h_low', 'dim_depth',
-                               'dim_l', 'dim_t', 'dim_t2', 'dim_mesh', 'dim_wire_d', 'spec_wire_no', 'dim_ts', 'spec_option', 'spec_dims_src'];
+                               'dim_l', 'dim_t', 'dim_t2', 'dim_mesh', 'dim_wire_d', 'spec_wire_no', 'dim_ts',
+                               'dim_d_connect', 'dim_d_inlet', 'dim_d_outlet', 'spec_option', 'spec_dims_src'];
 
 /** 목록 필터 '모델 코드' 축 키: 끝 글자(B·C — 수로관 900B 등) / 코드 전체(K2·BS·#377 — 형식이 lead_code·mesh·slash 인 카테고리) */
 const SPEC_AXIS_TYPE = 'type';
@@ -67,7 +73,10 @@ const SPEC_AXIS_TOKEN = 'D?\d+(?:\.\d+)?(?:mm|MM|[TtHhMm])?(?![A-Za-z0-9.가-힣
  *                괄호 앞(숫자 묶음 또는 글자) + 괄호 안 숫자 묶음 → 숫자, 글자·괄호 안 꼬리·괄호 뒤 → option('1롤' 같은 1단위 표기는 버림)
  *      lead_code 'K2_390*120*120'                   맨 앞 영문·숫자 코드 → spec_code, 나머지는 default
  *      mesh      '1800*1800_150각_#8(Ø3.5)BS'       가로·세로 · 망 간격(각) · 철선 번호(#) · 철선 직경(Ø) · 뒤 영문 → spec_code
- *      slash     '150*200/100_곡선_#377'            폭·상단 높이/하단 높이 · '#숫자' → spec_code · 나머지 option
+ *      slash     '150*200/100_곡선_#377'            폭·상단 높이/하단 높이 · '#숫자' → spec_code 'G숫자'(G377) · 나머지 option
+ *      hash      '100*100_곡선_#377'                default 숫자 묶음 · '#숫자' → spec_code 'G숫자' · 나머지 option(화강경계도로·낮춤)
+ *      pipe_port 'D300*900H*VG200(4구)사각몸통'      내경·높이 · 관 종류+지름(VG150·DC200, '/' 로 유입/유출) → 글자 값 축
+ *                'D300*900H*VG100/VG150(유입3구/유출1구)'  option '접속4구(사각몸통)'·'유입3구/유출1구(일반)'(뒤 '사각몸통' 없으면 일반)
  *
  * @param list<array{seq:int, axis_key:string, unit?:string, parse_fmt?:string, fixed_value?:float|string|null}> $axes
  */
@@ -117,23 +126,49 @@ function spec_axes_parse(string $value, array $axes): ?array
         $tokens = array_merge(preg_split('/[*_]/', $mm[1]) ?: [], [$mm[2], $mm[3], $mm[4]]);
         $code   = ($mm[5] ?? '') !== '' ? $mm[5] : null;
         $opts[] = $mm[6] ?? '';
-    } elseif ($fmt === 'slash') {
-        if (!preg_match('/^(' . $tok . ')\*(' . $tok . ')\/(' . $tok . ')(.*)$/u', $value, $sm)) { return null; }
-        $tokens = [$sm[1], $sm[2], $sm[3]];
-        $left   = [];
-        foreach (preg_split('/_/u', (string) preg_replace('/^[\s_]+/u', '', $sm[4])) ?: [] as $seg) {
+    } elseif ($fmt === 'slash' || $fmt === 'hash') {
+        if ($fmt === 'slash') {
+            if (!preg_match('/^(' . $tok . ')\*(' . $tok . ')\/(' . $tok . ')(.*)$/u', $value, $sm)) { return null; }
+            $tokens = [$sm[1], $sm[2], $sm[3]];
+            $rest   = $sm[4];
+        } else {
+            if (!preg_match('/^' . $run . '/u', $value, $m)) { return null; }
+            $tokens = preg_split('/[*_]/', $m[0]) ?: [];
+            $rest   = (string) substr($value, strlen($m[0]));
+        }
+        $left = [];
+        foreach (preg_split('/_/u', (string) preg_replace('/^[\s_]+/u', '', $rest)) ?: [] as $seg) {
             $seg = trim($seg);
             if ($seg === '') { continue; }
-            if ($code === null && preg_match('/^#\d{1,9}$/', $seg)) { $code = $seg; continue; }
+            // '#377' → 모델 코드 'G377'(사용자 결정 2026-11-09 — '#' 대신 G)
+            if ($code === null && preg_match('/^#(\d{1,9})$/', $seg, $hm)) { $code = 'G' . $hm[1]; continue; }
             $left[] = $seg;
         }
         $opts[] = implode('_', $left);
+    } elseif ($fmt === 'pipe_port') {
+        $port = '(?:VG|DC)\d{2,4}';
+        if (!preg_match('/^(' . $tok . ')\*(' . $tok . ')\*(' . $port . ')(?:\/(' . $port . '))?\(([^()]+)\)(사각몸통)?$/u', $value, $pm)) { return null; }
+        $tokens = [$pm[1], $pm[2]];
+        $ports  = array_values(array_filter([$pm[3], $pm[4] ?? ''], static fn($x) => $x !== ''));
+        $texts  = array_values(array_filter($axes, static fn($a) => in_array((string) $a['axis_key'], SPEC_AXIS_TEXT, true)));
+        if (count($ports) !== count($texts)) { return null; }
+        $inner = trim($pm[5]);
+        if (preg_match('/^(\d{1,2})구$/u', $inner, $cm))                                    { $kind = '접속' . $cm[1] . '구'; }
+        elseif (preg_match('/^유입(\d{1,2})구\/유출(\d{1,2})구$/u', $inner, $cm))           { $kind = '유입' . $cm[1] . '구/유출' . $cm[2] . '구'; }
+        else { return null; }
+        $opts[] = $kind . '(' . (($pm[6] ?? '') !== '' ? '사각몸통' : '일반') . ')';
     } else {
         return null;
     }
 
     $dims = spec_axes_read_tokens($tokens, $axes);
     if ($dims === null) { return null; }
+    if ($fmt === 'pipe_port') {   // 글자 값 축: 이름표 seq 순서대로 유입→유출(또는 접속구)
+        foreach ($texts as $i => $a) { $dims[(string) $a['axis_key']] = $ports[$i]; }
+        $ordered = [];
+        foreach ($axes as $a) { $k = (string) $a['axis_key']; if (isset($dims[$k])) { $ordered[$k] = $dims[$k]; } }
+        $dims = $ordered;
+    }
 
     $opt = trim(implode('_', array_values(array_filter(array_map(static fn($o) => trim((string) preg_replace('/^[\s_]+/u', '', (string) $o)), $opts), static fn($o) => $o !== ''))));
     if ($opt === '') { $opt = null; }
@@ -155,7 +190,7 @@ function spec_axes_fmt(array $axes): string
 /** 필터 '모델 코드' 방식: 끝 글자(type) 또는 코드 전체(code) */
 function spec_axes_code_key(array $axes): string
 {
-    return in_array(spec_axes_fmt($axes), ['lead_code', 'mesh', 'slash'], true) ? SPEC_AXIS_CODE : SPEC_AXIS_TYPE;
+    return in_array(spec_axes_fmt($axes), ['lead_code', 'mesh', 'slash', 'hash'], true) ? SPEC_AXIS_CODE : SPEC_AXIS_TYPE;
 }
 
 /**
@@ -168,6 +203,7 @@ function spec_axes_read_tokens(array $tokens, array $axes): ?array
     $readers = []; $dims = [];
     foreach ($axes as $a) {
         $key = (string) $a['axis_key'];
+        if (in_array($key, SPEC_AXIS_TEXT, true)) { continue; }   // 글자 값 축은 형식별 코드가 채움
         $fv  = $a['fixed_value'] ?? null;
         if ($key !== SPEC_AXIS_SKIP && $fv !== null && $fv !== '') {
             $v = round((float) $fv, 1);
@@ -224,6 +260,18 @@ function spec_axis_display(float $mm, string $unit): string
     return number_format($mm, abs($mm - round($mm)) < 1e-9 ? 0 : 1, '.', '');
 }
 
+/** 글자 값 축의 products 칸 */
+function spec_axis_text_columns(): array
+{
+    return array_map(static fn($k) => SPEC_AXIS_COLUMNS[$k], SPEC_AXIS_TEXT);
+}
+
+/** 이름표 행 + 정규 값 → 화면 표시. 글자 값 축(VG150)은 그대로, 숫자는 단위대로(spec_axis_display) */
+function spec_axis_value_display(array $axis, string $v): string
+{
+    return in_array((string) ($axis['axis_key'] ?? ''), SPEC_AXIS_TEXT, true) ? $v : spec_axis_display((float) $v, (string) ($axis['unit'] ?? 'mm'));
+}
+
 /** 화면에 보일 약자('W') — 약자가 없거나 show_symbol=0 이면 '' */
 function spec_axis_symbol(array $axis): string
 {
@@ -269,6 +317,7 @@ function spec_option_display(string $opt): string
 /** 단위 표시 '(mm)' / '(m)' / '(t/m)' / 번호는 없음 — 필터 그룹 이름 옆(아트보드: 폭 W(mm)). 표 머리글에는 단위를 쓰지 않는다 */
 function spec_axis_unit_label(array $axis): string
 {
+    if (in_array((string) ($axis['axis_key'] ?? ''), SPEC_AXIS_TEXT, true)) { return ''; }   // VG150 처럼 값에 이미 들어 있음
     $u = (string) ($axis['unit'] ?? 'mm');
     return $u === 'm' ? '(m)' : ($u === 't/m' ? '(t/m)' : ($u === 'no' ? '' : '(mm)'));
 }
@@ -310,7 +359,7 @@ function spec_axes_plan(array $p, array $axes): ?array
     $cur   = [];
     foreach (SPEC_AXES_NEW_COLUMNS as $col) {
         $v = $p[$col] ?? null;
-        $cur[$col] = ($v === null || $v === '') ? null : (str_starts_with($col, 'dim_') ? spec_axis_num((float) $v) : (string) $v);
+        $cur[$col] = ($v === null || $v === '') ? null : ((str_starts_with($col, 'dim_') && !in_array($col, spec_axis_text_columns(), true)) ? spec_axis_num((float) $v) : (string) $v);
     }
     $empty = array_fill_keys(SPEC_AXES_NEW_COLUMNS, null);
     $hasAny = (bool) array_filter($cur, static fn($v) => $v !== null);
@@ -319,7 +368,7 @@ function spec_axes_plan(array $p, array $axes): ?array
     if ($parsed !== null) {
         $new = $empty;
         $new['spec_code'] = $parsed['spec_code'];
-        foreach ($parsed['dims'] as $k => $mm) { $new[SPEC_AXIS_COLUMNS[$k]] = spec_axis_num($mm); }
+        foreach ($parsed['dims'] as $k => $mm) { $new[SPEC_AXIS_COLUMNS[$k]] = in_array($k, SPEC_AXIS_TEXT, true) ? (string) $mm : spec_axis_num((float) $mm); }
         $new['spec_option']   = $parsed['option'];
         $new['spec_dims_src'] = $value;
         return $new === $cur ? null : $new;
@@ -442,7 +491,8 @@ function spec_axes_row_value(array $p, string $key): ?string
     if ($key === SPEC_AXIS_CODE) { $c = trim((string) ($p['spec_code'] ?? '')); return $c !== '' ? $c : null; }
     $col = SPEC_AXIS_COLUMNS[$key] ?? null;
     $v   = $col !== null ? ($p[$col] ?? null) : null;
-    return ($v === null || $v === '') ? null : spec_axis_num((float) $v);
+    if ($v === null || $v === '') { return null; }
+    return in_array($key, SPEC_AXIS_TEXT, true) ? (string) $v : spec_axis_num((float) $v);
 }
 
 /** 화면에 축 값을 써도 되는 행인지: 채운 기준 원문 = 지금 규격 원문, 값 1개 이상 */
@@ -467,6 +517,7 @@ function spec_axes_filter_input(array $get): array
         $vals = [];
         foreach ((array) ($get['ax_' . $k] ?? []) as $v) {
             $v = trim((string) $v);
+            if (in_array($k, SPEC_AXIS_TEXT, true)) { if (preg_match('/^[A-Z]{1,4}\d{1,6}$/', $v)) { $vals[$v] = true; } continue; }   // VG150·DC200
             if (preg_match('/^\d{1,7}(?:\.\d)?$/', $v)) { $vals[spec_axis_num((float) $v)] = true; }
         }
         if ($vals) { $ax[$k] = array_slice(array_keys($vals), 0, 50); }

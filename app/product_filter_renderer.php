@@ -97,7 +97,7 @@ function product_filter_axis_groups(array $axes, array $active): array
     // 아트보드 '규격 개선안' 기준: 그룹 이름(한글) 옆에 작은 약자, 더 작은 단위 — 폭 W(mm). 모델 코드는 '끝자리 표기'
     if (!empty($axes['type_all'])) {
         if (($axes['code_key'] ?? SPEC_AXIS_TYPE) === SPEC_AXIS_CODE) {
-            // 코드 전체(디자인블록 K2·와이어메쉬 BS·화강경계경사 #377): 값 그대로
+            // 코드 전체(디자인블록 K2·와이어메쉬 BS·화강경계 G377): 값 그대로
             $groups[] = $mk('ax_' . SPEC_AXIS_CODE, '모델 코드', '', '', $axes['type_all'], $axes['type'] ?? [],
                 (array) ($active['ax_code'] ?? []), static fn(string $v): string => $v);
         } else {
@@ -108,9 +108,8 @@ function product_filter_axis_groups(array $axes, array $active): array
     foreach ($axes['defs'] as $a) {
         $k = (string) $a['axis_key'];
         if (empty($a['use_filter']) || empty($axes['all'][$k])) { continue; }
-        $unit = (string) $a['unit'];
         $groups[] = $mk('ax_' . $k, (string) $a['label'], spec_axis_symbol($a), spec_axis_unit_label($a), $axes['all'][$k], $axes['vals'][$k] ?? [],
-            (array) ($active['ax'][$k] ?? []), static fn(string $v): string => spec_axis_display((float) $v, $unit));
+            (array) ($active['ax'][$k] ?? []), static fn(string $v): string => spec_axis_value_display($a, $v));
     }
     return $groups;
 }
