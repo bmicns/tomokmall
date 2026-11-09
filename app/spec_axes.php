@@ -48,7 +48,7 @@ const SPEC_AXIS_RAW = ['ts', 'wire_no'];
 const SPEC_AXIS_SKIP = 'skip';
 
 /** 읽는 형식(category_spec_axes.parse_fmt) — 'default' 외에는 그 카테고리 규격 표기 모양에 맞춘 것 */
-const SPEC_AXIS_FORMATS = ['default', 'paren', 'lead_code', 'mesh', 'slash', 'hash', 'pipe_port'];
+const SPEC_AXIS_FORMATS = ['default', 'paren', 'lead_code', 'mesh', 'slash', 'hash', 'pipe_port', 'loose'];
 
 /** 이 기능이 쓰는 products 새 칸(전부 있어야 사용) */
 const SPEC_AXES_NEW_COLUMNS = ['spec_code', 'dim_d_i', 'dim_d_o', 'dim_w', 'dim_w_b', 'dim_w_r', 'dim_w_t', 'dim_h', 'dim_h_high', 'dim_h_low', 'dim_depth',
@@ -75,6 +75,8 @@ const SPEC_AXIS_TOKEN = 'D?\d+(?:\.\d+)?(?:mm|MM|[TtHhMm])?(?![A-Za-z0-9.가-힣
  *      mesh      '1800*1800_150각_#8(Ø3.5)BS'       가로·세로 · 망 간격(각) · 철선 번호(#) · 철선 직경(Ø) · 뒤 영문 → spec_code
  *      slash     '150*200/100_곡선_#377'            폭·상단 높이/하단 높이 · '#숫자' → spec_code 'G숫자'(G377) · 나머지 option
  *      hash      '100*100_곡선_#377'                default 숫자 묶음 · '#숫자' → spec_code 'G숫자' · 나머지 option(화강경계도로·낮춤)
+ *      loose     '900*900*1000H*200T', '220*220*80T', '1000*1000*H100'  default 와 같되 숫자 앞뒤 T·H 표기를 이름표와 맞추지 않음
+ *                (원본 사이트 상세 표 기준으로 이름을 정한 카테고리 — 값의 T·H 가 실제 뜻과 다른 곳, H 가 앞에 붙은 곳)
  *      pipe_port 'D300*900H*VG200(4구)사각몸통'      내경·높이 · 관 종류+지름(VG150·DC200, '/' 로 유입/유출) → 글자 값 축
  *                'D300*900H*VG100/VG150(유입3구/유출1구)'  option '접속4구(사각몸통)'·'유입3구/유출1구(일반)'(뒤 '사각몸통' 없으면 일반)
  *
@@ -98,11 +100,15 @@ function spec_axes_parse(string $value, array $axes): ?array
         $code  = $lm[1];
         $value = $lm[2];
     }
-    if ($fmt === 'default' || $fmt === 'lead_code') {
+    if ($fmt === 'loose') {   // H 가 숫자 앞에 붙은 표기(H100)도 숫자로
+        $tok = '[DH]?\d+(?:\.\d+)?(?:mm|MM|[TtHhMm])?(?![A-Za-z0-9.가-힣~])';
+        $run = $tok . '(?:[*_]' . $tok . ')*';
+    }
+    if ($fmt === 'default' || $fmt === 'lead_code' || $fmt === 'loose') {
         if (!preg_match('/^' . $run . '/u', $value, $m)) { return null; }
         $tokens = preg_split('/[*_]/', $m[0]) ?: [];
         $rest   = (string) substr($value, strlen($m[0]));
-        if ($fmt === 'default' && preg_match('/^\s*\(\s*([A-Za-z]*\d+[A-Za-z]+)\s*\)/', $rest, $cm)) {
+        if ($fmt !== 'lead_code' && preg_match('/^\s*\(\s*([A-Za-z]*\d+[A-Za-z]+)\s*\)/', $rest, $cm)) {
             $code = $cm[1];
             $rest = (string) substr($rest, strlen($cm[0]));
         }
@@ -161,7 +167,7 @@ function spec_axes_parse(string $value, array $axes): ?array
         return null;
     }
 
-    $dims = spec_axes_read_tokens($tokens, $axes);
+    $dims = spec_axes_read_tokens($tokens, $axes, $fmt === 'loose');
     if ($dims === null) { return null; }
     if ($fmt === 'pipe_port') {   // 글자 값 축: 이름표 seq 순서대로 유입→유출(또는 접속구)
         foreach ($texts as $i => $a) { $dims[(string) $a['axis_key']] = $ports[$i]; }
@@ -198,7 +204,7 @@ function spec_axes_code_key(array $axes): string
  *
  * @param list<string> $tokens
  */
-function spec_axes_read_tokens(array $tokens, array $axes): ?array
+function spec_axes_read_tokens(array $tokens, array $axes, bool $loose = false): ?array
 {
     $readers = []; $dims = [];
     foreach ($axes as $a) {
@@ -216,12 +222,13 @@ function spec_axes_read_tokens(array $tokens, array $axes): ?array
     if (!$readers || count($tokens) !== count($readers)) { return null; }
 
     foreach ($readers as $i => $a) {
-        if (!preg_match('/^(D?)(\d+(?:\.\d+)?)([A-Za-z]*)$/', (string) $tokens[$i], $tm)) { return null; }
+        if (!preg_match($loose ? '/^([DH]?)(\d+(?:\.\d+)?)([A-Za-z]*)$/' : '/^(D?)(\d+(?:\.\d+)?)([A-Za-z]*)$/', (string) $tokens[$i], $tm)) { return null; }
         $key  = (string) $a['axis_key'];
         $raw  = in_array($key, SPEC_AXIS_RAW, true);
         $unit = (($a['unit'] ?? 'mm') === 'm') ? 'm' : 'mm';
         $suf  = strtoupper($tm[3]);
         if ($tm[1] === 'D' && !in_array($key, SPEC_AXIS_DIAMETER, true)) { return null; }
+        if ($loose && ($suf === 'T' || $suf === 'H')) { $suf = ''; }   // loose: T·H 표기는 뜻 확인에 쓰지 않음(상세 표 기준 이름표)
         if ($suf === 'T')      { if (!in_array($key, SPEC_AXIS_T_SUFFIX, true)) { return null; } }
         elseif ($suf === 'H')  { if (!in_array($key, SPEC_AXIS_H_SUFFIX, true)) { return null; } }
         elseif ($suf === 'M')  { if ($raw) { return null; } $unit = 'm'; }

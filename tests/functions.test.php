@@ -751,6 +751,14 @@ eq('pipe_port PVC오수받이 D300*900H*VG150/DC200(유입3구/유출1구)사각
 ok('pipe_port 관 개수가 이름표와 다르면 null', spec_axes_parse('D300*900H*VG150(4구)', $axSew) === null);
 eq('글자 값 축: 표시 그대로·단위 없음·URL 입력 VG150 만', [spec_axis_value_display(['axis_key' => 'd_connect'], 'VG150'), spec_axis_unit_label(['axis_key' => 'd_inlet', 'unit' => 'mm']), spec_axes_filter_input(['ax_d_connect' => ['VG150', '150', 'vg 1']])['ax']['d_connect'] ?? null], ['VG150', '', ['VG150']]);
 eq('갱신 계획: 글자 값 축은 글자 그대로 저장', (spec_axes_plan(['spec' => '규격: D300*900H*VG150(4구) | 단위: 개'], $axPvc) ?? [])['dim_d_connect'] ?? null, 'VG150');
+// 원본 사이트 상세 표 기준(loose — 값의 T·H 표기를 뜻 확인에 쓰지 않음) — 사용자 결정 2026-11-09
+$axLoose = $AXF('loose', [['w', '가로', 'W'], ['l', '세로', 'L'], ['h', '높이', 'H']]);
+eq('loose 잔디블록 220*220*80T_회색 → 80 은 높이(T 표기 무시)', spec_axes_parse('220*220*80T_회색', $axLoose), ['spec_code' => null, 'dims' => ['w' => 220.0, 'l' => 220.0, 'h' => 80.0], 'option' => '회색']);
+eq('loose 수목보호틀 1000*1000*H100_… → 앞에 붙은 H 도 숫자', spec_axes_parse('1000*1000*H100_받침틀(인조석)_정사각형', $axLoose)['dims'] ?? null, ['w' => 1000.0, 'l' => 1000.0, 'h' => 100.0]);
+eq('loose 조립식사각맨홀 900*900*1000H*200T → 1000 은 깊이', spec_axes_parse('900*900*1000H*200T_하부구체_KS', $AXF('loose', [['w', '가로', 'W'], ['l', '세로', 'L'], ['depth', '깊이', 'D'], ['t', '두께', 'T']]))['dims'] ?? null,
+    ['w' => 900.0, 'l' => 900.0, 'depth' => 1000.0, 't' => 200.0]);
+ok('default 는 지금처럼 엄격(80T 를 높이로 읽지 않음, H100 안 읽음)', spec_axes_parse('220*220*80T', $AX([['w', '가로'], ['l', '세로'], ['h', '높이']])) === null && spec_axes_parse('1000*1000*H100', $AX([['w', '가로'], ['l', '세로'], ['h', '높이']])) === null);
+ok('loose 도 D 접두는 지름 축만', spec_axes_parse('D220*220*80', $axLoose) === null);
 eq('옵션 표시: 통째 괄호 조각은 괄호 뗌, 글자에 붙은 괄호는 그대로', [spec_option_display('(B)'), spec_option_display('(SA)_곡선'), spec_option_display('(고강도콘크리트_점형_KS)'), spec_option_display('(7*4)_국산'), spec_option_display('컬러(보도)'), spec_option_display('0RS(유공)')],
     ['B', 'SA/곡선', '고강도콘크리트/점형/KS', '7*4/국산', '컬러(보도)', '0RS(유공)']);
 eq('URL 입력 정리(ax_w·ax_type, 잘못된 값 버림)', spec_axes_filter_input(['ax_w' => ['900', '900.0', 'abc', '1.6'], 'ax_type' => ['b', 'BB', 'C'], 'ax_x' => ['1']]),
