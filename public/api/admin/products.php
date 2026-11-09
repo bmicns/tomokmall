@@ -7,6 +7,19 @@ header('Content-Type: application/json; charset=utf-8');
 
 require_admin();
 
+/**
+ * 저장 뒤 규격 축 새 칸(spec_code·dim_*)을 지금 규격 원문 기준으로 다시 계산(app/spec_axes.php).
+ * 실패해도 상품 저장은 이미 끝났으므로 응답은 그대로 — 원인은 서버 로그에만(목록은 규격 원문으로 표시됨).
+ */
+function admin_product_sync_spec_axes(int $id): void
+{
+    try {
+        spec_axes_sync_product($id);
+    } catch (\Throwable $e) {
+        error_log('[api/admin/products] 규격 축 갱신 실패 id=' . $id . ': ' . get_class($e));
+    }
+}
+
 $method = $_SERVER['REQUEST_METHOD'];
 
 try {
@@ -85,7 +98,9 @@ try {
                 max(0, (int)($body['cost_price'] ?? 0)),
                 trim($body['image_url'] ?? '') ?: null,
             ]);
-            echo json_encode(['ok' => true, 'id' => (int)db()->lastInsertId()]);
+            $newId = (int)db()->lastInsertId();
+            admin_product_sync_spec_axes($newId);
+            echo json_encode(['ok' => true, 'id' => $newId]);
             break;
 
         case 'update':
@@ -111,6 +126,7 @@ try {
                 (int)($body['is_active'] ?? 1),
                 $id,
             ]);
+            admin_product_sync_spec_axes($id);
             echo json_encode(['ok' => true]);
             break;
 

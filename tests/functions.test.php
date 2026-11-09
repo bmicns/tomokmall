@@ -620,5 +620,168 @@ ok('동률 안내: 이미 같은 금액이라고 말했거나·동률 아닌 상
 ok('자료 공백 이벤트: 제조사 자료 없을 때만, 연락처 모양 제거', ai_material_gap_event('벤치플룸관', false) === ['type' => 'material_gap', 'topic' => '벤치플룸관']
     && ai_material_gap_event('그레이팅', true) === null && ai_material_gap_event('흄관 010-1234-5678', false)['topic'] === '흄관' && ai_material_gap_event('  ', false) === null);
 
+echo "[규격 축 spec_axes_parse·표시·이름표 상속·갱신 계획 (app/spec_axes.php)]\n";
+$AX = static fn(array $defs): array => array_map(static fn($d, $i) => ['seq' => $i + 1, 'axis_key' => $d[0], 'label' => $d[1], 'symbol' => $d[2] ?? '', 'unit' => $d[3] ?? 'mm', 'use_filter' => true], $defs, array_keys($defs));
+$axFlume  = $AX([['w', '폭', 'W'], ['h', '높이', 'H'], ['l', '길이', 'L'], ['t', '두께', 'T']]);                       // 24 수로관(벤치3종)
+$axGaegeo = $AX([['w', '폭', 'W', 'm'], ['h', '높이', 'H', 'm'], ['l', '길이', 'L', 'm'], ['t', '상하두께'], ['t2', '벽체두께']]); // 21 개거
+$axSqMh   = $AX([['w', '가로', 'W'], ['l', '세로', 'L'], ['h', '높이', 'H'], ['t', '두께', 'T']]);                         // 59 사각맨홀
+$axRdMh   = $AX([['d_i', '내경', 'D'], ['h', '높이', 'H'], ['t', '두께', 'T']]);                                       // 61 원형맨홀
+eq('수로관 900*800*2000*85T (900B) → 코드·폭·높이·길이·두께', spec_axes_parse('900*800*2000*85T (900B)', $axFlume),
+    ['spec_code' => '900B', 'dims' => ['w' => 900.0, 'h' => 800.0, 'l' => 2000.0, 't' => 85.0], 'option' => null]);
+eq('개거 4.0*1.0*2.0_280T*260T → m 를 mm 로, 상하두께·벽체두께', spec_axes_parse('4.0*1.0*2.0_280T*260T', $axGaegeo),
+    ['spec_code' => null, 'dims' => ['w' => 4000.0, 'h' => 1000.0, 'l' => 2000.0, 't' => 280.0, 't2' => 260.0], 'option' => null]);
+eq('개거 1.5*1.5*2.0_160T*140T', spec_axes_parse('1.5*1.5*2.0_160T*140T', $axGaegeo)['dims'] ?? null, ['w' => 1500.0, 'h' => 1500.0, 'l' => 2000.0, 't' => 160.0, 't2' => 140.0]);
+eq('사각맨홀 300*400*600*150T → 가로·세로(l)·높이·두께', spec_axes_parse('300*400*600*150T', $axSqMh)['dims'] ?? null, ['w' => 300.0, 'l' => 400.0, 'h' => 600.0, 't' => 150.0]);
+eq('원형맨홀 D900*1200*200T → 내경·높이·두께', spec_axes_parse('D900*1200*200T', $axRdMh)['dims'] ?? null, ['d_i' => 900.0, 'h' => 1200.0, 't' => 200.0]);
+eq('조립식원형맨홀 D600*1000H*150T_하부구체_KS → 옵션 하부구체_KS', spec_axes_parse('D600*1000H*150T_하부구체_KS', $axRdMh),
+    ['spec_code' => null, 'dims' => ['d_i' => 600.0, 'h' => 1000.0, 't' => 150.0], 'option' => '하부구체_KS']);
+eq('다칼라블랜딩블록 1200*1000*60_컬러(보도) → 가로·세로·두께 + 옵션', spec_axes_parse('1200*1000*60_컬러(보도)', $AX([['w', '가로', 'W'], ['l', '세로', 'L'], ['t', '두께', 'T']])),
+    ['spec_code' => null, 'dims' => ['w' => 1200.0, 'l' => 1000.0, 't' => 60.0], 'option' => '컬러(보도)']);
+eq('옵션 표시: 밑줄 → 슬래시', [spec_option_display('하부구체_KS'), spec_option_display('컬러(보도)'), spec_option_display('곡선_타공_KS'), spec_option_display(''), spec_option_display('_국산')], ['하부구체/KS', '컬러(보도)', '곡선/타공/KS', '', '국산']);
+eq('흄관(B형) D600*2500*50T → 내경·길이·두께', spec_axes_parse('D600*2500*50T', $AX([['d_i', '내경', 'D'], ['l', '길이', 'L'], ['t', '두께', 'T']])),
+    ['spec_code' => null, 'dims' => ['d_i' => 600.0, 'l' => 2500.0, 't' => 50.0], 'option' => null]);
+eq('H 접미·뒤 옵션: D600*1000H*150T_하부구체_KS', spec_axes_parse('D600*1000H*150T_하부구체_KS', $axRdMh),
+    ['spec_code' => null, 'dims' => ['d_i' => 600.0, 'h' => 1000.0, 't' => 150.0], 'option' => '하부구체_KS']);
+eq('코드 뒤 옵션: 400*1000*1600*80 (1000C)_벤치3종 부착형', spec_axes_parse('400*1000*1600*80 (1000C)_벤치3종 부착형', $axFlume),
+    ['spec_code' => '1000C', 'dims' => ['w' => 400.0, 'h' => 1000.0, 'l' => 1600.0, 't' => 80.0], 'option' => '벤치3종 부착형']);
+eq('코드가 아닌 괄호는 옵션: 200*1000*50(5*3)_국산', spec_axes_parse('200*1000*50(5*3)_국산', $AX([['w', '폭'], ['l', '길이'], ['h', '높이']])),
+    ['spec_code' => null, 'dims' => ['w' => 200.0, 'l' => 1000.0, 'h' => 50.0], 'option' => '(5*3)_국산']);
+eq('M 접미는 미터: D200*2M → 내경 200·길이 2000', spec_axes_parse('D200*2M', $AX([['d_i', '내경', 'D'], ['l', '길이', 'L']]))['dims'] ?? null, ['d_i' => 200.0, 'l' => 2000.0]);
+eq('글자 붙은 꼬리는 옵션: D150*6000*1.6T_0RS → 두께 1.6, 옵션 0RS', spec_axes_parse('D150*6000*1.6T_0RS', $AX([['d_i', '내경', 'D'], ['l', '길이', 'L'], ['t', '두께', 'T']])),
+    ['spec_code' => null, 'dims' => ['d_i' => 150.0, 'l' => 6000.0, 't' => 1.6], 'option' => '0RS']);
+ok('한글이 붙은 숫자(300용)는 숫자 아님 → null', spec_axes_parse('300용 (440*500*80T_무공)', $AX([['w', '폭', 'W']])) === null);
+ok('숫자 개수가 이름표와 다르면 null: D200*2M (…) vs 수로관 4축', spec_axes_parse('D200*2M (320*320*2000*60T)', $axFlume) === null);
+ok('D 접두는 지름(내경 d_i·외경 d_o) 축만: D900*… vs 수로관 → null', spec_axes_parse('D900*800*2000*85T', $axFlume) === null);
+ok('T 접미는 두께 축만: 900T*… → null', spec_axes_parse('900T*800*2000*85', $axFlume) === null);
+ok('H 접미는 높이 축만: 사각맨홀 300H*… → null', spec_axes_parse('300H*400*600*150T', $axSqMh) === null);
+ok('글자로 시작(수로관집게_800A) → null', spec_axes_parse('수로관집게_800A', $axFlume) === null);
+ok('빈 값·이름표 없음 → null', spec_axes_parse('', $axFlume) === null && spec_axes_parse('900*800*2000*85T', []) === null);
+ok('none 행만 → null', spec_axes_parse('900*800', [['seq' => 0, 'axis_key' => 'none', 'unit' => 'mm']]) === null);
+ok('mm 소수 1자리 초과 → null(1.23456m)', spec_axes_parse('1.23456*1.0*2.0_280T*260T', $axGaegeo) === null);
+eq('표시 mm 2000 → 2000(천 단위 쉼표 없음)', spec_axis_display(2000.0, 'mm'), '2000');
+eq('표시 mm 12500.5 → 12500.5', spec_axis_display(12500.5, 'mm'), '12500.5');
+eq('표시 mm 1.6 → 1.6', spec_axis_display(1.6, 'mm'), '1.6');
+eq('표시 m 1500 → 1.5', spec_axis_display(1500.0, 'm'), '1.5');
+eq('표시 m 2000 → 2.0(원문 표기)', spec_axis_display(2000.0, 'm'), '2.0');
+eq('정규 값 900.0 → 900, 1.6 → 1.6', [spec_axis_num(900.0), spec_axis_num(1.6), spec_axis_num((float) '2000.0')], ['900', '1.6', '2000']);
+eq('이름+약자: 폭 W / 세로 L / 약자 없음 → 이름만', [spec_axis_title(['label' => '폭', 'symbol' => 'W']), spec_axis_title(['label' => '세로', 'symbol' => 'L', 'show_symbol' => true]), spec_axis_title(['label' => '기타', 'symbol' => null])], ['폭 W', '세로 L', '기타']);
+eq('약자 T 저장·표시 안 함(개거 상하두께) → 이름만', spec_axis_title(['label' => '상하두께', 'symbol' => 'T', 'show_symbol' => false]), '상하두께');
+eq('단위 표시: mm → (mm), m → (m)', [spec_axis_unit_label(['unit' => 'mm']), spec_axis_unit_label(['unit' => 'm'])], ['(mm)', '(m)']);
+eq('약자: 숨김(show_symbol=0)이면 빈 값', [spec_axis_symbol(['symbol' => 'W']), spec_axis_symbol(['symbol' => 'T', 'show_symbol' => false])], ['W', '']);
+eq('형식(코드 끝 글자): 900B·M1000C·900·null', [spec_code_type('900B'), spec_code_type('M1000C'), spec_code_type('900'), spec_code_type(null)], ['B', 'C', null, null]);
+
+$axRows = [256 => $axFlume, 31 => [['seq' => 0, 'axis_key' => 'none']], 61 => $axRdMh];
+$axPar  = [24 => 256, 31 => 256, 256 => 11, 61 => 259, 59 => 259, 259 => 11, 11 => null, 1 => 2, 2 => 1];
+ok('상속: 소분류 24 → 상위 256 이름표', count(spec_axes_resolve(24, $axRows, $axPar)) === 4);
+ok('none 행: 31 → 이름표 없음(상위 끊음)', spec_axes_resolve(31, $axRows, $axPar) === []);
+ok('자기 이름표 우선: 61 → 내경·높이·두께', array_column(spec_axes_resolve(61, $axRows, $axPar), 'axis_key') === ['d_i', 'h', 't']);
+ok('이름표 없는 계통: 59 → []', spec_axes_resolve(59, $axRows, $axPar) === []);
+ok('부모 순환 안전: 1↔2 → []', spec_axes_resolve(1, $axRows, $axPar) === []);
+
+$pRow = ['spec' => '규격: 900*800*2000*85T (900B) | 중량: 1,170kg | 단위: 본'];
+$plan = spec_axes_plan($pRow, $axFlume);
+eq('갱신 계획: 새로 채움(안 쓰는 축은 비움)', [$plan['spec_code'] ?? null, $plan['dim_w'] ?? null, $plan['dim_t'] ?? null, array_key_exists('dim_d_i', (array) $plan) ? $plan['dim_d_i'] : 'x', $plan['spec_dims_src'] ?? null],
+    ['900B', '900', '85', null, '900*800*2000*85T (900B)']);
+$pSame = $pRow + ['spec_code' => '900B', 'dim_w' => '900.0', 'dim_h' => '800.0', 'dim_l' => '2000.0', 'dim_t' => '85.0', 'spec_dims_src' => '900*800*2000*85T (900B)'];
+ok('갱신 계획: 이미 같으면 null', spec_axes_plan($pSame, $axFlume) === null);
+ok('갱신 계획: 관리자 저장 형식(공백 없는 |)도 같은 원문', spec_axes_plan(['spec' => '규격:900*800*2000*85T (900B)|단위:본'] + $pSame, $axFlume) === null);
+$pChanged = ['spec' => '규격: 수로관 특수규격 | 단위: 본'] + $pSame;
+ok('갱신 계획: 규격이 바뀌고 못 읽으면 모두 비움', ($p2 = spec_axes_plan($pChanged, $axFlume)) !== null && !array_filter($p2, static fn($v) => $v !== null));
+$pManual = ['spec' => '규격: 수로관 특수규격 | 단위: 본', 'dim_w' => '900.0', 'spec_dims_src' => '수로관 특수규격'];
+ok('갱신 계획: 못 읽어도 원문이 같으면 사람이 넣은 값 유지(null)', spec_axes_plan($pManual, $axFlume) === null);
+ok('갱신 계획: 이름표 없고 값 남음 → 비움 / 값 없음 → null', spec_axes_plan($pSame, []) !== null && spec_axes_plan($pRow, []) === null);
+ok('신선도: 채운 원문 = 지금 원문일 때만', spec_axes_row_fresh($pSame) && !spec_axes_row_fresh($pChanged) && !spec_axes_row_fresh($pRow));
+eq('행 값: 폭 900.0 → 900, 형식 B, 없는 축 null', [spec_axes_row_value($pSame, 'w'), spec_axes_row_value($pSame, 'type'), spec_axes_row_value($pSame, 'd_i')], ['900', 'B', null]);
+
+ok('범위 표기(65~125)는 숫자 하나로 읽지 않음 → null', spec_axes_parse('230*114*65~125_조경경계블록_레드', $AX([['w', '가로', 'W'], ['l', '세로', 'L'], ['t', '두께', 'T']])) === null);
+eq('외경 D(d_o): PHC파일 D500*5000*80T', spec_axes_parse('D500*5000*80T', $AX([['d_o', '외경', 'D'], ['l', '길이', 'L'], ['t', '두께', 'T']]))['dims'] ?? null, ['d_o' => 500.0, 'l' => 5000.0, 't' => 80.0]);
+eq('깊이 D(depth): 환경수로관 400*400*2000*120T (400C)', spec_axes_parse('400*400*2000*120T (400C)', $AX([['w', '폭', 'W'], ['depth', '깊이', 'D'], ['l', '길이', 'L'], ['t', '두께', 'T']])),
+    ['spec_code' => '400C', 'dims' => ['w' => 400.0, 'depth' => 400.0, 'l' => 2000.0, 't' => 120.0], 'option' => null]);
+eq('높이·뒷폭·깊이 함께: 보강토마감형 500*100*300*400_회색', spec_axes_parse('500*100*300*400_회색', $AX([['w', '폭', 'W'], ['h', '높이', 'H'], ['w_r', '뒷폭', 'WR'], ['depth', '깊이', 'D']])),
+    ['spec_code' => null, 'dims' => ['w' => 500.0, 'h' => 100.0, 'w_r' => 300.0, 'depth' => 400.0], 'option' => '회색']);
+eq('상부폭 WT·하부폭 WB: 경계석 150*170*200(A)', spec_axes_parse('150*170*200(A)', $AX([['w_t', '상부폭', 'WT'], ['w_b', '하부폭', 'WB'], ['h', '높이', 'H']])),
+    ['spec_code' => null, 'dims' => ['w_t' => 150.0, 'w_b' => 170.0, 'h' => 200.0], 'option' => '(A)']);
+ok('D 접두는 깊이(depth)에 안 됨: 400*D400 → null', spec_axes_parse('400*D400', $AX([['w', '폭', 'W'], ['depth', '깊이', 'D']])) === null);
+eq('축 키 → 칸: 내경·외경·하부폭·뒷폭·상부폭·깊이', [SPEC_AXIS_COLUMNS['d_i'], SPEC_AXIS_COLUMNS['d_o'], SPEC_AXIS_COLUMNS['w_b'], SPEC_AXIS_COLUMNS['w_r'], SPEC_AXIS_COLUMNS['w_t'], SPEC_AXIS_COLUMNS['depth']],
+    ['dim_d_i', 'dim_d_o', 'dim_w_b', 'dim_w_r', 'dim_w_t', 'dim_depth']);
+eq('URL 입력: 새 축 키(ax_d_i·ax_w_b·ax_depth)', spec_axes_filter_input(['ax_d_i' => ['150'], 'ax_w_b' => ['170'], 'ax_depth' => ['400'], 'ax_d' => ['1']])['ax'], ['d_i' => ['150'], 'w_b' => ['170'], 'depth' => ['400']]);
+
+
+// 표기 모양이 다른 카테고리(사용자 결정 2026-11-06) — parse_fmt·fixed_value·skip
+$AXF = static fn(string $fmt, array $defs): array => array_map(static fn($r) => $r + ['parse_fmt' => $fmt], $AX($defs));
+$axRing = $AXF('paren', [['d_i', '내경', 'D'], ['l', '길이', 'L', 'm'], ['d_o', '외경', 'D'], ['depth', '깊이', 'D'], ['skip', '', ''], ['t', '두께', 'T']]);
+eq('paren 원형사각수로관 D200*2M (320*360*2000*60T)_곡선_타공 → 내경·길이(m)·외경·깊이·두께, 괄호 안 길이는 skip', spec_axes_parse('D200*2M (320*360*2000*60T)_곡선_타공', $axRing),
+    ['spec_code' => null, 'dims' => ['d_i' => 200.0, 'l' => 2000.0, 'd_o' => 320.0, 'depth' => 360.0, 't' => 60.0], 'option' => '곡선_타공']);
+eq('paren 0.5M → 길이 500', spec_axes_parse('D300*0.5M (460*470*500*80T)', $axRing)['dims']['l'] ?? null, 500.0);
+eq('paren 앞 글자는 옵션: 빗물받이용 (400*500*80T_유공) → 옵션 빗물받이용_유공(화면 빗물받이용/유공)', spec_axes_parse('빗물받이용 (400*500*80T_유공)', $AXF('paren', [['d_o', '외경', 'D'], ['l', '길이', 'L'], ['t', '두께', 'T']])),
+    ['spec_code' => null, 'dims' => ['d_o' => 400.0, 'l' => 500.0, 't' => 80.0], 'option' => '빗물받이용_유공']);
+eq('paren 숫자로 시작하는 글자(300측구용)도 옵션', spec_axes_parse('300측구용 (395*500*50T_무공)', $AXF('paren', [['d_o', '외경', 'D'], ['l', '길이', 'L'], ['t', '두께', 'T']]))['option'] ?? null, '300측구용_무공');
+eq('paren 그리드 6T (2m*50m 1롤) → 인장강도 6(t/m 그대로)·폭 2m·길이 50m, 1롤은 버림', spec_axes_parse('6T (2m*50m 1롤)', $AXF('paren', [['ts', '인장강도', '', 't/m'], ['w', '폭', 'W', 'm'], ['l', '길이', 'L', 'm']])),
+    ['spec_code' => null, 'dims' => ['ts' => 6.0, 'w' => 2000.0, 'l' => 50000.0], 'option' => null]);
+eq('paren 원심력사각수로관 D250 (340*330*2500*40T)', spec_axes_parse('D250 (340*330*2500*40T)', $AXF('paren', [['d_i', '내경', 'D'], ['d_o', '외경', 'D'], ['h', '높이', 'H'], ['l', '길이', 'L'], ['t', '두께', 'T']]))['dims'] ?? null,
+    ['d_i' => 250.0, 'd_o' => 340.0, 'h' => 330.0, 'l' => 2500.0, 't' => 40.0]);
+eq('lead_code 디자인블록 K3MB_120*120*120 → 모델 코드 K3MB', spec_axes_parse('K3MB_120*120*120', $AXF('lead_code', [['w', '가로', 'W'], ['l', '세로', 'L'], ['depth', '깊이', 'D']])),
+    ['spec_code' => 'K3MB', 'dims' => ['w' => 120.0, 'l' => 120.0, 'depth' => 120.0], 'option' => null]);
+$axMesh = $AXF('mesh', [['w', '가로', 'W'], ['l', '세로', 'L'], ['mesh', '망 간격', 'M'], ['wire_no', '철선 번호', '', 'no'], ['wire_d', '철선 직경', 'D']]);
+eq('mesh 와이어메쉬 1800*1800_150각_#8(Ø3.5)BS', spec_axes_parse('1800*1800_150각_#8(Ø3.5)BS', $axMesh),
+    ['spec_code' => 'BS', 'dims' => ['w' => 1800.0, 'l' => 1800.0, 'mesh' => 150.0, 'wire_no' => 8.0, 'wire_d' => 3.5], 'option' => null]);
+$axSlash = $AXF('slash', [['w', '폭', 'W'], ['h_high', '상단 높이', 'H'], ['h_low', '하단 높이', 'H'], ['l', '길이', 'L']]);
+$axSlash[3]['fixed_value'] = 1000;
+eq('slash 화강경계경사 150*200/100_곡선_#377 → 폭·상단/하단 높이·길이 1000(고정)·모델 코드 #377', spec_axes_parse('150*200/100_곡선_#377', $axSlash),
+    ['spec_code' => '#377', 'dims' => ['w' => 150.0, 'h_high' => 200.0, 'h_low' => 100.0, 'l' => 1000.0], 'option' => '곡선']);
+$pk = spec_axes_parse('150*200/100(국산)_곡선', $axSlash);
+eq('slash (국산)_곡선 → 코드 없음, 옵션 표시 국산/곡선', [is_array($pk) && array_key_exists('spec_code', $pk) ? $pk['spec_code'] : 'x', spec_option_display((string) ($pk['option'] ?? ''))], [null, '국산/곡선']);
+ok('형식이 안 맞으면 null(lead_code 에 코드 없음, mesh 에 각 없음)', spec_axes_parse('390*120*120', $AXF('lead_code', [['w', '가로'], ['l', '세로'], ['depth', '깊이']])) === null
+    && spec_axes_parse('1800*1800_150_#8(Ø3.5)BS', $axMesh) === null);
+eq('표시: 철선 번호 #8, 인장강도 단위 (t/m), 번호는 단위 없음', [spec_axis_display(8.0, 'no'), spec_axis_unit_label(['unit' => 't/m']), spec_axis_unit_label(['unit' => 'no'])], ['#8', '(t/m)', '']);
+eq('모델 코드 필터 방식: 끝 글자(default) / 코드 전체(lead_code·mesh·slash)', [spec_axes_code_key($axFlume), spec_axes_code_key($axMesh), spec_axes_code_key($axRing)], ['type', 'code', 'type']);
+eq('URL 입력: 모델 코드 전체 ax_code(K2·#377), 이상한 값 버림', spec_axes_filter_input(['ax_code' => ['K2', '#377', 'a b', str_repeat('x', 31)]])['ax_code'], ['K2', '#377']);
+eq('옵션 표시: 통째 괄호 조각은 괄호 뗌, 글자에 붙은 괄호는 그대로', [spec_option_display('(B)'), spec_option_display('(SA)_곡선'), spec_option_display('(고강도콘크리트_점형_KS)'), spec_option_display('(7*4)_국산'), spec_option_display('컬러(보도)'), spec_option_display('0RS(유공)')],
+    ['B', 'SA/곡선', '고강도콘크리트/점형/KS', '7*4/국산', '컬러(보도)', '0RS(유공)']);
+eq('URL 입력 정리(ax_w·ax_type, 잘못된 값 버림)', spec_axes_filter_input(['ax_w' => ['900', '900.0', 'abc', '1.6'], 'ax_type' => ['b', 'BB', 'C'], 'ax_x' => ['1']]),
+    ['ax' => ['w' => ['900', '1.6']], 'ax_type' => ['B', 'C'], 'ax_code' => []]);
+
+$axFacet = ['defs' => $AX([['w', '폭', 'W'], ['l', '길이', 'L']]), 'all' => ['w' => ['200', '300'], 'l' => ['2000']],
+            'vals' => ['w' => ['200' => 1, '300' => 0], 'l' => ['2000' => 1]], 'type_all' => ['B', 'C'], 'type' => ['B' => 1, 'C' => 1]];
+$g = product_filter_axis_groups($axFacet, []);
+eq('필터 그룹(아트보드 기준): 모델 코드·폭·길이', array_column($g, 'title'), ['모델 코드', '폭', '길이']);
+eq('필터 그룹 옆 작은 글씨: 끝자리 표기 / W(mm) / L(mm)', array_map(static fn($x) => $x['sub'] . $x['unit'], $g), ['끝자리 표기', 'W(mm)', 'L(mm)']);
+ok('값이 하나뿐인 축(길이 2000): 선택된 채 고정', $g[2]['fixed'] && $g[2]['opts'][0]['checked'] && $g[2]['opts'][0]['disabled'] && $g[2]['opts'][0]['label'] === '2000');
+ok('0건 값은 누를 수 없음(폭 300)', $g[1]['opts'][1]['disabled'] && !$g[1]['opts'][0]['disabled']);
+$g = product_filter_axis_groups($axFacet, ['ax' => ['w' => ['300']]]);
+ok('이미 선택한 0건 값은 해제 가능', $g[1]['opts'][1]['checked'] && !$g[1]['opts'][1]['disabled']);
+ok('형식 값 표시 B형, GET 이름 ax_type', $g[0]['opts'][0]['label'] === 'B형' && $g[0]['field'] === 'ax_type');
+ok('이름표 없으면 그룹 없음', product_filter_axis_groups([], []) === []);
+
+echo "[필터 펼치기/접기(비로그인·개인회원) render_product_filters]\n";
+eq('적용된 필터 개수: 재질1+축2+모델코드1+재고', product_filters_applied_count(['mat' => [11], 'ax' => ['w' => ['600', '700']], 'ax_type' => ['B']], true), 5);
+$rf = static function (array $a, bool $collapsible, bool $inStock = false): string {
+    ob_start();
+    render_product_filters($a, null, 24, '', ['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 0, 'axes' => []], $inStock, [], $collapsible);
+    return (string) ob_get_clean();
+};
+$h = $rf([], true);
+ok('상황별 비로그인·개인: 접을 수 있는 필터 "자재 규격", 적용 없으면 접힌 채 시작', str_contains($h, 'class="fltbox is-collapsible">') && str_contains($h, '<span class="flt-sum-title">자재 규격</span>') && str_contains($h, 'flt-sum-state') && !str_contains($h, 'flt-sum-cnt'));
+ok('접는 필터: 위 "필터로 좁히기·초기화" 줄 없음, 맨 아래 초기화 버튼(적용 없으면 비활성) + 필터 적용', !str_contains($h, 'class="flt-top"') && str_contains($h, '<div class="flt-actions">') && str_contains($h, 'class="flt-reset" href="/products.php?category=24" role="button" aria-disabled="true" tabindex="-1"') && str_contains($h, 'data-applied="0"'));
+$h = $rf(['ax' => ['w' => ['600']]], true, true);
+ok('적용된 필터가 있으면 펼친 채 시작, "N개 적용" 글자 없음, 초기화 켜짐', str_contains($h, 'class="fltbox is-collapsible" open>') && !str_contains($h, '개 적용') && !str_contains($h, 'flt-sum-cnt') && str_contains($h, 'role="button"><svg') && str_contains($h, 'data-applied="1"'));
+$h = $rf([], false);
+ok('그 밖의 목록·기업회원: 지금처럼 항상 펼침, 제목 "필터로 좁히기", 위 초기화 링크 유지', str_contains($h, 'class="fltbox" open>') && !str_contains($h, 'flt-sum-state') && str_contains($h, '<span class="flt-sum-title">필터로 좁히기</span>') && str_contains($h, '<div class="flt-top"><b>필터로 좁히기</b><a href="/products.php?category=24">초기화</a></div>') && !str_contains($h, 'flt-actions') && !str_contains($h, 'data-applied'));
+$hx = (static function (): string { ob_start(); render_product_filters([], null, 24, '', ['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 10,
+    'axes' => ['defs' => [['seq' => 1, 'axis_key' => 'w', 'label' => '폭', 'symbol' => 'W', 'unit' => 'mm', 'use_filter' => true]], 'all' => ['w' => ['200', '300']], 'vals' => ['w' => ['200' => 4, '300' => 6]], 'type_all' => [], 'type' => []]]); return (string) ob_get_clean(); })();
+ok('규격 값 버튼에 개수 표시 없음(값만)', str_contains($hx, '<span class="fchip-box">200</span>') && !str_contains($hx, '<small>4</small>'));
+ok('값 조합 데이터가 없으면 즉시 계산 안 함(적용 후 서버 계산만)', !str_contains($hx, 'flt-combos') && !str_contains($hx, 'data-live'));
+$axLive = ['defs' => [['seq' => 1, 'axis_key' => 'w', 'label' => '폭', 'symbol' => 'W', 'unit' => 'mm', 'use_filter' => true], ['seq' => 2, 'axis_key' => 'l', 'label' => '길이', 'symbol' => 'L', 'unit' => 'mm', 'use_filter' => true]],
+    'all' => ['w' => ['200', '300'], 'l' => ['2000']], 'vals' => ['w' => ['200' => 4, '300' => 6], 'l' => ['2000' => 10]], 'type_all' => [], 'type' => [],
+    'combos' => ['keys' => ['w', 'l', 'type'], 'rows' => [['200', '2000', '', 1], ['300', '2000', '', 0]]]];
+$hl = (static function (array $ax): string { ob_start(); render_product_filters([], null, 24, '', ['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 10, 'axes' => $ax], false, [], true); return (string) ob_get_clean(); })($axLive);
+ok('접는 필터: 값 조합(JSON)·data-live 를 넣어 누르는 즉시 0건 값 비활성', str_contains($hl, 'data-live="1"') && str_contains($hl, '<script type="application/json" class="flt-combos">{"keys":["w","l","type"],"rows":[["200","2000","",1],["300","2000","",0]]}</script>'));
+ok('값이 하나뿐인 축 버튼은 data-fixed(즉시 계산에서 제외)', str_contains($hl, 'value="2000" checked disabled data-fixed="1"') && !str_contains($hl, 'value="200" data-fixed'));
+$hc = (static function (array $ax): string { ob_start(); render_product_filters([], null, 24, '', ['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 10, 'axes' => $ax]); return (string) ob_get_clean(); })($axLive);
+ok('기업회원·그 밖의 목록(접지 않는 필터)도 누르는 즉시 비활성, 초기화는 위 링크 그대로', str_contains($hc, 'data-live="1"') && str_contains($hc, 'class="flt-combos"') && str_contains($hc, '<div class="flt-top"><b>필터로 좁히기</b><a href="/products.php?category=24">초기화</a></div>') && !str_contains($hc, 'flt-actions') && !str_contains($hc, 'flt-reset'));
+$hs = (static function (): string { ob_start(); render_product_filters([], null, 24, '', ['mat' => [], 'shape' => [], 'load' => [], 'spec' => ['300*300' => 3, '400*400' => 2], 'total' => 5, 'axes' => []]); return (string) ob_get_clean(); })();
+ok('규격 원문 목록(이름표 없는 카테고리): 값 옆 개수 없음', str_contains($hs, '<span class="fopt-lbl">300×300</span></label>') && !str_contains($hs, 'class="fcnt"'));
+
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

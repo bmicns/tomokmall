@@ -102,6 +102,9 @@ require_once __DIR__ . '/pricing.php';
 // 공급업체(vendor) 표시 유틸
 require_once __DIR__ . '/vendors.php';
 
+// 상품 규격 구조화(spec_code·dim_* + category_spec_axes): 목록 표·필터의 축별 규격
+require_once __DIR__ . '/spec_axes.php';
+
 function db(): ?PDO
 {
     static $pdo = null;
@@ -480,11 +483,17 @@ function spec_variant_count(array $specs): int
  * 동적 파세트: 현재 검색/카테고리 결과 집합(필터 미적용)에서 각 필터 옵션의 매칭 개수를 계산.
  *   - 재질(카테고리 루트)·형상/옵션(상품명)·하중(상품명)·규격(spec의 '규격:' 값) — product_filter_sql과 동일 기준.
  *   - 0건 옵션·단일값 수렴 그룹은 렌더러(product_filters_visible)가 숨긴다.
- * 반환: ['mat'=>[루트id=>cnt], 'shape'=>[명=>cnt], 'load'=>[명=>cnt], 'spec'=>[규격값=>cnt], 'total'=>int]
+ * 반환: ['mat'=>[루트id=>cnt], 'shape'=>[명=>cnt], 'load'=>[명=>cnt], 'spec'=>[규격값=>cnt], 'total'=>int,
+ *        'axes'=>[] 또는 축 모드 정보(아래)]
+ *   축 모드: 결과의 카테고리가 모두 같은 규격 이름표(category_spec_axes)를 쓸 때만.
+ *     'axes' => ['defs'=>이름표 목록, 'vals'=>[축키=>[값=>cnt]], 'all'=>[축키=>[값…]](필터 무관 전체 값),
+ *                'type'=>[모델 코드 값=>cnt], 'type_all'=>[값…], 'code_key'=>'type'(끝 글자 B·C)|'code'(코드 전체 K2·BS),
+ *                'combos'=>['keys'=>[축키…], 'rows'=>[[값…, 재고1/0]…]] 또는 null(축 외 적용 필터만 반영한 값 조합)]
+ *                — 개수는 다른 필터와 같은 '자기 축 제외' 기준
  */
 function product_facets(?int $categoryId, ?string $query, array $active = []): array
 {
-    $empty = ['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 0];
+    $empty = ['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 0, 'axes' => []];
     if (!db()) { return $empty; }
 
     // base 결과(필터 미적용)의 경량 컬럼만. 검색은 search_products 재사용(동의어·복합어·규격 매칭 일치).
@@ -494,7 +503,8 @@ function product_facets(?int $categoryId, ?string $query, array $active = []): a
             $ids = category_descendants($categoryId);
             if (!$ids) { return $empty; }
             $ph  = implode(',', array_fill(0, count($ids), '?'));
-            $st  = db()->prepare("SELECT id, category_id, name, spec, stock_qty FROM products WHERE is_active = 1 AND category_id IN ($ph)");
+            $axCols = spec_axes_ready() ? ', ' . implode(', ', SPEC_AXES_NEW_COLUMNS) : '';
+            $st  = db()->prepare("SELECT id, category_id, name, spec, stock_qty{$axCols} FROM products WHERE is_active = 1 AND category_id IN ($ph)");
             $st->execute(array_values($ids));
             $rows = $st->fetchAll();
         } catch (\Throwable $e) { return $empty; }
@@ -528,9 +538,30 @@ function product_facets(?int $categoryId, ?string $query, array $active = []): a
     // 재고 조건은 축이 아니라 전제 조건 → 재고 없는 상품은 모든 축 개수에서 제외
     $inStockOnly = !empty($active['instock']);
 
+    // 규격 축(spec_code·dim_*): 결과 카테고리가 모두 같은 이름표일 때만 축 모드(섞이면 기존 규격 원문 필터).
+    // 선택된 축 값은 모드와 관계없이 SQL(spec_axes_filter_sql)과 같은 기준으로 개수에 반영한다.
+    $axFull  = spec_axes_ready() ? spec_axes_common(array_map('intval', array_column($rows, 'category_id'))) : [];
+    $codeKey = $axFull ? spec_axes_code_key($axFull) : SPEC_AXIS_TYPE;   // 모델 코드 필터: 끝 글자(B·C) 또는 코드 전체(K2·BS·#377)
+    $axDefs  = array_values(array_filter($axFull, static fn($a) => $a['axis_key'] !== SPEC_AXIS_SKIP));   // skip(저장 안 하는 숫자 자리)은 화면에 없음
+    $axKeys  = array_column($axDefs, 'axis_key');
+    if ($axDefs) { $axKeys[] = $codeKey; }
+    $selAx = [];
+    if (spec_axes_ready()) {   // 새 칸이 없으면 SQL 도 축 조건을 무시하므로 개수에도 넣지 않는다
+        foreach ((array) ($active['ax'] ?? []) as $k => $vals) { if ($vals) { $selAx[(string) $k] = array_map('strval', (array) $vals); } }
+        if (!empty($active['ax_type'])) { $selAx[SPEC_AXIS_TYPE] = array_map('strval', (array) $active['ax_type']); }
+        if (!empty($active['ax_code'])) { $selAx[SPEC_AXIS_CODE] = array_map('strval', (array) $active['ax_code']); }
+    }
+    $axCnt = array_fill_keys($axKeys, []);   // 축 => [값 => 개수] (자기 축 제외 기준)
+    $axAll = array_fill_keys($axKeys, []);   // 축 => [값 => true] (필터·재고 무관 전체 — 값이 하나뿐인 축 판단용)
+    $axUse = array_values(array_unique(array_merge($axKeys, array_keys($selAx))));
+
     $matched = 0;
+    $combos  = [];   // 축 값 조합(+재고 여부) — 화면에서 값 버튼을 누르는 즉시 0건 값을 비활성할 때 씀(재고 체크·축 선택은 화면 쪽에서 계산)
     foreach ($rows as $p) {
-        if ($inStockOnly && (int) ($p['stock_qty'] ?? 0) <= 0) { continue; }
+        $axv = [];
+        foreach ($axUse as $k) { $axv[$k] = spec_axes_row_value($p, $k); }
+        foreach ($axKeys as $k) { if ($axv[$k] !== null) { $axAll[$k][$axv[$k]] = true; } }
+
         $name = (string) ($p['name'] ?? '');
         $spec = (string) ($p['spec'] ?? '');
         $root = category_root_of((int) ($p['category_id'] ?? 0));
@@ -540,15 +571,56 @@ function product_facets(?int $categoryId, ?string $query, array $active = []): a
         $mSpec  = !$selSpec || ($sv !== '' && in_array($sv, $selSpec, true));
         $mShape = $nameHas($name, $selShape);
         $mLoad  = $nameHas($name, $selLoad);
+        $hasStock = (int) ($p['stock_qty'] ?? 0) > 0;
+        if ($axKeys && $mMat && $mSpec && $mShape && $mLoad) {
+            $tuple = [];
+            foreach ($axKeys as $k) { $tuple[] = $axv[$k] ?? ''; }
+            $tuple[] = $hasStock ? 1 : 0;
+            $combos[implode("\x1f", $tuple)] = $tuple;
+        }
 
-        if ($mSpec && $mShape && $mLoad && $root !== null && isset($matCnt[$root])) { $matCnt[$root]++; }
-        if ($mMat && $mShape && $mLoad && $sv !== '') { $specCnt[$sv] = ($specCnt[$sv] ?? 0) + 1; }
-        if ($mMat && $mSpec && $mLoad) { foreach ($shapes as $s) { if (mb_strpos($name, $s) !== false) { $shCnt[$s]++; } } }
-        if ($mMat && $mSpec && $mShape) { foreach ($loads as $s) { if (mb_strpos($name, $s) !== false) { $ldCnt[$s]++; } } }
-        if ($mMat && $mSpec && $mShape && $mLoad) { $matched++; }
+        if ($inStockOnly && !$hasStock) { continue; }
+        $mAx    = [];
+        foreach ($selAx as $k => $sel) { $mAx[$k] = $axv[$k] !== null && in_array($axv[$k], $sel, true); }
+        $mAxAll = !in_array(false, $mAx, true);
+
+        if ($mSpec && $mShape && $mLoad && $mAxAll && $root !== null && isset($matCnt[$root])) { $matCnt[$root]++; }
+        if ($mMat && $mShape && $mLoad && $mAxAll && $sv !== '') { $specCnt[$sv] = ($specCnt[$sv] ?? 0) + 1; }
+        if ($mMat && $mSpec && $mLoad && $mAxAll) { foreach ($shapes as $s) { if (mb_strpos($name, $s) !== false) { $shCnt[$s]++; } } }
+        if ($mMat && $mSpec && $mShape && $mAxAll) { foreach ($loads as $s) { if (mb_strpos($name, $s) !== false) { $ldCnt[$s]++; } } }
+        if ($mMat && $mSpec && $mShape && $mLoad) {
+            foreach ($axKeys as $k) {
+                if ($axv[$k] === null) { continue; }
+                $others = $mAx; unset($others[$k]);
+                if (!in_array(false, $others, true)) { $axCnt[$k][$axv[$k]] = ($axCnt[$k][$axv[$k]] ?? 0) + 1; }
+            }
+            if ($mAxAll) { $matched++; }
+        }
     }
     // 규격 옵션: 자연 정렬(숫자 인식)로 사람이 읽기 좋게
     uksort($specCnt, static fn($a, $b) => strnatcasecmp((string) $a, (string) $b));
+
+    $axes = [];
+    if ($axDefs) {
+        $byNum  = static fn($a, $b) => (float) $a <=> (float) $b;
+        $keysOf = static function (array $set, ?callable $cmp): array {
+            $ks = array_map('strval', array_keys($set));
+            $cmp ? usort($ks, $cmp) : sort($ks, SORT_STRING);
+            return $ks;
+        };
+        $vals = []; $all = [];
+        foreach (array_column($axDefs, 'axis_key') as $k) {
+            $all[$k]  = $keysOf($axAll[$k], $byNum);
+            $vals[$k] = [];
+            foreach ($all[$k] as $v) { $vals[$k][$v] = (int) ($axCnt[$k][$v] ?? 0); }
+        }
+        $typeAll = $keysOf($axAll[$codeKey], $codeKey === SPEC_AXIS_CODE ? 'strnatcmp' : null);
+        $typeCnt = [];
+        foreach ($typeAll as $v) { $typeCnt[$v] = (int) ($axCnt[$codeKey][$v] ?? 0); }
+        $axes = ['defs' => $axDefs, 'vals' => $vals, 'all' => $all, 'type' => $typeCnt, 'type_all' => $typeAll, 'code_key' => $codeKey,
+                 // 'keys' 순서의 축 값 + 마지막 칸 재고(1/0). 너무 많으면 생략(화면은 '필터 적용' 후 서버 계산만 사용)
+                 'combos' => count($combos) <= 3000 ? ['keys' => $axKeys, 'rows' => array_values($combos)] : null];
+    }
 
     return [
         'mat'   => array_filter($matCnt),
@@ -556,13 +628,14 @@ function product_facets(?int $categoryId, ?string $query, array $active = []): a
         'load'  => array_filter($ldCnt),
         'spec'  => $specCnt,
         'total' => $matched,
+        'axes'  => $axes,
     ];
 }
 
 /**
  * 목록 필터 → SQL 조각(AND ...) + 바인딩 파라미터(참조).
  * 지원: mat(재질=루트), spec[](규격 선택), shape[](형상/옵션 상품명), load[](하중 상품명),
- *       instock(재고 있는 상품만: stock_qty > 0).
+ *       instock(재고 있는 상품만: stock_qty > 0), ax[축]=[값](규격 축 dim_*), ax_type[](규격 코드 끝 글자), ax_code[](규격 코드 전체).
  * 상품 테이블 별칭은 p. 로 가정.
  */
 function product_filter_sql(array $f, array &$params): string
@@ -609,7 +682,8 @@ function product_filter_sql(array $f, array &$params): string
     if (!empty($f['instock'])) {
         $c[] = 'p.stock_qty > 0';
     }
-    return $c ? ' AND ' . implode(' AND ', $c) : '';
+    // 규격 축(ax[축]=[값], ax_type=[형식]) — 새 칸이 없으면 조건 없음(spec_axes.php)
+    return ($c ? ' AND ' . implode(' AND ', $c) : '') . spec_axes_filter_sql($f, $params);
 }
 
 /**

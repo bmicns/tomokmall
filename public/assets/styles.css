@@ -1397,6 +1397,20 @@ a.pt-name-text:hover { color: var(--color-primary); }
 .pt-col-load    { width: 70px; }
 .pt-col-freight { width: 70px; }
 .pt-col-desc    { text-align: left; min-width: 160px; }
+/* 규격 축 칸(모델 코드·폭 W…): '규격' 묶음 머리글 아래 두 번째 줄 — 작은 회색 글씨(아트보드 '규격 개선안') */
+.product-table thead tr + tr th { border-top: 0; }
+.product-table tr.pt-head-ax th { padding: 8px 6px; font-size: 12px; font-weight: 400; color: #6B6B6B; }
+.product-table th.pt-col-specgrp { padding: 6px 8px; }
+.pt-col-ax      { width: 76px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* 옵션 칸: 남는 폭을 혼자 다 가져가 치수 칸이 좁아 보이지 않게 폭을 정해 둠(긴 옵션은 줄바꿈) — 사용자 요청 2026-11-06 */
+.pt-col-axopt   { width: 120px; min-width: 80px; white-space: normal; text-align: left; word-break: keep-all; }
+.product-table td.pt-col-ax.is-hit { color: var(--color-primary); font-weight: 700; }
+@media (max-width: 640px) {
+  /* 카드형: 축 칸을 '이름 값'으로 이어서 표시(값 없는 칸은 숨김) */
+  .product-table td.pt-col-ax { display: inline-block; width: auto; margin-right: 12px; padding: 2px 0; font-size: 12px; line-height: 1.6; color: var(--color-text-secondary); text-align: left; }
+  .product-table td.pt-col-ax::before { content: attr(data-label) " "; color: var(--color-text-disabled); }
+  .product-table td.pt-col-ax:empty { display: none; }
+}
 
 /* 사진 */
 .pt-col-photo img {
@@ -1747,6 +1761,24 @@ mark.hl{background:#fff3b0;color:inherit;padding:0 1px;border-radius:2px;font-we
 .spec-scroll .fopt-lbl{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .spec-scroll::-webkit-scrollbar{width:6px}
 .spec-scroll::-webkit-scrollbar-thumb{background:#d5dbe3;border-radius:3px}
+/* 규격 축 필터(형식·폭 W·높이 H…): 값 버튼. 체크박스는 보이지 않게 두고 라벨 전체를 누름 영역으로(키보드 포커스는 유지) */
+.fgrp-axes .fax+.fax{margin-top:10px}
+.fax-title{font-size:12px;font-weight:600;color:#37444F;margin-bottom:6px}
+.fax-title small{margin-left:2px;font-weight:400;color:var(--color-text-secondary);font-size:10.5px}
+.fax-title small span{font-size:9.5px}
+.fchips{display:flex;flex-wrap:wrap;gap:5px}
+.fchip{position:relative;display:inline-flex;cursor:pointer}
+.fchip input{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
+.fchip-box{display:inline-flex;align-items:center;gap:5px;min-height:32px;padding:0 9px;border:1px solid #D5DBE3;border-radius:6px;background:#fff;font-size:12px;color:#37444F;font-variant-numeric:tabular-nums}
+.fchip:hover .fchip-box{border-color:var(--color-primary)}
+.fchip input:checked+.fchip-box{border-color:var(--color-primary);background:#EEF3FA;color:var(--color-primary);font-weight:600}
+.fchip input:focus-visible+.fchip-box{outline:2px solid var(--color-primary);outline-offset:2px}
+.fchip input:disabled+.fchip-box{border-color:#EEEEEE;background:#F7F7F7;color:#B5B5B5;cursor:default}
+/* 값이 하나뿐인 축: 선택된 채 고정 */
+.fchip input:disabled:checked+.fchip-box{border-color:#C9D8EA;background:#F2F6FB;color:#4A6F98;font-weight:600}
+@media (max-width:640px){
+  .fchip-box{min-height:44px;padding:0 12px;font-size:14px}
+}
 .range{display:flex;align-items:center;gap:6px}
 .range input{width:100%;min-width:0;border:1px solid var(--color-border);border-radius:6px;padding:6px 8px;font-size:12px;font-family:var(--font)}
 .range span{color:var(--color-text-secondary)}
@@ -1755,6 +1787,19 @@ mark.hl{background:#fff3b0;color:inherit;padding:0 1px;border-radius:2px;font-we
 .pt-head-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .pt-sort{font-size:12.5px;border:1px solid var(--color-border);border-radius:8px;padding:7px 10px;font-family:var(--font);background:#fff;color:var(--color-text-primary)}
 .pt-chip{font-size:11px;background:#EEF3FA;color:var(--color-primary-hover);border:1px solid #D3E2F1;border-radius:100px}
+/* 상황별 목록 비로그인·개인회원 필터 펼치기/접기(.is-collapsible): 제목줄 '자재 규격'(위 '자재 종류' 제목과 같은 글자 모양)·화살표.
+   안쪽 위 '필터로 좁히기·초기화' 줄 없음 → 초기화는 맨 아래 '필터 적용' 옆 보조 버튼(.flt-actions) */
+.fltbox.is-collapsible>summary{padding:12px 14px 10px;font-size:13px;font-weight:800}
+.fltbox.is-collapsible>summary::before{content:none}
+.flt-sum-state{margin-left:auto;display:inline-flex;align-items:center;color:var(--color-primary)}
+.flt-sum-state::after{content:"";width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .15s}
+.fltbox[open] .flt-sum-state::after{transform:rotate(-135deg) translateY(-1px)}
+.fltbox.is-collapsible .flt-body>.fgrp:first-of-type{border-top:0}
+.flt-actions{display:flex;gap:6px;margin-top:14px}
+.flt-actions .flt-apply{flex:1;width:auto;margin-top:0;min-height:44px}
+.flt-reset{display:inline-flex;align-items:center;justify-content:center;gap:5px;flex:0 0 auto;min-height:44px;padding:0 14px;border:1px solid #D5DBE3;border-radius:8px;background:#fff;color:#37444F;font-size:13px;font-weight:600;text-decoration:none;box-sizing:border-box}
+.flt-reset:hover{border-color:var(--color-primary);color:var(--color-primary)}
+.flt-reset[aria-disabled="true"]{border-color:#EEEEEE;color:#B5B5B5;cursor:default;pointer-events:none}
 @media(min-width:761px){
   .pt-layout{grid-template-columns:224px 1fr;gap:22px;align-items:start}
   .pt-layout.pt-nofilter{grid-template-columns:1fr}
@@ -1762,6 +1807,9 @@ mark.hl{background:#fff3b0;color:inherit;padding:0 1px;border-radius:2px;font-we
   .pt-filter{position:sticky;top:calc(var(--header-h) + var(--gnb-bar-h) + 12px)}
   .fltbox>summary{display:none}
   .flt-body{display:block !important;border-top:0}
+  .fltbox.is-collapsible>summary{display:flex;min-height:44px;box-sizing:border-box}
+  .fltbox.is-collapsible:not([open])>.flt-body{display:none !important}
+  .fltbox.is-collapsible>.flt-body{border-top:1px solid var(--color-border)}
 }
 
 /* ── 접근성: 키보드 포커스 링 (마우스 클릭엔 안 뜨고 Tab 이동 시만) ──── */
@@ -2153,11 +2201,14 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .fltbox > summary { min-height: 48px; font-size: 14px; }
   .fltbox > summary::after { content: ""; width: 8px; height: 8px; margin: 0 4px 0 auto; border-right: 2px solid #8A96A3; border-bottom: 2px solid #8A96A3; transform: rotate(45deg) translateY(-2px); transition: transform .15s; }
   .fltbox[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+  .fltbox.is-collapsible > summary { font-size: 13px; }   /* '자재 종류' 제목과 같은 크기 */
+  .fltbox.is-collapsible > summary::after { display: none; }   /* 화살표는 .flt-sum-state 가 그림 */
   .fopt { min-height: 40px; font-size: 14px; }
   .fopt input { width: 18px; height: 18px; }
   .spec-scroll .fopt { padding: 0; }
   .spec-scroll .fopt-lbl, .fgrp-scroll .fopt-lbl { font-size: 13px; }
   .flt-apply { min-height: 48px; font-size: 15px; }
+  .flt-reset { min-height: 48px; font-size: 14px; }
   .flt-top a { display: inline-flex; align-items: center; min-height: 36px; padding: 0 4px; font-size: 13px; }
   /* 상품 목록 툴바: [정렬] [목록검색 입력 | 검색] 한 줄, 높이 44px */
   .pt-table-header { padding-top: 18px; }
