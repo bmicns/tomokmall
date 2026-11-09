@@ -704,7 +704,7 @@ eq('상부폭 WT·하부폭 WB: 경계석 150*170*200(A)', spec_axes_parse('150*
 ok('D 접두는 깊이(depth)에 안 됨: 400*D400 → null', spec_axes_parse('400*D400', $AX([['w', '폭', 'W'], ['depth', '깊이', 'D']])) === null);
 eq('축 키 → 칸: 내경·외경·하부폭·뒷폭·상부폭·깊이', [SPEC_AXIS_COLUMNS['d_i'], SPEC_AXIS_COLUMNS['d_o'], SPEC_AXIS_COLUMNS['w_b'], SPEC_AXIS_COLUMNS['w_r'], SPEC_AXIS_COLUMNS['w_t'], SPEC_AXIS_COLUMNS['depth']],
     ['dim_d_i', 'dim_d_o', 'dim_w_b', 'dim_w_r', 'dim_w_t', 'dim_depth']);
-eq('URL 입력: 새 축 키(ax_d_i·ax_w_b·ax_depth)', spec_axes_filter_input(['ax_d_i' => ['150'], 'ax_w_b' => ['170'], 'ax_depth' => ['400'], 'ax_d' => ['1']])['ax'], ['d_i' => ['150'], 'w_b' => ['170'], 'depth' => ['400']]);
+eq('URL 입력: 새 축 키(ax_d_i·ax_w_b·ax_depth)', spec_axes_filter_input(['ax_d_i' => ['150'], 'ax_w_b' => ['170'], 'ax_depth' => ['400'], 'ax_dd' => ['1']])['ax'], ['d_i' => ['150'], 'w_b' => ['170'], 'depth' => ['400']]);
 
 
 // 표기 모양이 다른 카테고리(사용자 결정 2026-11-06) — parse_fmt·fixed_value·skip
@@ -766,6 +766,18 @@ eq('range 조경경계블록 230*114*65~125_조경경계블록_레드 → 하부
     ['spec_code' => null, 'dims' => ['w' => 230.0, 'l' => 114.0, 't_bottom' => 65.0, 't_top' => 125.0], 'option' => '조경경계블록_레드']);
 eq('갱신 계획: 예전 칸(dim_t2)은 다시 채울 때 비움', (static function () use ($AX) { $p = ['spec' => '규격: 1.5*1.5*2.0_160T*140T', 'dim_t' => '160.0', 'dim_t2' => '140.0'];
     $n = spec_axes_plan($p, $AX([['w', '폭', 'W', 'm'], ['h', '높이', 'H', 'm'], ['l', '길이', 'L', 'm'], ['t_tb', '상하두께', 'T'], ['t_wall', '벽체두께', 'T']])); return [$n['dim_t'] ?? 'x', $n['dim_t2'] ?? 'x', $n['dim_t_tb'], $n['dim_t_wall']]; })(), ['x', 'x', '160', '140']);
+// 직경 d·바닥직경 d_base(고정 글자)·세로 v·험프석 slash 4칸 — 사용자 결정 2026-11-09
+eq('원형디자인 D648*50*4T → 직경 D 648·높이·두께', spec_axes_parse('D648*50*4T_우수_국산', $AX([['d', '직경', 'D'], ['h', '높이', 'H'], ['t', '두께', 'T']])),
+    ['spec_code' => null, 'dims' => ['d' => 648.0, 'h' => 50.0, 't' => 4.0], 'option' => '우수_국산']);
+$axBol = $AX([['d', '직경', 'D'], ['d_base', '바닥직경', 'D'], ['h', '높이', 'H']]); $axBol[1]['fixed_text'] = '142~145';
+eq('우레탄볼라드 D116*850(…) → 직경 116·바닥직경 142~145(고정 글자)·높이 850', spec_axes_parse('D116*850(매립형우레탄볼라드)', $axBol),
+    ['spec_code' => null, 'dims' => ['d' => 116.0, 'd_base' => '142~145', 'h' => 850.0], 'option' => '(매립형우레탄볼라드)']);
+eq('칼라맨홀뚜껑 800*800*D648*H60*4T(loose) → 가로·세로 V·원형부직경·높이·두께', spec_axes_parse('800*800*D648*H60*4T_우수_국산', $AXF('loose', [['w', '가로', 'W'], ['v', '세로', 'V'], ['d', '원형부직경', ''], ['h', '높이', 'H'], ['t', '두께', 'T']]))['dims'] ?? null,
+    ['w' => 800.0, 'v' => 800.0, 'd' => 648.0, 'h' => 60.0, 't' => 4.0]);
+eq('세로 V 와 길이 L 함께: 배수경계석 180*200*1000', spec_axes_parse('180*200*1000(국산)', $AX([['w', '폭', 'W'], ['v', '세로', 'V'], ['l', '길이', 'L']]))['dims'] ?? null, ['w' => 180.0, 'v' => 200.0, 'l' => 1000.0]);
+eq('slash 험프석 300*200/100*1000(국산) → 폭·상단/하단 높이·길이', spec_axes_parse('300*200/100*1000(국산)', $AXF('slash', [['w', '폭', 'W'], ['h_high', '상단 높이', 'H'], ['h_low', '하단 높이', 'H'], ['l', '길이', 'L']])),
+    ['spec_code' => null, 'dims' => ['w' => 300.0, 'h_high' => 200.0, 'h_low' => 100.0, 'l' => 1000.0], 'option' => '(국산)']);
+eq('축 키 → 칸: 직경·바닥직경·세로', [SPEC_AXIS_COLUMNS['d'], SPEC_AXIS_COLUMNS['d_base'], SPEC_AXIS_COLUMNS['v']], ['dim_d', 'dim_d_base', 'dim_v']);
 eq('옵션 표시: 통째 괄호 조각은 괄호 뗌, 글자에 붙은 괄호는 그대로', [spec_option_display('(B)'), spec_option_display('(SA)_곡선'), spec_option_display('(고강도콘크리트_점형_KS)'), spec_option_display('(7*4)_국산'), spec_option_display('컬러(보도)'), spec_option_display('0RS(유공)')],
     ['B', 'SA/곡선', '고강도콘크리트/점형/KS', '7*4/국산', '컬러(보도)', '0RS(유공)']);
 eq('URL 입력 정리(ax_w·ax_type, 잘못된 값 버림)', spec_axes_filter_input(['ax_w' => ['900', '900.0', 'abc', '1.6'], 'ax_type' => ['b', 'BB', 'C'], 'ax_x' => ['1']]),
