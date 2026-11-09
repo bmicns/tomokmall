@@ -137,7 +137,7 @@ FROM (
     UNION ALL SELECT 130, '원형디자인', 3, 't', '두께', 'T', 'default', NULL
     UNION ALL SELECT 131, '칼라맨홀뚜껑', 1, 'w', '가로', 'W', 'loose', NULL
     UNION ALL SELECT 131, '칼라맨홀뚜껑', 2, 'v', '세로', 'V', 'loose', NULL
-    UNION ALL SELECT 131, '칼라맨홀뚜껑', 3, 'd', '원형부직경', NULL, 'loose', NULL
+    UNION ALL SELECT 131, '칼라맨홀뚜껑', 3, 'd', '원형부직경', 'D', 'loose', NULL
     UNION ALL SELECT 131, '칼라맨홀뚜껑', 4, 'h', '높이', 'H', 'loose', NULL
     UNION ALL SELECT 131, '칼라맨홀뚜껑', 5, 't', '두께', 'T', 'loose', NULL
     UNION ALL SELECT 132, '수목보호판', 1, 'w', '가로', 'W', 'default', NULL
