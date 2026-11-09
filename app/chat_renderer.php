@@ -675,9 +675,8 @@ render_header('AI 자재 상담', 'chat');
 window.SID = '<?= e($_sid) ?>';
 </script>
 <script src="/assets/chat-ai.js?v=<?= time() ?>"></script>
-<?php if (in_array(current_user()['role'] ?? '', ['customer', 'corporate'], true)): // 상담원 연결 유도는 로그인한 개인·기업회원에게만(비로그인·직원·관리자는 스크립트가 없어 표시 안 됨) ?>
+<?php // 상담원 연결 유도: 모든 방문자(비로그인 포함)에게 — 2026-11-09 사용자 보고 '유도 UI가 보이지 않음'(비로그인 상담). 이전: 로그인한 개인·기업회원만 ?>
 <script src="/assets/consult-request.js?v=<?= time() ?>"></script>
-<?php endif; ?>
 <script>
 <?php if ($_hasRestored): ?>
 // 복원한 이전 상담: 답변 문단 정리(formatChatText)·상품 추천표·견적 카드를 실시간 상담과 같은 렌더러로 표시
