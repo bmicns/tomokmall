@@ -17,6 +17,9 @@ declare(strict_types=1);
  *  rag_drain_notice_keys()     — 배수관 설치 위치·관경 주의 상황 판정(옹벽 배수관 / 공공 도로 횡단배수관)
  *  rag_drain_notice_prompt()   — 그 상황에서만 붙는 주의 안내 구역(문구는 사용자 확정, 원문 확인한 법령·기준)
  *  rag_build_prompt()          — 상담 시스템 프롬프트·근거 묶음 생성(API 호출 없음, rag_process 가 사용)
+ *  rag_traffic_context()       — 고객이 말한 통행 조건(보행자/승용차/대형차) — 그레이팅 하중 등급 검색 보완
+ *  rag_wants_alternative()     — '다른 제품'·'A 말고'·'다시 추천' 요청인지 — 직전 추천표 상품 제외 검색 보완
+ *  rag_fill_search_input()     — GPT 가 빠뜨린 search_products 입력(traffic·exclude_ids)만 서버가 채움
  */
 
 require_once __DIR__ . '/ai_tools.php';
@@ -457,7 +460,8 @@ function rag_detect_category(array $messages): string
     }
     $text = mb_strtolower($text);
 
-    if (preg_match('/그레이팅|측구\s*커버|배수로\s*덮개/u', $text))        return 'grating';
+    // '배수관 뚜껑'(2026-11-09 운영 상담: 식당 주방 배수관 뚜껑 → PE배수관 상담으로 분류) 처럼 배수 시설 위 덮개도 그레이팅 상담
+    if (preg_match('/그레이팅|(측구|배수로|배수관|트렌치)\s*(뚜껑|덮개|커버)/u', $text)) return 'grating';
     if (preg_match('/pe\s*배수관|우수관|하수관|배수관|pe\s*관/u', $text))   return 'pe_pipe';
     if (preg_match('/맨홀|집수정|우물통/u', $text))                         return 'manhole';
     if (preg_match('/수로관|농수로|u\s*형|ㅠ\s*형/u', $text))               return 'culvert';
@@ -1039,16 +1043,21 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "- guide 의 '참고 자료(판매 상품 아님)' 줄은 공공데이터·제조사 자료로 확인한 정보다. 판매 상품이나 가격처럼 말하지 않고 출처와 함께 참고로만 언급한다.\n"
         . "- 고객이 '어떤 게 더 저렴해?'처럼 가격 차이를 물으면 도구 결과 cost_summary 의 상품명·예상 금액·차이만 인용해 1~2문장으로 답한다(cost_summary 가 없으면 금액을 말하지 않는다).\n"
         . "- 도구 결과에 note 필드가 있으면 그 note 문장을 첫 문장 다음에 그대로 한 줄 전한다(교정·대안 안내).\n"
+        . "- 추천 순서: 고객 조건(하중 등급·규격·용도)을 만족하는 제품 중 예상 자재비(없으면 단가)가 가장 낮은 제품을 먼저 권한다(표도 그 순서). 더 비싼 제품은 고객 조건에 그 등급·기능이 꼭 필요한 이유가 있을 때만 그 이유와 함께 권한다.\n"
+        . "- 고객 조건보다 높은 등급(예: 사람만 다니는 주방·실내·인도에 차량용 중하중·안전중하중)을 '적합하다'·'적절하다'고 말하지 않는다. 도구가 높은 등급만 있다고 알려 주면(note·over_spec_options) 그대로 전하고, 고객이 원한다고 할 때만 그 제품을 찾는다.\n"
+        . "- 도구 결과에 missing_terms 가 있으면 그 말(예: 날개형)이 들어간 제품은 이번 조건에서 찾지 못한 것이다. note 대로 먼저 알리고, 표의 제품을 그 제품이라고 말하지 않는다.\n"
         . "- 글 형식: 마크다운 기호(굵게 **…**, 제목 #)를 쓰지 않는다. 문장 끝을 콜론(:)으로 맺지 않는다(목록의 '제품명: 설명'은 괜찮다).\n"
         . "\n"
         . "=== 카테고리별 필수 확인 항목 (모두 확인 후 search_products 호출) ===\n"
         . "\n"
         . "[그레이팅]\n"
-        . "  필수 ① 설치 장소 (도로/주차장/공장/인도/기타)\n"
+        . "  필수 ① 설치 장소 (도로/주차장/공장/인도/식당 주방·실내/기타)\n"
         . "  필수 ② 차량 통행 여부 + 최대 차량 톤수 (보행자 전용이면 '없음')\n"
+        . "    설치 장소로 알 수 있으면 다시 묻지 않는다: 식당 주방·화장실·실내·베란다·인도·공원 → 보행자 전용, 주차장·도로 → 차량.\n"
         . "  필수 ③ 필요 면적(㎡) 또는 수량(개), 또는 수로 연장(m)\n"
         . "  ★용도어 정밀화: 수로·배수로·측구 위 덮개면 반드시 '수로용', 집수정·맨홀 뚜껑이면 '맨홀'을 검색어에 포함(섞임 방지).\n"
         . "  ★하중 등급(카탈로그 3단계, 과잉 등급 금지): 보행자 전용→'그레이팅수로용', 승용차·SUV 통행→'중하중', 트럭·버스 등 대형차→'안전중하중'.\n"
+        . "    search_products 에 traffic 을 함께 넘긴다(보행자 전용 pedestrian / 승용차·SUV car / 트럭·버스·지게차 등 대형차 truck). 조건과 다른 하중 등급은 표에서 빠진다.\n"
         . "  검색어(query) 예: '그레이팅 수로용 중하중', '그레이팅 맨홀 집수정 중하중', '그레이팅 수로용'\n"
         . "\n"
         . "[PE배수관 / 우수관 / 하수관]\n"
@@ -1191,8 +1200,67 @@ function rag_recent_cards_prompt(array $cards, string $priceLabel = '판매가')
     }
     return "\n\n=== 직전 추천표 (이 상담에서 고객 화면에 보인 상품 · 현재 " . ($priceLabel !== '' ? $priceLabel : '가격') . " 기준) ===\n" . implode("\n", $lines)
         . "\n- 고객이 표의 상품을 가리켜(예: '제일 저렴한 걸로', '두 번째 거', '이걸로') 담아 달라고 하면 다시 검색하지 말고 이 표의 id 로 add_to_cart 를 호출한다(quantity 는 권장 수량, 고객이 말한 수량이 있으면 그 수량, 1~999).\n"
-        . "- 이 표에 없는 id 를 만들지 않는다. " . ($priceLabel !== '' ? $priceLabel . '가' : '가격이') . " '문의·판매 중지'인 상품은 담지 말고 그 사실을 알린다. 조건(면적·두께 등)이 바뀌면 search_products 로 다시 찾는다."
+        . "- 이 표에 없는 id 를 만들지 않는다. " . ($priceLabel !== '' ? $priceLabel . '가' : '가격이') . " '문의·판매 중지'인 상품은 담지 말고 그 사실을 알린다. 조건(면적·두께 등)이 바뀌면 search_products 로 다시 찾는다.\n"
+        . "- 고객이 '다른 제품', 'A 말고', '다시 추천'처럼 이 표와 다른 제품을 원하면 search_products 에 exclude_ids(이 표에서 뺄 id)를 넣어 다시 찾는다(같은 상품명의 다른 규격도 빠진다). 결과가 비면 note 대로 '조건에 맞는 다른 제품이 없다'고 말하고, 새 제품을 추천한 것처럼 말하지 않는다."
         . (substr_count(implode("\n", $lines), '(가장 저렴)') > 1 ? "\n- '(가장 저렴)'이 여러 개다(같은 금액). '제일 저렴한 것'을 담을 때는 표에서 먼저 나온 제품을 담고, 같은 금액의 다른 제품(이름)도 있다고 한 문장으로 알린다." : '');
+}
+
+/**
+ * 고객이 말한 통행 조건 (순수 함수) — 그레이팅 하중 등급(search_products traffic)을 GPT 가 넘기지 않았을 때 서버가 채우는 값.
+ * 고객 발화(user)만 본다. 안전 쪽으로: 차량 단서가 한 번이라도 있으면 차량(대형차 단서면 truck, 아니면 car), 차량 단서 없이
+ * 보행자 단서(주방·실내·인도·보행자 전용·'차는 안 다녀요' 등)만 있으면 pedestrian, 둘 다 없으면 ''(필터 안 함).
+ * 2026-11-09 운영 상담: '식당 주방'·'보행자 전용으로' 라고 했는데 대형차용 안전중하중 그레이팅을 추천.
+ */
+function rag_traffic_context(array $messages): string
+{
+    $text = '';
+    foreach ($messages as $m) {
+        if (($m['role'] ?? '') === 'user') { $text .= ' ' . (string) ($m['content'] ?? ''); }
+    }
+    $t = mb_strtolower($text);
+    // '차는 안 다녀요'·'차량 통행 없음' 은 차량 단서가 아니라 보행자 단서
+    $neg = '/(차량|자동차|승용차|트럭|화물차|차)\s*(은|는|이|가|도)?\s*(통행\s*(은|이)?\s*)?(없|안\s*(다니|다녀|들어|지나|올라|와)|못\s*(다니|다녀|들어|지나)|다니지\s*않|들어오지\s*않|지나가지\s*않|안\s*됨|불가|금지)/u';
+    $pedestrian = (bool) preg_match($neg, $t);
+    $t = (string) preg_replace($neg, ' ', $t);
+    $truck = (bool) preg_match('/트럭|화물차|덤프|대형\s*차|버스|지게차|중장비|레미콘|탑차|트레일러|굴삭기|포크레인/u', $t);
+    if (preg_match_all('/(\d+(?:\.\d+)?)\s*톤/u', $t, $tm)) {
+        foreach ($tm[1] as $ton) { if ((float) $ton >= 3) { $truck = true; } }
+    }
+    if ($truck) {
+        return 'truck';
+    }
+    if (preg_match('/승용차|자동차|차량|자가용|suv|주차|차도|(?<!보)도로|진입로|택시|오토바이|\d+(?:\.\d+)?\s*톤|차\s*(가|도|는|들이)?\s*(다니|다녀|지나|들어|올라|통행|출입)/u', $t)) {
+        return 'car';
+    }
+    if ($pedestrian || preg_match('/보행|사람만|사람\s*만|도보|주방|부엌|식당|화장실|욕실|실내|베란다|발코니|옥상|인도|보도(?!\s*블)|공원|산책로|놀이터|정원|복도|매장\s*안|가게\s*안|집\s*안|건물\s*안/u', $t)) {
+        return 'pedestrian';
+    }
+    return '';
+}
+
+/**
+ * 고객이 직전 추천표와 '다른 제품'을 원하는지 (순수 함수) — 'A 말고', '다른 자재 추천', '다시 추천', '딴 거'.
+ * '다른 규격·다른 수량'처럼 같은 제품의 조건만 바꾸는 말은 해당하지 않는다.
+ */
+function rag_wants_alternative(string $msg): bool
+{
+    return preg_match('/(?<!하지|담지|넣지|사지|하지 |담지 |넣지 |사지 )말고|다른\s*(제품|자재|상품|거|것|걸|종류|모델|브랜드|추천|대안|그레이팅)|딴\s*(거|것|걸|제품)|다시\s*추천|재\s*추천|바꿔\s*(서\s*)?추천|대안|대체\s*(품|제품|자재)/u', $msg) === 1;
+}
+
+/**
+ * search_products 입력 보완 (순수 함수) — GPT 가 넘기지 않은 값만 서버가 채운다(넘긴 값은 그대로).
+ *  traffic    : 고객 발화의 통행 조건(rag_traffic_context)
+ *  exclude_ids: 고객이 다른 제품을 원할 때 직전 추천표의 상품 id(rag_wants_alternative + rag_recent_cards)
+ */
+function rag_fill_search_input(array $input, string $traffic, array $excludeIds): array
+{
+    if ($traffic !== '' && ai_traffic_value($input['traffic'] ?? null) === '') {
+        $input['traffic'] = $traffic;
+    }
+    if ($excludeIds && ai_int_list($input['exclude_ids'] ?? null) === []) {
+        $input['exclude_ids'] = array_values(array_map('intval', $excludeIds));
+    }
+    return $input;
 }
 
 /**
@@ -1386,6 +1454,13 @@ function rag_process(array $messages, string $sid): array
     $preToolText  = '';      // 도구 호출과 함께 온 중간 글(최종 답이 없을 때만 사용)
     $basicsSeen   = [];      // material_info·search_products 가 준 확인된 기본 정보(국가표준·등록 상품) — 답에 실제로 쓴 것만 출처 카드로
     $known        = $system . ' ' . implode(' ', array_map(static fn($m) => (string) ($m['content'] ?? ''), $messages));   // 답에 나올 수 있는 확인된 글(KS 번호 대조용)
+    // 검색 입력 보완(GPT 가 빠뜨려도 서버가 지킴): 고객이 말한 통행 조건(하중 등급), '다른 제품' 요청이면 직전 추천표 상품 제외
+    $lastUser = '';
+    foreach (array_reverse($messages) as $m) {
+        if (($m['role'] ?? '') === 'user') { $lastUser = (string) ($m['content'] ?? ''); break; }
+    }
+    $fillTraffic = rag_traffic_context($messages);
+    $fillExclude = ($recentCards && rag_wants_alternative($lastUser)) ? array_column($recentCards, 'id') : [];
 
     for ($iter = 0; $iter < $maxIter; $iter++) {
         $body = json_encode([
@@ -1451,6 +1526,9 @@ function rag_process(array $messages, string $sid): array
 
         foreach ($toolCalls as $tc) {
             $input    = json_decode($tc['function']['arguments'] ?? '{}', true) ?? [];
+            if (($tc['function']['name'] ?? '') === 'search_products' && is_array($input)) {
+                $input = rag_fill_search_input($input, $fillTraffic, $fillExclude);
+            }
             $output   = ai_tool_dispatch($tc['function']['name'] ?? '', $input, $sid);
             $toolData = json_decode($output, true) ?? [];
             $toolLog[] = ['name' => (string) ($tc['function']['name'] ?? ''), 'input' => $input, 'summary' => rag_tool_summary((string) ($tc['function']['name'] ?? ''), $toolData)];
