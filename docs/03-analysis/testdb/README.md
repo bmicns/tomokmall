@@ -143,6 +143,9 @@ php scripts/testdb/prodlike-db.php
 | `tomokmall_mock_test` | 운영 구조, 데이터 없음 — '빈 DB 전용' 목 데이터 테스트: `DB_NAME=tomokmall_mock_test php tests/stock_filter.test.php` |
 | `ktomok_test` | 수집 원본 구조·데이터 그대로 — 수집 원본 기대값 테스트: `DB_NAME=ktomok_test php tests/external_import.test.php`(운영에 없는 암거 상품 매칭을 기대) |
 
+AI 상담 연속 대화 조건 테스트(2026-11-11): 목업 GPT 는 `tests/consult_multiturn_conditions.test.php`(`tomokmall_test`).
+실제 GPT 로 같은 대화를 돌리는 검증은 `scripts/testdb/consult-conditions-live.php` — 키는 환경변수 `OPENAI_API_KEY` 로만 주고(파일·Git 금지), 키가 없으면 SKIP(실제 GPT 미검증)으로 끝난다.
+
 ## 9. 사용자 PC(XAMPP)에서 직접 확인
 
 클라우드 테스트 DB를 덤프해 PC용 가져오기 파일 `tomokmall_test_import.sql`(약 0.8MB)을 만든다. **저장소·운영 서버에 두지 않는다**(세션 첨부로만 전달, PC에서는 저장소 폴더 밖 `C:\dev\`에 저장).
