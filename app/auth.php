@@ -12,6 +12,7 @@ declare(strict_types=1);
  *  - is_corporate_member() 기업회원(corporate/staff/admin) 여부
  *  - require_login()       미로그인 시 401 JSON 후 exit, 로그인 시 user 반환
  *  - require_corporate()   기업회원 아닐 시 401 JSON 후 exit
+ *  - consult_cta_visible() AI 상담 '상담원 연결 유도' 표시 대상(로그인한 개인·기업회원만)
  *
  * @phpstan-type LoginUser array{
  *     id: int,
@@ -108,4 +109,15 @@ function require_staff(): array
         exit;
     }
     return $u;
+}
+
+/**
+ * AI 상담 '상담원 연결 유도'(추천표 아래 카카오톡 채널 안내) 표시 대상 — 로그인한 개인회원(customer)·기업회원(corporate)만.
+ * 비로그인·직원(staff)·관리자(admin)는 표시하지 않는다(사용자 결정 2026-11-10). 화면은 대상이 아니면 스크립트 자체를 넣지 않는다.
+ *
+ * @param array<string,mixed>|null $user current_user() 결과
+ */
+function consult_cta_visible(?array $user): bool
+{
+    return $user !== null && in_array($user['role'] ?? '', ['customer', 'corporate'], true);
 }

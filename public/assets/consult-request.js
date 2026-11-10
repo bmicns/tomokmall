@@ -1,7 +1,7 @@
 /**
  * 상담원 연결 유도 — 카카오톡 채널 1:1 상담 (AI 상담 화면, 상품 추천 시점)
  * 시안: '상담원 연결 유도 (추천 시점)' 아트보드(카카오톡 채널)
- * 로드: chat_renderer.php — 로그인한 개인·기업회원에게만 이 파일을 넣는다(비로그인·직원·관리자는 표시 안 됨)
+ * 로드: chat_renderer.php — 로그인한 개인·기업회원에게만 이 파일을 넣는다(비로그인·직원·관리자는 표시 안 됨, app/auth.php consult_cta_visible)
  * 호출: chat-ai.js processEvent('product_cards') → renderConsultCta(content)
  * 기능: 아직 없음 — 버튼을 눌러도 아무 동작 안 함(카카오톡 채널 연결·상담 시간 외 안내는 다음 단계)
  */

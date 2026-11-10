@@ -261,6 +261,7 @@ render_header('AI 자재 상담', 'chat');
   .legal-source-meta a { color: var(--color-primary); text-decoration: underline; }
   .compare-price.is-state { color: var(--color-text-secondary); font-weight: 500; }
   .compare-state-note { font-size: 11px; color: var(--color-danger); margin-top: 3px; }
+  .compare-dim-note { font-size: 11px; color: #8A5A00; margin-top: 3px; line-height: 1.4; }   /* 폭·길이를 규격 표기로 확인하지 못한 제품(AI 검색 dim_note)·차량 통행 하중 확인 필요(load_note) */
   /* 전역 input[type=number](width:100%·padding 8px 12px)가 덮어써 숫자가 안 보이던 문제 방지 — .compare-table 한정 */
   .compare-table input.compare-qty {
     width: 62px; padding: 4px; border: 1px solid #CCCCCC;
@@ -675,7 +676,7 @@ render_header('AI 자재 상담', 'chat');
 window.SID = '<?= e($_sid) ?>';
 </script>
 <script src="/assets/chat-ai.js?v=<?= time() ?>"></script>
-<?php if (in_array(current_user()['role'] ?? '', ['customer', 'corporate'], true)): // 상담원 연결 유도는 로그인한 개인·기업회원에게만(비로그인·직원·관리자는 스크립트가 없어 표시 안 됨) ?>
+<?php if (consult_cta_visible(current_user())): // 상담원 연결 유도는 로그인한 개인·기업회원에게만(비로그인·직원·관리자는 스크립트가 없어 표시 안 됨 — 사용자 결정 2026-11-10) ?>
 <script src="/assets/consult-request.js?v=<?= time() ?>"></script>
 <?php endif; ?>
 <script>

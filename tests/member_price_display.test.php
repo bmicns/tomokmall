@@ -81,7 +81,7 @@ function cleanup_mprice_mock(PDO $pdo): void
     foreach (['payments', 'shipping_info', 'order_items'] as $t) { $pdo->exec("DELETE FROM {$t} WHERE order_id IN ({$mockOrd})"); }
     $pdo->exec("DELETE FROM orders WHERE customer_name LIKE '[MOCK] 회원가%'");
     $pdo->exec("DELETE FROM favorite_products WHERE user_id IN ({$uids})");
-    $pdo->exec("DELETE FROM chat_logs WHERE session_key = 'mock-mprice-chat'");
+    $pdo->exec("DELETE FROM chat_logs WHERE session_key IN ('mock-mprice-chat', 'mock-mprice-chat2')");
     $pdo->exec("DELETE FROM users WHERE email LIKE 'mprice-%@mock.test'");
     $pdo->exec("DELETE FROM products WHERE external_source = 'MOCK' AND external_id LIKE 'mprice-%'");
     $pdo->exec("DELETE FROM categories WHERE id = 9301 AND slug = 'mock-mprice'");
@@ -99,6 +99,15 @@ $pids = [];
 foreach (MOCK_PRODUCTS as $n => [$name, $b2c, $b2b, $cost]) {
     $ip->execute([$name, $b2c, $b2b, $cost, "mprice-{$n}"]);
     $pids[$n] = (int) $pdo->lastInsertId();
+}
+// 테스트 환경 점검(2026-11-12): 테스트 DB 가 비정상 종료된 뒤에는 FULLTEXT 색인이 표와 어긋나 방금 넣은 목 상품이 검색에 일부만 나온다
+// (search_products 는 FULLTEXT 0건일 때만 LIKE 로 넘어감 — 아래 AI 검색 단언이 코드와 무관하게 실패). 코드 오류와 구분해 알리고 멈춘다.
+$ftMock = (int) $pdo->query("SELECT COUNT(*) FROM products WHERE external_source = 'MOCK' AND external_id LIKE 'mprice-%' AND MATCH(name, spec, description) AGAINST('+회원가' IN BOOLEAN MODE)")->fetchColumn();
+if ($ftMock !== count($pids)) {
+    cleanup_mprice_mock($pdo);
+    echo "환경 오류(코드 오류 아님): 테스트 DB FULLTEXT 색인이 표와 다름 — 방금 넣은 목 상품 " . count($pids) . "개 중 {$ftMock}개만 검색됨(비정상 종료 뒤 생김).\n"
+        . "  복구: bash scripts/testdb/fts-rebuild.sh --force  (테스트 DB 전용) 후 다시 실행\n";
+    exit(2);
 }
 $iu = $pdo->prepare('INSERT INTO users (role, name, email, password_hash, is_active) VALUES (?, ?, ?, ?, 1)');
 $uids = [];
@@ -344,6 +353,29 @@ $rp = rag_recent_cards_prompt(rag_recent_cards('mock-mprice-chat'), price_basis_
 $sys = rag_build_prompt([['role' => 'user', 'content' => '수로관 50m 필요해요']])['system'];
 ok('비회원: 직전 추천표 \'판매가 10,000원/본\' · 프롬프트 \'판매가 기준\'·회원 규칙 없음(기존과 같음)', str_contains($rp, '판매가 10,000원/본') && str_contains($sys, '예상 자재비(est_cost, 판매가 기준·운반·시공비 별도)') && str_contains($sys, '규격·판매가·예상 비용') && !str_contains($sys, '이 고객은 로그인 회원이다'));
 $_SESSION['user'] = null;
+
+echo "[AI '더 저렴한 제품' 비교 — 지금 로그인 등급의 단가로 직전 표와 같은 설치 길이 기준(4차)]\n";
+// 직전 표: 상품 3(판매가 10,000 · 회원가가 판매가 이상이라 회원도 10,000) 20본(40m), 같은 조건으로 '더 저렴한' 검색
+$pdo->exec("DELETE FROM chat_logs WHERE session_key = 'mock-mprice-chat2'");
+$pdo->prepare("INSERT INTO chat_logs (session_key, user_msg, events_json) VALUES ('mock-mprice-chat2', '[MOCK] 회원가', ?)")
+    ->execute([json_encode([['type' => 'product_cards', 'cond' => ['query' => '회원가', 'length_m' => 40], 'products' => [['id' => $pids[3], 'name' => '[MOCK] 회원가 상품 3', 'spec' => '규격: 400*400*2000 | 단위: 본 | 중량: 100kg', 'price_b2c' => 10000, 'suggested_qty' => 20, 'unit' => '본']]]], JSON_UNESCAPED_UNICODE)]);
+$cheap = static function (?array $u) use ($pids): array {
+    $_SESSION['user'] = $u;
+    $b = rag_cheaper_bound(rag_recent_cards('mock-mprice-chat2'), rag_recent_cond('mock-mprice-chat2'), ['query' => '회원가', 'length_m' => 40]);
+    $r = json_decode(tool_search_products(['query' => '회원가', 'length_m' => 40, 'exclude_ids' => [$pids[3]]] + $b), true);
+    $_SESSION['user'] = null;
+    return [$b, array_column($r['products'] ?? [], 'est_cost', 'name'), (string) ($r['note'] ?? '')];
+};
+[$bg, $pg, $ng] = $cheap(null);
+ok('비회원: 기준 = 직전 표 예상 자재비 200,000(판매가 10,000 × 20) · 상품1(판매가 200,000)은 더 싸지 않아 없음 안내', ($bg['max_est_cost'] ?? 0) === 200000 && $pg === [] && str_contains($ng, '200,000원') && str_contains($ng, '저렴한 제품은 없습니다'));
+[$bc, $pc] = $cheap(['role' => 'customer', 'email' => 'mprice-cust@mock.test']);
+ok('개인회원: 같은 기준 200,000 · 개인회원가로 상품1 168,000 만(상품2 360,000 제외)', ($bc['max_est_cost'] ?? 0) === 200000 && $pc === ['[MOCK] 회원가 상품 1' => 168000]);
+[$bk, $pk] = $cheap(['role' => 'corporate', 'email' => 'mprice-corp@mock.test']);
+ok('기업회원: 기업회원가로 상품1 161,000 만', ($bk['max_est_cost'] ?? 0) === 200000 && $pk === ['[MOCK] 회원가 상품 1' => 161000]);
+$_SESSION['user'] = ['role' => 'customer', 'email' => 'mprice-cust@mock.test'];
+ok('설치 길이가 바뀌면(40m → 60m) 옛 금액 기준을 쓰지 않음', (rag_cheaper_bound(rag_recent_cards('mock-mprice-chat2'), rag_recent_cond('mock-mprice-chat2'), ['query' => '회원가', 'length_m' => 60])['cheaper_incomparable'] ?? '') === 'condition');
+$_SESSION['user'] = null;
+$pdo->exec("DELETE FROM chat_logs WHERE session_key = 'mock-mprice-chat2'");
 
 echo "[장바구니 비우기 — POST 만]\n";
 http('POST', "{$base}/api/cart.php", ['action' => 'add', 'product_id' => $pids[1], 'quantity' => 1], $jCust);
