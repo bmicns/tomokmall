@@ -68,6 +68,7 @@ tomok — Claude 원격 관리 CLI (결과는 JSON)
             tomok files deploy --grant G [--dry-run] [--check /경로]…
             tomok files restore --operation ID [--dry-run] [--force]
   승인      tomok grant status <코드> | grant wait <코드> [--timeout 초] | grant list [--status S] | grant cancel <코드>
+            grant approve <코드> --note "채팅 승인 요약" [--confirm-extra]   (사용자 채팅 승인 후에만)
   이력      tomok log list [--limit N] [--op 접두] [--grant-id N] | log get <ID>
   HTTP 확인 tomok http <경로…> [--expect 200] [--marker 문구]
   설치      tomok keygen --out <파일>   (키를 화면에 출력하지 않고 파일에만 씀)
@@ -321,7 +322,7 @@ function tomok_php_lint_local(string $content): ?string
 
 function tomok_main(array $argv): int
 {
-    $flags = ['dry-run', 'force', 'reveal-pii', 'recursive', 'hashes', 'exact', 'write-test', 'include-inactive', 'allow-bulk-delete',
+    $flags = ['dry-run', 'confirm-extra', 'force', 'reveal-pii', 'recursive', 'hashes', 'exact', 'write-test', 'include-inactive', 'allow-bulk-delete',
         'allow-cascade-delete', 'text', 'all', 'plain', 'help'];
     [$pos, $opt] = tomok_args(array_slice($argv, 1), $flags);
     $g = $pos[0] ?? 'help';
@@ -378,6 +379,10 @@ function tomok_grant(string $c, array $rest, array $opt): int
             return tomok_run($opt, 'grant.list', array_filter(['status' => o($opt, 'status'), 'limit' => (int) o($opt, 'limit', 20)], static fn($v) => $v !== null));
         case 'cancel':
             return tomok_run($opt, 'grant.cancel', ['code' => (string) ($rest[0] ?? '')]);
+        case 'approve':
+            // 사용자가 채팅으로 이 작업을 명시적으로 승인한 뒤에만 실행(사용자 결정 2026-11-10 — 관리자 화면 승인 요청 방식 제거)
+            return tomok_run($opt, 'grant.approve', ['code' => (string) ($rest[0] ?? ''), 'note' => need($opt, 'note'),
+                'confirm_extra' => o($opt, 'confirm-extra') === true]);
         case 'wait':
             $code = (string) ($rest[0] ?? '');
             $deadline = time() + (int) o($opt, 'timeout', 900);
@@ -398,7 +403,7 @@ function tomok_grant(string $c, array $rest, array $opt): int
             tomok_out(['ok' => false, 'op' => 'grant.wait', 'error' => ['code' => 'timeout', 'message' => '승인 대기 시간 초과(아직 pending)'], 'result' => $r['result'] ?? null]);
             return 1;
     }
-    throw new TomokExit(2, 'grant status|wait|list|cancel');
+    throw new TomokExit(2, 'grant status|wait|list|cancel|approve');
 }
 
 function tomok_where(array $opt): array

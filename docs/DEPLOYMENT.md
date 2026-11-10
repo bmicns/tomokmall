@@ -245,7 +245,7 @@ bash scripts/deploy.sh          # FTP_PASS는 .env.local에서 자동 로드
 ## 6-1. 원격 관리 API 경로 (2026-11-04 설치)
 
 phpMyAdmin·FileZilla 대신 Claude 가 HTTPS 원격 관리 API(`scripts/tomok`)로 운영 DB·파일을 다룰 수 있다. 상세: [`docs/REMOTE-OPS.md`](REMOTE-OPS.md), 정책: `CLAUDE.md` 12장.
-- 운영 DB 변경·운영 서버 파일 변경은 **관리자 화면 `/admin-remote-ops.php` 에서 작업 단위로 승인된 뒤에만** 실행된다(서버가 강제). DB 승인과 파일 승인은 별도. 승인 범위 안에서는 반복 승인 없이 진행한다.
+- 운영 DB 변경·운영 서버 파일 변경은 **채팅에서 사용자가 작업 단위로 승인한 뒤에만** 실행한다. Claude 가 승인 요청(grant)을 만들고 `scripts/tomok grant approve` 로 승인 처리한 뒤 실행한다(관리자 화면 승인 요청 방식은 2026-11-10 사용자 결정으로 제거 — 관리자 화면은 조회·회수·긴급 중지용). 서버는 승인된 범위·유효시간 안의 쓰기만 허용한다. DB 승인과 파일 승인은 별도. 승인 범위 안에서는 반복 승인 없이 진행한다.
 - **가격 관련 기존 DB 데이터(판매가·기업가·매입가·원가·카테고리 마진율·공급가·견적/주문 금액 등)는 승인을 받아도 변경하지 않는다**(서버 차단). 필요하면 실행하지 않고 보고한다.
 - 관리 API 자체 파일(`app/remote_ops/**`, `public/api/remote-ops.php`, `public/admin-remote-ops.php`) 갱신은 이 문서 5장 절차대로 사용자가 FileZilla 로 올린다.
 - 이 장의 1~7단계(백업·확인)는 API 가 대신한다: 변경 전 자동 백업(행·파일·테이블), 실행 후 재조회·해시·문법·HTTP 확인, 되돌리기(`db revert`·`files restore`).

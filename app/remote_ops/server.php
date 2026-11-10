@@ -58,6 +58,7 @@ function rops_ops(): array
         'grant.status'     => [null, true],
         'grant.list'       => [null, true],
         'grant.cancel'     => [null, true],
+        'grant.approve'    => [null, true],   // 범위는 승인 종류(db → db.write, files → files.write)로 안에서 확인
         'log.list'         => [null, true],
         'log.get'          => [null, true],
     ];
@@ -299,6 +300,7 @@ function rops_dispatch(string $op, ?PDO $pdo, array $ctx, array $p, array $cfg, 
             $st = $pdo->prepare("UPDATE remote_ops_grants SET status = 'canceled' WHERE id = ? AND status IN ('pending','approved')");
             $st->execute([$g['id']]);
             return ['result' => ['canceled' => $st->rowCount() === 1, 'grant' => rops_grant_public(rops_grant_get($pdo, $g['code']))], 'log' => ['grant_id' => $g['id'], 'target' => 'grant:' . $g['code']]];
+        case 'grant.approve':    return rops_grant_approve_api($pdo, $p, $cfg);
         case 'log.list':
             $rows = rops_log_list($pdo, (int) ($p['limit'] ?? 30), isset($p['op']) ? (string) $p['op'] : null, isset($p['grant_id']) ? (int) $p['grant_id'] : null);
             return ['result' => ['operations' => $rows], 'log' => ['target' => 'log', 'affected_rows' => count($rows)]];
@@ -309,6 +311,60 @@ function rops_dispatch(string $op, ?PDO $pdo, array $ctx, array $p, array $cfg, 
             return ['result' => ['operation' => $l], 'log' => ['target' => 'op:' . $l['id']]];
     }
     throw new RopsError('unknown_op', "알 수 없는 작업: {$op}");
+}
+
+/**
+ * grant.approve: 키 API 승인 — 사용자가 채팅으로 승인한 작업을 Claude 가 승인 처리(사용자 결정 2026-11-10, 관리자 화면 승인 요청 방식 제거)
+ * 관리자 화면 승인과 같은 검사: 추가 확인 대상(DDL·대량 삭제·민감 파일)은 confirm_extra 필요, 파일 승인은 요청 이후 서버 파일이 바뀌지 않았어야 함.
+ * 승인 범위·유효시간·횟수·해시 고정·가격 보호(price_guard)·되돌리기 규칙은 그대로. note(채팅 승인 내용 요약) 필수 — 이력에 남는다.
+ */
+function rops_grant_approve_api(PDO $pdo, array $p, array $cfg): array
+{
+    if (empty($cfg['chat_approve'])) {
+        throw new RopsError('chat_approve_disabled', '키 API 승인이 꺼져 있습니다(REMOTE_OPS_CHAT_APPROVE=0). 관리자 화면에서 승인하세요');
+    }
+    $g = rops_grant_get($pdo, (string) ($p['code'] ?? ''));
+    if ($g === null) {
+        throw new RopsError('grant_not_found', '승인을 찾을 수 없음');
+    }
+    $need = $g['kind'] === 'files' ? 'files.write' : 'db.write';
+    if (!in_array($need, $cfg['scopes'], true)) {
+        throw new RopsError('scope_denied', "이 키로 허용되지 않은 범위: {$need}");
+    }
+    $note = trim((string) ($p['note'] ?? ''));
+    if ($note === '') {
+        throw new RopsError('bad_params', 'note(사용자 채팅 승인 내용 요약)가 필요합니다');
+    }
+    if (!empty($g['scope']['needs_extra_confirm']) && empty($p['confirm_extra'])) {
+        throw new RopsError('confirm_required', 'DDL·대량 변경·민감 파일이 포함된 요청입니다. 사용자 확인 후 confirm_extra 로 승인하세요');
+    }
+    if ($g['kind'] === 'files') {
+        $changed = rops_grant_files_changed($g);
+        if ($changed !== []) {
+            throw new RopsError('server_changed', '요청 이후 서버 파일이 바뀌었습니다(' . implode(', ', $changed) . '). 요청을 취소하고 다시 비교하세요', ['paths' => $changed]);
+        }
+    }
+    $g = rops_grant_decide($pdo, $g['code'], 'approve', null, '[채팅 승인] ' . $note);
+    return ['result' => ['grant' => rops_grant_public($g)], 'log' => ['grant_id' => $g['id'], 'target' => 'grant:' . $g['code']]];
+}
+
+/** 파일 승인 요청 이후 서버에서 바뀐 파일 경로 목록(요청 때 해시 base_sha256 과 비교 — 관리자 화면 승인 검사와 같음) */
+function rops_grant_files_changed(array $g): array
+{
+    $changed = [];
+    foreach (array_merge($g['scope']['files'] ?? [], $g['scope']['delete'] ?? []) as $f) {
+        $cur = null;
+        try {
+            $r = rops_resolve((string) $f['path']);
+            $cur = $r['is_file'] ? hash_file('sha256', $r['abs']) : null;
+        } catch (\Throwable $e) {
+            $cur = null;
+        }
+        if ($cur !== ($f['base_sha256'] ?? null)) {
+            $changed[] = (string) $f['path'];
+        }
+    }
+    return $changed;
 }
 
 /** grant.request: db/scope 승인 요청(구조화 쓰기용 범위) */

@@ -3,7 +3,7 @@
 > 설계·API 명세: [`docs/02-design/remote-ops.md`](02-design/remote-ops.md) · 운영 배포 기준: [`docs/DEPLOYMENT.md`](DEPLOYMENT.md)
 > **상태(2026-11-04)**: **운영 설치 완료**(사용자: 관리 테이블 4개 phpMyAdmin 실행, 파일 11개 + `/app/.env.remote-ops` FileZilla 업로드, 환경변수 `TOMOK_OPS_KEY`).
 > 연결 확인(4장 1·2단계) 통과, 설치 파일 = 커밋 953e55e(줄바꿈만 CRLF). **가격 데이터 보호 추가분(3-5장)은 FileZilla 재업로드 후 적용된다.**
-> 정책(CLAUDE.md 12장): ① 가격 관련 기존 DB 데이터는 승인을 받아도 변경하지 않음(서버 차단) ② 운영 DB·파일 변경은 관리자 화면 승인 후, DB·파일 승인은 별도, 승인 범위 안에서는 자동 실행.
+> 정책(CLAUDE.md 12장): ① 가격 관련 기존 DB 데이터는 승인을 받아도 변경하지 않음(서버 차단) ② 운영 DB·파일 변경은 **채팅 승인 후**(2026-11-10 관리자 화면 승인 요청 방식 제거 — Claude 가 `grant approve` 로 승인 처리), DB·파일 승인은 별도, 승인 범위 안에서는 자동 실행.
 > 비밀번호·키 값은 이 문서·Git·채팅에 적지 않는다.
 
 ## 1. 무엇이 바뀌나
@@ -12,9 +12,9 @@
 |---|---|
 | phpMyAdmin 로그인 → SQL 붙여넣기 → 실행 → 결과 복사 | Claude 가 `scripts/tomok db …` 로 조회·수정하고 결과를 직접 확인 |
 | FileZilla 로 파일 내려받기·올리기·지우기 | Claude 가 `scripts/tomok files …` 로 비교·백업·배포·복구 |
-| 승인 = 채팅에서 "진행해" | 승인 = **관리자 화면(`/admin-remote-ops.php`)에서 작업 단위로 '승인' 클릭** (휴대폰 가능). 승인한 범위 안에서는 Claude 가 문장마다 묻지 않고 진행 |
+| 승인 = 채팅에서 "진행해" | 승인 = **채팅에서 작업 단위로 승인**(2026-11-10~). Claude 가 승인 요청을 만들고 `scripts/tomok grant approve` 로 승인 처리 → 범위·유효시간 안에서만 실행. 승인한 범위 안에서는 Claude 가 문장마다 묻지 않고 진행. (2026-11-04~11-09: 관리자 화면 `/admin-remote-ops.php` 에서 '승인' 클릭 — 이 화면은 조회·거절·회수·긴급 중지용으로 남음) |
 
-조회(SELECT·구조·파일 목록·해시)는 승인 없이 가능(CLAUDE.md 6장의 읽기 전용 허용과 같음). 쓰기(INSERT·UPDATE·DELETE·DDL·파일 배포·삭제)는 승인 없이는 서버가 거부한다.
+조회(SELECT·구조·파일 목록·해시)는 승인 없이 가능(CLAUDE.md 6장의 읽기 전용 허용과 같음). 쓰기(INSERT·UPDATE·DELETE·DDL·파일 배포·삭제)는 승인된 요청(grant) 없이는 서버가 거부한다.
 
 ## 2. 현재 환경에서 가능한 것 / 불가능한 것
 
@@ -113,6 +113,33 @@ TOMOK_OPS_KEY_ID=k1
 
 올린 뒤 Claude 가 `scripts/tomok files diff app/remote_ops/server.php` 와 `scripts/tomok probe`(`api_version` 1.0.1)로 확인한다.
 
+### 3-7. 업데이트: 채팅 승인(관리자 화면 승인 요청 방식 제거) (2026-11-10, FileZilla 재업로드 — 운영 배포 승인 필요)
+
+사용자 결정(2026-11-10): 관리자 화면에서 승인 요청을 승인하는 방식을 없애고, 사용자가 **채팅에서 승인**하면 Claude 가 키 API(`grant.approve`)로 승인 처리한다.
+
+| 바뀌는 것 | 그대로인 것 |
+|---|---|
+| 새 작업 `grant.approve`·CLI `scripts/tomok grant approve <코드> --note "채팅 승인 요약" [--confirm-extra]` | 승인 요청(grant)의 범위·유효시간·횟수·SQL/파일 해시 고정, DB·파일 승인 분리 |
+| 승인 메모 앞에 `[채팅 승인]`, `decided_by` 는 NULL, 실행 이력에 `grant.approve` 기록 | 가격 보호(`price_guard`)·SQL 검사·자동 백업·되돌리기·서버 변동 감지 |
+| 설정 `REMOTE_OPS_CHAT_APPROVE`(기본 1, `0` 이면 키 API 승인 막음) | 관리자 화면: 조회·거절·회수·'전체 회수'·(필요 시) 승인 |
+
+키 API 승인도 관리자 화면과 같은 검사를 한다: 추가 확인 대상(DDL·대량/CASCADE 삭제·민감 파일·숨은 문자)은 `--confirm-extra` 필요, 파일 요청은 요청 이후 서버 파일이 바뀌었으면 `server_changed` 로 거부, 이미 결정된 요청은 `grant_state`.
+
+**위험**: 서버는 사람이 승인했는지를 따로 확인하지 않는다 — API 키를 가진 쪽이 요청·승인·실행을 모두 할 수 있다. 키 보관(환경변수만, 출력·기록 금지)과 7장의 긴급 중지가 더 중요해진다.
+
+FileZilla 업로드(텍스트 모드 무관 — 줄바꿈 차이는 같음으로 봄):
+
+| # | 로컬 | 서버 |
+|---|---|---|
+| 1 | `app/remote_ops/server.php` | `/app/remote_ops/server.php` |
+| 2 | `app/remote_ops/grants.php` | `/app/remote_ops/grants.php` |
+| 3 | `app/remote_ops/core.php` | `/app/remote_ops/core.php` |
+
+- 업로드 전: 채팅 승인 기능이 없으므로 `grant approve` 는 `unknown_op` — 그동안은 관리자 화면 승인으로 진행.
+- 올린 뒤 Claude 가 확인: `scripts/tomok files diff app/remote_ops/server.php app/remote_ops/grants.php app/remote_ops/core.php` → `same`/`eol_only`. 이후 첫 채팅 승인 작업에서 `grant approve` 결과가 `approved` 면 적용된 것.
+- 되돌리기: 이전 커밋의 세 파일을 다시 올리거나, 파일은 두고 `REMOTE_OPS_CHAT_APPROVE=0`.
+- CLI(`scripts/remote-ops/tomok.php`)는 저장소 도구라 업로드하지 않는다.
+
 ## 4. 운영 연동 테스트 절차 (설치 직후, Claude 가 실행)
 
 각 단계가 통과해야 다음으로 간다. 5단계부터는 운영 변경이므로 **승인 화면에서 승인한 테스트 범위만** 쓴다.
@@ -191,10 +218,10 @@ scripts/tomok db request --title "가격 변경" --tables products --actions upd
 ```bash
 scripts/tomok db request --title "대성산업 투수블록 3개 재고 0" --tables products --actions update --columns products.stock_qty --ids products:1001,1002,1003 --max-rows 3 --ttl 30
 ```
-→ `approve_url` 을 사용자에게 안내 → 사용자가 관리자 화면에서 대상 행 표(가격 보호 컬럼 표시 포함)를 보고 **승인**.
+→ 결과의 대상 행 미리보기(가격 보호 컬럼 표시 포함)를 확인 → 사용자가 채팅으로 이 작업을 지시·승인했으면 승인 처리(범위가 지시보다 넓으면 채팅으로 먼저 확인).
 
 ```bash
-scripts/tomok grant wait G261104-XXXXX
+scripts/tomok grant approve G261104-XXXXX --note "채팅 승인: 대성산업 투수블록 3개 재고 0"
 ```
 ```bash
 scripts/tomok db batch --grant G261104-XXXXX --file changes.json --dry-run
@@ -225,10 +252,10 @@ scripts/tomok files diff app/pricing.php public/product.php
 ```bash
 scripts/tomok files stage app/pricing.php public/product.php --title "상품 상세 가격 표시 수정" --detail "커밋 abc1234 — 무엇을 왜"
 ```
-→ 승인 화면에 **서버가 계산한 diff** 가 보인다 → 사용자 승인.
+→ 결과에 **서버가 계산한 diff**·추가 확인 대상(민감 파일) 표시 → 사용자 채팅 승인 범위와 같으면 승인 처리(민감 파일은 사용자가 명시한 경우에만 `--confirm-extra`).
 
 ```bash
-scripts/tomok grant wait G261103-YYYYY
+scripts/tomok grant approve G261103-YYYYY --note "채팅 승인: 상품 상세 가격 표시 수정 배포" --confirm-extra
 ```
 ```bash
 scripts/tomok files deploy --grant G261103-YYYYY --check / --check "/product.php?id=1001"
@@ -243,7 +270,7 @@ scripts/tomok files restore --operation 456
 ```bash
 scripts/tomok db stage-sql --file database/20261110_example.sql --title "예시 이관"
 ```
-→ 승인 전에는 **실행하지 않고** 같은 조건의 COUNT 로 센 문장별 대상 행 수가 승인 화면에 표시된다(실행 때 다시 세어 넘으면 전체 롤백). DDL 파일은 '추가 확인'을 체크해야 승인되고, 실행 직전 대상 테이블이 자동 백업된다.
+→ 승인 전에는 **실행하지 않고** 같은 조건의 COUNT 로 센 문장별 대상 행 수가 요청 결과에 표시된다(실행 때 다시 세어 넘으면 전체 롤백). DDL 파일은 `grant approve --confirm-extra` 가 있어야 승인되고, 실행 직전 대상 테이블이 자동 백업된다.
 
 SQL 파일 규칙: 한 테이블 INSERT·REPLACE·UPDATE·DELETE(여러 테이블은 `WHERE … IN (SELECT …)` 로), **DDL 과 DML 은 따로 요청**, `SET`·`SELECT` 문장 금지(확인은 `-- @verify`), 관리 테이블·인증정보 컬럼 언급 금지, 1MB·2,000줄 이하.
 ```bash
@@ -264,17 +291,18 @@ scripts/tomok db execute --grant G261103-ZZZZZ
 | DB 확인·복구 | `db verify --operation` · `db revert --operation [--force]` · `db backup --tables` |
 | 파일 조회 | `files list [경로] [--recursive] [--hashes]` · `files read <경로> [--out]` · `files hash` · `files diff` · `files manifest` · `files lint` · `files snapshot <id>` |
 | 파일 배포 | `files stage <경로…> --title [--delete …]` · `files deploy --grant [--check /경로]` · `files restore --operation` |
-| 승인·이력 | `grant status|wait|list|cancel` · `log list|get` · `http <경로…>` |
+| 승인·이력 | `grant approve <코드> --note … [--confirm-extra]`(채팅 승인 후) · `grant status|wait|list|cancel` · `log list|get` · `http <경로…>` |
 
 ## 7. 끄기·키 교체·회수
 
 | 하고 싶은 것 | 방법 |
 |---|---|
-| 모든 원격 쓰기 즉시 중지 | 승인 화면 **'전체 회수'** |
+| 모든 원격 쓰기 즉시 중지 | 관리자 화면 `/admin-remote-ops.php` **'전체 회수'** |
+| 채팅 승인(키 API 승인)만 끄기 | `/app/.env.remote-ops` 에 `REMOTE_OPS_CHAT_APPROVE=0` — 관리자 화면 승인만 가능해짐(2026-11-10 이전 방식) |
 | API 전체 중지(조회 포함) | FileZilla 로 `/app/.env.remote-ops` 의 `REMOTE_OPS_ENABLED=0` 으로 바꾸거나 파일 삭제 |
 | 키 교체 | 3-1 다시 실행(새 `REMOTE_OPS_KEY_ID=k2` 권장) → `/app/.env.remote-ops` 교체 → Claude Code 환경변수 `TOMOK_OPS_KEY`·`TOMOK_OPS_KEY_ID` 교체 → 새 세션 |
 | 조회만 허용 | `REMOTE_OPS_SCOPES=probe,db.read,files.read` 추가 |
-| 키 유출 의심 | 즉시 `REMOTE_OPS_ENABLED=0` → 승인 화면 '최근 실행 이력' 확인 → 키 교체 |
+| 키 유출 의심 | 즉시 `REMOTE_OPS_ENABLED=0` → 관리자 화면 '최근 실행 이력' 확인 → 키 교체 (채팅 승인 방식에서는 키만으로 요청·승인·실행이 모두 가능하므로 더 서둘러야 한다) |
 
 ## 8. 로컬 검증 결과 (2026-11-03, 운영 접속 없음)
 
