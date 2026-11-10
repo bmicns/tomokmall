@@ -328,7 +328,7 @@ function processEvent(event, content) {
       renderLegalSources(event.sources, content);
       break;
     case 'material_sources':
-      renderMaterialSources(event.sources, content);
+      // 제조사 자료 출처 박스는 표시하지 않음(사용자 결정 2026-11-10 — 답변 글과 추천표 사이 박스 제거). 답변 글의 'OO 자료에 따르면'은 그대로
       break;
     case 'basic_sources':
       renderBasicSources(event, content);
@@ -343,20 +343,6 @@ function renderSpecUnavailable(event, container) {
   wrap.className = 'spec-unavailable';
   wrap.innerHTML = `<div class="spec-unavailable-title">두께 ${mm}mm 포장 블록 — 현재 등록된 적합 상품이 없습니다</div>
     <div class="spec-unavailable-body">${escHtml(event.item || '')} · 기준보다 얇은 제품은 대체로 추천하지 않습니다.<br>발주처 설계도서·시방서의 블록 규격(두께·크기·수량)을 확인해 주세요. 해당 규격은 별도 견적이 필요합니다.</div>`;
-  container.appendChild(wrap);
-}
-
-/** material_sources 이벤트 → 설명에 쓴 자재 참고 자료(제조사 공개 자료, 승인분)의 출처 — 판매 상품·가격 아님 */
-function renderMaterialSources(sources, container) {
-  if (!sources || sources.length === 0) return;
-  const wrap = document.createElement('div');
-  wrap.className = 'legal-sources material-sources';
-  const items = sources.slice(0, 5).map(s => {
-    const url = /^https?:\/\//.test(s.url || '') ? s.url : '';
-    const cat = /^catalog:.*#p(\d+)$/.exec(s.url || '');   // 허락받은 제조사 카탈로그(scripts/external/catalog-extract.php) — 링크 없이 쪽만
-    return `<li>${escHtml(s.maker || '')}${url ? ` · <a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">원문 보기</a>` : ''}${cat ? ` · 제조사 카탈로그 ${escHtml(cat[1])}쪽` : ''}</li>`;
-  }).join('');
-  wrap.innerHTML = `<div class="legal-sources-title">참고 자료 출처 (제조사 자료 · 판매 상품 아님)</div><ul>${items}</ul>`;
   container.appendChild(wrap);
 }
 
