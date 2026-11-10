@@ -6,9 +6,13 @@
 --       (가격 정책은 상품 표 단계에서 별도 결정 — 필요하면 ADD COLUMN 으로 추가).
 -- 데이터 원천: 상용콘크리트(주) 카탈로그(2025, syccrt.com 자료실 「카다로그.pdf」) 판독본(spec-viewer, 2026-11-10)
 --       2단계 — 대분류 9개(slug syc-g1~g9) → 품목 81개(slug syc-s1~s81, 판독본 구분자 s1~s81 과 같은 번호).
---       품목 이름은 판독본 제목 원문 그대로. 웹사이트 전용 품목(건널목수로관·볼라드 등)은 없음 → 사용자가 따로 추가 예정.
+--       품목 이름은 판독본 제목 원문 그대로.
+--     + 카탈로그에 없는 웹사이트 전용 품목(사용자 제공 웹사이트 화면 캡처 기준, 2026-11-10) — slug syc-w1~w4, source_page NULL
+--       건널목수로관 → 수로관·플륨관 아래(벤치플륨 등 수로관과 연결되는 제품)
+--       볼라드 대분류 신설(syc-g10) → 스텐볼라드 - HK / 탄성볼라드 - HK / 석재볼라드 - SCG
+--       합계: 대분류 10개 + 품목 85개 = 95행.
 -- 사용 코드: 없음(만들어 두기만 함 — 사용자 결정 2026-11-10). 사이트 메뉴·검색·가격 계산에 영향 없음.
--- 성격: 추가형(additive). 새 표 1개 + 새 표에만 행 90개. 가격 칸 없음(가격 보호 정책 대상 아님).
+-- 성격: 추가형(additive). 새 표 1개 + 새 표에만 행 95개. 가격 칸 없음(가격 보호 정책 대상 아님).
 -- 실행: 사용자 승인 후 [1] 사전 확인 → [2] 표 생성 → [3] 대분류 → [4] 품목 → [5] 확인. 다시 실행해도 중복 없음(slug 기준).
 -- 되돌리기: 맨 아래 [롤백] (새 표만 지움 — 기존 데이터 영향 없음)
 
@@ -25,16 +29,16 @@ CREATE TABLE IF NOT EXISTS syc_categories (
     parent_id   INT UNSIGNED NULL                     COMMENT 'syc_categories.id — NULL 이면 대분류',
     name        VARCHAR(100) NOT NULL                 COMMENT '카테고리 이름(카탈로그 판독본 원문)',
     description VARCHAR(200) NULL                     COMMENT '설명(categories.description 과 같은 용도)',
-    slug        VARCHAR(120) NOT NULL UNIQUE          COMMENT 'syc-g<n> 대분류 / syc-s<n> 품목(판독본 구분자 s<n>)',
+    slug        VARCHAR(120) NOT NULL UNIQUE          COMMENT 'syc-g<n> 대분류 / syc-s<n> 카탈로그 품목(판독본 구분자 s<n>) / syc-w<n> 웹사이트 전용 품목',
     sort_order  INT NOT NULL DEFAULT 0,
     is_active   TINYINT(1) NOT NULL DEFAULT 1,
-    source_page SMALLINT UNSIGNED NULL                COMMENT '카탈로그(2025) 쪽 번호 — 대분류는 첫 품목 쪽',
+    source_page SMALLINT UNSIGNED NULL                COMMENT '카탈로그(2025) 쪽 번호 — 대분류는 첫 품목 쪽, 웹사이트 전용은 NULL',
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_syc_categories_parent (parent_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   COMMENT='상용콘크리트(syccrt.com) 상품 전용 카테고리 — categories 와 별개';
 
--- [3] 대분류 9개 --------------------------------------------------------------
+-- [3] 대분류 10개 -------------------------------------------------------------
 INSERT INTO syc_categories (parent_id, name, slug, sort_order, is_active, source_page)
 SELECT NULL, v.name, v.slug, v.sort_order, 1, v.source_page
 FROM (
@@ -47,10 +51,11 @@ FROM (
     UNION ALL SELECT '그레이팅·주철뚜껑', 'syc-g7', 70, 26
     UNION ALL SELECT '보도블록·옹벽·경계석', 'syc-g8', 80, 30
     UNION ALL SELECT '보호틀·파형강관·철망', 'syc-g9', 90, 35
+    UNION ALL SELECT '볼라드', 'syc-g10', 100, NULL
 ) v
 WHERE NOT EXISTS (SELECT 1 FROM syc_categories x WHERE x.slug = v.slug);
 
--- [4] 품목 81개 (대분류 slug 로 parent_id 연결) ----------------------------------
+-- [4] 품목 85개 (대분류 slug 로 parent_id 연결) ----------------------------------
 INSERT INTO syc_categories (parent_id, name, slug, sort_order, is_active, source_page)
 SELECT p.id, v.name, v.slug, v.sort_order, 1, v.source_page
 FROM (
@@ -135,14 +140,19 @@ FROM (
     UNION ALL SELECT 'syc-g9', '용접철망의 종류 및 적용 선 지름 (2) — 기계적 성질', 'syc-s79', 50, 37
     UNION ALL SELECT 'syc-g9', '망목치수, 허용차', 'syc-s80', 60, 37
     UNION ALL SELECT 'syc-g9', '용접철망의 종류 및 적용 선 지름 (3) — 품번별 규격', 'syc-s81', 70, 37
+    -- 웹사이트 전용 품목(카탈로그에 없음)
+    UNION ALL SELECT 'syc-g2', '건널목수로관', 'syc-w1', 100, NULL
+    UNION ALL SELECT 'syc-g10', '스텐볼라드 - HK', 'syc-w2', 10, NULL
+    UNION ALL SELECT 'syc-g10', '탄성볼라드 - HK', 'syc-w3', 20, NULL
+    UNION ALL SELECT 'syc-g10', '석재볼라드 - SCG', 'syc-w4', 30, NULL
 ) v
 JOIN syc_categories p ON p.slug = v.parent_slug AND p.parent_id IS NULL
 WHERE NOT EXISTS (SELECT 1 FROM syc_categories x WHERE x.slug = v.slug);
 
 -- [5] 확인(읽기 전용) ----------------------------------------------------------
--- SELECT COUNT(*) FROM syc_categories;                                   -- 90 (대분류 9 + 품목 81)
+-- SELECT COUNT(*) FROM syc_categories;                                   -- 95 (대분류 10 + 품목 85)
 -- SELECT p.name, COUNT(c.id) FROM syc_categories p LEFT JOIN syc_categories c ON c.parent_id = p.id
---  WHERE p.parent_id IS NULL GROUP BY p.id, p.name ORDER BY p.sort_order;  -- 9행, 합계 81
+--  WHERE p.parent_id IS NULL GROUP BY p.id, p.name ORDER BY p.sort_order;  -- 10행, 합계 85
 
 -- [롤백] 되돌리기 — 새 표만 지운다(기존 표·데이터 영향 없음). 승인 후에만
 -- DROP TABLE syc_categories;
