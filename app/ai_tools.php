@@ -28,19 +28,22 @@ function ai_tool_definitions(): array
             'type'     => 'function',
             'function' => [
                 'name'        => 'search_products',
-                'description' => '데이터베이스에서 건설자재를 검색합니다. ★중요: query에는 "제품명/카테고리/용도" 텍스트만 넣고 숫자(치수·길이·수량)는 넣지 마세요. 규격 치수(폭/관경 mm)는 spec_mm, 설치 길이(m)는 length_m, 면적(㎡)은 area_m2 파라미터로 분리해 전달하세요. 예: 폭500 수로용 그레이팅 → query "그레이팅 수로용 중하중", spec_mm 500, length_m 100. 이렇게 하면 정확한 규격 필터 + 제품별 소요 수량이 자동 계산됩니다.',
+                'description' => '데이터베이스에서 건설자재를 검색합니다. ★중요: query에는 "제품명/카테고리/용도" 텍스트만 넣고 숫자(치수·길이·수량)는 넣지 마세요. 폭은 width_mm, 제품 1개의 길이 치수는 product_length_mm, 그 밖의 규격 치수(관경·포장 블록 두께 등)는 spec_mm, 설치 총 길이(연장, m)는 length_m, 면적(㎡)은 area_m2 로 분리해 전달하세요. 예: 폭 500mm 수로용 그레이팅 100m → query "그레이팅 수로용 중하중", width_mm 500, length_m 100. 폭·길이는 상품마다 다른 규격 체계(이름표)로 확인되고 제품별 소요 수량이 자동 계산됩니다.',
                 'parameters'  => [
                     'type'       => 'object',
                     'properties' => [
                         'query'    => ['type' => 'string',  'description' => '검색 텍스트: 카테고리/제품명 + 용도/조건(중하중·수로용·우수 등). 숫자(치수·길이·수량)는 절대 넣지 말 것. 예: "그레이팅 수로용 중하중", "이중벽관 하수", "경계석 화강암".'],
                         'queries'  => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => '여러 종류를 한 표로 비교할 때만 사용(2~4개). 예: ["인터로킹 블록", "인조화강블록", "점토블럭"]. 각 종류별 대표 제품이 한 표에 모이고 같은 면적/길이 기준 소요 수량·예상 금액이 함께 계산됩니다. 이때 query에는 대표 품목명을 넣으세요.'],
                         'limit'    => ['type' => 'integer', 'description' => '최대 결과 수 (기본 5, 최대 10)'],
-                        'spec_mm'  => ['type' => 'number',  'description' => '규격 치수(폭 또는 관경, mm). 예: 폭 50cm → 500, 관경 300mm → 300. 해당 치수 제품만 필터링.'],
-                        'length_m' => ['type' => 'number',  'description' => '설치 총 길이/연장(미터). 예: 100m 수로 → 100. 선형 제품의 소요 수량 자동 계산에 사용.'],
+                        'spec_mm'  => ['type' => 'number',  'description' => '폭·길이가 아닌 규격 치수(관경·포장 블록 두께 등, mm). 예: 관경 300mm → 300, 차량용 블록 두께 80. 폭은 width_mm, 제품 길이는 product_length_mm 로.'],
+                        'width_mm' => ['type' => 'number',  'description' => '제품의 폭(너비·가로, mm). 예: 폭 50cm → 500. 상품 규격 이름표의 폭 칸으로 확인하며 숫자 위치로 짐작하지 않습니다(폭 400×길이 500 제품은 폭 500 이 아님).'],
+                        'product_length_mm' => ['type' => 'number', 'description' => '제품 1개의 길이 치수(mm). 예: 길이 1m 그레이팅 → 1000. 설치 총 길이(연장 10m 등)는 length_m 로.'],
+                        'length_m' => ['type' => 'number',  'description' => '설치 총 길이/연장(미터). 예: 100m 수로 → 100. 선형 제품의 소요 수량 자동 계산에 사용(제품 1개 길이는 product_length_mm).'],
                         'area_m2'  => ['type' => 'number',  'description' => '설치 면적(㎡). 예: 보도블록 200㎡ → 200. 면적 단위(㎡) 제품의 소요 수량 계산에 사용.'],
                         'spec_strict' => ['type' => 'boolean', 'description' => 'spec_mm이 반드시 지켜야 하는 조건이면 true(예: 차량이 올라가는 곳의 블록 두께 80). 맞는 규격이 없으면 다른 규격을 보여주지 않습니다. queries 비교에서는 항상 적용됩니다.'],
                         'traffic'  => ['type' => 'string', 'enum' => ['pedestrian', 'car', 'truck'], 'description' => '그레이팅(수로·맨홀 덮개) 검색의 통행 조건. 사람만 다님(식당 주방·화장실·실내·베란다·인도·공원·보행자 전용) → pedestrian, 승용차·SUV → car, 트럭·버스·지게차 등 대형차 → truck. 조건보다 낮은 하중 등급(안전 부족)과 높은 등급(과잉·더 비쌈)은 표에서 빠집니다.'],
-                        'exclude_ids' => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => "고객이 '다른 제품', 'A 말고', '다시 추천'처럼 이미 본 제품이 아닌 다른 제품을 원할 때 뺄 상품 id(직전 추천표의 id). 같은 상품명의 다른 규격도 함께 빠집니다."],
+                        'exclude_ids' => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => "고객이 '다른 제품', 'A 말고', '다시 추천', '앞에 추천한 제품은 제외'처럼 이미 본 제품이 아닌 다른 제품을 원할 때 뺄 상품 id(직전 추천표의 id). 같은 상품명의 다른 규격도 함께 빠집니다."],
+                        'max_est_cost' => ['type' => 'integer', 'description' => "고객이 '좀 더 저렴한 제품'을 원할 때 직전 추천표의 가장 낮은 예상 자재비(원). 같은 설치 길이·면적으로 계산한 예상 자재비가 이보다 낮은 제품만 나옵니다(수량을 계산할 수 없는 제품은 비교하지 않음)."],
                     ],
                     'required' => ['query'],
                 ],
@@ -452,7 +455,17 @@ function ai_estimate_quantity(array $p, float $lengthM, ?float $widthMm, ?float 
         return [$qty, sprintf('%sm → %dM', $fmt($lengthM), $qty)];
     }
 
-    // 선형(본/개/조 등): 규격 최대 치수 = 1개 길이(mm)
+    // 선형(본/개/조 등): 1개 길이 = 규격 이름표로 채운 '길이 L'(원문 일치) 또는 규격의 이름 붙은 길이(L1000) — 숫자 위치·크기로 짐작하지 않음(2026-11-10).
+    //    예: 그레이팅 500×500(폭 W × 길이 L) → 10m ÷ 0.5m = 20개. 길이 칸이 없는 상품만 아래 기존 규칙.
+    $perMm = ai_row_dim_mm($p, 'l');
+    if ($perMm !== null && $perMm >= 100) {
+        $perM = $perMm / 1000.0;
+        $qty  = (int) ceil(round($lengthM / $perM, 6));
+        $u    = $unit !== '' ? $unit : '개';
+        return [$qty, sprintf('%sm ÷ %sm = %d%s', $fmt($lengthM), $fmt($perM), $qty, $u)];
+    }
+
+    // 선형(본/개/조 등) — 길이 칸이 없는 상품: 규격 최대 치수 = 1개 길이(mm)
     // ⚠️ 최대 치수가 1000mm(1m) 미만이면 규격에 '길이'가 없는 것(예: 경계석은 단면치수만
     //    기재 120*120*120)으로 보고 수량 계산을 생략한다(틀린 수량 방지 > 억지 계산).
     if (preg_match_all('/\d+(?:\.\d+)?/', $reg, $mm)) {
@@ -492,6 +505,17 @@ function tool_search_products(array $input): string
 
     $limit  = max(1, min(10, (int) ($input['limit'] ?? 5)));
     $specMm = (int) ($input['spec_mm'] ?? 0);
+    // 치수 조건(2026-11-10): 폭(width_mm)·제품 1개 길이(product_length_mm)는 이름표로 채운 치수 칸으로 확인한다(숫자 위치로 정하지 않음).
+    //   설치 총 길이(length_m)와 다르다. spec_mm 은 그 밖의 규격 치수(관경·포장 블록 두께 등) — 기존 동작 그대로.
+    $want = array_filter(['w' => ai_parse_mm($input['width_mm'] ?? null), 'l' => ai_parse_mm($input['product_length_mm'] ?? null)], static fn($v) => $v !== null);
+    if ($want && $specMm > 0 && in_array((float) $specMm, array_values($want), true)) {
+        $specMm = 0;   // 같은 숫자를 폭(길이)으로도 넘긴 경우: 위치와 관계없이 맞추는 spec_mm 대신 폭(길이)으로만 확인
+    }
+    $dimParams = [];
+    $dimSql    = $want ? ai_dim_sql($want, $dimParams) : '';
+    $dimTotal  = null;
+    $find      = static fn(string $q, int $n) => search_products($q, $n, 0, $dimTotal, $dimSql, $dimParams);   // 치수 조건은 모든 재검색에 그대로(완화하지 않음)
+    $cond      = ai_dim_cond_label($want, $specMm);
 
     // ★숫자 역할 분리: AI 질의 텍스트의 떠도는 숫자(길이·수량 등)는 규격 오필터를 유발하므로 제거.
     //   규격 치수 필터는 오직 spec_mm 로만 적용(검색어에 숫자로 붙여 search_products의 규격 인지에 태움).
@@ -503,7 +527,7 @@ function tool_search_products(array $input): string
 
     // 중복 제거·재정렬 여지를 두려고 넉넉히 조회
     $fetch = max(40, $limit * 8);
-    $rows  = search_products($effQuery, $fetch);
+    $rows  = $find($effQuery, $fetch);
     $query = $qText; // 이후 용도 필터·하이라이트 재정렬은 텍스트 기준
 
     // ★0건 대안 제시: 데드엔드("제품 선택하세요"만 노출) 방지
@@ -516,7 +540,7 @@ function tool_search_products(array $input): string
             $sc = suggest_correction($qText);
             if ($sc) {
                 $ceff = $specMm > 0 ? ($sc['query'] . ' ' . $specMm) : $sc['query'];
-                $try  = search_products($ceff, $fetch);
+                $try  = $find($ceff, $fetch);
                 if ($try) {
                     $rows      = $try;
                     $query     = $sc['query'];
@@ -528,12 +552,18 @@ function tool_search_products(array $input): string
         // ② 규격 완화: 여전히 0건이고 규격을 좁게 걸었다면 규격 빼고 근접 제품
         //    단, spec_strict(차량용 두께 80T 등 반드시 지켜야 하는 규격)면 완화하지 않는다(다른 두께 노출 금지).
         if (!$rows && $specMm > 0 && empty($input['spec_strict'])) {
-            $try = search_products($qText, $fetch);
+            $try = $find($qText, $fetch);
             if ($try) {
                 $rows = $try;
                 $note = "규격 {$specMm}mm에 딱 맞는 제품이 없어, 해당 품목의 다른 규격을 함께 보여드립니다.";
             }
         }
+    }
+
+    // ⓪ 치수 조건: 폭·길이가 확인된 규격 → 확인 불가 규격 순, 다른 규격은 뺀다(싸다는 이유로 조건이 다른 제품을 넣지 않음)
+    if ($want) {
+        [$okRows, $unkRows] = ai_filter_dims($rows, $want);
+        $rows = array_merge($okRows, $unkRows);
     }
 
     // ⓪ 용도 배타 필터: 부속(집게·몰드 등) 제외
@@ -559,6 +589,10 @@ function tool_search_products(array $input): string
         $hadRows = $rows !== [];
         [$rows, $heavier] = ai_filter_load_class($rows, $traffic);
         $classEmptied = $hadRows && $rows === [];
+        // 수로 덮개 검색이면 맨홀·집수정용은 '높은 등급 대안'으로도 안내하지 않는다(부속 필터가 0건일 때 되돌린 다른 종류)
+        if (preg_match('/수로|배수로|측구|트렌치|농수로/u', $query) && !preg_match('/맨홀|집수정/u', $query)) {
+            $heavier = array_values(array_filter($heavier, static fn($r) => !preg_match('/맨홀|집수정/u', (string) ($r['name'] ?? ''))));
+        }
     }
     // ⓪-4 이미 본 제품 제외(exclude_ids — 고객이 '다른 제품'·'A 말고'를 원할 때). 표는 상품명별 대표 1개라 같은 상품명의 다른 규격도 뺀다.
     //      2026-11-09 운영 상담: '다시 추천'·'다른 거' 요청에 같은 조건으로 다시 검색해 같은 표가 나오고 글만 '다른 제품'이라고 함.
@@ -575,8 +609,8 @@ function tool_search_products(array $input): string
     //      — 과잉 등급만 남기거나 '다른 제품 없음'으로 끝내지 않게(예: 보행자용 폭 500mm → EX메탈망·플라스틱 그레이팅)
     $broadened = false;
     $extraNotes = [];
-    if (($classEmptied || $exclEmptied) && $traffic !== '' && $specMm > 0 && preg_match('/그레이팅/u', $query)) {
-        $alt = ai_same_class_gratings($query, $specMm, $traffic, $fetch);
+    if (($classEmptied || $exclEmptied) && $traffic !== '' && isset($want['w']) && preg_match('/그레이팅/u', $query)) {
+        $alt = ai_same_class_gratings($query, $want['w'], $traffic, $fetch);
         if ($excludeIds) {
             [$alt, $altHit] = ai_exclude_shown($alt, $excludeIds, $excludeNames);
             $excludedHit = array_values(array_unique(array_merge($excludedHit, $altHit)));
@@ -584,7 +618,7 @@ function tool_search_products(array $input): string
         if ($alt) {
             $rows = $alt;
             $broadened = true;
-            $extraNotes[] = ai_broadened_note($query, $specMm, $traffic, $classEmptied ? $heavier : [], $exclEmptied ? $excludedHit : []);
+            $extraNotes[] = ai_broadened_note($query, ai_dim_cond_label(['w' => $want['w']]), $traffic, $classEmptied ? $heavier : [], $exclEmptied ? $excludedHit : []);
         }
     }
 
@@ -592,8 +626,11 @@ function tool_search_products(array $input): string
     $lengthM = (float) ($input['length_m'] ?? 0);
     $areaM2  = (float) ($input['area_m2'] ?? 0);
 
+    // 면적 단위(㎡) 제품의 길이×폭 계산에 쓰는 폭: 폭 조건(width_mm)이 있으면 그 값, 없으면 기존처럼 spec_mm
+    $areaWidth = $want['w'] ?? ($specMm > 0 ? (float) $specMm : null);
+
     // ① 상품명 기준 중복 제거 (규격 변형 다수 → 대표 1개: 같은 조건에서 예상 자재비가 가장 낮은 변형)
-    $distinct = ai_pick_representatives($rows, $lengthM, $specMm > 0 ? (float) $specMm : null, $areaM2 > 0 ? $areaM2 : null);
+    $distinct = ai_pick_representatives($rows, $lengthM, $areaWidth, $areaM2 > 0 ? $areaM2 : null);
 
     // ② 상품명에 검색어(숫자 규격 제외 텍스트)가 들어간 상품을 우선 (설명만 걸린 노이즈 후순위)
     //    같은 순위 안에서는 예상 자재비(없으면 화면 단가)가 낮은 순 — 2026-11-09 운영 상담: 6,000원 보행자용이 표 맨 끝, 과잉 등급 고가 제품이 앞에 나와 비싼 제품을 추천
@@ -613,22 +650,23 @@ function tool_search_products(array $input): string
         }
         return $c;
     };
-    $costKey = static function (array $p) use ($memberMap, $lengthM, $specMm, $areaM2): array {
+    $costKey = static function (array $p) use ($memberMap, $lengthM, $areaWidth, $areaM2): array {
         $unit = (int) ($memberMap[(int) $p['id']]['price'] ?? (int) ($p['price_b2c'] ?? 0));
-        return ai_cost_key($p, $unit, $lengthM, $specMm > 0 ? (float) $specMm : null, $areaM2 > 0 ? $areaM2 : null);
+        return ai_cost_key($p, $unit, $lengthM, $areaWidth, $areaM2 > 0 ? $areaM2 : null);
     };
-    // PHP 8 usort는 안정 정렬 → 이름 순위·금액이 같으면 기존 관련도 순서 유지
-    usort($distinct, static fn($a, $b) => ($nameHits((string) $b['name']) <=> $nameHits((string) $a['name'])) ?: ($costKey($a) <=> $costKey($b)));
+    $dimUnknown = static fn(array $p): bool => ($p['_dim'] ?? '') === 'unknown';
+    // PHP 8 usort는 안정 정렬 → 이름 순위·금액이 같으면 기존 관련도 순서 유지. 치수 조건이 있으면 확인된 규격이 먼저(조건 확인이 가격보다 우선)
+    usort($distinct, static fn($a, $b) => ($dimUnknown($a) <=> $dimUnknown($b)) ?: ($nameHits((string) $b['name']) <=> $nameHits((string) $a['name'])) ?: ($costKey($a) <=> $costKey($b)));
 
     $products = array_slice($distinct, 0, $limit);
 
     // 고르는 기준(초보 고객용 쉬운 설명) — 상품 규격 + 사람이 확정한 외부 자료(제조사·KS 표기, 가격 제외). 외부 테이블이 없으면 상품 규격만
     $knowledge = ext_knowledge_for_products(array_column($products, 'id'));
-    $cards = array_map(function ($p) use ($lengthM, $specMm, $areaM2, $knowledge, $memberMap) {
+    $cards = array_map(function ($p) use ($lengthM, $areaWidth, $areaM2, $knowledge, $memberMap, $want, $cond) {
         [$qty, $basis] = ai_estimate_quantity(
             $p,
             $lengthM,
-            $specMm > 0 ? (float) $specMm : null,
+            $areaWidth,
             $areaM2 > 0 ? $areaM2 : null
         );
         $price  = (int) $p['price_b2c'];
@@ -648,7 +686,9 @@ function tool_search_products(array $input): string
             'qty_basis'     => $basis,   // 근거 문구 (예: "100m ÷ 2m = 50본")
             'guide'         => ext_selection_guide($p, $knowledge[(int) $p['id']] ?? []),
             'spec_label'    => spec_size_label((string) $p['spec']),   // 화면 표시용 규격(치수만) — 운반비·상차수량 같은 부가 표기 제외
-        ];
+        ] + (($size = ai_row_size_label($p, spec_axes_for_category((int) ($p['category_id'] ?? 0)))) !== '' ? ['size' => $size] : [])   // 이름표대로 읽은 치수(폭·길이 뜻 구분)
+          + ($want ? ['dim_check' => ($p['_dim'] ?? '') === 'unknown' ? 'unverified' : 'verified'] : [])
+          + ($want && ($p['_dim'] ?? '') === 'unknown' ? ['dim_note' => "{$cond}인지 규격 표기로 확인하지 못했습니다(구매 전 확인 필요)"] : []);
     }, $products);
     // 자재 분류 설명(운영자가 쓴 카테고리 설명 — 상품 분류, 없으면 상위 분류) — 답변 글의 '자재 설명' 재료. 화면 표에는 보내지 않는다(ai_cards_for_screen)
     $catDesc = ai_category_descs(array_map(static fn($p) => (int) ($p['category_id'] ?? 0), $products));
@@ -667,15 +707,41 @@ function tool_search_products(array $input): string
         }
     }
 
+    // ③ '더 저렴한 제품' 요청(max_est_cost — 직전 추천표의 가장 낮은 예상 자재비): 같은 설치 길이·면적으로 계산한 예상 자재비가 그보다 낮은 제품만.
+    //    예상 자재비가 없는 제품(수량 계산 불가)은 금액을 비교할 수 없으므로 '더 저렴한 제품'으로 보이지 않는다(2026-11-10).
+    $maxEst = max(0, (int) ($input['max_est_cost'] ?? 0));
+    $cheaperDropped = 0;
+    if ($maxEst > 0 && $cards) {
+        $keepIdx = array_keys(array_filter($cards, static fn($c) => ($c['est_cost'] ?? null) !== null && $c['est_cost'] < $maxEst));
+        $cheaperDropped = count($cards) - count($keepIdx);
+        $cards    = array_values(array_intersect_key($cards, array_flip($keepIdx)));
+        $products = array_values(array_intersect_key($products, array_flip($keepIdx)));
+    }
+    if (empty($cards) && $maxEst > 0 && $cheaperDropped > 0) {
+        $out = ['products' => [], 'count' => 0, '_sse' => [], 'max_est_cost' => $maxEst,
+                'note' => ai_cheaper_note($maxEst, $excludedHit, $cond, true)];
+        if ($excludedHit) { $out['excluded'] = $excludedHit; }
+        return json_encode($out, JSON_UNESCAPED_UNICODE);
+    }
+    if ($maxEst > 0 && $cheaperDropped > 0) {
+        $extraNotes[] = ai_cheaper_note($maxEst, [], $cond, false);
+    }
+
     // 하중 등급·이미 본 제품 제외로 비었으면: 같은 표를 다시 보여 주거나 과잉 등급을 '적합'하게 보이게 하지 않고, 사정(과잉 등급만 있음·다른 제품 없음)과 등록 규격을 알린다
-    if (empty($cards) && ($classEmptied || $excludedHit)) {
-        $out = ['products' => [], 'count' => 0, '_sse' => []] + ai_filtered_empty_result($query, $specMm, $traffic, $classEmptied ? $heavier : [], $excludedHit);
+    if (empty($cards) && ($excludedHit || ($classEmptied && $heavier))) {
+        $out = ['products' => [], 'count' => 0, '_sse' => []] + ai_filtered_empty_result($query, $cond, $traffic, $classEmptied ? $heavier : [], $excludedHit);
         if ($corrected !== null) { $out['corrected'] = $corrected; }
         return json_encode($out, JSON_UNESCAPED_UNICODE);
     }
     // 그래도 0건이면 손님을 위한 대안 안내(모델이 되묻지 말고 이 안내를 전달)
     if (empty($cards) && $specMm > 0 && !empty($input['spec_strict']) && ai_is_paving_query($qText)) {
         $out = ['products' => [], 'count' => 0] + ai_paving_no_match([$qText], $specMm, ai_paving_names_with_thickness($specMm));   // 포장 블록 두께 기준 미충족
+        if ($corrected !== null) { $out['corrected'] = $corrected; }
+        return json_encode($out, JSON_UNESCAPED_UNICODE);
+    }
+    // 폭·길이 조건에 맞는 제품이 없으면: 조건이 다른 제품(싸더라도)을 대신 보여 주지 않고, 확인된 등록 치수를 알린다
+    if (empty($cards) && $want) {
+        $out = ['products' => [], 'count' => 0, '_sse' => [], 'note' => ai_dim_no_match_note($query, $cond, $want, $traffic)];
         if ($corrected !== null) { $out['corrected'] = $corrected; }
         return json_encode($out, JSON_UNESCAPED_UNICODE);
     }
@@ -711,12 +777,21 @@ function tool_search_products(array $input): string
         if ($heavier) { $out['over_spec_excluded'] = array_values(array_unique(array_column($heavier, 'name'))); }   // 고객 조건보다 높은 등급이라 표에서 뺀 상품명
     }
     if ($excludedHit) { $out['excluded'] = $excludedHit; }   // 직전에 보여 줘서 뺀 상품명
+    // 폭·길이를 확인하지 못한 제품이 표에 있으면 알린다(정확히 맞는 제품이라고 말하지 않게)
+    if ($want) {
+        $out['dim_condition'] = $cond;
+        $unverified = array_values(array_unique(array_map(static fn($c) => (string) $c['name'], array_filter($cards, static fn($c) => ($c['dim_check'] ?? '') === 'unverified'))));
+        if ($unverified) {
+            $extraNotes[] = (count($unverified) === count($cards) ? "{$cond}로 확인된 제품은 없고, 규격 표기에 그 숫자가 있는 제품만 보여 드립니다. " : '')
+                . '표의 ' . implode(', ', array_slice($unverified, 0, 4)) . "은(는) {$cond}인지 규격 표기로 확인하지 못했습니다(구매 전 확인이 필요합니다).";
+        }
+    }
     // 검색어의 제품 종류·형태(예: '날개형')가 표의 어느 제품에도 없으면 알린다 — 다른 제품을 그 제품처럼 말하지 않게(2026-11-09 운영 상담 '날개형은 안돼?')
     if (!$broadened) {
-        $missing = ai_missing_terms_registered(ai_missing_terms($query, $products), $specMm);
+        $missing = ai_missing_terms_registered(ai_missing_terms($query, $products));
         if ($missing) {
             $out['missing_terms'] = array_keys($missing);
-            $extraNotes[] = ai_missing_terms_note($missing, $specMm);
+            $extraNotes[] = ai_missing_terms_note($missing, $cond);
         }
     }
     $notes = array_values(array_filter(array_merge([$note], $extraNotes), static fn($n) => is_string($n) && $n !== ''));
@@ -828,27 +903,233 @@ function ai_exclude_shown(array $rows, array $ids, array $names): array
     return [$keep, array_keys($hit)];
 }
 
-/** 규격의 첫 치수(mm) (순수 함수) — '규격: 500*1000*50(7*4)' → 500. 그레이팅·수로 덮개는 폭. 없으면 null */
-function ai_spec_width_mm(string $spec): ?int
+// ─── 치수 조건(폭·제품 길이) — 규격 이름표로 채운 치수 칸 우선 (2026-11-10: 폭 500 검색에 폭 400×길이 500 제품이 섞이던 문제) ──────
+// 숫자의 위치(첫 번째 = 폭)로 폭·길이를 정하지 않는다. 품목마다 규격 순서가 다르므로(수로관 폭×깊이×길이, 흄관 내경×길이,
+// 보도블록 가로×세로×두께, 경계석 상부폭×하부폭×높이) 카테고리 이름표(category_spec_axes, 원본 사이트 표 머리글 기준)로 채운 칸을 쓴다.
+
+/** 치수 조건 축 → [기본 칸, 뜻이 가까운 다른 칸(같은 값이면 '확인 불가'), 이름] — 폭: 폭/가로 W(하부폭·상부폭·뒷폭은 다른 칸), 길이: 길이 L(세로 V 는 다른 칸) */
+const AI_DIM_AXES = [
+    'w' => ['dim_w', ['dim_w_b', 'dim_w_t', 'dim_w_r'], '폭'],
+    'l' => ['dim_l', ['dim_v'], '길이'],
+];
+
+/** 치수 입력 → mm (순수 함수). 숫자는 mm 그대로, 글자는 단위(mm·cm·센티·m·미터)를 읽는다. 0 이하·읽을 수 없으면 null */
+function ai_parse_mm(mixed $v): ?float
 {
-    $reg = preg_match('/규격:\s*([^|]+)/u', $spec, $m) ? $m[1] : $spec;
-    return preg_match('/^\s*(\d+)\s*[*x×]/u', $reg, $w) ? (int) $w[1] : null;
+    if (is_int($v) || is_float($v)) {
+        return $v > 0 ? round((float) $v, 1) : null;
+    }
+    if (!is_string($v)) {
+        return null;
+    }
+    $s = str_replace([',', ' '], '', mb_strtolower(trim($v)));
+    if (!preg_match('/^(\d+(?:\.\d+)?)(mm|㎜|밀리|cm|㎝|센티|센치|센테|m|미터)?$/u', $s, $m)) {
+        return null;
+    }
+    $mul = match ($m[2] ?? '') { 'cm', '㎝', '센티', '센치', '센테' => 10.0, 'm', '미터' => 1000.0, default => 1.0 };
+    $mm = round((float) $m[1] * $mul, 1);
+    return $mm > 0 ? $mm : null;
 }
 
-/** 상품명별 등록 폭(첫 치수) 목록 (순수 함수) — [상품명 => 오름차순 폭 목록] */
+/**
+ * 규격 표기에 이름이 붙은 치수 (순수 함수) — '폭500'·'폭 500mm'·'W500'·'W=500'·'길이 1000'·'L1000'·'L=2M' 처럼 이름(약자)이 붙은 값만.
+ * 이름 없는 숫자(500*1000)는 순서만으로 폭·길이를 정하지 않으므로 읽지 않는다. [축 => mm]
+ */
+function ai_spec_labeled_dims(string $spec): array
+{
+    $reg = parse_spec_field($spec)['spec'] ?: $spec;
+    $out = [];
+    foreach (['w' => '(?:폭|너비|(?<![A-Za-z])W)', 'l' => '(?:길이|(?<![A-Za-z])L)'] as $k => $p) {
+        if (preg_match('/' . $p . '\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(mm|cm|m|M)?(?![\d.])/u', $reg, $m)) {
+            $mm = ai_parse_mm($m[1] . strtolower($m[2] ?? ''));
+            if ($mm !== null) { $out[$k] = $mm; }
+        }
+    }
+    return $out;
+}
+
+/** 규격 값에 그 치수 숫자가 들어 있는지 (순수 함수, 위치 무관 — '2M'·'2.0m' 같은 미터 표기 포함). 이름 없는 규격에서 '확인 불가'와 '다름'을 가르는 데만 쓴다 */
+function ai_spec_has_mm(string $spec, float $mm): bool
+{
+    $reg = parse_spec_field($spec)['spec'] ?: $spec;
+    if (preg_match('/(?<![\d.])' . preg_quote(spec_axis_num($mm), '/') . '(?:\.0+)?(?![\d.])/u', $reg)) {
+        return true;
+    }
+    return (bool) preg_match('/(?<![\d.])' . preg_quote(spec_axis_num($mm / 1000), '/') . '(?:\.0+)?\s*[mM](?![a-zA-Z])/u', $reg);
+}
+
+/**
+ * 상품 1행이 치수 조건(폭·제품 길이)에 맞는지 (순수 함수) — 'match' 확인됨 · 'mismatch' 다름(표에서 뺌) · 'unknown' 확인 불가.
+ *  ① 규격 이름표로 채운 치수 칸(채운 기준 원문 = 지금 규격일 때만 — spec_axes_row_fresh): 폭 = dim_w, 길이 = dim_l.
+ *     그 칸이 비었으면 뜻이 가까운 칸(하부·상부·뒷폭, 세로)에 같은 값이 있을 때만 확인 불가, 아니면 다름(그 치수가 아닌 상품).
+ *  ② 칸이 없거나 규격 원문이 바뀐 상품(문자 규격과 치수 칸 불일치): 규격 표기의 이름 붙은 값(폭500·W500·L1000)만 믿는다.
+ *  ③ 그것도 없으면 규격에 그 숫자가 있으면 확인 불가(어느 치수인지 모름), 없으면 다름.
+ * @param array<string,float> $want ['w' => mm, 'l' => mm]
+ * @return array{status:string, by:array<string,string>}
+ */
+function ai_dim_check(array $row, array $want): array
+{
+    $fresh   = spec_axes_row_fresh($row);
+    $labeled = $fresh ? [] : ai_spec_labeled_dims((string) ($row['spec'] ?? ''));
+    $by = [];
+    foreach ($want as $k => $mm) {
+        [$col, $alts] = AI_DIM_AXES[$k];
+        if ($fresh) {
+            $v = $row[$col] ?? null;
+            if ($v !== null && $v !== '') {
+                $by[$k] = abs((float) $v - $mm) < 0.5 ? 'match' : 'mismatch';
+                continue;
+            }
+            $near = array_filter($alts, static fn($c) => ($row[$c] ?? null) !== null && $row[$c] !== '' && abs((float) $row[$c] - $mm) < 0.5);
+            $by[$k] = $near ? 'unknown' : 'mismatch';
+            continue;
+        }
+        if (isset($labeled[$k])) {
+            $by[$k] = abs($labeled[$k] - $mm) < 0.5 ? 'match' : 'mismatch';
+            continue;
+        }
+        $by[$k] = ai_spec_has_mm((string) ($row['spec'] ?? ''), $mm) ? 'unknown' : 'mismatch';
+    }
+    $status = in_array('mismatch', $by, true) ? 'mismatch' : (in_array('unknown', $by, true) ? 'unknown' : 'match');
+    return ['status' => $status, 'by' => $by];
+}
+
+/**
+ * 치수 조건으로 나누기 (순수 함수) — [확인된 행, 확인 불가 행, 다른 행 수]. 행마다 '_dim'(match·unknown) 표시.
+ * 같은 상품명에 확인된 규격이 있으면 그 상품명의 확인 불가 규격은 뺀다(표는 상품명별 대표 1개).
+ */
+function ai_filter_dims(array $rows, array $want): array
+{
+    $ok = $unk = [];
+    $mismatch = 0;
+    foreach ($rows as $r) {
+        $c = ai_dim_check($r, $want)['status'];
+        if ($c === 'mismatch') { $mismatch++; continue; }
+        $r['_dim'] = $c;
+        if ($c === 'match') { $ok[] = $r; } else { $unk[] = $r; }
+    }
+    $okNames = array_flip(array_map(static fn($r) => (string) $r['name'], $ok));
+    $unk = array_values(array_filter($unk, static fn($r) => !isset($okNames[(string) $r['name']])));
+    return [$ok, $unk, $mismatch];
+}
+
+/** 치수 조건 표기 (순수 함수) — ['w'=>500] → '폭 500mm', ['w'=>500,'l'=>1000] → '폭 500mm·길이 1000mm', 폭·길이 없이 규격만 → '규격 500mm', 없으면 '' */
+function ai_dim_cond_label(array $want, int $specMm = 0): string
+{
+    $parts = [];
+    foreach ($want as $k => $mm) { $parts[] = AI_DIM_AXES[$k][2] . ' ' . spec_axis_num((float) $mm) . 'mm'; }
+    if ($specMm > 0) { $parts[] = "규격 {$specMm}mm"; }
+    return implode('·', $parts);
+}
+
+/** 행의 확인된 폭·길이(mm) (순수 함수) — 이름표로 채운 칸(원문 일치) 또는 규격의 이름 붙은 값. 숫자 위치로 정하지 않는다. 없으면 null */
+function ai_row_dim_mm(array $row, string $k): ?float
+{
+    if (spec_axes_row_fresh($row)) {
+        $v = $row[AI_DIM_AXES[$k][0]] ?? null;
+        return ($v !== null && $v !== '') ? (float) $v : null;
+    }
+    return ai_spec_labeled_dims((string) ($row['spec'] ?? ''))[$k] ?? null;
+}
+
+/**
+ * 치수 조건 SQL 조각 (DB 검색 전 거르기 — 최종 판정은 ai_dim_check). 규격 글자에 그 숫자가 있거나, 이름표로 채운 칸 값이 같은 상품만.
+ * 칸 값 비교는 미터 표기(개거 '2.0' → 2000mm)처럼 규격 글자에 mm 숫자가 없는 상품용. 새 칸이 없는 DB(spec_axes_ready 거짓)는 글자만.
+ */
+function ai_dim_sql(array $want, array &$params): string
+{
+    $ready = spec_axes_ready();
+    $sql = '';
+    foreach ($want as $k => $mm) {
+        $n = spec_axis_num((float) $mm);
+        $params[":aid{$k}re"] = '(^|[^0-9.])' . str_replace('.', '[.]', $n) . '([^0-9]|$)';
+        $or = ["p.spec REGEXP :aid{$k}re"];
+        if ($ready) {
+            $params[":aid{$k}"] = $mm;
+            $or[] = 'p.' . AI_DIM_AXES[$k][0] . " = :aid{$k}";
+        }
+        $sql .= ' AND (' . implode(' OR ', $or) . ')';
+    }
+    return $sql;
+}
+
+/** 상품명별 확인된 폭 목록 (순수 함수) — [상품명 => 오름차순 폭(mm 표기) 목록]. 폭을 확인할 수 없는 규격은 넣지 않는다(숫자 위치로 정하지 않음) */
 function ai_widths_by_name(array $rows): array
+{
+    return ai_dims_by_name($rows, 'w');
+}
+
+/** 상품명별 확인된 치수(폭 'w'·길이 'l') 목록 (순수 함수) — [상품명 => 오름차순 mm 표기 목록] */
+function ai_dims_by_name(array $rows, string $k): array
 {
     $out = [];
     foreach ($rows as $r) {
-        $w = ai_spec_width_mm((string) ($r['spec'] ?? ''));
-        if ($w !== null) { $out[(string) $r['name']][$w] = true; }
+        $w = ai_row_dim_mm($r, $k);
+        if ($w !== null) { $out[(string) $r['name']][spec_axis_num($w)] = $w; }
     }
     foreach ($out as $n => $ws) {
-        $ws = array_keys($ws);
-        sort($ws);
-        $out[$n] = $ws;
+        asort($ws);
+        $out[$n] = array_map('strval', array_keys($ws));
     }
     return $out;
+}
+
+/** 치수 조건 0건 안내 문구 (순수 함수) — 확인된 등록 치수가 있으면 함께. $dims [상품명 => 치수 목록], $axisName '폭'·'길이' */
+function ai_dim_no_match_text(string $query, string $cond, array $dims, string $axisName): string
+{
+    return "{$cond}로 확인된 '{$query}' 제품이 없습니다. 조건이 다른 제품은 보여 드리지 않았습니다."
+        . ($dims ? ' 등록된 ' . ($axisName === '길이' ? '길이는 ' : '폭은 ') . ai_format_widths($dims) . '입니다. 규격을 다시 확인해 주세요.' : '');
+}
+
+/** 치수 조건 0건 안내 (DB: 같은 검색어의 확인된 등록 치수 — 통행 조건이 있으면 그 하중 등급만) */
+function ai_dim_no_match_note(string $query, string $cond, array $want, string $traffic = ''): string
+{
+    $k = isset($want['w']) ? 'w' : 'l';
+    $dims = [];
+    try {
+        $all = ai_exclude_accessories(search_products($query, 80), $query);
+        if ($traffic !== '') { [$all] = ai_filter_load_class($all, $traffic); }
+        $dims = ai_dims_by_name($all, $k);
+    } catch (\Throwable $e) {
+        $dims = [];
+    }
+    return ai_dim_no_match_text($query, $cond, $dims, AI_DIM_AXES[$k][2]);
+}
+
+/**
+ * '더 저렴한 제품' 안내 (순수 함수). $empty: 더 싼 제품이 없음 / 아니면 직전 표보다 싼 제품만 보여 준다는 안내.
+ * 금액 비교 기준을 밝힌다(같은 설치 길이·면적의 예상 자재비, 운반·시공비 별도). 수량을 계산할 수 없는 제품은 비교하지 않음.
+ */
+function ai_cheaper_note(int $maxEst, array $excludedNames, string $cond, bool $empty): string
+{
+    $won = number_format($maxEst) . '원';
+    if ($empty) {
+        return ($excludedNames ? '직전에 보여 드린 ' . implode(', ', array_slice($excludedNames, 0, 4)) . ' 외에 ' : '')
+            . ($cond !== '' ? "{$cond} 조건에 맞으면서 " : '조건에 맞으면서 ')
+            . "직전 추천표의 가장 낮은 예상 자재비({$won})보다 저렴한 제품은 없습니다(같은 설치 길이·면적 기준, 운반·시공비 별도).";
+    }
+    return "직전 추천표의 가장 낮은 예상 자재비({$won})보다 저렴한 제품만 보여 드립니다(같은 설치 길이·면적 기준 — 수량을 계산할 수 없는 제품은 금액을 비교하지 않았습니다).";
+}
+
+/**
+ * 치수 이름표대로 읽은 규격 (순수 함수) — '폭 W 500mm · 길이 L 1000mm · 높이 H 50mm'. 채운 기준 원문 = 지금 규격일 때만, 아니면 ''.
+ * GPT 가 숫자 순서로 폭·길이를 짐작하지 않고 상품마다 다른 규격 체계(수로관 폭×깊이×길이, 흄관 내경×길이 등)대로 설명하게 한다.
+ */
+function ai_row_size_label(array $row, array $axes): string
+{
+    if (!$axes || !spec_axes_row_fresh($row)) {
+        return '';
+    }
+    $parts = [];
+    foreach ($axes as $a) {
+        $key = (string) ($a['axis_key'] ?? '');
+        $v = spec_axes_row_value($row, $key);
+        if ($v === null || !isset(SPEC_AXIS_COLUMNS[$key])) { continue; }
+        $unit = (string) ($a['unit'] ?? 'mm');
+        $val  = spec_axis_value_display($a, $v);
+        $parts[] = spec_axis_title($a) . ' ' . $val . (in_array($key, SPEC_AXIS_TEXT, true) || $unit === 'no' ? '' : $unit);
+    }
+    return implode(' · ', $parts);
 }
 
 /** '그레이팅수로용 150·200·250mm, 디자인그레이팅수로용 150·200mm' (순수 함수) */
@@ -875,28 +1156,30 @@ function ai_cost_key(array $p, int $unitPrice, float $lengthM, ?float $widthMm, 
  * 같은 폭(첫 치수)·같은 하중 등급의 그레이팅 (DB) — 검색어의 세부어('수로용' 등) 없이 '그레이팅'으로 다시 찾는다.
  * 수로 덮개 검색이면 맨홀·집수정용은 빼고, 맨홀·집수정 검색이면 그것만 남긴다.
  */
-function ai_same_class_gratings(string $query, int $specMm, string $traffic, int $fetch = 40): array
+function ai_same_class_gratings(string $query, float $widthMm, string $traffic, int $fetch = 40): array
 {
     $isManhole = (bool) preg_match('/맨홀|집수정/u', $query);
-    $rows = search_products('그레이팅 ' . $specMm, $fetch);
-    return array_values(array_filter($rows, static function ($r) use ($specMm, $traffic, $isManhole) {
+    $params = [];
+    $total = null;
+    $rows = search_products('그레이팅', max($fetch, 80), 0, $total, ai_dim_sql(['w' => $widthMm], $params), $params);
+    [$ok] = ai_filter_dims($rows, ['w' => $widthMm]);   // 폭이 확인된 규격만 대체 후보(확인 불가는 쓰지 않음)
+    return array_values(array_filter($ok, static function ($r) use ($traffic, $isManhole) {
         $n = (string) ($r['name'] ?? '');
         return ai_grating_load_class($n) === $traffic
-            && ai_spec_width_mm((string) ($r['spec'] ?? '')) === $specMm
             && (bool) preg_match('/맨홀|집수정/u', $n) === $isManhole
             && !preg_match('/집게|몰드/u', $n);
     }));
 }
 
-/** 같은 폭의 같은 등급 그레이팅으로 바꿔 보여 줄 때의 안내 (순수 함수) — 높은 등급만 있었거나($heavier) 이미 보여 준 제품뿐이었을 때($excludedNames) */
-function ai_broadened_note(string $query, int $specMm, string $traffic, array $heavier, array $excludedNames = []): string
+/** 같은 폭의 같은 등급 그레이팅으로 바꿔 보여 줄 때의 안내 (순수 함수) — $cond '폭 500mm'. 높은 등급만 있었거나($heavier) 이미 보여 준 제품뿐이었을 때($excludedNames) */
+function ai_broadened_note(string $query, string $cond, string $traffic, array $heavier, array $excludedNames = []): string
 {
     $label = AI_TRAFFIC_CLASS_LABEL[$traffic] ?? '';
     if ($excludedNames && !$heavier) {
-        return "{$label} '{$query}' 제품은 규격 {$specMm}mm에서 직전에 보여 드린 " . implode(', ', array_slice($excludedNames, 0, 4)) . " 외에는 없어, 같은 규격의 다른 {$label} 그레이팅을 보여 드립니다.";
+        return "{$label} '{$query}' 제품은 {$cond}에서 직전에 보여 드린 " . implode(', ', array_slice($excludedNames, 0, 4)) . " 외에는 없어, 같은 폭의 다른 {$label} 그레이팅을 보여 드립니다.";
     }
-    return "{$label} '{$query}' 제품은 규격 {$specMm}mm가 없어, 같은 규격의 {$label} 그레이팅을 보여 드립니다."
-        . ($heavier ? " 같은 규격의 '{$query}'은(는) " . implode(', ', ai_heavier_labels($heavier)) . '뿐이라 필요보다 높은 하중 등급(더 비쌈)이어서 표에서 뺐습니다.' : '');
+    return "{$label} '{$query}' 제품은 {$cond}가 없어, 같은 폭의 {$label} 그레이팅을 보여 드립니다."
+        . ($heavier ? " 같은 폭의 '{$query}'은(는) " . implode(', ', ai_heavier_labels($heavier)) . '뿐이라 필요보다 높은 하중 등급(더 비쌈)이어서 표에서 뺐습니다.' : '');
 }
 
 /** 높은 등급 행 → '안전중하중그레이팅수로용(대형차용)' 목록 (순수 함수, 등급 낮은 순) */
@@ -920,18 +1203,18 @@ function ai_heavier_labels(array $heavier, array $priceByName = []): array
 /**
  * 하중 등급·이미 본 제품 제외로 결과가 빈 경우의 안내 문구 (순수 함수) — 고객에게 그대로 전하는 문장.
  * @param array<string,array{price:int,unit:string}> $priceByName 높은 등급 상품명별 최저 화면 단가
- * @param array<string,list<int>>                    $classWidths 고객 조건 등급의 상품명별 등록 폭
+ * @param array<string,list<string>>                 $classWidths 고객 조건 등급의 상품명별 확인된 폭
  */
-function ai_filter_empty_note(string $query, int $specMm, string $traffic, array $heavier, array $excludedNames, array $priceByName = [], array $classWidths = []): string
+function ai_filter_empty_note(string $query, string $cond, string $traffic, array $heavier, array $excludedNames, array $priceByName = [], array $classWidths = []): string
 {
     $parts = [];
-    $cond  = $specMm > 0 ? "이 조건(규격 {$specMm}mm)" : '이 조건';
+    $condTxt = $cond !== '' ? "이 조건({$cond})" : '이 조건';
     if ($excludedNames) {
-        $parts[] = '직전에 보여 드린 ' . implode(', ', array_slice($excludedNames, 0, 4)) . " 외에는 {$cond}에 맞는 다른 제품이 없습니다.";
+        $parts[] = '직전에 보여 드린 ' . implode(', ', array_slice($excludedNames, 0, 4)) . " 외에는 {$condTxt}에 맞는 다른 제품이 없습니다.";
     }
     if ($heavier && $traffic !== '') {
         $label = AI_TRAFFIC_CLASS_LABEL[$traffic] ?? '';
-        $parts[] = "{$label} '{$query}' 제품은 " . ($specMm > 0 ? "규격 {$specMm}mm가 등록되어 있지 않습니다." : '등록되어 있지 않습니다.')
+        $parts[] = "{$label} '{$query}' 제품은 " . ($cond !== '' ? "{$cond}가 등록되어 있지 않습니다." : '등록되어 있지 않습니다.')
             . ' 같은 조건에는 ' . implode(', ', ai_heavier_labels($heavier, $priceByName)) . '만 있어, 필요보다 높은 하중 등급이고 가격이 높습니다.';
         if ($classWidths) {
             $parts[] = "등록된 {$label} 제품은 " . ai_format_widths($classWidths) . '입니다.';
@@ -945,7 +1228,7 @@ function ai_filter_empty_note(string $query, int $specMm, string $traffic, array
  * 하중 등급·이미 본 제품 제외로 결과가 빈 경우의 도구 결과 (DB: 높은 등급 단가·고객 등급의 등록 폭 조회)
  * @return array{note:string, traffic?:string, over_spec_options?:list<array>, excluded?:list<string>, next?:string}
  */
-function ai_filtered_empty_result(string $query, int $specMm, string $traffic, array $heavier, array $excludedNames): array
+function ai_filtered_empty_result(string $query, string $cond, string $traffic, array $heavier, array $excludedNames): array
 {
     $priceByName = [];
     if ($heavier) {
@@ -967,7 +1250,7 @@ function ai_filtered_empty_result(string $query, int $specMm, string $traffic, a
             $classWidths = [];
         }
     }
-    $out = ['note' => ai_filter_empty_note($query, $specMm, $traffic, $heavier, $excludedNames, $priceByName, $classWidths)];
+    $out = ['note' => ai_filter_empty_note($query, $cond, $traffic, $heavier, $excludedNames, $priceByName, $classWidths)];
     if ($traffic !== '') { $out['traffic'] = $traffic; }
     if ($heavier) {
         $out['over_spec_options'] = ai_heavier_labels($heavier, $priceByName);
@@ -979,9 +1262,13 @@ function ai_filtered_empty_result(string $query, int $specMm, string $traffic, a
     return $out;
 }
 
+/** 제품 형태·재질·표기 말(없으면 '그 제품이 아니다'라고 알릴 대상) — ○○형·○○무늬, 타공·유공·무공·투수·국산·재질 등. 용도어(우수·오수)·분류어(수로관)는 대상 아님 */
+const AI_ATTR_TERM = '/(형|무늬)$|^(타공|유공|무공|투수|불투수|국산|수입|칼라|컬러|스텐|스테인리스|sus|알루미늄|주철|플라스틱|논슬립|체크|날개|디자인|안전)/iu';
+
 /**
- * 검색어 중 표의 어느 제품(상품명·규격·분류·설명)에도 없는 말 (순수 함수 — 동의어 사전 사용).
- * 조건어(보행자·주방 등)도 걸리지만 ai_missing_terms_registered() 가 카탈로그에 실제로 있는 제품 종류·형태만 남긴다.
+ * 검색어 중 표의 어느 제품(상품명·규격·분류·설명)에도 없는 제품 형태·재질 말 (순수 함수 — 동의어 사전 사용).
+ * 형태·재질 말(AI_ATTR_TERM)만 본다 — 2026-11-10: '맨홀 우수'의 우수(용도), 'U형 수로관'의 수로관(U형플륨관도 수로관류)을
+ * '없는 제품'이라 안내하던 오탐. 조건어도 ai_missing_terms_registered() 가 카탈로그에 실제로 있는 말만 남긴다.
  * @return list<string>
  */
 function ai_missing_terms(string $query, array $rows): array
@@ -997,6 +1284,7 @@ function ai_missing_terms(string $query, array $rows): array
             continue;
         }
         foreach (segment_compound($tok) as $seg) {
+            if (!preg_match(AI_ATTR_TERM, $seg)) { continue; }
             $found = false;
             foreach (expand_search_token($seg) as $m) {
                 $m = mb_strtolower(trim((string) $m));
@@ -1011,7 +1299,7 @@ function ai_missing_terms(string $query, array $rows): array
 /**
  * 없는 말 중 카탈로그 판매 상품의 상품명·규격에 실제로 있는 것만 (DB) — [말 => [상품명 => 등록 폭]]. 조건어(보행자·주방 등)는 상품명에 없으므로 빠진다.
  */
-function ai_missing_terms_registered(array $terms, int $specMm = 0): array
+function ai_missing_terms_registered(array $terms): array
 {
     $out = [];
     foreach ($terms as $t) {
@@ -1030,9 +1318,9 @@ function ai_missing_terms_registered(array $terms, int $specMm = 0): array
 }
 
 /** 없는 말 안내 (순수 함수) — "'날개형'이(가) 들어간 제품은 이 조건(규격 500mm)에서 찾지 못해 표에 없습니다(등록: 플륨관용(날개형U-TYPE) 185·285·295·385mm)." */
-function ai_missing_terms_note(array $missing, int $specMm = 0): string
+function ai_missing_terms_note(array $missing, string $cond = ''): string
 {
-    $cond = $specMm > 0 ? "이 조건(규격 {$specMm}mm)" : '이 조건';
+    $cond = $cond !== '' ? "이 조건({$cond})" : '이 조건';
     $parts = [];
     foreach ($missing as $t => $widths) {
         $parts[] = "'{$t}'이(가) 들어간 제품은 {$cond}에서 찾지 못해 표에 없습니다" . ($widths ? '(등록: ' . ai_format_widths($widths, 2) . ')' : '') . '.';
@@ -1268,7 +1556,7 @@ function ai_exclude_accessories(array $rows, string $query): array
  * ※ 이전: 관련도 1위가 대표 → 동점 시 id가 큰 변형(예: 80T 칼라, 가장 비쌈)이 뽑혀 비용 비교가 부풀려짐.
  * ※ 폭(첫 치수)이 같고 길이만 다른 변형끼리는 수량을 계산할 수 있는 변형을 먼저 본다 — 예상 자재비와 단가를 한 줄로 비교하면
  *    1m 미만 변형(500*500, 단가만)이 1m 변형(500*1000, 예상 자재비)보다 싸 보여 대표가 되고 표에 예상 비용이 빠지던 문제(2026-11-09).
- *    폭이 다르거나 폭을 읽을 수 없는 변형(관경 'D450~D1000' 표기 등)은 기존 규칙 그대로.
+ *    폭이 다르거나 폭을 확인할 수 없는 변형(이름표 없는 규격·관경 'D450~D1000' 표기 등)은 기존 규칙 그대로.
  */
 function ai_pick_representatives(array $rows, float $lengthM, ?float $widthMm, ?float $areaM2): array
 {
@@ -1282,7 +1570,7 @@ function ai_pick_representatives(array $rows, float $lengthM, ?float $widthMm, ?
         $price = (int) ($r['price_b2c'] ?? 0);
         [$qty] = ai_estimate_quantity($r, $lengthM, $widthMm, $areaM2);
         $key = $price <= 0 ? PHP_INT_MAX : ($qty !== null ? $qty * $price : $price);
-        $cur = [$r, $key, $price > 0 && $qty !== null, ai_spec_width_mm((string) ($r['spec'] ?? ''))];
+        $cur = [$r, $key, $price > 0 && $qty !== null, ai_row_dim_mm($r, 'w')];
         if (!isset($best[$name])) {
             $order[] = $name;
             $best[$name] = $cur;
@@ -1376,6 +1664,8 @@ function ai_search_compare(array $queries, array $input): string
     $missing = [];
     $standards = [];   // 종류별 검색 결과의 국가표준(확인된 기본 정보) — 합쳐서 출처 카드 후보로
     $specMm = (int) ($input['spec_mm'] ?? 0);
+    $wantC  = array_filter(['w' => ai_parse_mm($input['width_mm'] ?? null), 'l' => ai_parse_mm($input['product_length_mm'] ?? null)], static fn($v) => $v !== null);
+    $condC  = ai_dim_cond_label($wantC, ($wantC && in_array((float) $specMm, array_values($wantC), true)) ? 0 : $specMm);   // '폭 500mm'·'규격 80mm'
     foreach ($queries as $q) {
         $one = $input;
         unset($one['queries']);
@@ -1404,7 +1694,7 @@ function ai_search_compare(array $queries, array $input): string
     }
     if ($missing) {
         $notes[] = "'" . implode("', '", $missing) . "'은(는) "
-            . ($specMm > 0 ? "규격 {$specMm}mm 제품이 없어" : '해당 조건의 제품을 찾지 못해') . ' 비교에서 빠졌습니다.';
+            . ($condC !== '' ? "{$condC} 제품이 없어" : '해당 조건의 제품을 찾지 못해') . ' 비교에서 빠졌습니다.';
     }
 
     $allPaving = $specMm > 0 && !array_filter($queries, static fn($q) => !ai_is_paving_query((string) $q));
@@ -1416,8 +1706,8 @@ function ai_search_compare(array $queries, array $input): string
             'products' => [],
             'count'    => 0,
             // 규격(예: 두께)을 걸었는데 모든 종류가 없으면 '규격 없음'을 그대로 알린다(다른 두께를 대신 권하지 않음)
-            'note'     => $specMm > 0
-                ? "'" . implode("', '", $missing) . "'은(는) 규격 {$specMm}mm 제품이 없습니다. 조건에 맞지 않는 다른 규격은 보여드리지 않았습니다."
+            'note'     => $condC !== ''
+                ? "'" . implode("', '", $missing) . "'은(는) {$condC} 제품이 없습니다. 조건에 맞지 않는 다른 규격은 보여드리지 않았습니다."
                 : '해당 조건에 맞는 제품을 찾지 못했습니다. 용도(수로·배수·경계·차단 등)나 재질을 알려주시면 다시 찾아드리겠습니다.',
             '_sse'     => [],
         ], JSON_UNESCAPED_UNICODE);

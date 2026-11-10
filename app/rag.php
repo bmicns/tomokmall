@@ -18,8 +18,10 @@ declare(strict_types=1);
  *  rag_drain_notice_prompt()   — 그 상황에서만 붙는 주의 안내 구역(문구는 사용자 확정, 원문 확인한 법령·기준)
  *  rag_build_prompt()          — 상담 시스템 프롬프트·근거 묶음 생성(API 호출 없음, rag_process 가 사용)
  *  rag_traffic_context()       — 고객이 말한 통행 조건(보행자/승용차/대형차) — 그레이팅 하중 등급 검색 보완
- *  rag_wants_alternative()     — '다른 제품'·'A 말고'·'다시 추천' 요청인지 — 직전 추천표 상품 제외 검색 보완
- *  rag_fill_search_input()     — GPT 가 빠뜨린 search_products 입력(traffic·exclude_ids)만 서버가 채움
+ *  rag_wants_alternative()     — '다른 제품'·'A 말고'·'다시 추천'·'제외해줘' 요청인지 — 직전 추천표 상품 제외 검색 보완
+ *  rag_wants_cheaper()         — '좀 더 저렴한 제품' 요청인지 — 직전 추천표 최저 예상 자재비(rag_recent_min_est)보다 싼 것만
+ *  rag_width_from_text()       — 고객이 말한 폭(mm) — GPT 가 폭을 spec_mm 으로 넘긴 경우 폭 조건으로
+ *  rag_fill_search_input()     — GPT 가 빠뜨린 search_products 입력(traffic·exclude_ids·폭)만 서버가 채움
  */
 
 require_once __DIR__ . '/ai_tools.php';
@@ -1046,6 +1048,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "- 추천 순서: 고객 조건(하중 등급·규격·용도)을 만족하는 제품 중 예상 자재비(없으면 단가)가 가장 낮은 제품을 먼저 권한다(표도 그 순서). 더 비싼 제품은 고객 조건에 그 등급·기능이 꼭 필요한 이유가 있을 때만 그 이유와 함께 권한다.\n"
         . "- 고객 조건보다 높은 등급(예: 사람만 다니는 주방·실내·인도에 차량용 중하중·안전중하중)을 '적합하다'·'적절하다'고 말하지 않는다. 도구가 높은 등급만 있다고 알려 주면(note·over_spec_options) 그대로 전하고, 고객이 원한다고 할 때만 그 제품을 찾는다.\n"
         . "- 도구 결과에 missing_terms 가 있으면 그 말(예: 날개형)이 들어간 제품은 이번 조건에서 찾지 못한 것이다. note 대로 먼저 알리고, 표의 제품을 그 제품이라고 말하지 않는다.\n"
+        . "- 제품 치수는 결과의 size(상품 규격 이름표대로 읽은 폭·길이·높이 등)로 말한다. 규격 숫자의 순서로 폭·길이를 짐작하지 않는다. dim_check 가 unverified 인 제품은 그 치수가 확인되지 않았다고 말하고 정확히 맞는 제품이라고 하지 않는다.\n"
         . "- 글 형식: 마크다운 기호(굵게 **…**, 제목 #)를 쓰지 않는다. 문장 끝을 콜론(:)으로 맺지 않는다(목록의 '제품명: 설명'은 괜찮다).\n"
         . "\n"
         . "=== 카테고리별 필수 확인 항목 (모두 확인 후 search_products 호출) ===\n"
@@ -1076,7 +1079,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "[수로관 / 농수로]\n"
         . "  필수 ① 총 연장(m)  ② 폭(mm) 또는 호칭\n"
         . "  - 폭을 알면 형태(U형/BOX/원형)는 되묻지 말고 폭 기준으로 바로 후보를 제시(형태가 섞여 나오면 고르게 안내).\n"
-        . "  검색어(query) 예: '측구 수로관', 'U형 수로관', '사각 수로관', '환경 수로관' (규격=spec_mm, 연장=length_m)\n"
+        . "  검색어(query) 예: '측구 수로관', 'U형 수로관', '사각 수로관', '환경 수로관' (폭=width_mm, 호칭 등 그 밖의 규격=spec_mm, 연장=length_m)\n"
         . "  ★'수로를 만든다/설치'면 본체(수로관)와 덮개(그레이팅수로용)를 세트로 함께 추천 → 아래 [세트 추천] 규칙.\n"
         . "\n"
         . "[보도블록 / 경계석 / 인터로킹]\n"
@@ -1103,14 +1106,15 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "- ★이미 확인한 정보(폭·연장·하중·설치장소 등)는 다른 품목을 추천할 때 다시 묻지 말고 그대로 재사용한다.\n"
         . "【세트 추천 (여러 품목이 함께 필요한 요청)】\n"
         . "- '수로 설치/제작', '덮개 포함', '수로관+그레이팅' 처럼 한 공사에 여러 품목이 필요하면, 한 턴에서 search_products를 품목별로 여러 번 호출해 함께 제시한다.\n"
-        . "  예) 폭500·50m 차량통행 수로 → ①본체: query '측구 수로관', spec_mm 500, length_m 50 (약 25본)  ②덮개: query '그레이팅 수로용 중하중', spec_mm 500, length_m 50 (약 50개).\n"
+        . "  예) 폭500·50m 차량통행 수로 → ①본체: query '측구 수로관', width_mm 500, length_m 50 (약 25본)  ②덮개: query '그레이팅 수로용 중하중', width_mm 500, length_m 50 (약 50개).\n"
         . "- 본체(2m/본)와 덮개(1m/개)는 단위가 달라 수량이 다르게 나오는 게 정상이다. 둘 다 카드로 보여준 뒤 [검색 결과 답변 형식]대로 본체·덮개를 각각 설명한다(단위가 달라 수량이 다르다고 짚어 준다).\n"
         . "【2단계: 검색】\n"
         . "- 모든 필수 항목 확인 완료 → search_products 호출. 되묻지 말고 그 턴에서 바로 호출한다.\n"
         . "- '찾아 드릴게요'·'잠시만 기다려 주세요'라고 말만 하고 답변을 끝내지 않는다. 검색할 때는 같은 응답에서 search_products 를 호출한다.\n"
         . "- query에는 제품명/용도 '텍스트'만 넣는다. 숫자(치수·길이·수량)는 query에 절대 넣지 말 것.\n"
-        . "- 규격 치수(폭/관경 mm)는 spec_mm, 설치 길이/연장(m)은 length_m, 면적(㎡)은 area_m2 파라미터로 분리 전달.\n"
-        . "  → 예: '폭50cm 100m 수로 그레이팅' = query:'그레이팅 수로용 중하중', spec_mm:500, length_m:100.\n"
+        . "- 폭(너비·가로 mm)은 width_mm, 제품 1개의 길이 치수(mm)는 product_length_mm, 그 밖의 규격 치수(관경·포장 블록 두께 mm)는 spec_mm, 설치 총 길이/연장(m)은 length_m, 면적(㎡)은 area_m2 파라미터로 분리 전달.\n"
+        . "  '폭 500mm 길이 10m'처럼 m 단위 길이는 대개 설치 총 길이(length_m)다. 제품 1개 길이로 말한 것이 분명할 때만 product_length_mm.\n"
+        . "  → 예: '폭50cm 100m 수로 그레이팅' = query:'그레이팅 수로용 중하중', width_mm:500, length_m:100.\n"
         . "  → 예: '보도블록 200㎡' = query:'보도블록', area_m2:200.  '경계석 300m' = query:'경계석', length_m:300.\n"
         . "  → length_m/area_m2를 주면 제품별 소요 수량이 카드에 자동 계산·표시된다. 수량(개수)은 query에 넣지 말 것.\n"
         . "- 결과가 없으면(products 빈 배열): 도구가 돌려준 note 문장을 그대로 손님에게 전한다. 절대 그냥 되묻고 끝내지 말 것.\n"
@@ -1184,6 +1188,34 @@ function rag_recent_cards(string $sid): array
     return $out;
 }
 
+/**
+ * 이 상담에서 고객 화면에 보인 모든 추천표의 상품 id(최근 표부터, 최대 $limit 개) — '다른 제품'·'앞에 추천한 제품은 제외' 요청 때 뺄 목록.
+ * 직전 표만 빼면 두 표 전에 보인 제품이 다시 '새 추천'처럼 나온다(2026-11-10). 조회 실패 시 빈 배열.
+ */
+function rag_session_shown_ids(string $sid, int $limit = 30): array
+{
+    if ($sid === '' || !db()) { return []; }
+    try {
+        $st = db()->prepare("SELECT events_json FROM chat_logs WHERE session_key = ? AND events_json LIKE '%product_cards%' ORDER BY id DESC LIMIT 20");
+        $st->execute([$sid]);
+        $rows = $st->fetchAll(PDO::FETCH_COLUMN);
+    } catch (\Throwable $e) {
+        return [];
+    }
+    $ids = [];
+    foreach ($rows as $json) {
+        foreach ((array) (json_decode((string) $json, true) ?: []) as $e) {
+            if (($e['type'] ?? '') !== 'product_cards') { continue; }
+            foreach ((array) ($e['products'] ?? []) as $p) {
+                $id = (int) ($p['id'] ?? 0);
+                if ($id > 0) { $ids[$id] = true; }
+            }
+        }
+        if (count($ids) >= $limit) { break; }
+    }
+    return array_slice(array_keys($ids), 0, $limit);
+}
+
 /** 직전 추천표 프롬프트 구역 (순수 함수) — 표 순서·ID·현재 단가·권장 수량·예상 자재비(현재가 × 권장 수량)와 가장 저렴한 상품 표시
  *  $priceLabel: 금액 이름(비회원 '판매가', 회원은 '' — 이름 없이 '단가'·'가격' — price_basis_label()) */
 function rag_recent_cards_prompt(array $cards, string $priceLabel = '판매가'): string
@@ -1201,7 +1233,8 @@ function rag_recent_cards_prompt(array $cards, string $priceLabel = '판매가')
     return "\n\n=== 직전 추천표 (이 상담에서 고객 화면에 보인 상품 · 현재 " . ($priceLabel !== '' ? $priceLabel : '가격') . " 기준) ===\n" . implode("\n", $lines)
         . "\n- 고객이 표의 상품을 가리켜(예: '제일 저렴한 걸로', '두 번째 거', '이걸로') 담아 달라고 하면 다시 검색하지 말고 이 표의 id 로 add_to_cart 를 호출한다(quantity 는 권장 수량, 고객이 말한 수량이 있으면 그 수량, 1~999).\n"
         . "- 이 표에 없는 id 를 만들지 않는다. " . ($priceLabel !== '' ? $priceLabel . '가' : '가격이') . " '문의·판매 중지'인 상품은 담지 말고 그 사실을 알린다. 조건(면적·두께 등)이 바뀌면 search_products 로 다시 찾는다.\n"
-        . "- 고객이 '다른 제품', 'A 말고', '다시 추천'처럼 이 표와 다른 제품을 원하면 search_products 에 exclude_ids(이 표에서 뺄 id)를 넣어 다시 찾는다(같은 상품명의 다른 규격도 빠진다). 결과가 비면 note 대로 '조건에 맞는 다른 제품이 없다'고 말하고, 새 제품을 추천한 것처럼 말하지 않는다."
+        . "- 고객이 '다른 제품', 'A 말고', '다시 추천', '앞에 추천한 제품은 제외'처럼 이 표와 다른 제품을 원하면 search_products 에 exclude_ids(이 표에서 뺄 id)를 넣어 다시 찾는다(같은 상품명의 다른 규격도 빠진다). 결과가 비면 note 대로 '조건에 맞는 다른 제품이 없다'고 말하고, 새 제품을 추천한 것처럼 말하지 않는다.\n"
+        . "- 고객이 '좀 더 저렴한 제품'을 원하면 같은 조건(설치 길이·면적 포함)으로 exclude_ids 와 max_est_cost(이 표의 가장 낮은 예상 자재비)를 넣어 찾는다. 표에 이미 더 싼 제품이 있으면 그 제품을 먼저 알려 준다. 규격·수량·단위가 달라 예상 자재비가 없는 제품은 금액을 비교해 더 싸다고 말하지 않는다."
         . (substr_count(implode("\n", $lines), '(가장 저렴)') > 1 ? "\n- '(가장 저렴)'이 여러 개다(같은 금액). '제일 저렴한 것'을 담을 때는 표에서 먼저 나온 제품을 담고, 같은 금액의 다른 제품(이름)도 있다고 한 문장으로 알린다." : '');
 }
 
@@ -1239,26 +1272,77 @@ function rag_traffic_context(array $messages): string
 }
 
 /**
- * 고객이 직전 추천표와 '다른 제품'을 원하는지 (순수 함수) — 'A 말고', '다른 자재 추천', '다시 추천', '딴 거'.
- * '다른 규격·다른 수량'처럼 같은 제품의 조건만 바꾸는 말은 해당하지 않는다.
+ * 고객이 직전 추천표와 '다른 제품'을 원하는지 (순수 함수) — 'A 말고', '다른 자재 추천', '다시 추천', '딴 거', '앞에 추천한 제품은 제외해줘',
+ * '좀 더 저렴한 제품'(rag_wants_cheaper). '다른 규격·다른 수량'처럼 같은 제품의 조건만 바꾸는 말, '저렴한 제품부터'(순서)는 해당하지 않는다.
  */
 function rag_wants_alternative(string $msg): bool
 {
-    return preg_match('/(?<!하지|담지|넣지|사지|하지 |담지 |넣지 |사지 )말고|다른\s*(제품|자재|상품|거|것|걸|종류|모델|브랜드|추천|대안|그레이팅)|딴\s*(거|것|걸|제품)|다시\s*추천|재\s*추천|바꿔\s*(서\s*)?추천|대안|대체\s*(품|제품|자재)/u', $msg) === 1;
+    return preg_match('/(?<!하지|담지|넣지|사지|하지 |담지 |넣지 |사지 )말고|다른\s*(제품|자재|상품|거|것|걸|종류|모델|브랜드|추천|대안|그레이팅)|딴\s*(거|것|걸|제품)|다시\s*추천|재\s*추천|바꿔\s*(서\s*)?추천|대안|대체\s*(품|제품|자재)|(제품|자재|상품|거|것|건|걸|표)[은는을를]?\s*(빼고|빼\s*줘|빼\s*주세요|제외)/u', $msg) === 1
+        || rag_wants_cheaper($msg);
+}
+
+/** 고객이 직전 추천표보다 '더 저렴한 제품'을 원하는지 (순수 함수) — '좀 더 저렴한 제품', '더 싼 거 없어?', '저렴한 거 있어?'. '저렴한 제품부터'(정렬)는 아님 */
+function rag_wants_cheaper(string $msg): bool
+{
+    return preg_match('/(더|좀\s*더|훨씬|조금\s*더)\s*(저렴|싼|싸|값싼)|(저렴|(?<!비)싼|값싼)\s*(한\s*)?(거|것|걸|제품|자재)?\s*(는\s*)?(없|있)|가격(이|을)?\s*(더\s*)?(낮은|낮춘)/u', $msg) === 1;
+}
+
+/** 직전 추천표의 가장 낮은 예상 자재비(현재 단가 × 권장 수량, 비교 가능한 것만) — '더 저렴한 제품' 기준. 없으면 0 (순수 함수) */
+function rag_recent_min_est(array $recentCards): int
+{
+    $est = array_filter(array_map(static fn($c) => ($c['price'] ?? null) !== null && ($c['qty'] ?? null) !== null ? (int) $c['price'] * (int) $c['qty'] : null, $recentCards), static fn($v) => $v !== null && $v > 0);
+    return $est ? (int) min($est) : 0;
+}
+
+/**
+ * 고객이 말한 폭(mm) (순수 함수) — '폭 500mm'·'폭은 50cm'·'50센테 폭'·'폭이 0.5m'(단위 없으면 mm). 마지막으로 말한 값, 없으면 null.
+ * GPT 가 폭을 spec_mm(규격 어느 자리든 맞추는 숫자)으로 넘겼을 때 폭 조건(width_mm)으로 바꾸는 데만 쓴다(새 조건을 만들지 않음).
+ */
+function rag_width_from_text(array $messages): ?float
+{
+    $unit = '(mm|㎜|밀리|cm|㎝|센티|센치|센테|미터|m)?';
+    $found = null;
+    foreach ($messages as $m) {
+        if (($m['role'] ?? '') !== 'user') { continue; }
+        $t = (string) ($m['content'] ?? '');
+        $hits = [];
+        if (preg_match_all('/(?:폭|너비)\s*(?:은|는|이|가|:)?\s*(?:약\s*)?(\d+(?:\.\d+)?)\s*' . $unit . '/u', $t, $a, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+            foreach ($a as $x) { $hits[$x[0][1]] = $x[1][0] . ($x[2][0] ?? ''); }
+        }
+        if (preg_match_all('/(\d+(?:\.\d+)?)\s*' . $unit . '\s*(?:짜리\s*)?(?:폭|너비)/u', $t, $b, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+            foreach ($b as $x) { $hits[$x[0][1]] = $x[1][0] . ($x[2][0] ?? ''); }
+        }
+        if ($hits) {
+            ksort($hits);
+            $mm = ai_parse_mm((string) end($hits));
+            if ($mm !== null) { $found = $mm; }
+        }
+    }
+    return $found;
 }
 
 /**
  * search_products 입력 보완 (순수 함수) — GPT 가 넘기지 않은 값만 서버가 채운다(넘긴 값은 그대로).
  *  traffic    : 고객 발화의 통행 조건(rag_traffic_context)
- *  exclude_ids: 고객이 다른 제품을 원할 때 직전 추천표의 상품 id(rag_wants_alternative + rag_recent_cards)
+ *  exclude_ids: 고객이 다른 제품을 원할 때 이 상담에서 보인 추천표의 상품 id(rag_wants_alternative + rag_session_shown_ids)
+ *  width_mm   : 고객이 '폭'이라고 말한 숫자를 GPT 가 spec_mm 으로 넘겼으면 폭 조건으로(숫자가 같을 때만, 두께 기준 spec_strict 는 그대로)
+ *  max_est_cost: '좀 더 저렴한 제품'이면 직전 추천표의 가장 낮은 예상 자재비(rag_recent_min_est)
  */
-function rag_fill_search_input(array $input, string $traffic, array $excludeIds): array
+function rag_fill_search_input(array $input, string $traffic, array $excludeIds, ?float $widthMm = null, int $maxEst = 0): array
 {
+    if ($maxEst > 0 && (int) ($input['max_est_cost'] ?? 0) <= 0) {
+        $input['max_est_cost'] = $maxEst;   // '좀 더 저렴한 제품': 직전 추천표의 가장 낮은 예상 자재비보다 싼 것만
+    }
     if ($traffic !== '' && ai_traffic_value($input['traffic'] ?? null) === '') {
         $input['traffic'] = $traffic;
     }
     if ($excludeIds && ai_int_list($input['exclude_ids'] ?? null) === []) {
         $input['exclude_ids'] = array_values(array_map('intval', $excludeIds));
+    }
+    $spec = (float) ($input['spec_mm'] ?? 0);
+    if ($widthMm !== null && ai_parse_mm($input['width_mm'] ?? null) === null && $spec > 0 && abs($spec - $widthMm) < 0.5 && empty($input['spec_strict'])) {
+        $input['width_mm'] = $widthMm;
+        unset($input['spec_mm']);
     }
     return $input;
 }
@@ -1460,7 +1544,9 @@ function rag_process(array $messages, string $sid): array
         if (($m['role'] ?? '') === 'user') { $lastUser = (string) ($m['content'] ?? ''); break; }
     }
     $fillTraffic = rag_traffic_context($messages);
-    $fillExclude = ($recentCards && rag_wants_alternative($lastUser)) ? array_column($recentCards, 'id') : [];
+    $fillWidth   = rag_width_from_text($messages);
+    $fillExclude = ($recentCards && rag_wants_alternative($lastUser)) ? (rag_session_shown_ids($sid) ?: array_column($recentCards, 'id')) : [];   // 이 상담에서 보인 제품 전체(최근 30개)
+    $fillMaxEst  = ($recentCards && rag_wants_cheaper($lastUser)) ? rag_recent_min_est($recentCards) : 0;
 
     for ($iter = 0; $iter < $maxIter; $iter++) {
         $body = json_encode([
@@ -1527,7 +1613,7 @@ function rag_process(array $messages, string $sid): array
         foreach ($toolCalls as $tc) {
             $input    = json_decode($tc['function']['arguments'] ?? '{}', true) ?? [];
             if (($tc['function']['name'] ?? '') === 'search_products' && is_array($input)) {
-                $input = rag_fill_search_input($input, $fillTraffic, $fillExclude);
+                $input = rag_fill_search_input($input, $fillTraffic, $fillExclude, $fillWidth, $fillMaxEst);
             }
             $output   = ai_tool_dispatch($tc['function']['name'] ?? '', $input, $sid);
             $toolData = json_decode($output, true) ?? [];

@@ -253,6 +253,7 @@ function renderProductCards(products, container) {
         <td>
           <a class="compare-name" href="${detailUrl}" target="_blank" rel="noopener" title="제품 상세 보기">${escHtml(p.name)}</a>
           ${(p.spec_label || p.spec) ? `<div class="compare-spec">${escHtml(p.spec_label || p.spec)}</div>` : ''}
+          ${p.dim_note ? `<div class="compare-dim-note">${escHtml(p.dim_note)}</div>` : ''}
           ${stateNote}
         </td>
         <td class="compare-price${state === 'ok' ? '' : ' is-state'}">${price}${unitHtml}${costHtml}</td>
