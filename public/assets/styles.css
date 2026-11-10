@@ -1399,6 +1399,8 @@ a.pt-name-text:hover { color: var(--color-primary); }
 .pt-col-desc    { text-align: left; min-width: 160px; }
 /* 규격 축 칸(모델 코드·폭 W…): '규격' 묶음 머리글 아래 두 번째 줄 — 작은 회색 글씨(아트보드 '규격 개선안') */
 .product-table thead tr + tr th { border-top: 0; }
+/* 둘째 줄 마지막 칸(예: 두께 T)은 표의 마지막 칸이 아니므로(오른쪽에 판매가·중량…) 오른쪽 선 유지 — th:last-child 선 없앰 규칙 예외 */
+.product-table tr.pt-head-ax th:last-child { border-right: 1px solid #ddd; }
 .product-table tr.pt-head-ax th { padding: 8px 6px; font-size: 12px; font-weight: 400; color: #6B6B6B; }
 .product-table th.pt-col-specgrp { padding: 6px 8px; }
 .pt-col-ax      { width: 76px; white-space: nowrap; font-variant-numeric: tabular-nums; }
