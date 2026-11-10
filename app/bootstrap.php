@@ -610,7 +610,7 @@ function product_facets(?int $categoryId, ?string $query, array $active = []): a
         };
         $vals = []; $all = [];
         foreach (array_column($axDefs, 'axis_key') as $k) {
-            $all[$k]  = $keysOf($axAll[$k], $byNum);
+            $all[$k]  = $keysOf($axAll[$k], in_array($k, SPEC_AXIS_TEXT, true) ? 'strnatcmp' : $byNum);   // 글자 값(VG150·DC200)은 자연 정렬
             $vals[$k] = [];
             foreach ($all[$k] as $v) { $vals[$k][$v] = (int) ($axCnt[$k][$v] ?? 0); }
         }
