@@ -1,16 +1,18 @@
+# 로컬 개발용 Docker 구성 — 비밀번호는 프로젝트 루트 .env(커밋 금지)의 LOCAL_DB_PASS · LOCAL_DB_ROOT_PASS 로만 넣는다.
+# 포트는 127.0.0.1 에만 연다. 이미 만든 mysql_data 볼륨은 처음 만들 때의 비밀번호를 그대로 쓴다(docs/DEPLOYMENT.md 참고).
 services:
   php:
     build: ./docker/php
     container_name: tomokmall_php
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"    # 이 PC 에서만 접속(같은 네트워크의 다른 기기 차단)
     volumes:
       - .:/var/www/html
     environment:
       DB_HOST: mysql
       DB_NAME: tomokmall
       DB_USER: tomokmall
-      DB_PASS: tomok6385!
+      DB_PASS: "${LOCAL_DB_PASS:?루트 .env 에 LOCAL_DB_PASS 를 넣으세요(.env.example 참고)}"
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       APP_ENV: local
     depends_on:
@@ -23,17 +25,18 @@ services:
     image: mysql:8.0
     container_name: tomokmall_mysql
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: "${LOCAL_DB_ROOT_PASS:?루트 .env 에 LOCAL_DB_ROOT_PASS 를 넣으세요(.env.example 참고)}"
       MYSQL_DATABASE: tomokmall
       MYSQL_USER: tomokmall
-      MYSQL_PASSWORD: tomok6385!
+      MYSQL_PASSWORD: "${LOCAL_DB_PASS:?루트 .env 에 LOCAL_DB_PASS 를 넣으세요(.env.example 참고)}"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
     ports:
-      - "3307:3306"
+      - "127.0.0.1:3307:3306"  # 로컬호스트에서만 DB 접속
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "tomokmall", "-ptomok6385!"]
+      # 비밀번호를 명령줄에 쓰지 않고 컨테이너 환경변수(MYSQL_PASSWORD)를 MYSQL_PWD 로 넘긴다($$ = compose 치환 방지)
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_PASSWORD\" mysqladmin ping -h localhost -u tomokmall --silent"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -44,11 +47,11 @@ services:
     image: phpmyadmin/phpmyadmin
     container_name: tomokmall_pma
     ports:
-      - "8081:80"
+      - "127.0.0.1:8081:80"    # phpMyAdmin 도 이 PC 에서만
     environment:
       PMA_HOST: mysql
       PMA_PORT: 3306
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: "${LOCAL_DB_ROOT_PASS:?루트 .env 에 LOCAL_DB_ROOT_PASS 를 넣으세요(.env.example 참고)}"
     depends_on:
       - mysql
     networks:

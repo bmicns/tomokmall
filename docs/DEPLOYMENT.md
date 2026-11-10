@@ -66,7 +66,7 @@ FTP 루트
 | 환경 | 실행 방법 | DB | 시크릿 파일 |
 |---|---|---|---|
 | 로컬(Homebrew) | `bash scripts/local-up.sh` → `http://localhost:8080` | Homebrew MySQL `127.0.0.1:3306` | 루트 `.env.local` |
-| 로컬(Docker) | `docker compose up` → `:8080`(웹), `:8081`(phpMyAdmin) | 컨테이너 `mysql` (호스트 포트 3307) | `docker-compose.yml` 환경변수 |
+| 로컬(Docker) | `docker compose up` → `127.0.0.1:8080`(웹), `127.0.0.1:8081`(phpMyAdmin) | 컨테이너 `mysql` (호스트 `127.0.0.1:3307`) | 루트 `.env`(`LOCAL_DB_PASS`·`LOCAL_DB_ROOT_PASS`, 커밋 금지) |
 | 운영(닷홈) | FTP 업로드 | 닷홈 MySQL | 서버 `/app/.env` |
 
 ### 환경변수 로드 순서 (`app/bootstrap.php`)
@@ -267,12 +267,13 @@ phpMyAdmin·FileZilla 대신 Claude 가 HTTPS 원격 관리 API(`scripts/tomok`)
 
 ## 8. 현재 확인된 보안 관련 사항
 
-(아직 수정하지 않았습니다. 수정하려면 별도로 요청·승인해 주세요.)
+(2026-11-10: `scripts/db-tools`·`docker-compose.yml`·`scripts/local-up.sh` 는 작업 브랜치에서 수정함. 나머지는 아직 수정하지 않았습니다. 수정하려면 별도로 요청·승인해 주세요.)
 
 | 위치 | 내용 | 권장 조치 |
 |---|---|---|
-| `scripts/local-up.sh` | 로컬 DB 비밀번호와 관리자 계정(admin@admin.com)·비밀번호가 출력 문구로 커밋되어 있음 | 운영 DB·운영 관리자 계정이 같은 비밀번호를 쓰고 있다면 **즉시 변경**. 출력 문구에서 비밀번호 제거 검토 |
-| `docker-compose.yml` | 로컬 DB 비밀번호 평문 | 운영과 다른 값인지 확인. `${DB_PASS}` 같은 환경변수 참조로 전환 검토 |
+| `scripts/local-up.sh` | (2026-11-10 수정) 출력 문구에서 DB · 관리자 비밀번호를 뺐다. 예전 값은 Git 기록에 남아 있음 | 운영 DB·운영 관리자 계정이 예전 값과 같은 비밀번호를 쓰고 있다면 **즉시 변경**. Homebrew MySQL 로컬 계정도 예전 값이면 바꾸고 `.env.local` 의 `DB_PASS` 갱신 |
+| `docker-compose.yml` | (2026-11-10 수정) 비밀번호를 루트 `.env` 의 `LOCAL_DB_PASS`·`LOCAL_DB_ROOT_PASS` 로 분리, 웹·phpMyAdmin·MySQL 포트를 `127.0.0.1` 에만 공개. 예전 값은 Git 기록에 남아 있음 | 기존 `mysql_data` 볼륨은 처음 만들 때의 비밀번호를 유지한다 → ① 당장은 루트 `.env` 에 지금 쓰던 값을 넣어 그대로 쓰거나 ② `docker compose exec mysql mysql -uroot -p` 로 접속해 `ALTER USER 'tomokmall'@'%' IDENTIFIED BY '새 값';` 후 `.env` 갱신(root 도 같은 방식) ③ 로컬 데이터가 필요 없으면 `docker compose down -v` 후 새 값으로 다시 시작 |
+| `scripts/db-tools/*.php` | (2026-11-10 수정, `fee0ca2`) 접근 키를 코드에서 빼고 환경변수 `DB_TOOL_KEY`(24자 이상)로만 허용 — 없으면 항상 403 | 예전 키는 Git 기록에 남아 있으므로 폐기한 값으로 보고 다시 쓰지 않는다 |
 | `database/local-init.sql` | 로컬용 기본 관리자 계정 생성 SQL. 배포 시 서버 `/database`에도 업로드됨 | 운영 DB에서 실행하지 않음. 운영에 같은 계정이 있으면 비밀번호 변경 |
 | 평문 FTP / HTTP | FTP 비밀번호와 사이트 로그인 정보가 암호화되지 않고 전송됨 | 닷홈 SFTP/FTPS·무료 SSL(HTTPS) 지원 여부 확인 후 적용 검토 |
 
