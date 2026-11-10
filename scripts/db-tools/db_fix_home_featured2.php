@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
-if (($_GET['key'] ?? '') !== 'tomok6385!') { http_response_code(403); exit('403'); }
+// 접근 키는 코드에 두지 않는다 — 환경변수 DB_TOOL_KEY(24자 이상)와 같을 때만 실행, 없으면 항상 거부(.env.example 참고)
+$__toolKey = (string) getenv('DB_TOOL_KEY');
+if (strlen($__toolKey) < 24 || !hash_equals($__toolKey, (string) ($_GET['key'] ?? ''))) { http_response_code(403); exit('403'); }
 $config = require __DIR__ . '/../app/config.php';
 $db = $config['db'];
 $pdo = new PDO("mysql:host={$db['host']};dbname={$db['name']};charset={$db['charset']}", $db['user'], $db['pass']);

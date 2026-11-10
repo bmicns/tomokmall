@@ -2,11 +2,12 @@
 declare(strict_types=1);
 
 // 1회성 — AI 3단계 업그레이드 DB 설치 스크립트
-define('SETUP_PASS', 'bmicns_ai3_2026');
+// 접근 키는 코드에 두지 않는다 — 환경변수 DB_TOOL_KEY(24자 이상)와 같을 때만 실행, 없으면 항상 거부(.env.example 참고)
+$__toolKey = (string) getenv('DB_TOOL_KEY');
 
-if (($_GET['key'] ?? '') !== SETUP_PASS) {
+if (strlen($__toolKey) < 24 || !hash_equals($__toolKey, (string) ($_GET['key'] ?? ''))) {
     http_response_code(403);
-    exit('403 Forbidden — ?key=bmicns_ai3_2026 필요');
+    exit('403 Forbidden');
 }
 
 $config = require __DIR__ . '/../app/config.php';

@@ -4,8 +4,8 @@ declare(strict_types=1);
  * 운영 반영: ② 등급별 차등 가격 + ① 공급업체(복수) 마이그레이션 & 데모데이터.
  *
  * 사용:  브라우저에서 실행. 기본은 dry-run(변경 없음, 진단만).
- *   확인:  /db-tools/db_setup_pricing_vendors.php?key=tomok-setup-2026
- *   실행:  /db-tools/db_setup_pricing_vendors.php?key=tomok-setup-2026&commit=1
+ *   확인:  /db-tools/db_setup_pricing_vendors.php?key=<DB_TOOL_KEY 값>
+ *   실행:  /db-tools/db_setup_pricing_vendors.php?key=<DB_TOOL_KEY 값>&commit=1
  *
  * ⚠️ 실행 후 반드시 이 파일을 서버에서 삭제할 것(쓰기 스크립트).
  * ⚠️ 멱등: 여러 번 실행해도 안전(IF NOT EXISTS / INSERT IGNORE / 이미 배정된 상품 건너뜀).
@@ -20,8 +20,9 @@ if (!$__boot) { http_response_code(500); exit("bootstrap.php 경로를 찾을 �
 require $__boot;
 header('Content-Type: text/plain; charset=utf-8');
 
-$KEY = 'tomok-setup-2026';
-if (($_GET['key'] ?? '') !== $KEY) { http_response_code(403); exit("forbidden\n"); }
+// 접근 키는 코드에 두지 않는다 — 환경변수 DB_TOOL_KEY(24자 이상)와 같을 때만 실행, 없으면 항상 거부(.env.example 참고)
+$__toolKey = (string) getenv('DB_TOOL_KEY');
+if (strlen($__toolKey) < 24 || !hash_equals($__toolKey, (string) ($_GET['key'] ?? ''))) { http_response_code(403); exit("forbidden\n"); }
 
 $commit = isset($_GET['commit']);
 $pdo = db();
