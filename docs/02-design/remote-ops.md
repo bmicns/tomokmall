@@ -11,7 +11,7 @@ phpMyAdmin(SQL 복사·실행)과 FileZilla(업로드·삭제)로 사람이 하�
 | 원칙 | 구현 |
 |---|---|
 | 임의 SQL 을 받는 공개 엔드포인트 금지 | 모든 요청은 서명(HMAC) 인증. 조회 SQL 은 검사기 + `READ ONLY` 트랜잭션, 쓰기 SQL 은 **관리자가 본문을 보고 승인한 파일만** 실행 |
-| 운영 DB 변경·서버 변경은 사용자 승인 | 쓰기 작업은 **작업 단위 승인(grant)** 이 있어야만 실행. 승인은 사용자 채팅 승인 후 Claude 가 키 API `grant.approve` 로 처리(2026-11-10~, `REMOTE_OPS_CHAT_APPROVE=0` 이면 막힘) 또는 관리자 화면(관리자 세션 + CSRF). 2026-11-04~11-09 은 관리자 화면에서만 가능했음 |
+| 운영 DB 변경·서버 변경은 사용자 승인 | 쓰기 작업은 **작업 단위 승인(grant)** 이 있어야만 실행. 승인은 관리자 화면(관리자 세션 + CSRF)에서만 가능 — 키로는 승인 불가 |
 | 가격 데이터는 바꾸지 않음 | 기존 DB 가격 정보는 **승인을 받아도** 서버가 변경을 막음(12장, `price_guard.php`) |
 | DB 승인과 파일 승인 분리 | grant `kind` = `db` / `files`. 한쪽 승인으로 다른 쪽 작업 불가 |
 | 승인 후 문장마다 다시 묻지 않음 | 승인 범위(테이블·컬럼·대상 행·최대 행 수·유효시간·횟수) 안에서는 자동 진행 |
@@ -60,7 +60,7 @@ Claude Code 웹 컨테이너                         닷홈 서버
 | `app/remote_ops/price_guard.php` | 가격 데이터 보호: 가격 컬럼 판정, SQL 쓰기 대상 분석, 구조화 쓰기·SQL 파일·복원·되돌리기 차단(12장) |
 | `app/remote_ops/db_ops.php` | DB 조회·구조화 쓰기·SQL 파일·검증·되돌리기·백업 |
 | `app/remote_ops/file_ops.php` | 경로 검사·파일 조회·배포·복구 |
-| `app/remote_ops/grants.php` | 승인 생성·확인·사용·결정(관리자 화면·키 API `grant.approve` 공용) |
+| `app/remote_ops/grants.php` | 승인 생성·확인·사용·결정(관리자 화면 공용) |
 | `app/remote_ops/audit.php` | 실행 이력·스냅샷 |
 | `app/remote_ops/diff.php` | 줄 단위 비교(승인 화면) |
 | `public/admin-remote-ops.php` | 관리자 승인 화면 |
@@ -104,7 +104,6 @@ POST 확인 → `REMOTE_OPS_ENABLED=1` → (선택) IP 허용 목록 → 봉투 
 | `files.read` | `files.list` `files.read` `files.hash` `files.manifest` `files.lint` `files.snapshot` |
 | `files.write` | `files.stage` `files.deploy` `files.restore`, `probe` 의 `write_test` |
 | (항상) | `grant.status` `grant.list` `grant.cancel` `log.list` `log.get` |
-| 승인 종류에 따라 | `grant.approve` — db 승인은 `db.write`, files 승인은 `files.write` 범위가 키에 있어야 함 |
 
 `REMOTE_OPS_SCOPES` 로 키가 쓸 수 있는 범위를 줄일 수 있다(예: 조회만 `probe,db.read,files.read`). **쓰기 범위가 있어도 승인 없이는 쓰기 불가.**
 
@@ -122,7 +121,7 @@ POST 확인 → `REMOTE_OPS_ENABLED=1` → (선택) IP 허용 목록 → 봉투 
 ## 5. 작업 단위 승인(grant)
 
 ```
-CLI: 승인 요청(pending) ──▶ 사용자 채팅 승인 → CLI grant approve(approved, 유효시간 시작)  [관리자 화면: 조회·거절·(언제든) 회수, 승인도 가능]
+CLI: 승인 요청(pending) ──▶ 관리자 화면: 승인(approved, 유효시간 시작) / 거절 / (언제든) 회수
                                       │
 CLI: 범위 안 쓰기(여러 번) ─▶ 사용량 누적 ─▶ max_ops 도달·1회용 사용 → used / 유효시간 지남 → expired
 CLI: 되돌리기 ─▶ 원래 승인의 유효시간 + 24시간 안이면 같은 승인으로 허용(회수·거절된 승인은 불가)
@@ -134,10 +133,9 @@ CLI: 되돌리기 ─▶ 원래 승인의 유효시간 + 24시간 안이면 같�
 | `db/sql` | `tomok db stage-sql` | SQL 본문 전체, SHA-256, DDL 여부, 경고(WHERE 없음 등), **실행하지 않고 COUNT 로 센 문장별 대상 행 수**, @verify 현재값 | `db execute` (1회) | SQL 본문(해시), 최대 행 수 |
 | `files/staged` | `tomok files stage` | 파일별 동작(교체·새 파일·삭제), **서버가 직접 계산한 현재 서버 파일과의 diff**, 요청 이후 서버 변동 여부, 서버 PHP 문법 검사 결과 | `files deploy` (1회) | 파일 내용(해시), 요청 시점 서버 파일 해시 |
 
-- **추가 확인(별도 승인 절차)**: DDL 포함, WHERE 없는 UPDATE/DELETE, 20행 초과 삭제, 대량 삭제·CASCADE 삭제 허용 요청, 인증·승인 화면 관련 파일·`.htaccess` 배포, 보이지 않는 문자 포함이면 승인 화면에 확인란이 생기고 체크해야 승인된다. 키 API 승인(`grant.approve`)은 `confirm_extra` 가 있어야 승인된다(없으면 `confirm_required`).
+- **추가 확인(별도 승인 절차)**: DDL 포함, WHERE 없는 UPDATE/DELETE, 20행 초과 삭제, 대량 삭제·CASCADE 삭제 허용 요청, 인증·승인 화면 관련 파일·`.htaccess` 배포, 보이지 않는 문자 포함이면 승인 화면에 확인란이 생기고 체크해야 승인된다.
 - 유효시간 5~1,440분(기본 60), 승인 대기는 24시간 뒤 만료. 관리자 화면 '전체 회수'로 모든 원격 쓰기를 즉시 중지.
-- 파일 승인은 요청 이후 서버 파일이 바뀌면(FileZilla 로 누가 수정) 승인(관리자 화면·`grant.approve` 모두 `server_changed`)이 거부되고, 배포 시점에도 다시 확인한다.
-- `grant.approve` 매개변수: `code`, `note`(채팅 승인 요약, 필수 — `decided_note` 에 `[채팅 승인] …` 으로 저장, `decided_by` NULL), `confirm_extra?`. 실행 이력에 남는다. 이미 결정된 요청은 `grant_state`, 기능이 꺼져 있으면 `chat_approve_disabled`.
+- 파일 승인은 요청 이후 서버 파일이 바뀌면(FileZilla 로 누가 수정) 승인 버튼이 거부되고, 배포 시점에도 다시 확인한다.
 
 ## 6. DB 작업 명세
 
@@ -229,10 +227,8 @@ CLI 쪽 추가 기능: `files diff`(서버 ↔ 로컬 커밋 diff), `files stage
 
 ## 12. 운영 정책 (사용자 결정 2026-11-04)
 
-### 12-1. 승인 방식 — 채팅 승인 (사용자 결정 2026-11-10, 관리자 화면 승인 요청 방식 제거)
-운영 DB 변경·운영 서버 파일 변경 모두 **사용자 채팅 승인 후** Claude 가 `grant.approve` 로 승인 처리하고 실행한다. DB 승인과 파일 승인은 별도(grant `kind`), 승인 범위 안에서는 반복 승인 없이 자동 실행(5장). 관리자 화면은 조회·거절·회수·'전체 회수'용으로 남는다.
-(이전 결정 2026-11-04: 관리자 화면 승인만, 채팅 승인 대체는 만들지 않음 — 2026-11-10 사용자 요청으로 변경.)
-위험: 서버가 사람의 승인 여부를 따로 확인하지 않으므로 API 키만 있으면 요청·승인·실행이 모두 가능하다. 범위·해시 고정·가격 보호·자동 백업·되돌리기·실행 이력으로 피해 범위를 줄이고, 필요하면 `REMOTE_OPS_CHAT_APPROVE=0` 으로 이전 방식으로 돌린다.
+### 12-1. 관리자 승인 방식 유지
+`/admin-remote-ops.php` 승인 방식을 그대로 쓴다: 운영 DB 변경·운영 서버 파일 변경 모두 관리자 화면 승인 후 실행, DB 승인과 파일 승인은 별도(grant `kind`), 승인 범위 안에서는 반복 승인 없이 자동 실행(5장). 채팅 승인으로 대체하는 방식은 만들지 않는다.
 
 ### 12-2. 가격 관련 기존 DB 데이터 변경 금지
 원격 관리 API 로는 기존 가격 정보를 **어떤 경로로도** 바꾸지 않는다. 관리자 승인을 받아도 유지된다. 조회·분석은 허용. 가격 계산 로직(`app/pricing.php`)은 바꾸지 않는다(이 기능은 차단만 추가).

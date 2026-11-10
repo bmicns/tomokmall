@@ -3,10 +3,8 @@ declare(strict_types=1);
 /**
  * 원격 관리 API — 작업 단위 승인(grant) (app/remote_ops/grants.php)
  *
- * 흐름: Claude(CLI)가 승인 요청 생성(pending) → 사용자가 채팅으로 승인 → Claude 가 키 API(grant.approve)로 승인 처리
+ * 흐름: Claude(CLI)가 승인 요청 생성(pending) → 관리자가 관리자 화면(/admin-remote-ops.php)에서 승인/거절
  *       → 승인된 범위·유효시간 안에서만 쓰기 작업 허용 → 사용량(used_ops·used_rows) 누적 → 만료·회수·사용 완료
- *       (사용자 결정 2026-11-10: 관리자 화면 승인 요청 방식 제거. 관리자 화면은 조회·거절·회수·'전체 회수'용으로 유지,
- *        관리자 화면 승인도 계속 동작. REMOTE_OPS_CHAT_APPROVE=0 이면 키 API 승인을 막아 관리자 화면 승인만 허용)
  *
  * 종류(kind)·방식(mode) — 운영 DB 변경과 운영 서버 파일 변경의 승인은 서로 다른 grant(kind)로만 처리한다.
  *   db/scope   : 테이블·작업(update/insert/delete)·컬럼·대상 PK·최대 행 수 범위 안에서 구조화 쓰기 여러 번
@@ -14,8 +12,7 @@ declare(strict_types=1);
  *   files/staged : 승인 화면에 보인 파일 내용(해시 고정) 배포·삭제 1회
  * 되돌리기(revert/restore): 원래 grant 의 유효시간 + 24시간 안이면 같은 grant 로 허용(회수·거절된 grant 는 불가)
  *
- * 키 API 승인(grant.approve): rops_grant_decide($pdo, $code, 'approve', null, ...) — decided_by NULL, 메모 앞에 '[채팅 승인]'.
- *   거절·회수는 관리자 화면 전용(키 API 는 grant.cancel 로 자기 요청만 취소)
+ * 금지: 키 API 로 승인(approve)하기 — 승인은 관리자 세션(관리자 화면)에서만 rops_grant_decide() 로
  */
 
 const ROPS_GRANT_ROLLBACK_HOURS = 24;
@@ -160,11 +157,10 @@ function rops_grant_use(PDO $pdo, array $g, int $rows, bool $finish): void
 }
 
 /**
- * 승인 결정. $action: approve | reject | revoke
- * $adminId: 관리자 화면이면 관리자 users.id, 키 API 승인(채팅 승인)이면 null
+ * 관리자 결정(관리자 화면 전용). $action: approve | reject | revoke
  * @return array grant
  */
-function rops_grant_decide(PDO $pdo, string $code, string $action, ?int $adminId, string $note = ''): array
+function rops_grant_decide(PDO $pdo, string $code, string $action, int $adminId, string $note = ''): array
 {
     rops_grant_sweep($pdo);
     $pdo->beginTransaction();

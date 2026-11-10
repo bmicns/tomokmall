@@ -92,8 +92,6 @@ function rops_settings(?string $webroot = null): array
         'storage_mb'     => max(10, min(2000, (int) $get('REMOTE_OPS_STORAGE_MB', '200'))),
         'allowed_ips'    => array_values(array_filter(array_map('trim', explode(',', $get('REMOTE_OPS_ALLOWED_IPS', ''))))),
         'base_url'       => rtrim($get('REMOTE_OPS_BASE_URL', 'https://tomokmall.dothome.co.kr'), '/'),
-        // 키 API 승인(grant.approve — 사용자 채팅 승인 후 Claude 가 처리, 사용자 결정 2026-11-10). 0 이면 관리자 화면 승인만
-        'chat_approve'   => $get('REMOTE_OPS_CHAT_APPROVE', '1') !== '0',
         'db' => [
             'host' => $get('DB_HOST') ?: 'localhost',
             'name' => $get('DB_NAME') ?: 'tomokmall',
