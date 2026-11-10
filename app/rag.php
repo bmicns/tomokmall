@@ -1246,7 +1246,7 @@ function rag_recent_cond(string $sid): array
  *  ③ '다른 제품'·'제외'·'더 저렴한' → 이 상담에서 보인 제품 제외, '더 저렴한' → 직전 표와 비교할 수 있을 때만 금액 기준(rag_cheaper_bound)
  *  ④ 수량·최종 비교 질문·설치 길이만 새로 말함 → 직전 표 제품만 다시 확인(only_ids), 차량 조건을 새로 말함 → 앞서 추천한 제품 재확인(recheck_ids)
  *  제외(exclude_ids)·재확인(recheck_ids)은 GPT 가 넘긴 id 에 서버 목록을 더한다(GPT 는 직전 표만 알아 그 전 표 제품이 빠짐).
- * @param array{explicit:array, traffic:array, recent_cards:array, recent_cond:array, exclude:list<int>, cheaper:bool, only_recent:bool, recheck:bool, recheck_ids?:list<int>} $ctx
+ * @param array{explicit:array, traffic:array, recent_cards:array, recent_cond:array, exclude:list<int>, cheaper:bool, only_recent:bool, recheck:bool, recheck_ids?:list<int>, reshow?:bool} $ctx
  */
 function rag_prepare_search_input(array $input, array $ctx): array
 {
@@ -1307,7 +1307,7 @@ function rag_prepare_search_input(array $input, array $ctx): array
     }
     // 고객이 앞서 뺀 제품(직전 표가 '다른 제품' 요청으로 나온 표)은 같은 품목 검색에서 계속 뺀다(4차 — 제외 조건 유지)
     $kept = ai_int_list($recentCond['exclude_ids'] ?? null);
-    if ($kept && $sameFamily && empty($ctx['exclude']) && ai_int_list($input['only_ids'] ?? null) === []) {
+    if ($kept && $sameFamily && empty($ctx['exclude']) && empty($ctx['reshow']) && ai_int_list($input['only_ids'] ?? null) === []) {
         $given = ai_int_list($input['exclude_ids'] ?? null);
         $merged = array_slice(array_values(array_unique(array_merge($given, $kept))), 0, 30);
         if ($merged !== $given) {
@@ -1360,6 +1360,28 @@ function rag_apply_ambiguity(array $input, array $explicit): array
             $used = $near(isset($input['length_m']) ? (float) $input['length_m'] : null, $v, 0.001) ? '설치 구간 총 길이' : ($near(ai_parse_mm($input['product_length_mm'] ?? null), $v * 1000, 0.5) ? '제품 1개 길이' : '');
             $clarify[] = "고객이 말한 '{$txt}'가 설치 구간 총 길이인지 제품 1개 길이인지 말에 없습니다. "
                 . ($used !== '' ? "이번 검색은 {$used}로 했으니 답에 그 기준을 밝히고 맞는지 한 문장으로 확인한다." : '추측해 넣지 말고 확인 질문을 한다.');
+        } elseif ($a['kind'] === 'unit_unclear') {
+            $v = (float) $a['value_m'] * 1000;   // 말한 숫자 그대로(mm 로 읽은 값)
+            $wGot = ai_parse_mm($input['width_mm'] ?? null);
+            if ($wGot !== null && !isset($c['width_mm']) && ($near($wGot, $v, 0.5) || $near($wGot, $v * 10, 0.5))) {
+                unset($input['width_mm']);
+                $fills[] = "width_mm 뺌('{$txt}' — 단위가 말에 없음)";
+            }
+            $clarify[] = "고객이 '{$txt}'라고 했지만 단위가 없습니다(" . spec_axis_num($v) . 'mm 인지 ' . spec_axis_num($v) . 'cm 인지 — 등록 폭은 대부분 100mm 이상). 폭 조건 없이 찾은 후보만 보이고 단위를 확인 질문한다.';
+        } elseif ($a['kind'] === 'relative_vague') {
+            $keys = $a['dim'] === 'width' ? ['width_mm'] : ($a['dim'] === 'length' ? ['product_length_mm', 'length_m'] : ['width_mm', 'product_length_mm']);
+            foreach ($keys as $k) {
+                $cur = $k === 'length_m' ? ((float) ($input[$k] ?? 0) ?: null) : ai_parse_mm($input[$k] ?? null);
+                if ($cur === null) { continue; }
+                if (!isset($c[$k])) {
+                    unset($input[$k]);
+                    $fills[] = "{$k} 뺌('{$txt}' — 얼마나 바꿀지 말에 없음)";
+                } elseif (!$near($cur, $c[$k], $k === 'length_m' ? 0.001 : 0.5)) {
+                    $input[$k] = $c[$k];
+                    $fills[] = "{$k} 확인 전까지 앞 조건 " . spec_axis_num($c[$k]) . ($k === 'length_m' ? 'm' : 'mm') . " 유지('{$txt}')";
+                }
+            }
+            $clarify[] = "고객이 '{$txt}'라고 했지만 얼마나(몇 mm) 바꿀지 말에 없습니다. 앞 조건은 그대로 두고, 원하는 치수를 확인 질문한다(등록된 규격 몇 가지를 예로 들 수 있음).";
         } elseif (in_array($a['kind'], ['relative_length', 'relative_width'], true)) {
             $keys = $a['kind'] === 'relative_width' ? ['width_mm'] : ['product_length_mm', 'length_m'];
             foreach ($keys as $k) {
@@ -1404,6 +1426,8 @@ function rag_clarify_hint(array $explicit): string
         $lines[] = match ($a['kind']) {
             'piece_too_long', 'length_unclear' => "- '{$a['text']}': 제품 1개 길이인지 설치 구간 총 길이인지 말에 없다. 추측해 정하지 말고 확인 질문을 한다(설치 총 길이로 보고 계산했다면 그 기준을 밝히고 맞는지 묻는다).",
             'relative_length' => "- '{$a['text']}': 바꿀 길이(제품 1개 길이·설치 총 길이)가 하나로 정해지지 않는다. 앞 조건은 그대로 두고 어느 길이인지 확인한다.",
+            'unit_unclear' => "- '{$a['text']}': 단위(mm·cm)가 말에 없다. 추측하지 말고 단위를 확인한다.",
+            'relative_vague' => "- '{$a['text']}': 얼마나 바꿀지 말에 없다. 임의의 치수를 정하지 말고 원하는 치수를 확인한다.",
             default => "- '{$a['text']}': 바꿀 기준 값이 없다. 원하는 값을 확인한다.",
         };
     }
@@ -1471,6 +1495,7 @@ function rag_traffic_context(array $messages): string
 function rag_traffic_info(array $messages): array
 {
     $neg = '/(차량|자동차|승용차|트럭|화물차|차)\s*(은|는|이|가|도)?\s*(통행\s*(은|이)?\s*)?(없|안\s*(다니|다녀|들어|지나|올라|와)|못\s*(다니|다녀|들어|지나)|다니지\s*않|들어오지\s*않|지나가지\s*않|안\s*됨|불가|금지)/u';
+    $freq = '(?:(?:가끔|간혹|종종|이따금|드물게|자주|많이|조금|거의\s*안|가끔씩)\s*)?';   // '차는 가끔 다녀요'·'차가 거의 안 다녀요'
     $strong = '';
     $weakVehicle = false;
     $weakPed = false;
@@ -1486,9 +1511,9 @@ function rag_traffic_info(array $messages): array
         foreach ($tons as $ton) { if ($ton >= 3) { $truck = true; } }
         if ($truck) {
             $msgStrong = 'truck';
-        } elseif ($tons || preg_match('/승용차|자동차|자가용|suv|택시|오토바이|차량\s*(이|도|은|는)?\s*(다니|다녀|지나|들어|올라|통행|출입)|차량\s*통행|차\s*(가|도|는|들이)?\s*(다니|다녀|지나|들어|올라|통행|출입)/u', $t)) {
-            $msgStrong = 'car';
-        } elseif ($msgStrong === '' && preg_match('/사람만|사람\s*만\s*다|보행자\s*(전용|만)|보행\s*전용|도보\s*전용/u', $t)) {
+        } elseif ($tons || preg_match('/승용차|자동차|자가용|suv|택시|오토바이|차량\s*(이|도|은|는)?\s*' . $freq . '(다니|다녀|지나|들어|올라|통행|출입)|차량\s*통행|차\s*(가|도|는|들이)?\s*' . $freq . '(다니|다녀|지나|들어|올라|통행|출입)/u', $t)) {
+            $msgStrong = 'car';   // '가끔'·'거의 안'이라도 차량이 다니면 차량(안전 쪽)
+        } elseif ($msgStrong === '' && preg_match('/사람만|사람\s*만\s*다|보행자\s*(전용|만)|보행\s*전용|도보\s*전용|(사람|보행자)\s*(이랑|하고|과|와)\s*(자전거|유모차|휠체어)\s*만/u', $t)) {
             $msgStrong = 'pedestrian';
         }
         if ($msgStrong !== '') {
@@ -1539,17 +1564,18 @@ function rag_explicit_conditions(array $messages): array
                                 '/길이\s*(?:는|가|이|:)?\s*(?:약\s*)?' . $num . $uAll . '\s*(?:인|짜리|의|되는)?\s*' . $noun . '/u',
                                 '/길이\s*(?:는|가|이|:)?\s*' . $num . $uAll . '\s*짜리/u',
                                 '/(?<![a-z])l\s*=?\s*' . $num . $uAll . '(?![a-z])/iu',   // L1000(규격 표기 — 길이)
+                                '/(?<![\d.])' . $num . $uM . '\s*짜리/u',   // '1m짜리 그레이팅'·'2미터짜리 수로관'(1개 길이 — 길면 확인)
                                 // '폭 400 길이 1m'처럼 폭과 붙여 말한 길이 = 제품 크기(3m 이하만 — '폭 500이고 길이는 10m'는 설치 길이일 수 있어 확인)
-                                '/(?:폭|너비)\s*(?:은|는|이|가|:)?\s*\d+(?:\.\d+)?\s*(?:mm|㎜|cm|㎝|센티|미터|m)?\s*(?:이고|에|,|·|x|×|\*)?\s*길이\s*(?:는|가|이|:)?\s*(?:약\s*)?' . $num . $uAll . '/u'],
+                                '/(?:폭|너비)\s*(?:은|는|이|가|:)?\s*\d+(?:\.\d+)?\s*(?:mm|㎜|cm|㎝|센티|센치|센테|미터|m)?\s*(?:이고|에|,|·|x|×|\*)?\s*길이\s*(?:는|가|이|:)?\s*(?:약\s*)?' . $num . $uAll . '/u'],
         'length_m'          => ['/(?:설치|시공)\s*(?:구간|길이|연장|거리)?\s*(?:이|은|는|가|:)?\s*(?:총\s*)?(?:약\s*)?' . $num . $uM . '/u',
                                 '/(?:총|전체)\s*(?:길이|연장|구간|거리)?\s*(?:이|은|는|가|:)?\s*(?:약\s*)?' . $num . $uM . '/u',
                                 '/(?:구간|연장)\s*(?:이|은|는|가|:)?\s*(?:총\s*)?(?:약\s*)?' . $num . $uM . '/u',
                                 '/' . $num . $uM . '\s*(?:구간|연장)/u',
-                                '/' . $num . $uM . '\s*(?:를|을|가|이)?\s*(?:설치|시공|깔|놓|필요|들어)/u'],
+                                '/' . $num . $uM . '\s*(?:정도|쯤|가량|내외)?\s*(?:를|을|가|이)?\s*(?:설치|시공|깔|놓|필요|들어)/u'],
     ];
     $rel = ['width_mm' => '/(?:폭|너비)\s*(?:은|는|조건은)?\s*(?:상관\s*(?:없|없이)|무관|아무거나)/u', 'product_length_mm' => '/(?:제품\s*)?길이\s*(?:은|는|조건은)?\s*(?:상관\s*(?:없|없이)|무관|아무거나)/u'];
-    $mulRe = '/(폭|너비|길이)\s*(?:만|을|를|은|는|도)?\s*(?:(두|세|네|2|3|4)\s*배|(절반|반\s*으로|반\s*으로))/u';
-    $factor = static fn(string $a, string $b): float => $b !== '' ? 0.5 : (float) (['두' => 2, '세' => 3, '네' => 4][$a] ?? (int) $a);
+    $mulRe = '/(폭|너비|길이)\s*(?:만|을|를|은|는|도)?\s*(?:(두|세|네|\d+(?:\.\d+)?)\s*배|(절반|반\s*으로))/u';
+    $factor = static fn(string $a, string $b): float => $b !== '' ? 0.5 : (float) (['두' => 2, '세' => 3, '네' => 4][$a] ?? (float) $a);
     $cond = $released = [];
     $widths = [];
     $last = [];
@@ -1575,6 +1601,11 @@ function rag_explicit_conditions(array $messages): array
                         'length_m'          => $n > 0 ? $n : null,
                     };
                     if ($k === 'product_length_mm' && preg_match('/^(폭|너비)/u', $x[0][0]) && ($v === null || $v > RAG_PRODUCT_LENGTH_MAX_MM_GENERAL)) { continue; }   // 폭과 붙인 긴 길이는 칸을 정하지 않음(모호한 길이로)
+                    if ($k === 'width_mm' && $u === '' && $n < 100) {   // '폭 30'(단위 없음) — 30mm 인지 30cm 인지 말에 없음(등록 폭은 대부분 100mm 이상) → 확인
+                        $spans[] = [$x[0][1], $x[0][1] + strlen($x[0][0])];
+                        if ($isLast) { $ambiguous[] = ['kind' => 'unit_unclear', 'text' => trim($x[0][0]), 'value_m' => $n / 1000]; }
+                        continue;
+                    }
                     $spans[] = [$x[0][1], $x[0][1] + strlen($x[0][0])];
                     // 품목 이름에 붙은 긴 길이('길이 10m짜리 그레이팅')는 1개 길이인지 설치 길이인지 말로 확인되지 않음 → 넣지 않고 확인 질문 근거로
                     if ($k === 'product_length_mm' && $v !== null && $v > $maxPiece && !preg_match('/제품|개|개당|하나|낱개/u', mb_substr($x[0][0], 0, 6))) {
@@ -1626,12 +1657,16 @@ function rag_explicit_conditions(array $messages): array
             }
         }
         // 치수 이름 없이 말한 숫자('500짜리 수로관') — 앞에 폭·높이·직경 같은 이름이나 D·Ø·W 같은 표기가 없을 때만
-        if (preg_match_all('/(?<![\d.])(\d{2,4})\s*(?:mm|㎜|밀리)?\s*(?:짜리|인\s*' . $noun . '|' . $noun . ')/u', $t, $mm, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+        if (preg_match_all('/(?<![\d.])(\d{2,4})\s*(mm|㎜|밀리|cm|㎝|센티|센치|센테)?\s*(?:짜리|인\s*' . $noun . '|' . $noun . ')/u', $t, $mm, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
             foreach ($mm as $x) {
                 $before = substr($t, max(0, $x[1][1] - 24), min(24, $x[1][1]));
                 if (!$free($x[1][1]) || preg_match('/(폭|너비|길이|높이|두께|깊이|직경|지름|내경|외경|관경|호칭|규격|[a-zA-Zφ∅Ø])\s*(?:은|는|이|가|:|=)?\s*(?:약\s*)?$/u', $before)) { continue; }
-                $unlabeled[] = (float) $x[1][0];
+                $unlabeled[] = (float) $x[1][0] * (preg_match('/^(cm|㎝|센티|센치|센테)$/u', (string) ($x[2][0] ?? '')) ? 10 : 1);   // '50센치짜리' → 500mm
             }
+        }
+        // 기준 없는 상대 변경('좀 더 넓은 거'·'조금 더 짧은 걸로') — 얼마나 바꿀지 말에 없음 → 앞 조건 그대로 두고 확인
+        if (preg_match('/(?:좀|조금|약간|살짝|훨씬)?\s*더\s*(넓|좁|길|짧|크|작|두껍|얇)(?:은|게|었|던|ㄴ|운)/u', $t, $vm)) {
+            $ambiguous[] = ['kind' => 'relative_vague', 'text' => trim($vm[0]), 'dim' => in_array($vm[1], ['넓', '좁'], true) ? 'width' : (in_array($vm[1], ['길', '짧'], true) ? 'length' : 'size')];
         }
     }
     $seen = [];
@@ -1720,6 +1755,12 @@ function rag_wants_quantity(string $msg): bool
 function rag_wants_previous(string $msg): bool
 {
     return preg_match('/(앞에서?|앞서|아까|이전에?|전에|처음에?)\s*(추천|보여|봤|본|나온|나왔|말한|알려)/u', $msg) === 1;
+}
+
+/** '아까 그거 다시 보여줘'·'제외했던 거 다시 보여줘' — 앞서 뺀(제외한) 제품을 다시 보길 원하는 말인지 (순수 함수). '다시 추천'(다른 제품)은 아님 */
+function rag_wants_reshow(string $msg): bool
+{
+    return preg_match('/다시\s*(보여|볼\s*수|보고\s*싶|띄워)|(제외|뺐|뺀|빼)(했던|던|한|었던)?\s*(거|것|제품|걸).{0,8}(다시|보여|포함)/u', $msg) === 1;
 }
 
 /** '더 튼튼한 거'·'더 강한 제품'·'하중이 더 큰' — 앞 제품보다 하중 등급이 높은 제품을 원하는 말인지 (순수 함수) */
@@ -2046,6 +2087,7 @@ function rag_process(array $messages, string $sid): array
         // 수량·최종 비교, 설치 길이만 새로 말함('설치 구간은 총 20m야'), '이 제품 써도 돼?' → 직전 표 제품으로(앞서 뺀 제품을 다시 꺼내지 않게)
         'only_recent'  => $recentCards && !$wantsAlt && (rag_wants_quantity($lastUser) || rag_wants_compare($lastUser) || $explicit['last'] === ['length_m'] || rag_wants_suitability($lastUser)),
         'stronger'     => $recentCards && rag_wants_stronger($lastUser),   // '더 튼튼한 거' → 확인된 하중 등급이 더 높은 제품만
+        'reshow'       => !$wantsAlt && rag_wants_reshow($lastUser),   // '아까 그거 다시 보여줘' → 앞서 뺀 제품 제외를 풀어 줌(고객의 최신 요청 우선)
         'similar_dims' => $recentCards && rag_wants_similar($lastUser) ? rag_common_dims(ai_rows_by_ids(array_column($recentCards, 'id'))) : [],
         'recheck'      => $recentCards && !$wantsAlt && $trafficInfo['last_strong'] && in_array($trafficInfo['class'], ['car', 'truck'], true),   // 차량 조건을 이번에 말함 → 앞서 보인 제품 재확인
         'recheck_ids'  => $recentCards && rag_wants_previous($lastUser) ? array_slice(rag_session_shown_ids($sid), 0, 12) : [],   // '앞에 추천했던 제품들' → 직전 표만이 아니라 이 상담에서 보인 제품

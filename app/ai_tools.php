@@ -544,6 +544,11 @@ function tool_search_products(array $input): string
     $recheckRows = $recheckIds ? ai_rows_by_ids($recheckIds) : [];
     $recheck   = $recheckRows ? ai_recheck($recheckRows, $want, $traffic) : [];
     $rows      = $onlyIds ? $recheckRows : $find($effQuery, $fetch);
+    // 상품명에 품목 이름이 없는 카테고리(1련암거 — 상품명이 규격 코드뿐): 검색어가 카테고리 이름에 들어 있으면 그 상품을 후보로(2026-11-12)
+    if (!$onlyIds) {
+        $catRows = ai_category_name_rows($qText, $rows, $want, $specMm);
+        if ($catRows) { $rows = array_merge($rows, $catRows); }
+    }
     if ($onlyIds) {
         $limit = max($limit, count($rows));   // 지정한 상품은 모두 표에(조건에 맞는 것만)
     }
@@ -724,7 +729,7 @@ function tool_search_products(array $input): string
             'suggested_qty' => $qty,     // null 이면 계산 불가
             'qty_basis'     => $basis,   // 근거 문구 (예: "100m ÷ 2m = 50본")
             'guide'         => ext_selection_guide($p, $knowledge[(int) $p['id']] ?? []),
-            'spec_label'    => spec_size_label((string) $p['spec']),   // 화면 표시용 규격(치수만) — 운반비·상차수량 같은 부가 표기 제외
+            'spec_label'    => spec_size_label((string) $p['spec']) ?: (ai_name_size_spec($p) !== '' ? (string) ($p['category_name'] ?? '') : ''),   // 화면 표시용 규격(치수만) — 운반비·상차수량 같은 부가 표기 제외. 상품명이 규격 코드뿐이면 품목(카테고리) 이름
         ] + (($size = ai_row_size_label($p, spec_axes_for_category((int) ($p['category_id'] ?? 0)))) !== '' ? ['size' => $size] : [])   // 이름표대로 읽은 치수(폭·길이 뜻 구분)
           + ($want ? ['dim_check' => ($p['_dim'] ?? '') === 'unknown' ? 'unverified' : 'verified'] : [])
           + ($want && ($p['_dim'] ?? '') === 'unknown' ? ['dim_note' => "규격 확인 필요 — {$cond}인지 규격 표기로 확인되지 않았습니다"] : [])
@@ -922,10 +927,11 @@ function ai_grating_load_class(string $name): string
 
 /** 차량 통행 조건에서 하중 판정이 필요한 제품인지 (순수 함수) — 차량이 위로 지나가는 덮개류(그레이팅·뚜껑·덮개·커버·트렌치·주철·날개형)와
  *  배수로 본체(수로관·플륨관·측구·개거·집수정·생태탈출로(플륨관/수로관 분류)·PE배수로·빗물받이 등 받이, 2026-11-11 추가 — 상품 정보에 하중 근거가 없어
- *  차량 통행이면 '확인 필요'). 몰드·집게(부속)는 아님. 관(흄관 등 매설관)·블록(80T 규칙)·경계석은 대상 아님. */
+ *  차량 통행이면 '확인 필요'). 2026-11-12: 암거(1련암거 — 상품명이 규격 코드뿐이라 분류 이름으로 판정, ai_load_name).
+ *  몰드·집게(부속)는 아님. 관(흄관 등 매설관)·블록(80T 규칙)·경계석은 대상 아님. */
 function ai_load_relevant(string $name): bool
 {
-    return preg_match('/그레이팅|뚜껑|덮개|커버|트렌치|주철|날개형|수로관|플륨관|측구|개거|집수정|생태탈출로|배수로|받이/u', $name) === 1
+    return preg_match('/그레이팅|뚜껑|덮개|커버|트렌치|주철|날개형|수로관|플륨관|측구|개거|집수정|생태탈출로|배수로|받이|암거/u', $name) === 1
         && preg_match('/몰드|집게/u', $name) !== 1;
 }
 
@@ -941,11 +947,17 @@ function ai_spec_use_class(string $spec): string
 
 /** 행의 확인된 하중 등급 (순수 함수) — 상품명 등급, 없으면 덮개류(ai_load_relevant)만 규격 용도 표기(차도용 → car, 보도용 → pedestrian), 없으면 ''.
  *  블록·경계석의 '(보도)'·'(차도)'는 하중 판정에 쓰지 않는다(블록 차량 기준은 80T 규칙 — 그대로 둠). */
+/** 하중 판정에 쓰는 이름 (순수 함수) — 상품명 + 분류 이름(상품명에 품목 이름이 없는 1련암거 같은 상품 — 다른 상품은 상품명만으로 같은 결과) */
+function ai_load_name(array $row): string
+{
+    return trim((string) ($row['name'] ?? '') . ' ' . (string) ($row['category_name'] ?? ''));
+}
+
 function ai_load_class_of(array $row): string
 {
     $name = (string) ($row['name'] ?? '');
     $cls = ai_grating_load_class($name);
-    if ($cls !== '' || !ai_load_relevant($name)) { return $cls; }
+    if ($cls !== '' || !ai_load_relevant(ai_load_name($row))) { return $cls; }
     return match (ai_spec_use_class((string) ($row['spec'] ?? ''))) { 'road' => 'car', 'pedestrian' => 'pedestrian', default => '' };
 }
 
@@ -968,7 +980,7 @@ function ai_load_status(array $row, string $traffic): array
         $rank = AI_LOAD_RANK[$cls];
         $basis = '상품명 등급';
     } else {
-        $use = ai_load_relevant($name) ? ai_spec_use_class((string) ($row['spec'] ?? '')) : '';   // 덮개류만(블록은 80T 규칙)
+        $use = ai_load_relevant(ai_load_name($row)) ? ai_spec_use_class((string) ($row['spec'] ?? '')) : '';   // 덮개류만(블록은 80T 규칙)
         if ($use === 'pedestrian') {
             $rank = AI_LOAD_RANK['pedestrian'];
             $basis = '규격 표기(보도용)';
@@ -978,7 +990,7 @@ function ai_load_status(array $row, string $traffic): array
             }
             $rank = AI_LOAD_RANK['car'];
             $basis = '규격 표기(차도용)';
-        } elseif (ai_load_relevant($name) && $want > AI_LOAD_RANK['pedestrian']) {
+        } elseif (ai_load_relevant(ai_load_name($row)) && $want > AI_LOAD_RANK['pedestrian']) {
             return ['status' => 'unverified', 'basis' => '하중 정보 없음'];
         } else {
             return ['status' => 'na', 'basis' => ''];
@@ -1180,13 +1192,63 @@ function ai_spec_labeled_dims(string $spec): array
 }
 
 /** 규격 값에 그 치수 숫자가 들어 있는지 (순수 함수, 위치 무관 — '2M'·'2.0m' 같은 미터 표기 포함). 이름 없는 규격에서 '확인 불가'와 '다름'을 가르는 데만 쓴다 */
-function ai_spec_has_mm(string $spec, float $mm): bool
+function ai_spec_has_mm(string $spec, float $mm, bool $meterDecimals = false): bool
 {
     $reg = parse_spec_field($spec)['spec'] ?: $spec;
     if (preg_match('/(?<![\d.])' . preg_quote(spec_axis_num($mm), '/') . '(?:\.0+)?(?![\d.])/u', $reg)) {
         return true;
     }
+    if ($meterDecimals && preg_match('/(?<![\d.])' . preg_quote(spec_axis_num($mm / 1000), '/') . '(?:\.0+)?(?![\d.])/u', preg_replace('/\d+(?:\.\d+)?\s*T\b/u', ' ', $reg) ?? $reg)) {
+        return true;   // 상품명 규격 코드의 m 소수 표기(0.8·1.0·2.0 — 두께 130T 같은 mm 값은 제외)
+    }
     return (bool) preg_match('/(?<![\d.])' . preg_quote(spec_axis_num($mm / 1000), '/') . '(?:\.0+)?\s*[mM](?![a-zA-Z])/u', $reg);
+}
+
+/**
+ * 상품명에 들어 있는 규격 코드 (순수 함수, 2026-11-12) — 등록 규격(규격:)이 없고 상품명이 치수 코드로 시작하는 상품만(운영 1련암거 10개: '1.0*1.0*2.0_130T*130T_구').
+ * 숫자 자리의 뜻(폭·높이·길이)은 확인되지 않았으므로 '규격 표기에 그 숫자가 있음'(확인 필요) 근거로만 쓴다. 해당 없으면 ''.
+ */
+function ai_name_size_spec(array $row): string
+{
+    if (parse_spec_field((string) ($row['spec'] ?? ''))['spec'] !== '') {
+        return '';
+    }
+    return preg_match('/^\s*(\d+(?:\.\d+)?(?:\s*[*×xX]\s*\d+(?:\.\d+)?){1,3}(?:_[0-9A-Za-z.*×]+)*)/u', (string) ($row['name'] ?? ''), $m) ? trim($m[1]) : '';
+}
+
+/**
+ * 검색어가 카테고리 이름에 있는데 그 카테고리 상품이 글자 검색에 안 잡히는 경우의 후보 (DB, 2026-11-12) — 상품명이 규격 코드뿐이고
+ * 품목 이름은 카테고리에만 있는 상품(운영 1련암거: '암거' 검색 0건). 검색 결과에 그 카테고리 상품이 이미 있으면 [](일반 검색은 그대로).
+ * 상품명·규격·설명에 그 말이 없는 상품만 더한다. 치수 조건(폭·길이·spec_mm)은 상품명 규격 코드로 '확인 필요' 이상만 남긴다.
+ */
+function ai_category_name_rows(string $query, array $rows, array $want, int $specMm): array
+{
+    $pdo = db();
+    if (!$pdo) {
+        return [];
+    }
+    $have = array_flip(array_map(static fn($r) => (int) ($r['category_id'] ?? 0), $rows));
+    $out = [];
+    foreach (preg_split('/\s+/u', trim((string) preg_replace('/[^가-힣A-Za-z\s]/u', ' ', $query))) ?: [] as $tok) {
+        if (mb_strlen($tok) < 2) { continue; }
+        try {
+            $st = $pdo->prepare("SELECT p.*, c.name AS category_name FROM products p JOIN categories c ON c.id = p.category_id
+                WHERE p.is_active = 1 AND c.is_active = 1 AND c.name LIKE ? AND p.name NOT LIKE ? AND p.spec NOT LIKE ? AND COALESCE(p.description, '') NOT LIKE ?
+                ORDER BY p.id LIMIT 60");
+            $like = '%' . $tok . '%';
+            $st->execute([$like, $like, $like, $like]);
+            $found = $st->fetchAll();
+        } catch (\Throwable $e) {
+            continue;
+        }
+        foreach ($found as $r) {
+            if (isset($have[(int) $r['category_id']]) || ai_name_size_spec($r) === '') { continue; }   // 결과에 이미 있는 카테고리·이름이 규격 코드가 아닌 상품은 제외
+            if ($want && ai_dim_check($r, $want)['status'] === 'mismatch') { continue; }
+            if ($specMm > 0 && !ai_spec_has_mm(ai_name_size_spec($r), (float) $specMm, true)) { continue; }
+            $out[(int) $r['id']] = $r;
+        }
+    }
+    return array_values($out);
 }
 
 /**
@@ -1219,7 +1281,8 @@ function ai_dim_check(array $row, array $want): array
             $by[$k] = abs($labeled[$k] - $mm) < 0.5 ? 'match' : 'mismatch';
             continue;
         }
-        $by[$k] = ai_spec_has_mm((string) ($row['spec'] ?? ''), $mm) ? 'unknown' : 'mismatch';
+        $nameSize = ai_name_size_spec($row);   // 등록 규격이 없고 상품명이 규격 코드인 상품(1련암거): 그 코드만 본다(중량 '2,900kg' 같은 숫자는 치수 아님)
+        $by[$k] = ($nameSize !== '' ? ai_spec_has_mm($nameSize, $mm, true) : ai_spec_has_mm((string) ($row['spec'] ?? ''), $mm)) ? 'unknown' : 'mismatch';
     }
     $status = in_array('mismatch', $by, true) ? 'mismatch' : (in_array('unknown', $by, true) ? 'unknown' : 'match');
     return ['status' => $status, 'by' => $by];
@@ -1826,6 +1889,10 @@ function ai_pick_representatives(array $rows, float $lengthM, ?float $widthMm, ?
 /** 규격 문자열의 '단위:' 값을 표시용으로 정리 (m 2 → ㎡). 없으면 ''. */
 function ai_unit_label(string $spec): string
 {
+    if (preg_match('/중량\s*\/\s*단위:\s*[^|\/]*\/\s*([^|]+)/u', $spec, $m)) {   // '중량/단위: 2,640kg / 본'(1련암거) → 본
+        $u = trim($m[1]);
+        return preg_match('/^m\s*2$/iu', $u) ? '㎡' : $u;
+    }
     if (!preg_match('/단위:\s*([^|]+)/u', $spec, $m)) {
         return '';
     }

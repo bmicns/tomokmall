@@ -262,6 +262,25 @@ $r = search(['query' => '그레이팅', 'exclude_ids' => array_column(search(['q
 ok("넓은 검색어('그레이팅')에서 '다른 제품': 앞 표 이름을 뺀 다른 그레이팅이 나옴(위 40행만 보고 '없음'으로 끝나지 않음)", ($r['products'] ?? []) !== [] && !array_intersect(array_column($r['products'], 'name'), $r['excluded'] ?? []));
 $r = $rKeep;
 
+echo "[2026-11-12(5차) 1련암거 — 상품명이 규격 코드뿐인 상품도 '암거'로 찾고, 치수는 '규격 확인 필요'로만]\n";
+$rKeep = $r;
+$boxN = (int) db()->query("SELECT COUNT(*) FROM products p JOIN categories c ON c.id = p.category_id WHERE p.is_active = 1 AND c.name = '1련암거'")->fetchColumn();
+if ($boxN === 0) {
+    echo "  SKIP: 1련암거 상품이 없는 테스트 DB(php scripts/testdb/prodlike-db.php 로 다시 만들면 data/dacity 10개 포함)\n";
+} else {
+    $r = search(['query' => '암거']);
+    ok("'암거' → 1련암거 상품(상품명엔 '암거'가 없음), 화면 규격 줄은 품목 이름·판매 단위 '본'", ($r['products'] ?? []) !== [] && !array_filter($r['products'], static fn($c) => ($c['category_name'] ?? '') !== '1련암거' || ($c['spec_label'] ?? '') !== '1련암거' || ($c['unit'] ?? '') !== '본'), json_encode(array_column($r['products'] ?? [], 'name'), JSON_UNESCAPED_UNICODE));
+    $r = search(['query' => '박스 암거', 'width_mm' => 1000]);
+    ok("'박스 암거' 폭 1000: 코드에 1.0 이 있는 암거만, 모두 '규격 확인 필요'(폭이라고 단정 안 함) — 이름이 비슷한 PE전원박스 아님", ($r['products'] ?? []) !== [] && !array_filter($r['products'], static fn($c) => !str_contains((string) $c['name'], '1.0') || ($c['dim_check'] ?? '') !== 'unverified' || !str_contains((string) ($c['dim_note'] ?? ''), '규격 확인 필요')), json_encode(array_column($r['products'] ?? [], 'name'), JSON_UNESCAPED_UNICODE));
+    $r = search(['query' => '암거', 'width_mm' => 900]);
+    ok('폭 900: 코드에 없는 숫자 → 없음 안내(중량 2,900kg 의 900 에 걸리지 않음)', ($r['products'] ?? []) === [] && str_contains((string) ($r['note'] ?? ''), '없습니다'));
+    $r = search(['query' => '암거', 'width_mm' => 1000, 'traffic' => 'truck']);
+    ok('대형차 통행: 암거는 하중 근거가 없어 모두 하중 확인 필요', ($r['products'] ?? []) !== [] && !array_filter($r['products'], static fn($c) => ($c['load_check'] ?? '') !== 'unverified'));
+    $r = search(['query' => '그레이팅', 'width_mm' => 1000]);
+    ok('다른 품목 검색에는 암거가 섞이지 않음', !array_filter($r['products'] ?? [], static fn($c) => ($c['category_name'] ?? '') === '1련암거'));
+}
+$r = $rKeep;
+
 echo "[견적 담기 수량 1~999 — AI add_to_cart]\n";
 $pid = (int) ($r['products'][0]['id'] ?? 0);
 $add = static fn(int $q): array => json_decode(tool_add_to_cart(['product_id' => $pid, 'quantity' => $q], 'test'), true) ?: [];

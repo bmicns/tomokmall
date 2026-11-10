@@ -4,6 +4,7 @@ declare(strict_types=1);
  * AI 상담 모호한·불완전한 질문 테스트 (2026-11-12, 4차) — 목업 OpenAI(127.0.0.1), 로컬 테스트 DB(*_test), 외부 접속 없음.
  *
  * 사용자 지정 8문장: ① '길이 10m짜리 그레이팅' ② '폭은 그대로 하고 길이만 두 배로' ③ '아까 그 제품 말고 더 튼튼한 거'
+ *   (5차 추가 ⑩~⑯: '50센치짜리'·'폭 30'(단위 없음)·'좀 더 넓은 거'·'20m 정도'·'차는 가끔 다녀요'·'아까 그거 다시 보여줘'·1련암거)
  *   ④ '차가 다니는데 이 제품 써도 돼?' ⑤ '500짜리 수로관 20m 필요해' ⑥ '앞에서 추천한 것 중 가장 저렴한 제품으로'
  *   ⑦ '폭 400으로 바꾸고 나머지는 그대로' ⑧ '이 제품 대신 비슷한 규격의 다른 제품' + 제외 조건 유지 + 같은 제품 중복 표시 없음.
  * 각 문장을 앞 대화(맥락)와 함께, 두 가지 목업 GPT 로 돌린다:
@@ -198,6 +199,57 @@ try {
         $t('다른 제품 추천해줘.', [$call(['query' => '그레이팅']), $say('다른 표')]);
         [$r] = $t('수로관 폭 500 찾아줘.', [$call(['query' => '수로관', 'width_mm' => 500]), $say('결과')]);
         ok('다른 품목(수로관)으로 바꾸면 그레이팅 제외 목록을 가져가지 않음', !isset($in($r)['exclude_ids']), $j($in($r)));
+
+        echo " ⑩ (5차) '50센치짜리 그레이팅 찾아줘.' — 치수 이름 없는 cm 숫자\n";
+        $t = $session($sid());
+        [$r, $o, $sys] = $t('50센치짜리 그레이팅 찾아줘.', [$call($cf ? ['query' => '그레이팅', 'spec_mm' => 500] : ['query' => '그레이팅', 'width_mm' => 500]), $say('결과')]);
+        $i = $in($r);
+        ok('폭으로 단정하지 않음(spec_mm 500) · 어느 치수인지 확인 근거', !isset($i['width_mm']) && (int) ($i['spec_mm'] ?? 0) === 500 && str_contains((string) ($o['clarify'] ?? ''), '치수 이름 없이') && str_contains($sys, $hint), $j($i) . ' ' . $fills($r));
+
+        echo " ⑪ (5차) '폭 30 그레이팅 보여줘.' — 단위 없음(30mm? 30cm?)\n";
+        $t = $session($sid());
+        [$r, $o, , $cs] = $t('폭 30 그레이팅 보여줘.', [$call($cf ? ['query' => '그레이팅'] : ['query' => '그레이팅', 'width_mm' => 300]), $say('단위 확인')]);
+        $i = $in($r);
+        ok('GPT 가 30cm 로 추측한 폭 300 을 빼고 후보만 · 단위 확인 근거', !isset($i['width_mm']) && $cs !== [] && str_contains((string) ($o['clarify'] ?? ''), '단위'), $j($i) . ' ' . $fills($r));
+
+        echo " ⑫ (5차) '아까보다 좀 더 넓은 거.' — 얼마나 바꿀지 없음\n";
+        $t = $session($sid());
+        $t('폭 400mm, 길이 1m 그레이팅 찾아줘.', [$call(['query' => '그레이팅', 'width_mm' => 400, 'product_length_mm' => 1000]), $say('표')]);
+        [$r, $o] = $t('아까보다 좀 더 넓은 거.', [$call($cf ? ['query' => '그레이팅', 'width_mm' => 400, 'product_length_mm' => 1000] : ['query' => '그레이팅', 'width_mm' => 500, 'product_length_mm' => 1000]), $say('확인')]);
+        $i = $in($r);
+        ok('GPT 가 임의로 정한 폭(500) 대신 앞 조건 400 유지 · 원하는 치수 확인 근거', (float) ($i['width_mm'] ?? 0) === 400.0 && str_contains((string) ($o['clarify'] ?? ''), '얼마나(몇 mm)'), $j($i) . ' ' . $fills($r));
+
+        echo " ⑬ (5차) '20m 정도 깔 거야.' — 설치 길이 + 지금 표로 수량\n";
+        $t = $session($sid());
+        [, , , $c0] = $t('폭 400mm, 길이 1m 그레이팅 찾아줘.', [$call(['query' => '그레이팅', 'width_mm' => 400, 'product_length_mm' => 1000]), $say('표')]);
+        [$r, , , $cs] = $t('20m 정도 깔 거야.', [$call($cf ? ['query' => '그레이팅', 'width_mm' => 400, 'product_length_mm' => 1000, 'length_m' => 20, 'only_ids' => $ids($c0)] : ['query' => '그레이팅']), $say('수량')]);
+        $i = $in($r);
+        ok("'정도'가 붙어도 설치 길이 20m · 지금 표 제품으로 수량 20", (float) ($i['length_m'] ?? 0) === 20.0 && ai_int_list($i['only_ids'] ?? null) === $ids($c0) && $cs !== [] && !array_filter($cs, static fn($c) => ($c['suggested_qty'] ?? 0) !== 20), $j($i));
+
+        echo " ⑭ (5차) '차는 가끔 다녀요.' — 가끔이라도 차량\n";
+        $t = $session($sid());
+        [, , , $c0] = $t('그레이팅 수로용 폭 300 찾아줘. 사람만 다녀요.', [$call(['query' => '그레이팅 수로용', 'width_mm' => 300, 'traffic' => 'pedestrian']), $say('표')]);
+        [$r, $o] = $t('아 근데 차는 가끔 다녀요.', [$call($cf ? ['query' => '그레이팅 수로용', 'width_mm' => 300, 'traffic' => 'car', 'recheck_ids' => $ids($c0)] : ['query' => '그레이팅 수로용', 'traffic' => 'pedestrian']), $say('다시 확인')]);
+        $i = $in($r);
+        ok("통행 car(최신 말·안전 쪽, GPT 가 보행자로 넘겨도) · 앞 표 보행자용 재확인 = 하중 부족", ($i['traffic'] ?? '') === 'car' && ($o['recheck'] ?? []) !== [] && !array_filter((array) $o['recheck'], static fn($x) => $x['status'] !== 'load_lighter'), $j($i));
+
+        echo " ⑮ (5차) '아까 그거 다시 보여줘.' — 앞서 뺀 제품 제외를 풀어 줌\n";
+        $t = $session($sid());
+        [, , , $t1] = $t('그레이팅 추천해줘.', [$call(['query' => '그레이팅']), $say('표')]);
+        [, , , $t2] = $t('다른 제품 추천해줘.', [$call(['query' => '그레이팅']), $say('다른 표')]);
+        [$r, , , $t3] = $t('아까 그거 다시 보여줘.', [$call(['query' => '그레이팅']), $say('다시')]);
+        ok('제외를 이어 가지 않아 1번째 표 제품을 다시 볼 수 있음', !isset($in($r)['exclude_ids']) && array_intersect(array_column($t3, 'name'), array_column($t1, 'name')) !== [], $j($in($r)) . ' ' . $j(array_column($t3, 'name')));
+
+        echo " ⑯ (5차) '암거 찾아줘. 차가 다니는 도로 밑이야.' — 상품명이 규격 코드뿐인 1련암거\n";
+        if ((int) db()->query("SELECT COUNT(*) FROM products p JOIN categories c ON c.id = p.category_id WHERE p.is_active = 1 AND c.name = '1련암거'")->fetchColumn() === 0) {
+            echo "  SKIP: 1련암거 상품이 없는 테스트 DB(prodlike-db.php 로 다시 만들면 포함)\n";
+        } else {
+            $t = $session($sid());
+            [$r, $o, , $cs] = $t('암거 찾아줘. 차가 다니는 도로 밑이야.', [$call($cf ? ['query' => '암거', 'traffic' => 'car'] : ['query' => '암거']), $say('결과')]);
+            ok('1련암거를 찾음(이름에 암거 없음) · 통행 car · 모두 하중 확인 필요(맞다고 하지 않음)', $cs !== [] && ($in($r)['traffic'] ?? '') === 'car' && !array_filter($cs, static fn($c) => ($c['category_name'] ?? '') !== '1련암거' || ($c['load_check'] ?? '') !== 'unverified'), $j(array_column($cs, 'name')));
+            [$r, $o, , $cs] = $t('폭 1.2m로 찾아줘.', [$call($cf ? ['query' => '암거', 'width_mm' => 1200, 'traffic' => 'car'] : ['query' => '암거', 'width_mm' => '1.2m']), $say('결과')]);
+            ok('폭 1.2m: 규격 코드에 1.2 가 있는 암거만, 모두 규격 확인 필요', $cs !== [] && !array_filter($cs, static fn($c) => !str_starts_with((string) $c['name'], '1.2') || ($c['dim_check'] ?? '') !== 'unverified'), $j(array_column($cs, 'name')));
+        }
     }
     ok('모든 턴: 한 추천표에 같은 상품(같은 id·같은 이름)이 두 번 나오지 않음', $dupFree);
 } finally {

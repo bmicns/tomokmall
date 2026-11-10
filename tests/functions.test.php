@@ -1092,6 +1092,57 @@ ok("직전 표 '가장 저렴': 수량 없이 판매 단위가 섞이면 정하�
 ok("직전 표 '가장 저렴': 같은 판매 단위면 단가 기준 표시", preg_match('/\[id 2\][^\n]*\(단가 가장 저렴, 같은 판매 단위\)/u', rag_recent_cards_prompt($same)) === 1 && !str_contains(rag_recent_cards_prompt($same), '정할 수 없다'));
 ok("직전 표 '가장 저렴': 예상 자재비가 있으면 그 기준(단위가 달라도 같은 설치 길이 총액)", preg_match('/\[id 1\][^\n]*\(가장 저렴\)/u', rag_recent_cards_prompt([['id' => 1, 'name' => 'A', 'spec' => '', 'price' => 27600, 'qty' => 20, 'unit' => '개'], ['id' => 2, 'name' => 'B', 'spec' => '', 'price' => 30800, 'qty' => 20, 'unit' => 'M']])) === 1);
 
+echo "[AI 상담 2026-11-12(5차): 1련암거 — 상품명 규격 코드를 '확인 필요' 근거로만(숫자 자리 뜻은 추측하지 않음)]\n";
+$box = ['name' => '1.0*0.8*2.0_130T*130T_구', 'spec' => '중량/단위: 2,900kg / 본', 'category_name' => '1련암거'];
+eq('상품명 규격 코드: 등록 규격이 없고 이름이 치수 코드로 시작할 때만', [ai_name_size_spec($box), ai_name_size_spec(['name' => '1.0*1.0*2.0_160T*160T', 'spec' => '중량/단위: 3,935kg / 본']), ai_name_size_spec(['name' => '1.0*1.0*2.0', 'spec' => '규격: 1000*1000']), ai_name_size_spec(['name' => '중하중그레이팅수로용', 'spec' => '중량: 3kg'])],
+    ['1.0*0.8*2.0_130T*130T', '1.0*1.0*2.0_160T*160T', '', '']);   // 뜻을 모르는 '_구'는 빼고 치수·두께 표기만
+eq('m 소수 표기(1.0 = 1000mm, 0.8 = 800mm)는 규격 코드에서만, 두께(130T)는 m 로 보지 않음', [ai_spec_has_mm('1.0*0.8*2.0_130T*130T', 1000, true), ai_spec_has_mm('1.0*0.8*2.0_130T*130T', 800, true), ai_spec_has_mm('1.0*0.8*2.0_130T*130T', 1200, true), ai_spec_has_mm('1.0*0.8*2.0', 1000)], [true, true, false, false]);
+eq('폭 판정: 코드에 숫자가 있으면 확인 필요(unknown), 없으면 다름 — 중량 2,900kg 의 900 은 치수로 보지 않음', [ai_dim_check($box, ['w' => 1000.0])['status'], ai_dim_check($box, ['w' => 900.0])['status'], ai_dim_check($box, ['l' => 2000.0])['status']], ['unknown', 'mismatch', 'unknown']);
+eq("판매 단위: '중량/단위: 2,900kg / 본' → 본(다른 형식 그대로)", [ai_unit_label('중량/단위: 2,900kg / 본'), ai_unit_label('규격: 1 | 단위: m 2'), ai_unit_label('규격: 1 | 중량: 3kg | 단위: 개')], ['본', '㎡', '개']);
+eq('하중: 암거는 분류 이름으로 판정 대상(근거 없음 → 차량 통행에 확인 필요), 보행자는 판정 안 함', [ai_load_status($box, 'truck')['status'], ai_load_status($box, 'car')['status'], ai_load_status($box, 'pedestrian')['status'], ai_load_status(['name' => '1.0*0.8*2.0', 'spec' => ''], 'truck')['status']], ['unverified', 'unverified', 'na', 'na']);
+
+echo "[AI 상담 2026-11-12(5차): 모호한 자연어 표현 확대 — 앞 조건 '폭 400mm, 길이 1m 그레이팅' 뒤에 말했을 때]\n";
+$ctx0 = '폭 400mm, 길이 1m 그레이팅';
+$phr = static function (string $t) use ($u, $ctx0): array {
+    $e = rag_explicit_conditions($u($ctx0, $t));
+    return [$e['cond'], array_column($e['ambiguous'], 'kind'), $e['unlabeled']];
+};
+$W = ['width_mm' => 400.0];
+$cases = [
+    // [말, 기대 조건, 모호함 종류, 이름 없는 숫자]
+    ['1m짜리 그레이팅 10개', $W + ['product_length_mm' => 1000.0], [], []],
+    ['2미터짜리 수로관 5개', $W + ['product_length_mm' => 2000.0], [], []],
+    ['10미터짜리 그레이팅', $W + ['product_length_mm' => 1000.0], ['piece_too_long'], []],
+    ['20m 정도 깔 거야', $W + ['product_length_mm' => 1000.0, 'length_m' => 20.0], [], []],
+    ['대략 30미터 정도 필요해요', $W + ['product_length_mm' => 1000.0, 'length_m' => 30.0], [], []],
+    ['그레이팅 10개 필요해', $W + ['product_length_mm' => 1000.0], [], []],
+    ['50센치짜리 그레이팅', $W + ['product_length_mm' => 1000.0], [], [500.0]],
+    ['300짜리로 보여줘', $W + ['product_length_mm' => 1000.0], [], [300.0]],
+    ['폭 30 그레이팅', $W + ['product_length_mm' => 1000.0], ['unit_unclear'], []],
+    ['폭 30cm 그레이팅', ['width_mm' => 300.0, 'product_length_mm' => 1000.0], [], []],
+    ['폭 40센치 길이 1미터', ['width_mm' => 400.0, 'product_length_mm' => 1000.0], [], []],
+    ['길이를 1.5배로', $W + ['product_length_mm' => 1500.0], [], []],
+    ['폭을 반으로 줄여줘', ['width_mm' => 200.0, 'product_length_mm' => 1000.0], [], []],
+    ['아까보다 좀 더 넓은 거', $W + ['product_length_mm' => 1000.0], ['relative_vague'], []],
+    ['조금 더 짧은 걸로', $W + ['product_length_mm' => 1000.0], ['relative_vague'], []],
+    ['높이 50짜리 그레이팅', $W + ['product_length_mm' => 1000.0], [], []],
+    ['두께 80T 블록', $W + ['product_length_mm' => 1000.0], [], []],
+    ['직경 600 맨홀뚜껑', $W + ['product_length_mm' => 1000.0], [], []],
+    ['폭은 그대로 두고 다른 제품', $W + ['product_length_mm' => 1000.0], [], []],
+    ['길이는 10m야', $W + ['product_length_mm' => 1000.0], ['length_unclear'], []],
+];
+foreach ($cases as [$t, $c, $k, $n]) { eq("'{$t}'", $phr($t), [$c, $k, $n]); }
+[$iu, $fu, $qu] = rag_apply_ambiguity(['query' => '그레이팅', 'width_mm' => 300], rag_explicit_conditions($u('폭 30 그레이팅')));
+eq("'폭 30'(단위 없음): GPT 가 30cm 로 넣은 폭 300 도 빼고 단위 확인", [$iu, str_contains($qu[0] ?? '', '단위를 확인')], [['query' => '그레이팅'], true]);
+[$iv, , $qv] = rag_apply_ambiguity(['query' => '그레이팅', 'width_mm' => 500, 'product_length_mm' => 1000], rag_explicit_conditions($u($ctx0, '아까보다 좀 더 넓은 거')));
+eq("'좀 더 넓은 거': GPT 가 임의로 정한 폭 500 → 확인 전까지 앞 조건 400", [$iv, str_contains($qv[0] ?? '', '얼마나(몇 mm)')], [['query' => '그레이팅', 'width_mm' => 400.0, 'product_length_mm' => 1000], true]);
+eq('통행 표현: 가끔·거의 안 다녀도 차량(안전 쪽) · 사람이랑 자전거만 → 보행자 · 못 들어와요 → 보행자',
+    array_map(static fn($t) => rag_traffic_info($u($t))['class'], ['차는 가끔 다녀요', '차가 거의 안 다녀요', '가끔 트럭이 들어와요', '사람이랑 자전거만 다녀요', '차는 못 들어와요', '오토바이 정도만 다녀요']),
+    ['car', 'car', 'truck', 'pedestrian', 'pedestrian', 'car']);
+eq("'다시 보여줘'(앞서 뺀 제품 다시) 판정 — '다시 추천'(다른 제품)은 아님", [rag_wants_reshow('아까 그거 다시 보여줘'), rag_wants_reshow('제외했던 거 다시 보여줘'), rag_wants_reshow('다시 추천해줘'), rag_wants_reshow('폭 300으로 찾아줘')], [true, true, false, false]);
+eq("'다시 보여줘'면 고객이 앞서 뺀 제품 제외를 이어 가지 않음", [isset($prep(['query' => '그레이팅'], $cx($u('그레이팅', '다른 제품', '아까 그거 다시 보여줘'), ['recent_cond' => ['query' => '그레이팅', 'exclude_ids' => [1, 2]], 'reshow' => true]))['exclude_ids']),
+    $prep(['query' => '그레이팅'], $cx($u('그레이팅', '다른 제품', '폭 300으로'), ['recent_cond' => ['query' => '그레이팅', 'exclude_ids' => [1, 2]]]))['exclude_ids'] ?? null], [false, [1, 2]]);
+
 echo "[상담원 연결 유도 노출 consult_cta_visible — 로그인한 개인·기업회원만(사용자 결정 2026-11-10)]\n";
 eq('비로그인·개인·기업·직원·관리자', [consult_cta_visible(null), consult_cta_visible(['role' => 'customer']), consult_cta_visible(['role' => 'corporate']), consult_cta_visible(['role' => 'staff']), consult_cta_visible(['role' => 'admin'])], [false, true, true, false, false]);
 eq('역할 값이 없거나 다른 값이면 표시 안 함', [consult_cta_visible([]), consult_cta_visible(['role' => 'CUSTOMER']), consult_cta_visible(['role' => 'guest'])], [false, false, false]);
