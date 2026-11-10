@@ -120,6 +120,29 @@ php scripts/testdb/verify-suggest.php http://127.0.0.1:8080            # 검색 
 
 운영 CSV·생성된 DDL·`.env` 값은 저장소에 두지 않는다(세션 scratchpad). 세션이 바뀌면 컨테이너를 다시 만들고 위 순서로 재적재한다.
 
+### 8-1. 운영 복제본(devdb 스냅샷)이 없을 때 — 운영 구조 테스트 DB (`scripts/testdb/prodlike-db.php`, 2026-11-10)
+
+운영 자료를 내보내지 않고(승인 필요 작업 없음) 운영과 같은 **구조**로 테스트한다. 운영에서는 원격 관리 API 읽기 전용 조회로
+구조(information_schema)·카테고리 트리(가격 칸 제외)·규격 이름표(category_spec_axes)·상담 가이드만 읽고, 상품은 저장소의 수집 원본(data/ktomok)을
+운영 카테고리 번호로 옮긴다(이름 기준, 규격 문자열은 운영 모양 '규격·중량·단위'만). 치수 칸은 `spec-axes-fill.php apply` 로 채운다
+(2026-11-10 결과: 상품 1,397 · 치수 채움 1,162 — 운영 활성 상품 채움 수와 같음). 가격·매입가·회원 데이터는 복제하지 않는다(마진율 0, 매입가 NULL).
+
+```bash
+bash scripts/testdb/load-ktomok-docker.sh
+```
+```bash
+bash scripts/testdb/load-legal-docs.sh
+```
+```bash
+php scripts/testdb/prodlike-db.php
+```
+
+| DB | 용도 |
+|---|---|
+| `tomokmall_test` | 운영 구조 + 운영 카테고리·이름표 + 수집 상품 — 기본 테스트(`favorites_api`·`member_price_display` 도 이 구조에서 실행됨) |
+| `tomokmall_mock_test` | 운영 구조, 데이터 없음 — '빈 DB 전용' 목 데이터 테스트: `DB_NAME=tomokmall_mock_test php tests/stock_filter.test.php` |
+| `ktomok_test` | 수집 원본 구조·데이터 그대로 — 수집 원본 기대값 테스트: `DB_NAME=ktomok_test php tests/external_import.test.php`(운영에 없는 암거 상품 매칭을 기대) |
+
 ## 9. 사용자 PC(XAMPP)에서 직접 확인
 
 클라우드 테스트 DB를 덤프해 PC용 가져오기 파일 `tomokmall_test_import.sql`(약 0.8MB)을 만든다. **저장소·운영 서버에 두지 않는다**(세션 첨부로만 전달, PC에서는 저장소 폴더 밖 `C:\dev\`에 저장).
