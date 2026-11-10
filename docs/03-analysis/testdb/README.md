@@ -143,8 +143,8 @@ php scripts/testdb/prodlike-db.php
 | `tomokmall_mock_test` | 운영 구조, 데이터 없음 — '빈 DB 전용' 목 데이터 테스트: `DB_NAME=tomokmall_mock_test php tests/stock_filter.test.php` |
 | `ktomok_test` | 수집 원본 구조·데이터 그대로 — 수집 원본 기대값 테스트: `DB_NAME=ktomok_test php tests/external_import.test.php`(운영에 없는 암거 상품 매칭을 기대) |
 
-AI 상담 연속 대화 조건 테스트(2026-11-11): 목업 GPT 는 `tests/consult_multiturn_conditions.test.php`(`tomokmall_test`).
-실제 GPT 로 같은 대화를 돌리는 검증은 `scripts/testdb/consult-conditions-live.php` — 키는 환경변수 `OPENAI_API_KEY` 로만 주고(파일·Git 금지), 키가 없으면 SKIP(실제 GPT 미검증)으로 끝난다.
+AI 상담 연속 대화 조건 테스트(2026-11-11): 목업 GPT 는 `tests/consult_multiturn_conditions.test.php`·`tests/consult_ambiguous_questions.test.php`(4차, 모호한 질문)(`tomokmall_test`).
+실제 GPT 로 같은 대화를 돌리는 검증은 `scripts/testdb/consult-conditions-live.php` — 키는 환경변수 `OPENAI_API_KEY` 로만 주고(파일·Git 금지), 키가 없으면 SKIP(실제 GPT 미검증), 키가 있어도 `--confirm-paid` 없이는 호출하지 않는다(유료). Windows Git Bash 절차: [ai-consult-fix-2026-11-12.md](../ai-consult-fix-2026-11-12.md) 3장.
 
 ## 9. 사용자 PC(XAMPP)에서 직접 확인
 
