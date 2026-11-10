@@ -10,6 +10,9 @@
 --       남김  dim_d·dim_d_i·dim_d_o·dim_w·dim_w_b·dim_w_t·dim_h·dim_depth·dim_l·dim_v·dim_t·dim_t2
 --             ·dim_t_top·dim_t_wall·dim_t_bottom·dim_mesh·dim_wire_d·spec_wire_no·dim_d_inlet·dim_d_outlet
 --       추가  dim_w_o(외폭 Bo·외경폭 A) · dim_h_o(외높이 Ho·외경높이/외경깊이 B) · dim_t_mid(중간벽 두께 — 2련 암거 T4)
+--       세부 치수(사용자 결정 2026-11-10 — 도면 세부 치수도 칸으로): 카탈로그 도면 기호 그대로 번호 칸
+--             dim_w1·w2 / dim_h1~h4 / dim_t1·t3·t4(t2 는 기존 dim_t2) / dim_l1~l6 / dim_d1~d5 / dim_r1·r2 / dim_c / dim_x1~x4
+--             같은 칸이라도 품목마다 뜻이 다르다 → 품목별 기호 대응표: docs/02-design/syc-products.md 2장
 --       뺌    dim_d_base(우레탄볼라드)·dim_w_r(뒷폭)·dim_h_high·dim_h_low(화강경계경사)·dim_ts(그리드 인장강도)
 --             ·dim_d_connect(PVC소형맨홀) — 상용콘크리트 자료에 해당 치수 없음
 --             ·dim_t_tb(개거 상하두께) — 상판·하판 두께가 따로 나오므로 dim_t_top·dim_t_bottom 으로 나눔
@@ -55,11 +58,39 @@ CREATE TABLE IF NOT EXISTS syc_products (
     dim_l         DECIMAL(8,1) NULL COMMENT '길이 L (mm) — 유효길이 L·ℓ·l',
     dim_v         DECIMAL(8,1) NULL COMMENT '세로 (mm) — 맨홀 내경 세로·전기통신 맨홀 B·PE 빗물받이 규격 둘째 값·용접철망 B',
     dim_t         DECIMAL(8,1) NULL COMMENT '두께 T (mm) — 대표 두께(측구수로관 T·흄관 T·볼라드 2T 의 2)',
-    dim_t2        DECIMAL(8,1) NULL COMMENT '두 번째 두께 (mm) — 벤치플륨 e·원심력수로관 t2',
-    dim_t_top     DECIMAL(8,1) NULL COMMENT '상부(상판·슬라브) 두께 (mm) — 암거 T1·맨홀 슬라브·사각수로관 벽체 상부 c',
-    dim_t_wall    DECIMAL(8,1) NULL COMMENT '벽체(측벽) 두께 (mm) — 암거 T2·맨홀 벽체·조립식맨홀 벽두께·사각수로관 벽체 e',
-    dim_t_bottom  DECIMAL(8,1) NULL COMMENT '하부(하판·기초·바닥) 두께 (mm) — 암거 T3·맨홀 기초·사각수로관 바닥 d',
+    dim_t2        DECIMAL(8,1) NULL COMMENT '두 번째 두께 t2 (mm) — 측구수로관 t2·T2·원심력수로관 t2·벤치플륨/환경수로관 e',
+    dim_t_top     DECIMAL(8,1) NULL COMMENT '상부(상판·슬라브) 두께 (mm) — 암거·개거 T1(상판)·맨홀 슬라브·사각수로관 벽체 상부 c',
+    dim_t_wall    DECIMAL(8,1) NULL COMMENT '벽체(측벽) 두께 (mm) — 암거·개거 T3(측벽)·맨홀 벽체·조립식맨홀 벽두께·사각수로관 벽체 e',
+    dim_t_bottom  DECIMAL(8,1) NULL COMMENT '하부(하판·기초·바닥) 두께 (mm) — 암거·개거 T2(하판)·맨홀 기초·사각수로관 바닥 d',
     dim_t_mid     DECIMAL(8,1) NULL COMMENT '중간벽 두께 (mm) — 2련 암거 T4',
+    -- 세부 치수: 카탈로그 도면 기호 그대로(품목별 뜻은 docs/02-design/syc-products.md 2장)
+    dim_w1        DECIMAL(8,1) NULL COMMENT '세부 폭 w1 (mm) — 측구수로관 w1·벤치플륨/환경수로관 b·U형 플륨 A''',
+    dim_w2        DECIMAL(8,1) NULL COMMENT '세부 폭 w2 (mm) — 측구수로관 w2',
+    dim_h1        DECIMAL(8,1) NULL COMMENT '세부 높이 h1 (mm) — 측구수로관 h1·U형 플륨 H''·원형수로관 높이2·주철 B(뚜껑높이)',
+    dim_h2        DECIMAL(8,1) NULL COMMENT '세부 높이 h2 (mm) — 측구수로관 h2·U형 플륨 h',
+    dim_h3        DECIMAL(8,1) NULL COMMENT '세부 높이 h3 (mm) — 측구수로관 h3',
+    dim_h4        DECIMAL(8,1) NULL COMMENT '세부 높이 h4 (mm) — 측구수로관 h4',
+    dim_t1        DECIMAL(8,1) NULL COMMENT '세부 두께 t1 (mm) — 측구수로관 t1·T1·U형 플륨 T''',
+    dim_t3        DECIMAL(8,1) NULL COMMENT '세부 두께 t3 (mm) — 측구수로관 t3·T3',
+    dim_t4        DECIMAL(8,1) NULL COMMENT '세부 두께 t4 (mm) — 측구수로관 t4',
+    dim_l1        DECIMAL(8,1) NULL COMMENT '세부 길이 l1 (mm) — 측구수로관 l1·흄관/VR관 l1·RDG L1·원심력수로관 l1·암거 삽입구 ℓ1·U형 플륨 L''',
+    dim_l2        DECIMAL(8,1) NULL COMMENT '세부 길이 l2 (mm) — 측구수로관 l2·흄관/VR관 l2·RDG L2·암거 수구 ℓ2',
+    dim_l3        DECIMAL(8,1) NULL COMMENT '세부 길이 l3 (mm) — 흄관/VR관 l3·RDG L3',
+    dim_l4        DECIMAL(8,1) NULL COMMENT '세부 길이 l4 (mm) — 흄관 l4·VR관 L4',
+    dim_l5        DECIMAL(8,1) NULL COMMENT '세부 길이 l5 (mm) — 흄관 l5·VR관 L5',
+    dim_l6        DECIMAL(8,1) NULL COMMENT '세부 길이 l6 (mm) — VR관 L6',
+    dim_d1        DECIMAL(8,1) NULL COMMENT '세부 지름 D1 (mm) — 흄관 (D)D1·VR관 D1',
+    dim_d2        DECIMAL(8,1) NULL COMMENT '세부 지름 D2 (mm) — 흄관·VR관 D2',
+    dim_d3        DECIMAL(8,1) NULL COMMENT '세부 지름 D3 (mm) — 흄관·VR관 D3',
+    dim_d4        DECIMAL(8,1) NULL COMMENT '세부 지름 D4 (mm) — 흄관·VR관 D4',
+    dim_d5        DECIMAL(8,1) NULL COMMENT '세부 지름 D5 (mm) — VR관 D5',
+    dim_r1        DECIMAL(8,1) NULL COMMENT '반지름 r·R (mm) — 벤치플륨Ⅱ r·U형 플륨 R',
+    dim_r2        DECIMAL(8,1) NULL COMMENT '반지름 R'' (mm) — U형 플륨 R''',
+    dim_c         DECIMAL(8,1) NULL COMMENT '헌치 높이 C (mm) — 암거·개거 C',
+    dim_x1        DECIMAL(8,1) NULL COMMENT '기타 도면 기호 1 (mm) — 벤치플륨Ⅲ m·환경수로관 f·알루미늄트렌치 개구부·원심력수로관 타공 m',
+    dim_x2        DECIMAL(8,1) NULL COMMENT '기타 도면 기호 2 (mm) — 벤치플륨Ⅲ i·환경수로관 g·원심력수로관 타공 n',
+    dim_x3        DECIMAL(8,1) NULL COMMENT '기타 도면 기호 3 (mm) — 예비(대응표에 품목별 뜻 기록 후 사용)',
+    dim_x4        DECIMAL(8,1) NULL COMMENT '기타 도면 기호 4 (mm) — 예비(대응표에 품목별 뜻 기록 후 사용)',
     dim_mesh      DECIMAL(8,1) NULL COMMENT '망눈 간격 (mm) — 용접철망 150×150 의 150',
     dim_wire_d    DECIMAL(8,1) NULL COMMENT '선경(철선 지름) (mm) — 용접철망 3.2',
     spec_wire_no  SMALLINT UNSIGNED NULL COMMENT '철선 품번 — 용접철망 #10 의 10',
