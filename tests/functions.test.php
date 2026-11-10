@@ -852,6 +852,43 @@ eq('승용차: 보행자용(안전 부족)은 버리고, 안전중하중은 과�
 eq('대형차: 안전중하중 + 등급 없는 상품만', [array_column($keep, 'id'), $heavy], [[3, 4], []]);
 eq('통행 조건 없으면 그대로', ai_filter_load_class($gr, '')[0], $gr);
 
+echo "[AI 상담 2026-11-11: 하중 판정 근거 ai_load_status — 상품명 등급·등록 규격 용도 표기만, 근거 없으면 '확인 필요'(등급을 만들지 않음)]\n";
+$lr = [
+    'b'  => ['name' => '주철뚜껑(우수/오수/전기/통신)', 'spec' => '규격: 600Ø*h70_B.S_보도용_오수 | 중량: 28kg | 단위: 조'],
+    'r'  => ['name' => '주철뚜껑(우수/오수/전기/통신)', 'spec' => '규격: 600Ø*h70_B.S_차도용_오수 | 중량: 32kg | 단위: 조'],
+    'b2' => ['name' => '조화(디자인)맨홀뚜껑', 'spec' => '규격: 멀티맨홀원형D648*60T*h80보도(우수) | 중량: 54kg | 단위: 조'],
+    'r2' => ['name' => '조화(디자인)맨홀뚜껑', 'spec' => '규격: 멀티맨홀원형D648*80T*h100차도(우수) | 중량: 64kg | 단위: 조'],
+    'u'  => ['name' => '칼라맨홀뚜껑', 'spec' => '규격: 600Ø | 단위: 조'],
+    'ch' => ['name' => '수로관(벤치3종)', 'spec' => '규격: 200*200*2000*40T (200C) | 단위: 본'],
+    'md' => ['name' => '수로관(벤치3종)몰드', 'spec' => '규격: 1000*1000 | 단위: 조'],
+    'bk' => ['name' => '다칼라블랜딩블록(투수)', 'spec' => '규격: 1200*1000*60_컬러(보도) | 단위: m 2'],
+    'hp' => ['name' => '흄관', 'spec' => '규격: D300*2500 | 단위: 본'],
+    'gc' => ['name' => '중하중그레이팅수로용', 'spec' => '규격: 400*1000*50'],
+    'gt' => ['name' => '안전중하중그레이팅수로용', 'spec' => '규격: 400*1000*50'],
+    'gp' => ['name' => '그레이팅수로용', 'spec' => '규격: 400*1000*25'],
+];
+$ls = static fn(string $t): array => array_map(static fn($r) => ai_load_status($r, $t)['status'], $lr);
+eq('규격 용도 표기: 보도용·…보도(우수) → 보행자, 차도용·…차도(우수) → 차도, 품목 이름의 보도(보도블록·보차도)는 아님',
+    array_map('ai_spec_use_class', ['규격: 600Ø*h70_B.S_보도용_오수', '규격: 멀티맨홀원형D648*60T*h80보도(우수)', '규격: 멀티맨홀원형D648*80T*h100차도(우수)', '규격: 보도블록용 300*300', '규격: 보차도경계석 180*205', '규격: 300*300']),
+    ['pedestrian', 'pedestrian', 'road', '', '', '']);
+eq('승용차 통행: 보도용 뚜껑·보행자 그레이팅은 낮은 등급, 차도용·중하중은 맞음, 근거 없는 뚜껑·수로관은 확인 필요, 몰드·블록·흄관은 판정 대상 아님',
+    $ls('car'), ['b' => 'lighter', 'r' => 'ok', 'b2' => 'lighter', 'r2' => 'ok', 'u' => 'unverified', 'ch' => 'unverified', 'md' => 'na', 'bk' => 'na', 'hp' => 'na', 'gc' => 'ok', 'gt' => 'heavier', 'gp' => 'lighter']);
+eq("대형차 통행: '차도용'은 톤수가 없어 확인 필요(맞다고 하지 않음), 안전중하중만 맞음",
+    $ls('truck'), ['b' => 'lighter', 'r' => 'unverified', 'b2' => 'lighter', 'r2' => 'unverified', 'u' => 'unverified', 'ch' => 'unverified', 'md' => 'na', 'bk' => 'na', 'hp' => 'na', 'gc' => 'lighter', 'gt' => 'ok', 'gp' => 'lighter']);
+eq('보행자 통행: 근거 없는 덮개·수로관은 판정 안 함(과잉 등급만 따로)',
+    $ls('pedestrian'), ['b' => 'ok', 'r' => 'heavier', 'b2' => 'ok', 'r2' => 'heavier', 'u' => 'na', 'ch' => 'na', 'md' => 'na', 'bk' => 'na', 'hp' => 'na', 'gc' => 'heavier', 'gt' => 'heavier', 'gp' => 'ok']);
+eq('판정 근거 표시', [ai_load_status($lr['gc'], 'car')['basis'], ai_load_status($lr['r'], 'car')['basis'], ai_load_status($lr['r'], 'truck')['basis'], ai_load_status($lr['u'], 'car')['basis']], ['상품명 등급', '규격 표기(차도용)', '규격 표기(차도용, 톤수 없음)', '하중 정보 없음']);
+[$keep] = ai_filter_load_class(array_values($lr), 'car');
+eq('승용차: 낮은 등급(보도용·보행자 그레이팅)은 표에서 빼고, 확인 필요 제품은 표시(_load)와 함께 남김', array_map(static fn($r) => $r['name'] . ':' . $r['_load'], $keep),
+    ['주철뚜껑(우수/오수/전기/통신):ok', '조화(디자인)맨홀뚜껑:ok', '칼라맨홀뚜껑:unverified', '수로관(벤치3종):unverified', '수로관(벤치3종)몰드:na', '다칼라블랜딩블록(투수):na', '흄관:na', '중하중그레이팅수로용:ok']);
+eq('블록 하중은 이 판정에 넣지 않음(80T 규칙 그대로)', [ai_load_class_of($lr['bk']), ai_load_relevant('다칼라블랜딩블록(투수)'), ai_load_relevant('보도블록'), ai_load_relevant('경계석')], ['', false, false, false]);
+$rr = [['id' => 10, 'name' => '중하중그레이팅수로용', 'spec' => '규격: W400*L1000*H50'], ['id' => 12, 'name' => '그레이팅수로용', 'spec' => '규격: W400*L1000*H25'], ['id' => 14, 'name' => '칼라맨홀뚜껑', 'spec' => '규격: W400*L400'], ['id' => 13, 'name' => 'EX메탈망그레이팅', 'spec' => '규격: W500*L1000*H25']];
+$rk = ai_recheck($rr, ['w' => 400.0], 'car');
+eq('앞서 추천한 제품 재확인(폭 400·승용차): 맞음 / 하중 부족 / 하중 확인 필요 / 폭 다름', array_column($rk, 'status'), ['ok', 'load_lighter', 'load_unverified', 'dim_mismatch']);
+eq('재확인 안내: 맞지 않게 된 제품과 확인이 필요한 제품을 나눠 이유와 함께', ai_recheck_note($rk), '앞서 보여 드린 제품 중 그레이팅수로용(승용차 통행 조건보다 낮은 하중 등급(보행자용)), EX메탈망그레이팅(폭 400mm 조건과 치수가 다름)은(는) 이번 조건에 맞지 않아 표에서 뺐습니다. 앞서 보여 드린 칼라맨홀뚜껑(하중 등급 확인 필요(하중 정보 없음))은(는) 이번 조건에 맞는지 확인이 필요합니다.');
+eq('모두 맞으면 안내 없음', ai_recheck_note([['id' => 1, 'name' => 'A', 'status' => 'ok', 'reason' => '']]), '');
+eq('표의 검색 조건 기록(다음 턴 조건 유지·금액 비교 기준)', ai_search_cond('그레이팅', ['w' => 400.0, 'l' => 1000.0], 0, 20.0, 0.0, 'car'), ['query' => '그레이팅', 'width_mm' => 400.0, 'product_length_mm' => 1000.0, 'length_m' => 20.0, 'traffic' => 'car']);
+
 echo "[AI 상담: 이미 본 제품 제외 ai_int_list·ai_exclude_shown]\n";
 eq('id 목록 정리(양수·중복 제거·문자 숫자 허용)', ai_int_list([3, '7', 0, -1, 3, 'x', 9.0]), [3, 7, 9]);
 eq('배열이 아니면 빈 목록', ai_int_list('3,4'), []);
@@ -942,28 +979,78 @@ eq('도로 측구 → 승용차', rag_traffic_context($u('도로 측구 덮개')
 eq('단서 없음 → 필터 안 함', rag_traffic_context($u('그레이팅 폭 300 길이 20m')), '');
 eq('AI 말은 보지 않음', rag_traffic_context([['role' => 'assistant', 'content' => '주방이면 보행자 전용입니다'], ['role' => 'user', 'content' => '그레이팅 300']]), '');
 
-echo "[AI 상담: '다른 제품' 요청 rag_wants_alternative·검색 입력 보완 rag_fill_search_input]\n";
+echo "[AI 상담: '다른 제품' 요청 rag_wants_alternative·'더 저렴한' rag_wants_cheaper]\n";
 foreach (['A말고 다른 자재 추천해줘', '과한 제품인거 같은데? 다시 추천', '다른 거 보여 주세요', '딴 거 없어요?', '대체품 있나요'] as $q) { ok("'{$q}' → 다른 제품 요청", rag_wants_alternative($q)); }
 foreach (['날개형은 안돼??', '다른 규격으로 보여줘', '두 번째 거 20개 담아줘', '견적에 담지 말고 보여만 줘'] as $q) { ok("'{$q}' → 아님", !rag_wants_alternative($q)); }
-foreach (['다른 제품도 추천해줘', '앞에 추천한 제품은 제외해줘', '그거 빼고 보여줘', '좀 더 저렴한 제품'] as $q) { ok("'{$q}' → 다른 제품 요청(2026-11-10 추가 표현)", rag_wants_alternative($q)); }
-foreach (['저렴한 제품부터 추천해줘', '사람만 다니는 곳이야', '폭은 500mm이고 길이는 10m야'] as $q) { ok("'{$q}' → 아님(정렬·조건 말)", !rag_wants_alternative($q)); }
-eq("'더 저렴한 제품' 판정", [rag_wants_cheaper('좀 더 저렴한 제품'), rag_wants_cheaper('더 싼 거 없어?'), rag_wants_cheaper('저렴한 거 있어요?'), rag_wants_cheaper('저렴한 제품부터 추천해줘'), rag_wants_cheaper('다른 제품도 추천해줘'), rag_wants_cheaper('비싼 거 있어?'), rag_wants_cheaper('더 비싼 건 없어?')], [true, true, true, false, false, false, false]);
+foreach (['다른 제품도 추천해줘', '앞에 추천한 제품은 제외해줘', '그거 빼고 보여줘', '좀 더 저렴한 제품', '앞에 보여준 제품은 빼고 다른 제품 추천해줘.', '조건은 그대로 두고 좀 더 저렴한 제품으로 찾아줘.'] as $q) { ok("'{$q}' → 다른 제품 요청", rag_wants_alternative($q)); }
+foreach (['저렴한 제품부터 추천해줘', '사람만 다니는 곳이야', '폭은 500mm이고 길이는 10m야', '가격이 저렴해도 차량 통행에 맞지 않으면 제외해줘.'] as $q) { ok("'{$q}' → 아님(정렬·조건 말)", !rag_wants_alternative($q)); }
+eq("'더 저렴한 제품' 판정", [rag_wants_cheaper('좀 더 저렴한 제품'), rag_wants_cheaper('더 싼 거 없어?'), rag_wants_cheaper('저렴한 거 있어요?'), rag_wants_cheaper('저렴한 제품부터 추천해줘'), rag_wants_cheaper('다른 제품도 추천해줘'), rag_wants_cheaper('비싼 거 있어?'), rag_wants_cheaper('더 비싼 건 없어?'), rag_wants_cheaper('가격이 저렴해도 차량 통행에 맞지 않으면 제외해줘.')], [true, true, true, false, false, false, false, false]);
 eq('직전 추천표 최저 예상 자재비(단가×권장 수량, 비교 가능한 것만)', [rag_recent_min_est([['price' => 36900, 'qty' => 20], ['price' => 108900, 'qty' => 10], ['price' => null, 'qty' => 5], ['price' => 9000, 'qty' => null]]), rag_recent_min_est([['price' => 9000, 'qty' => null]])], [738000, 0]);
-eq('max_est_cost 채움(GPT 가 넘긴 값은 그대로)', [rag_fill_search_input(['query' => 'q'], '', [], null, 738000), rag_fill_search_input(['query' => 'q', 'max_est_cost' => 500000], '', [], null, 738000)], [['query' => 'q', 'max_est_cost' => 738000], ['query' => 'q', 'max_est_cost' => 500000]]);
 eq('더 저렴한 제품 없음 안내(비교 기준 밝힘)', ai_cheaper_note(738000, ['EX메탈망그레이팅'], '폭 500mm', true), '직전에 보여 드린 EX메탈망그레이팅 외에 폭 500mm 조건에 맞으면서 직전 추천표의 가장 낮은 예상 자재비(738,000원)보다 저렴한 제품은 없습니다(같은 설치 길이·면적 기준, 운반·시공비 별도).');
-eq('빠진 값만 채움', rag_fill_search_input(['query' => '그레이팅 수로용'], 'pedestrian', [793]), ['query' => '그레이팅 수로용', 'traffic' => 'pedestrian', 'exclude_ids' => [793]]);
-eq('GPT 가 넘긴 값은 그대로', rag_fill_search_input(['query' => 'q', 'traffic' => 'truck', 'exclude_ids' => [5]], 'pedestrian', [793]), ['query' => 'q', 'traffic' => 'truck', 'exclude_ids' => [5]]);
-eq('채울 값 없으면 그대로', rag_fill_search_input(['query' => 'q'], '', []), ['query' => 'q']);
+eq('수량·비교 질문 판정', [rag_wants_quantity('설치 구간이 총 20m야. 몇 개 필요해?'), rag_wants_quantity('수량 알려줘'), rag_wants_quantity('폭 500 그레이팅'), rag_wants_compare('최종적으로 비교해줘'), rag_wants_compare('어느 게 나아?'), rag_wants_compare('차량이 다니는 곳이야')], [true, true, false, true, true, false]);
 
-echo "[AI 상담 2026-11-10: 고객이 말한 폭 rag_width_from_text → GPT 가 spec_mm 으로 넘긴 같은 숫자만 폭 조건으로]\n";
-eq("'10미터길이에 50센테 폭이야' → 500mm(10m 는 설치 길이라 폭 아님)", rag_width_from_text($u('식당 주방에 배수관 뚜껑이 필요해요', '10미터길이에 50센테 폭이야')), 500.0);
-eq("'폭은 500mm이고 길이는 10m야' → 500mm", rag_width_from_text($u('폭은 500mm이고 길이는 10m야')), 500.0);
-eq('나중에 고친 값이 우선·단위 없으면 mm', rag_width_from_text($u('폭 300', '아 폭이 0.4m 예요')), 400.0);
-eq('폭을 말하지 않으면 null(길이·수량만)', rag_width_from_text($u('길이 10m 그레이팅 20개')), null);
-eq('spec_mm 500 = 고객이 말한 폭 → width_mm 으로 바꿈', rag_fill_search_input(['query' => 'q', 'spec_mm' => 500], '', [], 500.0), ['query' => 'q', 'width_mm' => 500.0]);
-eq('숫자가 다르거나(관경 300) 두께 기준(spec_strict)이면 그대로', [rag_fill_search_input(['query' => 'q', 'spec_mm' => 300], '', [], 500.0), rag_fill_search_input(['query' => 'q', 'spec_mm' => 80, 'spec_strict' => true], '', [], 80.0)],
-    [['query' => 'q', 'spec_mm' => 300], ['query' => 'q', 'spec_mm' => 80, 'spec_strict' => true]]);
-eq('폭 조건이 없던 검색에 새로 넣지 않음(다른 품목 검색 보호)', rag_fill_search_input(['query' => '경계석'], '', [], 500.0), ['query' => '경계석']);
+echo "[AI 상담 2026-11-11: 통행 조건 확실성 rag_traffic_info — 분명한 말(strong)·장소로 짐작(weak)·마지막 말]\n";
+eq("'차량이 다니는 곳에 설치할 수 있는 제품' → 승용차·분명·마지막 말", rag_traffic_info($u('폭 500mm, 길이 1m 그레이팅 찾아줘.', '차량이 다니는 곳에 설치할 수 있는 제품으로 추천해줘.')), ['class' => 'car', 'strength' => 'strong', 'last_strong' => true]);
+eq("'차량 통행에 맞지 않으면 제외' → 승용차·분명", rag_traffic_info($u('가격이 저렴해도 차량 통행에 맞지 않으면 제외해줘.'))['class'] . '/' . rag_traffic_info($u('가격이 저렴해도 차량 통행에 맞지 않으면 제외해줘.'))['strength'], 'car/strong');
+eq('나중에 말한 분명한 조건이 이김(차량 → 차는 안 다녀요)', rag_traffic_info($u('차량이 다녀요', '아 차는 안 다녀요'))['class'], 'pedestrian');
+eq('앞 말의 분명한 조건은 유지·마지막 말이 아님', rag_traffic_info($u('트럭이 다니는 곳', '폭은 400으로 바꿔줘')), ['class' => 'truck', 'strength' => 'strong', 'last_strong' => false]);
+eq('장소로 짐작(주차장·주방)은 weak', [rag_traffic_info($u('주차장 배수로'))['strength'], rag_traffic_info($u('식당 주방 배수로'))['strength'], rag_traffic_info($u('그레이팅'))['strength']], ['weak', 'weak', '']);
+
+echo "[AI 상담 2026-11-11: 고객이 분명히 말한 폭·제품 1개 길이·설치 총 길이 rag_explicit_conditions]\n";
+$x = static fn(string ...$t): array => rag_explicit_conditions($u(...$t));
+eq("'폭 500mm, 길이 1m 그레이팅' → 폭 500·제품 길이 1000(설치 길이 아님)", $x('폭 500mm, 길이 1m 그레이팅 찾아줘.')['cond'], ['width_mm' => 500.0, 'product_length_mm' => 1000.0]);
+$e3 = $x('폭 500mm, 길이 1m 그레이팅 찾아줘.', '차량이 다니는 곳에 설치할 수 있는 제품으로 추천해줘.', '폭은 400으로 바꾸고 길이는 그대로 해줘.');
+eq("'폭은 400으로 바꾸고 길이는 그대로' → 폭만 400(마지막 말), 제품 길이 1000 유지", [$e3['cond'], $e3['last']], [['width_mm' => 400.0, 'product_length_mm' => 1000.0], ['width_mm']]);
+$e4 = $x('폭 500mm, 길이 1m 그레이팅 찾아줘.', '설치 구간이 총 20m야. 몇 개 필요해?');
+eq("'설치 구간이 총 20m' → 설치 길이 20m(제품 길이와 따로)", [$e4['cond'], $e4['last']], [['width_mm' => 500.0, 'product_length_mm' => 1000.0, 'length_m' => 20.0], ['length_m']]);
+eq("'폭 500인 수로관인데 길이는 2m인 제품' → 폭 500·제품 길이 2000", $x('폭 500인 수로관인데 길이는 2m인 제품 찾아줘.')['cond'], ['width_mm' => 500.0, 'product_length_mm' => 2000.0]);
+eq('설치 길이 표현(총·연장·구간·m 설치)', [$x('연장 50m')['cond'], $x('20m 구간이에요')['cond'], $x('20m 설치해야 해')['cond'], $x('총 길이 35m')['cond']], [['length_m' => 50.0], ['length_m' => 20.0], ['length_m' => 20.0], ['length_m' => 35.0]]);
+eq('제품 길이 표현(짜리·1개·제품 길이·L 표기)', [$x('길이 2m짜리')['cond'], $x('1개 길이는 1m야')['cond'], $x('제품 길이 1000')['cond'], $x('W500 L1000 그레이팅')['cond']], [['product_length_mm' => 2000.0], ['product_length_mm' => 1000.0], ['product_length_mm' => 1000.0], ['width_mm' => 500.0, 'product_length_mm' => 1000.0]]);
+eq("어느 길이인지 말에 없으면 넣지 않음('길이는 10m야'·'10미터길이에 50센테 폭'·'길이 10m 그레이팅')", [$x('길이는 10m야')['cond'], $x('10미터길이에 50센테 폭이야')['cond'], $x('길이 10m 그레이팅 20개')['cond']], [[], ['width_mm' => 500.0], []]);
+eq('높이·직경·관경·두께는 폭·길이로 만들지 않음', [$x('높이 500 그레이팅')['cond'], $x('직경 500 흄관')['cond'], $x('관경 300')['cond'], $x('두께 80T 블록')['cond'], $x('L형 측구')['cond']], [[], [], [], [], []]);
+eq('단위(cm·m)·나중 값 우선', [$x('폭 50cm')['cond'], $x('폭 300', '아 폭이 0.4m 예요')['cond'], $x('폭 0.5m 길이 1000mm 그레이팅')['cond']], [['width_mm' => 500.0], ['width_mm' => 400.0], ['width_mm' => 500.0, 'product_length_mm' => 1000.0]]);
+eq("'폭은 상관없어' → 폭 조건 지움", [$x('폭 500 그레이팅', '폭은 상관없어')['cond'], $x('폭 500 그레이팅', '폭은 상관없어')['released']], [[], ['width_mm' => true]]);
+eq('AI 말은 보지 않음', rag_explicit_conditions([['role' => 'assistant', 'content' => '폭 500mm 제품입니다'], ['role' => 'user', 'content' => '그레이팅']])['cond'], []);
+
+echo "[AI 상담 2026-11-11: 검색 입력 준비 rag_prepare_search_input — GPT 가 칸을 헷갈리거나 빠뜨려도 고객이 말한 조건만 바로잡음]\n";
+$cx = static fn(array $msgs, array $extra = []): array => $extra + ['explicit' => rag_explicit_conditions($msgs), 'traffic' => rag_traffic_info($msgs), 'recent_cards' => [], 'recent_cond' => [], 'exclude' => [], 'cheaper' => false, 'only_recent' => false, 'recheck' => false];
+$prep = static fn(array $in, array $c): array => rag_prepare_search_input($in, $c)[0];
+$m1 = $u('폭 500mm, 길이 1m 그레이팅 찾아줘.');
+eq("① '길이 1m'을 설치 길이(length_m 1)로, 폭을 spec_mm 으로 넘김 → 제품 길이 1000·폭 500", $prep(['query' => '그레이팅', 'spec_mm' => 500, 'length_m' => 1], $cx($m1)), ['query' => '그레이팅', 'product_length_mm' => 1000.0, 'width_mm' => 500.0]);
+eq('① 바르게 넘기면 그대로(바꾼 내용 없음)', rag_prepare_search_input(['query' => '그레이팅', 'width_mm' => 500, 'product_length_mm' => 1000], $cx($m1)), [['query' => '그레이팅', 'width_mm' => 500, 'product_length_mm' => 1000], []]);
+$rc  = [['id' => 11, 'price' => 30000, 'qty' => null, 'unit' => '개'], ['id' => 12, 'price' => 45000, 'qty' => null, 'unit' => '개']];
+$c1  = ['query' => '그레이팅', 'width_mm' => 500, 'product_length_mm' => 1000];
+$m2  = $u('폭 500mm, 길이 1m 그레이팅 찾아줘.', '차량이 다니는 곳에 설치할 수 있는 제품으로 추천해줘.');
+eq('② 차량 조건만 말함 → 통행 car, 폭·제품 길이 유지, 앞 표 재확인', $prep(['query' => '그레이팅'], $cx($m2, ['recent_cards' => $rc, 'recent_cond' => $c1, 'recheck' => true])), ['query' => '그레이팅', 'traffic' => 'car', 'width_mm' => 500.0, 'product_length_mm' => 1000.0, 'recheck_ids' => [11, 12]]);
+eq('② GPT 가 통행을 반대로(pedestrian) 넘기면 고객 말(car)로', $prep(['query' => '그레이팅', 'traffic' => 'pedestrian', 'width_mm' => 500, 'product_length_mm' => 1000], $cx($m2))['traffic'], 'car');
+$m3 = array_merge($m2, $u('폭은 400으로 바꾸고 길이는 그대로 해줘.'));
+$c2 = $c1 + ['traffic' => 'car'];
+eq('③ GPT 가 옛 폭(500)을 다시 넘김 → 400, 제품 길이·통행 유지', $prep(['query' => '그레이팅', 'width_mm' => 500], $cx($m3, ['recent_cards' => $rc, 'recent_cond' => $c2])), ['query' => '그레이팅', 'width_mm' => 400.0, 'traffic' => 'car', 'product_length_mm' => 1000.0]);
+$m4 = array_merge($m3, $u('설치 구간이 총 20m야. 몇 개 필요해?'));
+$c3 = ['query' => '그레이팅', 'width_mm' => 400, 'product_length_mm' => 1000, 'traffic' => 'car'];
+eq('④ 설치 20m 를 제품 길이(20000)로 넘김 → 설치 길이 20m, 직전 표 제품으로 수량', $prep(['query' => '그레이팅', 'product_length_mm' => 20000], $cx($m4, ['recent_cards' => $rc, 'recent_cond' => $c3, 'only_recent' => true])), ['query' => '그레이팅', 'traffic' => 'car', 'length_m' => 20.0, 'width_mm' => 400.0, 'product_length_mm' => 1000.0, 'only_ids' => [11, 12]]);
+$m7 = array_merge($m4, $u('앞에 보여준 제품은 빼고 다른 제품 추천해줘.', '조건은 그대로 두고 좀 더 저렴한 제품으로 찾아줘.', '폭 500인 수로관인데 길이는 2m인 제품 찾아줘.'));
+$c4 = ['query' => '그레이팅', 'width_mm' => 400, 'product_length_mm' => 1000, 'length_m' => 20, 'traffic' => 'car'];
+eq('⑦ 다른 품목(수로관): 이번 말의 폭·제품 길이만, 그레이팅 설치 길이는 가져오지 않음(GPT 판단)', $prep(['query' => '수로관', 'spec_mm' => 500, 'length_m' => 2], $cx($m7, ['recent_cards' => $rc, 'recent_cond' => $c4])), ['query' => '수로관', 'traffic' => 'car', 'product_length_mm' => 2000.0, 'width_mm' => 500.0]);
+eq('다른 품목이면 직전 표 수량 확인(only_ids)을 하지 않음', $prep(['query' => '수로관'], $cx($u('그레이팅', '수로관 몇 개 필요해?'), ['recent_cards' => $rc, 'recent_cond' => ['query' => '그레이팅'], 'only_recent' => true])), ['query' => '수로관']);
+eq('말하지 않은 조건은 만들지 않음(경계석·직경 500 흄관 spec_mm 그대로)', [$prep(['query' => '경계석'], $cx($u('경계석 추천해줘'))), $prep(['query' => '흄관', 'spec_mm' => 500], $cx($u('직경 500 흄관')))], [['query' => '경계석'], ['query' => '흄관', 'spec_mm' => 500]]);
+eq('두께 기준(spec_strict)은 그대로', $prep(['query' => '블록', 'spec_mm' => 80, 'spec_strict' => true], $cx($u('두께 80 블록'))), ['query' => '블록', 'spec_mm' => 80, 'spec_strict' => true]);
+eq("'폭은 상관없어' → GPT 가 넘긴 폭도 뺌", $prep(['query' => '그레이팅', 'width_mm' => 500], $cx($u('폭 500 그레이팅', '폭은 상관없어'))), ['query' => '그레이팅']);
+eq('장소로 짐작한 통행: GPT 가 넘긴 값 우선, 빠졌을 때만 채움', [$prep(['query' => '그레이팅', 'traffic' => 'truck'], $cx($u('주차장 배수로 그레이팅'))), $prep(['query' => '그레이팅'], $cx($u('주차장 배수로 그레이팅')))], [['query' => '그레이팅', 'traffic' => 'truck'], ['query' => '그레이팅', 'traffic' => 'car']]);
+eq("'앞에 추천했던 제품들' 판정", [rag_wants_previous('앞에 추천했던 제품들은 차량 통행에 맞아?'), rag_wants_previous('아까 보여준 거 괜찮아?'), rag_wants_previous('차량이 다니는 곳이야'), rag_wants_previous('폭 400으로 바꿔줘')], [true, true, false, false]);
+eq('재확인: 이 상담에서 보인 제품(recheck_ids)이 있으면 그것, GPT 가 넘긴 id 는 앞에 두고 더함', [$prep(['query' => 'q'], $cx($u('차량이 다녀요'), ['recent_cards' => $rc, 'recheck' => true, 'recheck_ids' => [12, 30, 31]]))['recheck_ids'], $prep(['query' => 'q', 'recheck_ids' => [11]], $cx($u('차량이 다녀요'), ['recent_cards' => $rc, 'recheck' => true]))['recheck_ids']], [[12, 30, 31], [11, 12]]);
+eq('수량 확인(only_ids)일 때는 재확인 안 함', isset($prep(['query' => 'q', 'only_ids' => [11]], $cx($u('차량이 다녀요'), ['recent_cards' => $rc, 'recheck' => true]))['recheck_ids']), false);
+eq('제외: 이 상담에서 보인 제품 전체 — GPT 가 직전 표 id 만 넘겨도 그 전 표 제품까지 더함', [$prep(['query' => 'q'], $cx($u('다른 제품'), ['exclude' => [3, 4]])), $prep(['query' => 'q', 'exclude_ids' => [9, 3]], $cx($u('다른 제품'), ['exclude' => [3, 4]]))], [['query' => 'q', 'exclude_ids' => [3, 4]], ['query' => 'q', 'exclude_ids' => [9, 3, 4]]]);
+eq('제외 요청이 아니면 GPT 값 그대로', $prep(['query' => 'q', 'exclude_ids' => [9]], $cx($u('폭 400'))), ['query' => 'q', 'exclude_ids' => [9], 'width_mm' => 400.0]);
+
+echo "[AI 상담 2026-11-11: '더 저렴한' 금액 기준 rag_cheaper_bound — 직전 표와 같은 조건일 때만]\n";
+$rcE = [['id' => 21, 'price' => 30000, 'qty' => 20, 'unit' => '개'], ['id' => 22, 'price' => 25000, 'qty' => 20, 'unit' => '개']];
+eq('같은 폭·제품 길이·설치 길이·통행 → 직전 표 최저 예상 자재비', rag_cheaper_bound($rcE, $c4, ['width_mm' => 400, 'product_length_mm' => 1000, 'length_m' => 20, 'traffic' => 'car']), ['max_est_cost' => 500000]);
+eq('설치 길이·통행이 바뀌면 옛 금액을 쓰지 않음(비교 불가)', [rag_cheaper_bound($rcE, $c4, ['width_mm' => 400, 'product_length_mm' => 1000, 'length_m' => 30, 'traffic' => 'car']), rag_cheaper_bound($rcE, $c4, ['width_mm' => 400, 'product_length_mm' => 1000, 'length_m' => 20])], [['cheaper_incomparable' => 'condition'], ['cheaper_incomparable' => 'condition']]);
+eq('설치 길이 없이 같은 규격·같은 판매 단위 → 최저 단가', rag_cheaper_bound($rc, $c3, ['width_mm' => 400, 'product_length_mm' => 1000, 'traffic' => 'car']), ['max_unit_price' => 30000, 'price_unit' => '개']);
+eq('판매 단위가 섞였거나 직전 표가 없으면 비교 불가', [rag_cheaper_bound([['id' => 1, 'price' => 100, 'qty' => null, 'unit' => '개'], ['id' => 2, 'price' => 90, 'qty' => null, 'unit' => 'M']], $c3, ['width_mm' => 400, 'product_length_mm' => 1000, 'traffic' => 'car']), rag_cheaper_bound([], [], [])], [['cheaper_incomparable' => 'unit'], ['cheaper_incomparable' => 'no_table']]);
+eq("검색 입력에 '더 저렴한' 기준 넣음(GPT 가 넘긴 금액은 그대로)", [$prep(['query' => '그레이팅', 'width_mm' => 400, 'product_length_mm' => 1000, 'length_m' => 20, 'traffic' => 'car'], $cx($u('좀 더 저렴한 제품'), ['recent_cards' => $rcE, 'recent_cond' => $c4, 'cheaper' => true]))['max_est_cost'] ?? null,
+    $prep(['query' => 'q', 'max_est_cost' => 400000], $cx($u('좀 더 저렴한 제품'), ['recent_cards' => $rcE, 'recent_cond' => $c4, 'cheaper' => true]))['max_est_cost']], [500000, 400000]);
 
 echo "[상담원 연결 유도 노출 consult_cta_visible — 로그인한 개인·기업회원만(사용자 결정 2026-11-10)]\n";
 eq('비로그인·개인·기업·직원·관리자', [consult_cta_visible(null), consult_cta_visible(['role' => 'customer']), consult_cta_visible(['role' => 'corporate']), consult_cta_visible(['role' => 'staff']), consult_cta_visible(['role' => 'admin'])], [false, true, true, false, false]);

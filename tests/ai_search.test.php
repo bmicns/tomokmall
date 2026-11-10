@@ -39,10 +39,10 @@ if ($n < 1000) {
 }
 
 $pass = 0; $fail = 0;
-function ok(string $name, bool $cond): void {
+function ok(string $name, bool $cond, string $detail = ''): void {
     global $pass, $fail;
     if ($cond) { $pass++; echo "  ✓ {$name}\n"; }
-    else       { $fail++; echo "  ✗ {$name}\n"; }
+    else       { $fail++; echo "  ✗ {$name}" . ($detail !== '' ? "  — {$detail}" : '') . "\n"; }
 }
 function search(array $input): array { return json_decode(tool_search_products($input), true) ?: []; }
 function reg(array $c): string { return preg_match('/규격:\s*([^|]+)/u', (string) $c['spec'], $m) ? trim($m[1]) : ''; }
@@ -199,7 +199,7 @@ $r = search(['query' => '흄관', 'width_mm' => 600]);
 ok('폭이 없는 규격 체계(흄관 내경 D600): 폭 600 검색에 흄관을 맞다고 보이지 않음', !array_filter($r['products'] ?? [], static fn($c) => ($c['dim_check'] ?? '') === 'verified' && str_contains((string) ($c['size'] ?? ''), '내경')));
 $r = search(['query' => '화산석', 'width_mm' => 150, 'length_m' => 18]);
 ok('치수 칸 없는 상품(이름표 없음): 확인 불가 표시·안내, 정확히 맞는 제품이라 하지 않음', $r['products'] && !array_filter($r['products'], static fn($c) => ($c['dim_check'] ?? '') !== 'unverified')
-    && str_contains((string) ($r['note'] ?? ''), '폭 150mm로 확인된 제품은 없고') && str_contains((string) ($r['products'][0]['dim_note'] ?? ''), '확인하지 못했습니다'));
+    && str_contains((string) ($r['note'] ?? ''), '폭 150mm로 확인된 제품은 없고') && str_contains((string) ($r['products'][0]['dim_note'] ?? ''), '규격 확인 필요') && str_contains((string) ($r['products'][0]['dim_note'] ?? ''), '확인되지 않았습니다'));
 $r = search(['query' => '그레이팅 수로용', 'width_mm' => '50cm', 'length_m' => 10, 'traffic' => 'pedestrian']);
 ok("단위가 다른 입력('50cm' → 500mm)", ($r['dim_condition'] ?? '') === '폭 500mm' && $r['products'] && !array_filter($sizes($r), static fn($s) => !str_starts_with($s, '폭 W 500mm')));
 $r = search(['query' => '개거', 'width_mm' => '2m', 'length_m' => 6]);
@@ -224,6 +224,32 @@ $exId = (int) ($one['products'][0]['id'] ?? 0);
 $exName = (string) ($one['products'][0]['name'] ?? '');
 $r = search(['query' => '그레이팅 수로용', 'width_mm' => 200, 'length_m' => 10, 'exclude_ids' => [$exId]]);
 ok("exclude_ids: 그 상품명은 다른 규격도 빠지고 나머지는 그대로({$exName} 제외)", $exId > 0 && !in_array($exName, $names($r), true) && $names($r) !== [] && in_array($exName, $r['excluded'] ?? [], true));
+
+echo "[2026-11-11 하중 판정 — 상품명 등급·규격 용도 표기(차도용·보도용)만 근거, 근거 없으면 '하중 확인 필요'(오추천 방지)]\n";
+$rKeep = $r;   // 아래 견적 담기 테스트가 앞 검색 결과($r)를 씀
+$lc = static fn(array $r): array => array_map(static fn($c) => $c['name'] . ':' . ($c['load_check'] ?? '-'), $r['products'] ?? []);
+$r = search(['query' => '맨홀 뚜껑', 'traffic' => 'car']);
+ok('승용차: 보도(우수)·보도용 규격 뚜껑은 표에 없음', $r['products'] && !array_filter($r['products'], static fn($c) => preg_match('/보도/u', (string) ($c['spec_label'] ?? $c['spec'] ?? '')) === 1), implode(', ', $lc($r)));
+ok('승용차: 차도용 규격 뚜껑은 하중 확인됨(근거: 규격 표기) — 확인된 제품이 먼저', ($r['products'][0]['load_check'] ?? '') === 'verified' && str_contains((string) ($r['products'][0]['load_basis'] ?? ''), '규격 표기(차도용)'));
+ok("승용차: 근거 없는 뚜껑은 '하중 확인 필요'(맞다고 하지 않음) + 안내", (bool) array_filter($r['products'], static fn($c) => ($c['load_check'] ?? '') === 'unverified' && str_contains((string) ($c['load_note'] ?? ''), '하중 확인 필요')) && str_contains((string) ($r['note'] ?? ''), '하중 확인 필요'));
+$r = search(['query' => '주철뚜껑', 'traffic' => 'truck']);
+ok("대형차: '차도용'은 톤수가 없어 확인 필요(대형차에 맞다고 하지 않음) · 확인된 제품 없음 안내", !array_filter($r['products'] ?? [], static fn($c) => ($c['load_check'] ?? '') === 'verified') && str_contains((string) ($r['note'] ?? ''), '확인된 제품은 없습니다'), implode(', ', $lc($r)));
+$r = search(['query' => '주철뚜껑', 'traffic' => 'pedestrian']);
+ok('보행자: 보도용 규격이 대표(차도용은 과잉 등급이라 뺌), 하중 표시 없음', ($r['products'] && !array_filter($r['products'], static fn($c) => str_contains((string) $c['name'], '주철뚜껑') && !str_contains((string) ($c['spec_label'] ?? $c['spec'] ?? ''), '보도'))) && !array_filter($r['products'], static fn($c) => isset($c['load_check'])), implode(', ', $lc($r)));
+$r = search(['query' => '수로관', 'width_mm' => 500, 'product_length_mm' => 2000, 'length_m' => 20, 'traffic' => 'car']);
+ok('수로관 + 승용차: 하중 근거가 없어 모두 확인 필요, 수량은 그대로(2m → 10본)', $r['products'] && !array_filter($r['products'], static fn($c) => ($c['load_check'] ?? '') !== 'unverified' || ($c['suggested_qty'] ?? 0) !== 10), implode(', ', $lc($r)));
+$r = search(['query' => '수로관', 'width_mm' => 500, 'product_length_mm' => 2000, 'traffic' => 'pedestrian']);
+ok('수로관 + 보행자: 하중 판정 표시 없음(필터 안 함)', $r['products'] && !array_filter($r['products'], static fn($c) => isset($c['load_check'])));
+$r = search(['query' => '보도블록', 'traffic' => 'car', 'area_m2' => 20]);
+ok('블록 + 승용차: 하중 판정에 넣지 않음(블록 차량 기준은 80T 규칙 — 그대로)', $r['products'] && !array_filter($r['products'], static fn($c) => isset($c['load_check'])));
+$r = search(['query' => '그레이팅', 'width_mm' => 400, 'product_length_mm' => 1000, 'traffic' => 'car']);
+ok('그레이팅 폭 400·길이 1000 승용차: 중하중(상품명 등급)만, 보행자용·과잉 등급 없음', $names($r) === ['중하중그레이팅수로용'] && ($r['products'][0]['load_check'] ?? '') === 'verified' && in_array('안전중하중그레이팅수로용', $r['over_spec_excluded'] ?? [], true));
+$r = search(['query' => '그레이팅', 'width_mm' => 400, 'product_length_mm' => 1000, 'traffic' => 'car', 'recheck_ids' => [738, 753, 768]]);
+$rk = array_column($r['recheck'] ?? [], 'status', 'id');
+ok('앞서 보인 제품 재확인(recheck_ids): EX메탈망 하중 부족 · 중하중 맞음 · 안전중하중 과잉', ($rk[738] ?? '') === 'load_lighter' && ($rk[753] ?? '') === 'ok' && ($rk[768] ?? '') === 'load_heavier', json_encode($r['recheck'] ?? null, JSON_UNESCAPED_UNICODE));
+$r = search(['query' => '그레이팅', 'width_mm' => 500, 'product_length_mm' => 1000, 'traffic' => 'car', 'recheck_ids' => [741]]);
+ok('표가 비어도(폭 500 승용차용 없음) 재확인 결과·이유를 함께 알림', empty($r['products']) && ($r['recheck'][0]['status'] ?? '') === 'load_lighter' && str_contains((string) ($r['note'] ?? ''), '이번 조건에 맞지 않아'));
+$r = $rKeep;
 
 echo "[견적 담기 수량 1~999 — AI add_to_cart]\n";
 $pid = (int) ($r['products'][0]['id'] ?? 0);
