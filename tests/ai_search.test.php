@@ -250,6 +250,17 @@ ok('앞서 보인 제품 재확인(recheck_ids): EX메탈망 하중 부족 · �
 $r = search(['query' => '그레이팅', 'width_mm' => 500, 'product_length_mm' => 1000, 'traffic' => 'car', 'recheck_ids' => [741]]);
 ok('표가 비어도(폭 500 승용차용 없음) 재확인 결과·이유를 함께 알림', empty($r['products']) && ($r['recheck'][0]['status'] ?? '') === 'load_lighter' && str_contains((string) ($r['note'] ?? ''), '이번 조건에 맞지 않아'));
 $r = $rKeep;
+echo "[2026-11-12 규격 미확인 상품 — 확인된 제품 뒤, '규격 확인 필요' 표기, 확인된 것처럼 표시하지 않음]\n";
+$rKeep = $r;
+$r = search(['query' => '덮개', 'width_mm' => 300]);
+$st = array_column($r['products'] ?? [], 'dim_check');
+$firstUnv = array_search('unverified', $st, true);
+ok('폭 300 덮개: 확인된 제품(verified)이 모두 미확인(unverified) 앞', $firstUnv !== false && in_array('verified', $st, true) && !in_array('verified', array_slice($st, (int) $firstUnv), true), json_encode($st));
+ok("미확인 제품: dim_note '규격 확인 필요', 확인된 제품엔 dim_note 없음", !array_filter($r['products'], static fn($c) => ($c['dim_check'] === 'unverified') !== str_contains((string) ($c['dim_note'] ?? ''), '규격 확인 필요')));
+ok("GPT 안내: 미확인 제품 이름과 '규격 확인 필요'", str_contains((string) ($r['note'] ?? ''), '규격 확인 필요') && str_contains((string) ($r['note'] ?? ''), (string) ($r['products'][(int) $firstUnv]['name'] ?? '-')));
+$r = search(['query' => '그레이팅', 'exclude_ids' => array_column(search(['query' => '그레이팅'])['products'] ?? [], 'id')]);
+ok("넓은 검색어('그레이팅')에서 '다른 제품': 앞 표 이름을 뺀 다른 그레이팅이 나옴(위 40행만 보고 '없음'으로 끝나지 않음)", ($r['products'] ?? []) !== [] && !array_intersect(array_column($r['products'], 'name'), $r['excluded'] ?? []));
+$r = $rKeep;
 
 echo "[견적 담기 수량 1~999 — AI add_to_cart]\n";
 $pid = (int) ($r['products'][0]['id'] ?? 0);

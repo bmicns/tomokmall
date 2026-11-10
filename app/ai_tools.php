@@ -531,6 +531,8 @@ function tool_search_products(array $input): string
 
     // 중복 제거·재정렬 여지를 두려고 넉넉히 조회
     $fetch = max(40, $limit * 8);
+    // 제외할 제품이 있으면 더 깊이 조회 — 넓은 검색어('그레이팅')는 위 40행이 모두 뺄 상품명의 다른 규격이라 '다른 제품 없음'으로 잘못 끝났다(2026-11-12)
+    if (ai_int_list($input['exclude_ids'] ?? null) !== []) { $fetch = max($fetch, 300); }
     $query = $qText; // 이후 용도 필터·하이라이트 재정렬은 텍스트 기준
     $note      = null;   // 모델이 손님에게 전달할 안내(교정/대안 사유)
     $corrected = null;   // 교정된 검색어(있으면)
@@ -600,7 +602,28 @@ function tool_search_products(array $input): string
     //      2026-11-09 운영 상담: 식당 주방(보행자 전용) 폭 500mm → 대형차용 안전중하중(136,700원/개)만 표에 나와 '적합'으로 안내됨.
     $heavier      = [];
     $classEmptied = false;
-    if ($traffic !== '') {
+    // ⓪-2b '더 튼튼한 거'(stronger_than_ids — 서버가 넣음, 2026-11-12): 앞 제품보다 하중 등급이 높다고 상품명 등급·규격 용도 표기로 확인된 제품만.
+    //       앞 제품 등급을 모르면 비교하지 않고 이유만(튼튼하다고 말할 근거 없음). 통행 조건이 있으면 그 등급 이상만.
+    $strongerIds = ai_int_list($input['stronger_than_ids'] ?? null, 20);
+    $strongerNote = '';
+    if ($strongerIds) {
+        $prevRows = ai_rows_by_ids($strongerIds);
+        $prevRank = $prevRows ? max(array_map(static fn($r) => AI_LOAD_RANK[ai_load_class_of($r)] ?? 0, $prevRows)) : 0;
+        if ($prevRank === 0) {
+            return json_encode(['products' => [], 'count' => 0, '_sse' => [], 'stronger_basis' => 'unknown',
+                'note' => '앞서 보여 드린 제품의 하중 등급이 상품명·등록 규격으로 확인되지 않아 \'더 튼튼한\' 제품인지 비교할 수 없습니다. 차량이 다니는지, 어떤 차량(승용차·트럭 등)인지 알려 주시면 그 하중 등급으로 찾아 드립니다.'], JSON_UNESCAPED_UNICODE);
+        }
+        $minRank = max($prevRank + 1, AI_LOAD_RANK[$traffic] ?? 0);
+        $rows = array_values(array_filter($rows, static fn($r) => (AI_LOAD_RANK[ai_load_class_of($r)] ?? 0) >= $minRank));
+        $rows = array_map(static function ($r) { $r['_load'] = 'ok'; return $r; }, $rows);
+        $prevLabel = AI_TRAFFIC_CLASS_LABEL[array_search($prevRank, AI_LOAD_RANK, true)] ?? '';
+        $strongerNote = "앞서 보여 드린 제품({$prevLabel})보다 하중 등급이 높다고 상품명 등급·규격 표기로 확인된 제품만 보여 드립니다(확인되지 않은 제품은 넣지 않음).";
+        if (!$rows) {
+            return json_encode(['products' => [], 'count' => 0, '_sse' => [], 'stronger_basis' => $prevLabel,
+                'note' => "앞서 보여 드린 제품({$prevLabel})보다 하중 등급이 높다고 확인된 '{$query}' 제품이 " . ($want ? "{$cond} 조건에서 " : '') . '없습니다. 조건을 바꾸시려면 알려 주세요.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+    if ($traffic !== '' && !$strongerIds) {
         $hadRows = $rows !== [];
         [$rows, $heavier] = ai_filter_load_class($rows, $traffic);
         $classEmptied = $hadRows && $rows === [];
@@ -678,7 +701,7 @@ function tool_search_products(array $input): string
     // 고르는 기준(초보 고객용 쉬운 설명) — 상품 규격 + 사람이 확정한 외부 자료(제조사·KS 표기, 가격 제외). 외부 테이블이 없으면 상품 규격만
     $knowledge = ext_knowledge_for_products(array_column($products, 'id'));
     $vehicle = in_array($traffic, ['car', 'truck'], true);
-    $cards = array_map(function ($p) use ($lengthM, $areaWidth, $areaM2, $knowledge, $memberMap, $want, $cond, $vehicle, $traffic) {
+    $cards = array_map(function ($p) use ($lengthM, $areaWidth, $areaM2, $knowledge, $memberMap, $want, $cond, $vehicle, $traffic, $strongerIds) {
         [$qty, $basis] = ai_estimate_quantity(
             $p,
             $lengthM,
@@ -707,7 +730,9 @@ function tool_search_products(array $input): string
           + ($want && ($p['_dim'] ?? '') === 'unknown' ? ['dim_note' => "규격 확인 필요 — {$cond}인지 규격 표기로 확인되지 않았습니다"] : [])
           // 차량 통행: 하중 등급이 상품명·등록 규격(차도용)으로 확인된 덮개와 확인이 필요한 덮개를 나눈다(확인 안 된 제품을 적합하다고 하지 않음)
           + ($vehicle && ($p['_load'] ?? '') === 'ok' ? ['load_check' => 'verified', 'load_basis' => ai_load_status($p, $traffic)['basis']] : [])
-          + ($vehicle && ($p['_load'] ?? '') === 'unverified' ? ['load_check' => 'unverified', 'load_note' => '하중 확인 필요 — 차량 통행 적합 여부가 상품 정보로 확인되지 않았습니다'] : []);
+          + ($vehicle && ($p['_load'] ?? '') === 'unverified' ? ['load_check' => 'unverified', 'load_note' => '하중 확인 필요 — 차량 통행 적합 여부가 상품 정보로 확인되지 않았습니다'] : [])
+          // '더 튼튼한' 요청: 확인된 하중 등급과 근거(상품명 등급·규격 표기)
+          + ($strongerIds && ($lc = ai_load_class_of($p)) !== '' ? ['load_grade' => AI_TRAFFIC_CLASS_LABEL[$lc], 'load_basis' => ai_load_status($p, $lc)['basis']] : []);
     }, $products);
     // 자재 분류 설명(운영자가 쓴 카테고리 설명 — 상품 분류, 없으면 상위 분류) — 답변 글의 '자재 설명' 재료. 화면 표에는 보내지 않는다(ai_cards_for_screen)
     $catDesc = ai_category_descs(array_map(static fn($p) => (int) ($p['category_id'] ?? 0), $products));
@@ -814,9 +839,10 @@ function tool_search_products(array $input): string
         'count'    => count($cards),
         '_sse'     => [
             ['type' => 'product_cards', 'products' => ai_cards_for_screen(ai_cards_with_member_price($cards)),   // 화면용: 회원은 할인가
-             'cond' => ai_search_cond($query, $want, $specMm, $lengthM, $areaM2, $traffic)],   // 이 표의 검색 조건 — 다음 턴 조건 유지·금액 비교 기준 확인용(화면은 쓰지 않음)
+             'cond' => ai_search_cond($query, $want, $specMm, $lengthM, $areaM2, $traffic, $excludeIds)],   // 이 표의 검색 조건(고객이 뺀 제품 포함) — 다음 턴 조건 유지·금액 비교 기준 확인용(화면은 쓰지 않음)
         ],
     ];
+    if ($strongerNote !== '') { $extraNotes[] = $strongerNote; }
     if ($recheck) {
         $out['recheck'] = $recheck;   // 앞서 보인 제품을 지금 조건으로 다시 확인한 결과
         $rn = ai_recheck_note($recheck);
@@ -1047,12 +1073,14 @@ function ai_recheck_note(array $recheck): string
     return implode(' ', $parts);
 }
 
-/** 표의 검색 조건 기록 (순수 함수) — 폭·제품 길이(mm)·그 밖의 규격(spec_mm)·설치 길이(m)·면적(㎡)·통행 조건. 다음 턴에 조건 유지·금액 비교 기준을 확인하는 데 쓴다 */
-function ai_search_cond(string $query, array $want, int $specMm, float $lengthM, float $areaM2, string $traffic): array
+/** 표의 검색 조건 기록 (순수 함수) — 폭·제품 길이(mm)·그 밖의 규격(spec_mm)·설치 길이(m)·면적(㎡)·통행 조건·고객이 뺀 제품(exclude_ids).
+ *  다음 턴에 조건 유지·금액 비교 기준·제외 유지를 확인하는 데 쓴다 */
+function ai_search_cond(string $query, array $want, int $specMm, float $lengthM, float $areaM2, string $traffic, array $excludeIds = []): array
 {
     return array_filter([
         'query' => $query, 'width_mm' => $want['w'] ?? null, 'product_length_mm' => $want['l'] ?? null, 'spec_mm' => $specMm > 0 ? $specMm : null,
         'length_m' => $lengthM > 0 ? $lengthM : null, 'area_m2' => $areaM2 > 0 ? $areaM2 : null, 'traffic' => $traffic !== '' ? $traffic : null,
+        'exclude_ids' => $excludeIds ? array_values($excludeIds) : null,
     ], static fn($v) => $v !== null && $v !== '');
 }
 
