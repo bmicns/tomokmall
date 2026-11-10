@@ -5,7 +5,7 @@ declare(strict_types=1);
  *
  * 책임: 테스트 컨테이너(tomokmall_ai_test, load-ktomok-docker.sh 로 생성)에 DB 3개를 만든다.
  *   - tomokmall_test      운영과 같은 구조(31개 테이블) + 운영 카테고리 트리·규격 이름표(category_spec_axes)·상담 가이드
- *                         + 수집 상품(data/ktomok)을 운영 카테고리 번호로 옮김(이름 기준, 운영에 없는 카테고리 상품은 뺌)
+ *                         + 수집 상품(data/ktomok · data/dacity — 운영의 1련암거)을 운영 카테고리 번호로 옮김(이름 기준, 운영에 없는 카테고리 상품은 뺌)
  *                         + 법령 근거(load-legal-docs.sh 로 넣은 행) + 규격 치수 칸 채우기(spec-axes-fill.php apply)
  *   - tomokmall_mock_test 운영과 같은 구조, 데이터 없음 — '빈 DB 전용' 목 데이터 테스트(tests/stock_filter.test.php)
  *   - ktomok_test         수집 원본 구조·데이터 그대로(+ external_products) — 수집 원본 기대값 테스트(tests/external_import.test.php)
@@ -102,6 +102,16 @@ foreach ($byName as $n => $ids) {
 $sql[] = "INSERT INTO products (id, category_id, name, spec, description, price_b2c, price_b2b, stock_qty, external_source, external_id, source_url, image_url, is_active, created_at)
 SELECT p.id, m.prod_id, p.name, LEFT(p.spec, 180), p.description, p.price_b2c, p.price_b2b, p.stock_qty, p.external_source, p.external_id, p.source_url, p.image_url, p.is_active, p.created_at
 FROM ktomok_test.products p JOIN ktomok_test.categories c ON c.id = p.category_id JOIN catmap m ON m.src_name = c.name;";
+// 다른 수집 원본(data/dacity — 운영의 1련암거 10개, 2026-11-12): 같은 방식으로 운영 카테고리 이름에 붙이고 규격 문자열은 운영 모양 조각만
+$dacity = json_decode((string) @file_get_contents("{$root}/data/dacity/products.json"), true) ?: [];
+foreach ($dacity as $d) {
+    $catIds = $byName[(string) ($d['categoryName'] ?? '')] ?? [];
+    if (!$catIds) { continue; }
+    usort($catIds, static fn($a, $b) => ($withProducts[$b] ?? 0) <=> ($withProducts[$a] ?? 0));
+    $spec = implode(' | ', array_values(array_filter(array_map('trim', explode('|', (string) ($d['spec'] ?? ''))), static fn($s) => preg_match('/^(규격|중량|단위)[^:]*:/u', $s))));
+    $sql[] = 'INSERT INTO products (category_id, name, brand, spec, description, price_b2c, price_b2b, stock_qty, external_source, external_id, source_url, image_url, is_active) VALUES ('
+        . implode(', ', array_map($lit, [$catIds[0], (string) $d['name'], $d['brand'] ?? null, $spec, $d['description'] ?? null, (int) ($d['priceB2c'] ?? 0), (int) ($d['priceB2b'] ?? 0), 0, 'dacity', (string) ($d['externalId'] ?? ''), $d['sourceUrl'] ?? null, $d['imageUrl'] ?? null, 1])) . ');';
+}
 $sql[] = 'SET FOREIGN_KEY_CHECKS = 1;';
 file_put_contents("{$tmp}/data.sql", implode("\n", $sql));
 

@@ -8,16 +8,17 @@ declare(strict_types=1);
  * 흐름 A: 복합 문장 8개(폭 500·길이 1m 그레이팅 → 차량 → 폭만 400 → 설치 20m 몇 개 → 앞 제품 빼고 → 더 저렴한 → 폭 500·길이 2m 수로관 → 차량에 안 맞으면 제외)
  * 흐름 E: 10단계(조건 → 추천 → 치수 변경 → 제외 → 더 저렴한 → 설치 총 길이 → 수량 → 차량 추가 → 앞서 추천 재검토 → 최종 비교)
  * 흐름 Q1~Q8: 모호한 질문 8개(길이 10m짜리 · 길이만 두 배 · 더 튼튼한 거 · 이 제품 써도 돼 · 500짜리 수로관 · 앞 추천 중 가장 저렴 · 나머지는 그대로 · 비슷한 규격)
+ * 흐름 Q9~Q11(5차): 50센치짜리(치수 이름 없음) · 좀 더 넓은 거(얼마나 없음) · 암거(상품명이 규격 코드뿐인 1련암거, 차량 → 하중 확인 필요)
  * 턴마다 기록: 고객 원문 · GPT 가 추출한 조건(raw_input) · 서버가 보완한 조건(fills) · 최종 검색 조건(input) · 추천 상품 ID ·
  *   조건 누락·잘못된 해석(기대값과 다른 칸) · 확인 질문 근거(clarify)와 GPT 가 실제로 물었는지 · 예상 결과와 실제 결과의 차이(실패한 결과 확인).
  *   'GPT 자체 추출'·'GPT 확인 질문'은 정보(GPT 품질 지표), '결과 확인'(서버 보완 뒤 표·확인 근거)이 실패하면 종료 코드 1.
  *
  * 금지: 운영 DB 사용(DB_NAME=*_test 만, 상담 기록은 끝나면 지움). 키는 환경변수 OPENAI_API_KEY 로만 — 코드·문서·Git·출력에 남기지 않는다.
  * 유료 호출: 실제 GPT 는 --confirm-paid 를 줄 때만 호출한다(없으면 예정 호출 수만 알리고 종료 코드 4). 범위를 줄이려면 --only=Q1,Q5
- * 실행(실제 GPT): OPENAI_API_KEY 는 환경변수로만 · DB_HOST=127.0.0.1 DB_NAME=tomokmall_test php scripts/testdb/consult-conditions-live.php --confirm-paid [--md=결과.md] [--only=A,E,Q1…Q8]
+ * 실행(실제 GPT): OPENAI_API_KEY 는 환경변수로만 · DB_HOST=127.0.0.1 DB_NAME=tomokmall_test php scripts/testdb/consult-conditions-live.php --confirm-paid [--md=결과.md] [--only=A,E,Q1…Q11]
  *   --mock-self-test : 실제 GPT 대신 기대 인자를 그대로 돌려주는 목업(127.0.0.1)으로 이 스크립트 자체를 점검 — 결과는 '목업'으로 표시(실제 GPT 검증 아님)
  * 키가 없으면 'SKIP — 실제 GPT 미검증'(종료 코드 3). 목업 테스트: tests/consult_multiturn_conditions.test.php · tests/consult_ambiguous_questions.test.php.
- * 비용: 전체 턴 약 35개 × OpenAI 호출 2~3회(도구 호출 포함).
+ * 비용: 전체 고객 턴 약 39개 × OpenAI 호출 2~3회(도구 호출 포함).
  */
 if (PHP_SAPI !== 'cli') { exit; }
 error_reporting(E_ALL & ~E_WARNING & ~E_DEPRECATED & ~E_NOTICE);
@@ -134,6 +135,18 @@ $flows = [
         ['say' => '중하중 그레이팅 수로용 폭 400 길이 1m 찾아줘.', 'gpt' => ['width_mm' => 400, 'product_length_mm' => 1000], 'query' => '중하중 그레이팅 수로용', 'ctx' => true, 'check' => []],
         ['say' => '이 제품 대신 비슷한 규격의 다른 제품 보여줘.', 'gpt' => ['ids:exclude_ids' => true, 'width_mm' => 400, 'product_length_mm' => 1000],
          'check' => ['폭 W 400·길이 L 1000 만' => $sz('폭 W 400mm · 길이 L 1000mm')], 'shown_absent' => true],
+    ],
+    // 5차(2026-11-12) 추가 표현
+    'Q9' => [
+        ['say' => '50센치짜리 그레이팅 찾아줘.', 'gpt' => ['query~' => '그레이팅', 'width_mm' => null, 'spec_mm' => 500], 'clarify' => true, 'check' => []],
+    ],
+    'Q10' => [
+        ['say' => '폭 400mm, 길이 1m 그레이팅 찾아줘.', 'gpt' => ['width_mm' => 400, 'product_length_mm' => 1000], 'ctx' => true, 'check' => []],
+        ['say' => '아까보다 좀 더 넓은 거.', 'gpt' => ['width_mm' => 400, 'product_length_mm' => 1000], 'clarify' => true, 'check' => []],
+    ],
+    'Q11' => [
+        ['say' => '암거 찾아줘. 차가 다니는 도로 밑이야.', 'gpt' => ['query~' => '암거', 'traffic' => 'car'], 'query' => '암거',
+         'check' => ['1련암거·하중 확인 필요' => static fn(array $cs): bool => $cs !== [] && !array_filter($cs, static fn($c) => ($c['category_name'] ?? '') !== '1련암거' || ($c['load_check'] ?? '') !== 'unverified')]],
     ],
 ];
 if (isset($opt['only'])) { $flows = array_intersect_key($flows, array_flip(explode(',', (string) $opt['only']))); }

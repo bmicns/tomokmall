@@ -100,6 +100,15 @@ foreach (MOCK_PRODUCTS as $n => [$name, $b2c, $b2b, $cost]) {
     $ip->execute([$name, $b2c, $b2b, $cost, "mprice-{$n}"]);
     $pids[$n] = (int) $pdo->lastInsertId();
 }
+// 테스트 환경 점검(2026-11-12): 테스트 DB 가 비정상 종료된 뒤에는 FULLTEXT 색인이 표와 어긋나 방금 넣은 목 상품이 검색에 일부만 나온다
+// (search_products 는 FULLTEXT 0건일 때만 LIKE 로 넘어감 — 아래 AI 검색 단언이 코드와 무관하게 실패). 코드 오류와 구분해 알리고 멈춘다.
+$ftMock = (int) $pdo->query("SELECT COUNT(*) FROM products WHERE external_source = 'MOCK' AND external_id LIKE 'mprice-%' AND MATCH(name, spec, description) AGAINST('+회원가' IN BOOLEAN MODE)")->fetchColumn();
+if ($ftMock !== count($pids)) {
+    cleanup_mprice_mock($pdo);
+    echo "환경 오류(코드 오류 아님): 테스트 DB FULLTEXT 색인이 표와 다름 — 방금 넣은 목 상품 " . count($pids) . "개 중 {$ftMock}개만 검색됨(비정상 종료 뒤 생김).\n"
+        . "  복구: bash scripts/testdb/fts-rebuild.sh --force  (테스트 DB 전용) 후 다시 실행\n";
+    exit(2);
+}
 $iu = $pdo->prepare('INSERT INTO users (role, name, email, password_hash, is_active) VALUES (?, ?, ?, ?, 1)');
 $uids = [];
 foreach (MOCK_USERS as $k => [$role, $name, $email]) {
