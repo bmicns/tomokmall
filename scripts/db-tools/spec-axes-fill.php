@@ -62,7 +62,7 @@ $fmtDims = static function (array $plan, array $axes): string {
     foreach ($axes as $a) {
         $col = SPEC_AXIS_COLUMNS[$a['axis_key']] ?? null;   // skip(저장 안 하는 숫자 자리)는 칸 없음
         $v   = $col !== null ? ($plan[$col] ?? null) : null;
-        if ($v !== null) { $out[] = spec_axis_title($a) . ' ' . spec_axis_display((float) $v, $a['unit']); }
+        if ($v !== null) { $out[] = spec_axis_title($a) . ' ' . spec_axis_value_display($a, (string) $v); }
     }
     if ($plan['spec_option'] !== null) { $out[] = '옵션 ' . $plan['spec_option']; }
     return implode(' · ', $out);
