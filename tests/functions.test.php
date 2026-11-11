@@ -1148,5 +1148,67 @@ eq('비로그인·개인·기업·직원·관리자', [consult_cta_visible(null)
 eq('역할 값이 없거나 다른 값이면 표시 안 함', [consult_cta_visible([]), consult_cta_visible(['role' => 'CUSTOMER']), consult_cta_visible(['role' => 'guest'])], [false, false, false]);
 
 
+echo "[상용콘크리트 일괄 등록 app/syc_bulk.php]\n";
+require_once __DIR__ . '/../app/syc_bulk.php';
+// 칸 규칙 = 마이그레이션(database/20261110_syc_products.sql) 칸·글자 수
+$mig = (string) file_get_contents(__DIR__ . '/../database/20261110_syc_products.sql');
+preg_match('/CREATE TABLE IF NOT EXISTS syc_products \((.*?)\n\) ENGINE/s', $mig, $mm);
+preg_match_all('/^\s{4}([a-z0-9_]+)\s+(VARCHAR\((\d+)\)|DECIMAL\((\d+),(\d+)\)|[A-Z]+)/m', $mm[1] ?? '', $cm, PREG_SET_ORDER);
+$migCols = [];
+foreach ($cm as $c) { $migCols[$c[1]] = $c; }
+$skip = ['id', 'category_id', 'spec_dims_src', 'image_file', 'image_thumb_file', 'is_active', 'created_at'];
+$mc = array_values(array_diff(array_keys($migCols), $skip)); $bc = array_keys(syc_bulk_columns()); sort($mc); sort($bc);
+eq('엑셀 칸 = 마이그레이션 칸(자동 칸 7개 제외, 순서 무관) — 칸 수', [count($bc), $mc === $bc], [65, true]);
+$bad = [];
+foreach (syc_bulk_columns() as $k => [$t, $lim]) {
+    $c = $migCols[$k] ?? null;
+    if ($t === 'str' && ($c[3] ?? '') !== '' && (int) $c[3] !== $lim) { $bad[] = $k; }
+    if ($t === 'dec' && ((int) ($c[4] ?? 0) - (int) ($c[5] ?? 0) !== $lim[0] || (int) ($c[5] ?? 0) !== $lim[1])) { $bad[] = $k; }
+}
+eq('글자 수·소수 자리 = 마이그레이션', $bad, []);
+eq('머리글: [칸 이름]·칸 이름·모르는 칸', array_map('syc_bulk_header_key', ['상품명 [name]', 'dim_w', '폭·가로 W [dim_w]', '분류명(참고) [category_name]', '아무거나', '대표이미지(상세용, ZIP 안 파일명) [image_file]', '[id]']),
+    ['name', 'dim_w', 'dim_w', 'category_name', '', 'image_file', '']);
+$thrown = static function (callable $f): string { try { $f(); return ''; } catch (InvalidArgumentException $e) { return $e->getMessage(); } };
+ok('필수 머리글 [category_slug] 없으면 오류', str_contains($thrown(fn() => syc_bulk_header_map(['상품명 [name]'])), 'category_slug'));
+ok('같은 칸 두 번이면 오류', str_contains($thrown(fn() => syc_bulk_header_map(['[name]', '[category_slug]', 'name'])), '두 번'));
+eq('값 변환: 치수 반올림·쉼표·빈 칸·가격 빈 칸 0', [syc_bulk_cell('dim_w', '101.64'), syc_bulk_cell('weight_kg', '1,290'), syc_bulk_cell('dim_h', ''), syc_bulk_cell('price_b2b', ''), syc_bulk_cell('spec_wire_no', '10')],
+    [[101.6, null], [1290.0, null], [null, null], [0, null], [10, null]]);
+eq('값 오류: 숫자 아님·음수·자리 넘침·소수 정수칸·글자 수', array_map(static fn($r) => $r[1] !== null, [syc_bulk_cell('dim_w', '12mm'), syc_bulk_cell('dim_w', '-5'), syc_bulk_cell('dim_w', '10000000'), syc_bulk_cell('price_b2c', '10.5'), syc_bulk_cell('spec_code', str_repeat('가', 31))]),
+    [true, true, true, true, true]);
+eq('이미지 파일명: 정상·대문자 확장자 / 폴더·php·숨김 파일은 오류', array_map(static fn($v) => syc_bulk_image_name($v)[1] === null, ['syc-s1-01.jpg', 'A.PNG', 'dir/a.jpg', 'a.php', '.a.jpg', '..\\a.jpg']),
+    [true, true, false, false, false, false]);
+$map = [0 => 'category_slug', 1 => 'name', 2 => 'dim_w', 3 => 'external_id', 4 => 'image_thumb_file'];
+$pr = syc_bulk_parse_row(['syc-s1', '측구', '200', 'x-1', ''], $map, ['syc-s1' => 7]);
+eq('행 변환: 분류 id·출처 기본 syccrt·규격 원문 칸·썸네일 없음 null', [$pr['row']['category_id'], $pr['row']['external_source'], $pr['row']['dim_w'], $pr['row']['_image_thumb_file'], $pr['errors']], [7, 'syccrt', 200.0, null, []]);
+$pr = syc_bulk_parse_row(['syc-x9', '', 'abc', '', ''], $map, ['syc-s1' => 7]);
+eq('행 오류 3개(숫자·상품명·분류코드) → 저장 행 없음', [count($pr['errors']), $pr['row']], [3, null]);
+eq('빈 행은 건너뜀', syc_bulk_parse_row(['', ' ', '', '', ''], $map, [])['empty'], true);
+// 실제 테스트 엑셀(data/syccrt) 704행 — 분류코드는 카테고리 마이그레이션의 품목 slug
+preg_match_all("/'(syc-[sw]\d+)'/", (string) file_get_contents(__DIR__ . '/../database/20261110_syc_categories.sql'), $sm);
+$cats = array_flip(array_values(array_unique($sm[1])));
+$rx = syc_bulk_read_excel(__DIR__ . '/../data/syccrt/syc-products-bulk-test.xlsx', 'xlsx', $cats);
+eq('테스트 엑셀: 704행·오류 0·대표/썸네일 파일명', [count($rx['rows']), $rx['error_count'], $rx['rows'][0]['_image_file'], $rx['rows'][0]['_image_thumb_file'], $rx['rows'][0]['dim_w']], [704, 0, 'syc-s1-01.jpg', 'syc-s1-01_thumb.jpg', 200.0]);
+$csv = tempnam(sys_get_temp_dir(), 'sycb') . '.csv';
+file_put_contents($csv, "\xEF\xBB\xBF상품명 [name],분류코드 [category_slug],출처ID [external_id],폭 [dim_w]\n가,syc-s1,a1,100\n나,syc-s1,a1,100\n다,없는코드,a3,1x\n\n");
+$rc = syc_bulk_read_excel($csv, 'csv', $cats);
+unlink($csv);
+eq('CSV: 출처ID 중복·없는 분류·숫자 오류 → 정상 1행·오류 2행(행 번호 포함)', [count($rc['rows']), $rc['error_count'], str_starts_with($rc['errors'][0] ?? '', '3행:'), str_starts_with($rc['errors'][1] ?? '', '4행:')], [1, 2, true, true]);
+eq('엑셀에 있는 저장 칸(present) — 덮어쓸 때 이 칸만 바꿈', $rc['present'], ['name', 'dim_w', 'external_id']);
+// ZIP: 폴더 안 이미지는 이름으로, __MACOSX·숨김·이미지 아닌 파일 제외, 같은 이름 두 개는 오류
+$zf = tempnam(sys_get_temp_dir(), 'sycz');
+$z = new ZipArchive(); $z->open($zf, ZipArchive::OVERWRITE);
+$png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAwS2OUAAAAABJRU5ErkJggg==');
+$z->addFromString('imgs/A-1.png', $png); $z->addFromString('__MACOSX/imgs/._A-1.png', 'x'); $z->addFromString('readme.txt', 'x'); $z->addFromString('.hidden.png', $png); $z->addFromString('fake.jpg', '<?php echo 1;');
+$z->close(); $z->open($zf);
+$zi = syc_bulk_zip_index($z);
+eq('ZIP 목록(소문자 이름 → 경로)', $zi, ['a-1.png' => 'imgs/A-1.png', 'fake.jpg' => 'fake.jpg']);
+$dir = sys_get_temp_dir() . '/sycimg_' . bin2hex(random_bytes(4)); mkdir($dir);
+$web = syc_bulk_store_image($z, 'imgs/A-1.png', $dir, '/uploads/syc');
+eq('이미지 저장: 실제 PNG 는 해시 이름 .png, 이미지 아닌 .jpg 는 저장 안 함', [preg_match('#^/uploads/syc/[0-9a-f]{24}\.png$#', (string) $web), syc_bulk_store_image($z, 'fake.jpg', $dir, '/uploads/syc'), count(glob($dir . '/*'))], [1, null, 1]);
+$z->close(); array_map('unlink', glob($dir . '/*')); rmdir($dir);
+$z = new ZipArchive(); $z->open($zf, ZipArchive::OVERWRITE); $z->addFromString('a/x.jpg', $png); $z->addFromString('b/X.JPG', $png); $z->close(); $z->open($zf);
+ok('ZIP 안 같은 이름(폴더만 다름) → 오류', str_contains($thrown(fn() => syc_bulk_zip_index($z)), '같은 이름'));
+$z->close(); unlink($zf);
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);
