@@ -1175,9 +1175,14 @@ preg_match('/CREATE TABLE IF NOT EXISTS syc_products \((.*?)\n\) ENGINE/s', $mig
 preg_match_all('/^\s{4}([a-z0-9_]+)\s+(VARCHAR\((\d+)\)|DECIMAL\((\d+),(\d+)\)|[A-Z]+)/m', $mm[1] ?? '', $cm, PREG_SET_ORDER);
 $migCols = [];
 foreach ($cm as $c) { $migCols[$c[1]] = $c; }
+// 2026-11-11 부속 치수 칸(ALTER … ADD COLUMN)도 같은 규칙
+$migAcc = (string) file_get_contents(__DIR__ . '/../database/20261111_syc_products_acc_dims.sql');
+preg_match_all('/ADD COLUMN ([a-z0-9_]+)\s+(DECIMAL\((\d+),(\d+)\))/', $migAcc, $am2, PREG_SET_ORDER);
+foreach ($am2 as $c) { $migCols[$c[1]] = [$c[0], $c[1], $c[2], '', $c[3], $c[4]]; }
+eq('부속 치수 칸 6개(ADD COLUMN)', count($am2), 6);
 $skip = ['id', 'category_id', 'spec_dims_src', 'image_file', 'image_thumb_file', 'is_active', 'created_at'];
 $mc = array_values(array_diff(array_keys($migCols), $skip)); $bc = array_keys(syc_bulk_columns()); sort($mc); sort($bc);
-eq('엑셀 칸 = 마이그레이션 칸(자동 칸 7개 제외, 순서 무관) — 칸 수', [count($bc), $mc === $bc], [65, true]);
+eq('엑셀 칸 = 마이그레이션 칸(자동 칸 7개 제외, 순서 무관) — 칸 수', [count($bc), $mc === $bc], [71, true]);
 $bad = [];
 foreach (syc_bulk_columns() as $k => [$t, $lim]) {
     $c = $migCols[$k] ?? null;
@@ -1247,7 +1252,14 @@ $axSql = (string) file_get_contents(__DIR__ . '/../database/20261111_syc_categor
 preg_match_all("/SELECT '(syc-[sw]\d+)'(?: AS slug)?, (\d+)(?: AS seq)?, '([a-z0-9_]+)'/", $axSql, $am);
 eq('이름표 마이그레이션: 키 모두 허용 목록·행 392', [count(array_diff(array_unique($am[3]), SYC_AXIS_KEYS)), count($am[3])], [0, 392]);
 $mig2 = (string) file_get_contents(__DIR__ . '/../database/20261110_syc_products.sql');
-eq('허용 키의 칸이 syc_products 마이그레이션에 모두 있음', array_values(array_filter(SYC_AXIS_KEYS, static fn($k) => !preg_match('/^\s{4}' . syc_axis_column($k) . '\s/m', $mig2))), []);
+eq('허용 키의 칸이 syc_products 마이그레이션에 모두 있음', array_values(array_filter(SYC_AXIS_KEYS, static fn($k) => !preg_match('/^\s{4}' . syc_axis_column($k) . '\s/m', $mig2) && !str_contains($migAcc, 'ADD COLUMN ' . syc_axis_column($k) . ' '))), []);
+$axSql2 = (string) file_get_contents(__DIR__ . '/../database/20261111_syc_axes_acc_labels.sql');
+preg_match_all("/SELECT '(syc-[sw]\d+)' AS slug, (\d+) AS seq, '([a-z0-9_]+)'/", $axSql2, $am3);
+eq('부속 이름표 마이그레이션: 키 모두 허용 목록·같은 품목 안 키·순번 겹침 없음', [count($am3[3]) > 0, count(array_diff(array_unique($am3[3]), SYC_AXIS_KEYS)),
+    count(array_unique(array_map(static fn($a, $b) => $a . '/' . $b, $am3[1], $am3[3]))) === count($am3[3]), count(array_unique(array_map(static fn($a, $b) => $a . '/' . $b, $am3[1], $am3[2]))) === count($am3[3])], [true, 0, true, true]);
+// 이름표 순번이 기존 이름표(20261111_syc_category_spec_axes.sql)와 겹치지 않음
+$oldSeq = array_map(static fn($a, $b) => $a . '/' . $b, $am[1], $am[2]);
+eq('부속 이름표 순번이 기존 순번과 겹치지 않음', array_values(array_intersect(array_map(static fn($a, $b) => $a . '/' . $b, $am3[1], $am3[2]), $oldSeq)), []);
 eq('칸 이름: dim_ 접두·wire_no·모르는 키', [syc_axis_column('w_o'), syc_axis_column('wire_no'), syc_axis_column('price_b2c'), syc_axis_column('dim_w')], ['dim_w_o', 'spec_wire_no', null, null]);
 eq('행 값: 숫자 정규화·글자 칸 그대로·빈 값 null', [syc_axis_row_value(['dim_w' => '200.0'], 'w'), syc_axis_row_value(['dim_d' => '101.6'], 'd'), syc_axis_row_value(['dim_d_inlet' => 'VG100'], 'd_inlet'), syc_axis_row_value(['dim_h' => null], 'h'), syc_axis_row_value(['spec_wire_no' => 10], 'wire_no')],
     ['200', '101.6', 'VG100', null, '10']);
@@ -1260,6 +1272,16 @@ $rowsF = [['dim_w' => 300, 'spec_code' => '300A'], ['dim_w' => 300, 'spec_code' 
 $fc = syc_facets($rowsF, [$axA[0]], ['ax' => ['w' => ['300']], 'ax_code' => [], 'ax_type' => []]);
 eq('파세트: 값 목록(숫자 순)·개수·모델 코드(다른 필터 적용 뒤)', [$fc['all']['w'], $fc['vals']['w'], $fc['type_all'], $fc['type']], [['300', '400'], ['300' => 2, '400' => 1], ['300A', '300B', '400A'], ['300A' => 1, '300B' => 1]]);
 eq('필터 일치: 축끼리 그리고·축 안 또는', [syc_row_matches($rowsF[0], ['ax' => ['w' => ['300', '400']], 'ax_code' => ['300A']]), syc_row_matches($rowsF[1], ['ax' => ['w' => ['300']], 'ax_code' => ['300A']])], [true, false]);
+// 목록 표 나누기: 값이 있는 목록 칸 구성이 같은 상품끼리(유공 침투측구수로관 W·H·L / 침투집수정 W·H·V)
+$axG = [['axis_key' => 'w', 'label' => '폭'], ['axis_key' => 'h', 'label' => '높이'], ['axis_key' => 'l', 'label' => '길이'], ['axis_key' => 'v', 'label' => '세로']];
+$gr = syc_list_groups([['name' => '수로관', 'dim_w' => 300, 'dim_h' => 300, 'dim_l' => 2000], ['name' => '집수정', 'dim_w' => 600, 'dim_h' => 850, 'dim_v' => 600], ['name' => '수로관', 'dim_w' => 400, 'dim_h' => 400, 'dim_l' => 2000]], $axG);
+eq('표 나누기: 칸 구성별 2표·순서 유지·표마다 값 있는 칸만·제목 = 상품명', array_map(static fn($g) => [$g['title'], count($g['rows']), array_column($g['axes'], 'axis_key')], $gr),
+    [['수로관', 2, ['w', 'h', 'l']], ['집수정', 1, ['w', 'h', 'v']]]);
+$gr1 = syc_list_groups([['name' => 'A', 'dim_w' => 1], ['name' => 'B', 'dim_w' => 2]], $axG);
+eq('표 나누기: 칸 구성이 모두 같으면 표 1개·제목 없음', [count($gr1), $gr1[0]['title'], array_column($gr1[0]['axes'], 'axis_key')], [1, '', ['w']]);
+eq('표 나누기: 상품명 4종 이상이면 2개 + 외 N종', syc_list_groups(array_map(static fn($n) => ['name' => $n, 'dim_w' => 1], ['A', 'B', 'C', 'D']), $axG)[0]['title'] ?? null, '');
+$gr4 = syc_list_groups(array_merge(array_map(static fn($n) => ['name' => $n, 'dim_w' => 1], ['A', 'B', 'C', 'D']), [['name' => 'E', 'dim_h' => 1]]), $axG);
+eq('표 나누기: 제목 상품명 4종 이상', $gr4[0]['title'], 'A · B 외 2종');
 eq('목록 주소: 필터 해제·빈 값 제거', syc_list_url(['category' => 5, 'ax_w' => ['300']], ['ax_w' => []]), '/syc-products.php?category=5');
 echo "[운영 상담 #196·#199 (2026-11-11) — 등록 규격 안내 보장·평가 반복 제거]\n";
 $regs = ['날개형' => '플륨관용(날개형U-TYPE) 185·285·295·385mm'];
