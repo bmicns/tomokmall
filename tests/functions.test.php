@@ -1210,5 +1210,38 @@ $z = new ZipArchive(); $z->open($zf, ZipArchive::OVERWRITE); $z->addFromString('
 ok('ZIP 안 같은 이름(폴더만 다름) → 오류', str_contains($thrown(fn() => syc_bulk_zip_index($z)), '같은 이름'));
 $z->close(); unlink($zf);
 
+echo "[상용콘크리트 사이트 화면 app/syc_catalog.php · 가격 price_bundle 마진율 키]\n";
+require_once __DIR__ . '/../app/syc_catalog.php';
+// 가격: 마진율 키가 없는 행(기존 products)은 기존 결과 그대로, 키가 있으면 같은 식(매입가 × (1+마진율))
+$pbOld = price_bundle(['price_b2c' => 1000, 'cost_price' => 500, 'category_id' => 0]);
+eq('기존 행(마진율 키 없음, 카테고리 없음): 매입가 그대로·정가 1000', [$pbOld['customer'], $pbOld['corporate'], $pbOld['list']], [500, 500, 1000]);
+$pbSyc = price_bundle(['price_b2c' => 1000, 'cost_price' => 500, 'category_id' => 0, '_margin_customer' => 20, '_margin_corporate' => 10]);
+eq('상용콘크리트 행: 개인 500×1.2=600·기업 500×1.1=550·마진율 표시', [$pbSyc['customer'], $pbSyc['corporate'], $pbSyc['rate'], $pbSyc['corp_rate']], [600, 550, 20, 10]);
+eq('매입가 0 이면 정가로(기존과 같음)', price_bundle(['price_b2c' => 900, 'cost_price' => 0, '_margin_customer' => 20, '_margin_corporate' => 10])['corporate'], 900);
+eq('개인할인율 외부 지정($discountRate)이 마진율 키보다 우선(기존 규칙)', price_bundle(['price_b2c' => 1000, 'cost_price' => 500, '_margin_customer' => 20], 30)['customer'], 650);
+$sycCats = [1 => ['parent_id' => null, 'discount_customer' => 20, 'discount_corporate' => 10], 2 => ['parent_id' => 1, 'discount_customer' => 0, 'discount_corporate' => 15], 3 => ['parent_id' => 1, 'discount_customer' => 25, 'discount_corporate' => 0]];
+eq('마진율 상속: 0 이면 대분류 값', [syc_discount_map($sycCats, 'discount_customer'), syc_discount_map($sycCats, 'discount_corporate')], [[1 => 20, 2 => 20, 3 => 25], [1 => 10, 2 => 15, 3 => 10]]);
+$pr = syc_price_row(['category_id' => 2, 'price_b2c' => 0], $sycCats);
+eq('syc_price_row: 품목 마진율을 행에 넣음', [$pr['_margin_customer'], $pr['_margin_corporate']], [20, 15]);
+// 이름표 마이그레이션 키 = 허용 키, 허용 키의 칸 = 상품 표 칸
+$axSql = (string) file_get_contents(__DIR__ . '/../database/20261111_syc_category_spec_axes.sql');
+preg_match_all("/SELECT '(syc-[sw]\d+)'(?: AS slug)?, (\d+)(?: AS seq)?, '([a-z0-9_]+)'/", $axSql, $am);
+eq('이름표 마이그레이션: 키 모두 허용 목록·행 392', [count(array_diff(array_unique($am[3]), SYC_AXIS_KEYS)), count($am[3])], [0, 392]);
+$mig2 = (string) file_get_contents(__DIR__ . '/../database/20261110_syc_products.sql');
+eq('허용 키의 칸이 syc_products 마이그레이션에 모두 있음', array_values(array_filter(SYC_AXIS_KEYS, static fn($k) => !preg_match('/^\s{4}' . syc_axis_column($k) . '\s/m', $mig2))), []);
+eq('칸 이름: dim_ 접두·wire_no·모르는 키', [syc_axis_column('w_o'), syc_axis_column('wire_no'), syc_axis_column('price_b2c'), syc_axis_column('dim_w')], ['dim_w_o', 'spec_wire_no', null, null]);
+eq('행 값: 숫자 정규화·글자 칸 그대로·빈 값 null', [syc_axis_row_value(['dim_w' => '200.0'], 'w'), syc_axis_row_value(['dim_d' => '101.6'], 'd'), syc_axis_row_value(['dim_d_inlet' => 'VG100'], 'd_inlet'), syc_axis_row_value(['dim_h' => null], 'h'), syc_axis_row_value(['spec_wire_no' => 10], 'wire_no')],
+    ['200', '101.6', 'VG100', null, '10']);
+$fi = syc_filter_input(['ax_w' => ['300', '300.0', 'abc', ''], 'ax_d_inlet' => ['VG100'], 'ax_price_b2c' => ['1'], 'ax_code' => ['300A', ' ', '300A']]);
+eq('필터 입력: 숫자 아닌 값·모르는 키 버림, 같은 값 하나로', $fi, ['ax' => ['w' => ['300'], 'd_inlet' => ['VG100']], 'ax_code' => ['300A'], 'ax_type' => []]);
+$axA = [['axis_key' => 'w', 'label' => '폭', 'symbol' => 'W', 'unit' => 'mm', 'in_list' => true, 'use_filter' => true], ['axis_key' => 'w1', 'label' => '세부', 'symbol' => 'w1', 'unit' => 'mm', 'in_list' => false, 'use_filter' => false]];
+$axB = [['axis_key' => 'd_i', 'label' => '내경', 'symbol' => 'D', 'unit' => 'mm', 'in_list' => true, 'use_filter' => true]];
+eq('공통 이름표: 같은 목록 칸이면 그 칸(세부 칸 제외), 다르면 []', [array_column(syc_axes_common([1, 2], [1 => $axA, 2 => $axA]), 'axis_key'), syc_axes_common([1, 3], [1 => $axA, 3 => $axB]), syc_axes_common([9], [1 => $axA])], [['w'], [], []]);
+$rowsF = [['dim_w' => 300, 'spec_code' => '300A'], ['dim_w' => 300, 'spec_code' => '300B'], ['dim_w' => 400, 'spec_code' => '400A']];
+$fc = syc_facets($rowsF, [$axA[0]], ['ax' => ['w' => ['300']], 'ax_code' => [], 'ax_type' => []]);
+eq('파세트: 값 목록(숫자 순)·개수·모델 코드(다른 필터 적용 뒤)', [$fc['all']['w'], $fc['vals']['w'], $fc['type_all'], $fc['type']], [['300', '400'], ['300' => 2, '400' => 1], ['300A', '300B', '400A'], ['300A' => 1, '300B' => 1]]);
+eq('필터 일치: 축끼리 그리고·축 안 또는', [syc_row_matches($rowsF[0], ['ax' => ['w' => ['300', '400']], 'ax_code' => ['300A']]), syc_row_matches($rowsF[1], ['ax' => ['w' => ['300']], 'ax_code' => ['300A']])], [true, false]);
+eq('목록 주소: 필터 해제·빈 값 제거', syc_list_url(['category' => 5, 'ax_w' => ['300']], ['ax_w' => []]), '/syc-products.php?category=5');
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

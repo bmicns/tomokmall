@@ -97,8 +97,12 @@ function price_bundle(array $p, ?int $discountRate = null): array
     //   기업회원가 = 매입가 × (1 + 기업마진율/100)
     // (discount_customer/discount_corporate 컬럼을 '매입가 대비 마진율'로 사용)
     $custMargin = $cid ? (category_discount_map('discount_customer')[$cid] ?? 0) : 0;
-    if ($discountRate !== null) { $custMargin = $discountRate; } // 외부 오버라이드(테스트 등)
     $corpMargin = $cid ? (category_discount_map('discount_corporate')[$cid] ?? 0) : 0;
+    // 상용콘크리트 상품(syc_products): 마진율이 categories 가 아니라 syc_categories 에 있어 행에 미리 넣어 준다
+    // (app/syc_catalog.php syc_price_row). 계산식은 같다 — 사용자 결정 2026-11-11. products 행에는 이 키가 없어 기존 그대로.
+    if (array_key_exists('_margin_customer', $p))  { $custMargin = (int) $p['_margin_customer']; }
+    if (array_key_exists('_margin_corporate', $p)) { $corpMargin = (int) $p['_margin_corporate']; }
+    if ($discountRate !== null) { $custMargin = $discountRate; } // 외부 오버라이드(테스트 등)
     $custMargin = max(0, min(1000, (int) $custMargin));
     $corpMargin = max(0, min(1000, (int) $corpMargin));
 

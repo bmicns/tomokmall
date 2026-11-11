@@ -2,6 +2,10 @@
 declare(strict_types=1);
 require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/layout.php';
+require_once __DIR__ . '/../app/syc_catalog.php';
+
+// 관리자 '상용콘크리트로 보기' 미리보기: 케이토목 상품 번호는 상용콘크리트와 무관 → 상용콘크리트 목록으로
+if (syc_preview_on()) { redirect('/syc-products.php'); }
 
 $id = (int)($_GET['id'] ?? 0);
 if (!$id || !db()) { header('Location: /index.php'); exit; }
