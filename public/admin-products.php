@@ -33,7 +33,8 @@ render_admin_header('제품관리', 'products');
 .btn-outline{display:inline-flex;align-items:center;gap:6px;background:#fff;color:#1a2035;border:1px solid #c5cad3;white-space:nowrap}
 #btn-create{white-space:nowrap}
 .prod-table-wrap{overflow-x:auto}   /* 좁은 화면: 표만 옆으로 넘김(페이지 전체가 넓어지지 않게) */
-#filter-cat,#filter-syc-cat{max-width:100%}   /* 긴 카테고리 이름이 좁은 화면 폭을 넘지 않게 */
+#filter-cat,#filter-syc-cat,#filter-q{max-width:100%}   /* 긴 카테고리 이름이 좁은 화면 폭을 넘지 않게 */
+@media (max-width:640px){#filter-q,.toolbar select{min-width:0;flex:1 1 140px}}   /* 좁은 화면에서 검색칸·선택칸이 폭을 넘지 않게 */
 .btn-outline:hover{border-color:#004EA1;color:#004EA1}
 .bk-banner{display:flex;align-items:center;gap:10px;padding:12px 16px;margin-bottom:16px;border:1px solid #b9ddbd;border-radius:8px;background:#f1f8f2;font-size:13px;flex-wrap:wrap}
 .bk-banner[hidden]{display:none}
@@ -78,6 +79,8 @@ render_admin_header('제품관리', 'products');
 .syc-bulkbar label{display:inline-flex;align-items:center;gap:6px;min-height:36px;cursor:pointer}
 .syc-bulkbar input,.syc-chk{width:18px;height:18px;cursor:pointer}
 .syc-sel{display:inline-flex;align-items:center;justify-content:center;min-width:36px;min-height:36px;cursor:pointer;vertical-align:middle}
+.syc-all-link{min-height:36px;padding:0 4px;border:0;background:none;color:#004EA1;font-size:13px;font-weight:600;text-decoration:underline;cursor:pointer;font-family:inherit}
+.syc-all-on #syc-sel-count{color:#004EA1;font-weight:700}
 .syc-brand{display:block;font-size:11.5px;font-weight:500;color:#888;margin-top:2px}
 @media (max-width:640px){.bk-b,.bk-h,.bk-f{padding-left:16px;padding-right:16px}.bk-hint{flex-basis:100%}}
 </style>
@@ -131,6 +134,7 @@ render_admin_header('제품관리', 'products');
 <div class="syc-bulkbar bk-hide" id="syc-bulkbar">
     <label><input type="checkbox" id="syc-chk-all" onchange="sycCheckAll(this.checked)">이 페이지 전체 선택</label>
     <span id="syc-sel-count" aria-live="polite">선택 0개</span>
+    <button type="button" class="syc-all-link" id="syc-all-btn" onclick="sycSelectAllMatching(!sycAllMatching)" hidden></button>
     <button type="button" class="btn-sm btn-sm-edit" onclick="sycBulk(1)" disabled id="syc-bulk-on">선택 활성으로</button>
     <button type="button" class="btn-sm btn-sm-del" onclick="sycBulk(0)" disabled id="syc-bulk-off">선택 비활성으로</button>
 </div>
@@ -316,7 +320,7 @@ async function load(page) {
     // 오류는 200 + ok:false + error 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
     const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok) { alert(d.error); return; }
-    if (syc) { renderSyc(d.products); sycSelCount(); } else render(d.products);
+    if (syc) { sycTotal = d.total; sycFilter = {status, cat_id: catId, q}; sycAllMatching = false; renderSyc(d.products); sycSelCount(); } else render(d.products);
     renderPaging(d.total, d.limit, page);
 }
 
@@ -343,21 +347,43 @@ function renderSyc(rows) {
     }).join('');
 }
 
+// 선택: 이 페이지 체크 + '검색 결과 전체 N개 선택'(모든 페이지, 지금 목록 조건 그대로 — 서버가 같은 조건으로 바꿈)
+let sycTotal = 0, sycFilter = null, sycAllMatching = false;
 function sycSelCount() {
-    const n = document.querySelectorAll('.syc-chk:checked').length;
-    document.getElementById('syc-sel-count').textContent = `선택 ${n}개`;
-    document.getElementById('syc-bulk-on').disabled = document.getElementById('syc-bulk-off').disabled = n === 0;
     const all = document.querySelectorAll('.syc-chk');
-    document.getElementById('syc-chk-all').checked = all.length > 0 && n === all.length;
+    const n = document.querySelectorAll('.syc-chk:checked').length;
+    const pageAll = all.length > 0 && n === all.length;
+    if (!pageAll) sycAllMatching = false;            // 하나라도 해제하면 '전체 선택'도 풀림
+    const shown = sycAllMatching ? sycTotal : n;
+    document.getElementById('syc-sel-count').textContent = sycAllMatching ? `검색 결과 전체 ${shown.toLocaleString()}개 선택됨` : `선택 ${n}개`;
+    document.getElementById('syc-bulkbar').classList.toggle('syc-all-on', sycAllMatching);
+    document.getElementById('syc-bulk-on').disabled = document.getElementById('syc-bulk-off').disabled = shown === 0;
+    document.getElementById('syc-chk-all').checked = pageAll;
+    const btn = document.getElementById('syc-all-btn');
+    btn.hidden = !(pageAll && sycTotal > all.length);    // 여러 페이지일 때만
+    btn.textContent = sycAllMatching ? '선택 해제' : `검색 결과 전체 ${sycTotal.toLocaleString()}개 선택`;
 }
 function sycCheckAll(on) {
     document.querySelectorAll('.syc-chk').forEach(c => { c.checked = on; });
     sycSelCount();
 }
+function sycSelectAllMatching(on) {
+    sycAllMatching = on;
+    sycCheckAll(on);
+}
 async function sycBulk(val) {
+    const word = val ? '활성' : '비활성';
+    if (sycAllMatching) {
+        if (!confirm(`검색 결과 전체 ${sycTotal.toLocaleString()}개(모든 페이지)를 ${word}으로 바꿀까요?`)) return;
+        const r = await fetch(SYC_API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'set_active_filter', filter:sycFilter, expect:sycTotal, is_active:val})});
+        const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
+        if (!d.ok) { alert(d.error); load(curPage); return; }
+        load(1);
+        return;
+    }
     const ids = [...document.querySelectorAll('.syc-chk:checked')].map(c => +c.value);
     if (!ids.length) return;
-    if (!confirm(`선택한 ${ids.length}개를 ${val ? '활성' : '비활성'}으로 바꿀까요?`)) return;
+    if (!confirm(`선택한 ${ids.length}개를 ${word}으로 바꿀까요?`)) return;
     await sycToggle(ids, val);
 }
 

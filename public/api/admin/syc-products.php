@@ -10,6 +10,7 @@ declare(strict_types=1);
  * POST multipart action=stage_zip        이미지 ZIP 올리기 → 이미지 수
  * POST JSON {action:'commit', job}       올린 엑셀(+ZIP)로 등록: 새 상품 비활성, 같은 출처ID 는 덮어쓰기(활성 상태 유지)
  * POST JSON {action:'set_active', ids, is_active} / {action:'delete', id}(비활성화)
+ * POST JSON {action:'set_active_filter', filter:{status,cat_id,q}, expect, is_active}  검색 결과 전체(모든 페이지) 활성/비활성
  * 권한: 관리자만. 오류는 HTTP 200 + ok:false(닷홈이 4xx 본문을 바꿈 — 기존 api/admin/products.php 와 같음)
  * 로직: app/syc_bulk.php
  */
@@ -60,6 +61,24 @@ function syc_api_drop_stage(string $slot): void
     unset($_SESSION['syc_bulk'][$slot]);
 }
 
+/** 목록 조건(상태·카테고리·검색어) → [WHERE 문, 바인딩 값]. 목록 조회와 '검색 결과 전체' 활성/비활성이 같은 조건을 쓴다 */
+function syc_api_list_where(array $f): array
+{
+    $catId  = (int) ($f['cat_id'] ?? 0);
+    $q      = trim((string) ($f['q'] ?? ''));
+    $status = (string) ($f['status'] ?? 'active');
+    $where  = [];
+    $params = [];
+    if ($status === 'active') { $where[] = 'p.is_active = 1'; }
+    elseif ($status === 'inactive') { $where[] = 'p.is_active = 0'; }
+    if ($catId) { $where[] = 'p.category_id = :cat_id'; $params['cat_id'] = $catId; }
+    if ($q !== '') {
+        $where[] = '(p.name LIKE :q OR p.spec LIKE :q2 OR p.spec_code LIKE :q3 OR p.external_id LIKE :q4 OR p.brand LIKE :q5)';
+        $params['q'] = $params['q2'] = $params['q3'] = $params['q4'] = $params['q5'] = '%' . $q . '%';
+    }
+    return [$where ? implode(' AND ', $where) : '1=1', $params];
+}
+
 try {
     $pdo = db();
     if (!$pdo) { throw new RuntimeException('DB 연결 없음'); }
@@ -77,21 +96,9 @@ try {
             $p = is_file($file) ? json_decode((string) file_get_contents($file), true) : null;
             syc_api_out(['ok' => true, 'progress' => is_array($p) ? $p : null]);
         }
-        $catId  = (int) ($_GET['cat_id'] ?? 0);
-        $q      = trim((string) ($_GET['q'] ?? ''));
         $page   = max(1, (int) ($_GET['page'] ?? 1));
-        $status = (string) ($_GET['status'] ?? 'active');
         $limit  = 20;
-        $where  = [];
-        $params = [];
-        if ($status === 'active') { $where[] = 'p.is_active = 1'; }
-        elseif ($status === 'inactive') { $where[] = 'p.is_active = 0'; }
-        if ($catId) { $where[] = 'p.category_id = :cat_id'; $params['cat_id'] = $catId; }
-        if ($q !== '') {
-            $where[] = '(p.name LIKE :q OR p.spec LIKE :q2 OR p.spec_code LIKE :q3 OR p.external_id LIKE :q4 OR p.brand LIKE :q5)';
-            $params['q'] = $params['q2'] = $params['q3'] = $params['q4'] = $params['q5'] = '%' . $q . '%';
-        }
-        $w = $where ? implode(' AND ', $where) : '1=1';
+        [$w, $params] = syc_api_list_where($_GET);
         $cnt = $pdo->prepare("SELECT COUNT(*) FROM syc_products p WHERE {$w}");
         $cnt->execute($params);
         $offset = ($page - 1) * $limit;
@@ -219,6 +226,27 @@ try {
         $ph = implode(',', array_fill(0, count($ids), '?'));
         $pdo->prepare("UPDATE syc_products SET is_active = ? WHERE id IN ({$ph})")->execute(array_merge([$val], $ids));
         syc_api_out(['ok' => true]);
+    }
+
+    // 검색 결과 전체(여러 페이지) 활성/비활성: 화면의 목록 조건 그대로. 화면이 본 개수(expect)와 지금 개수가 다르면
+    // 그사이 목록이 바뀐 것이므로 바꾸지 않고 다시 확인하게 한다(의도하지 않은 상품까지 바뀌는 것 방지)
+    if ($action === 'set_active_filter') {
+        $filter = is_array($body['filter'] ?? null) ? $body['filter'] : [];
+        $expect = (int) ($body['expect'] ?? -1);
+        $val = (int) ($body['is_active'] ?? 0) === 1 ? 1 : 0;
+        [$w, $params] = syc_api_list_where($filter);
+        $pdo->beginTransaction();
+        $cnt = $pdo->prepare("SELECT COUNT(*) FROM syc_products p WHERE {$w}");
+        $cnt->execute($params);
+        $now = (int) $cnt->fetchColumn();
+        if ($now === 0 || $now !== $expect) {
+            $pdo->rollBack();
+            throw new InvalidArgumentException($now === 0 ? '대상 상품이 없습니다.' : "그사이 목록이 바뀌었습니다(지금 {$now}개). 목록을 다시 확인해 주세요.");
+        }
+        $up = $pdo->prepare("UPDATE syc_products p SET p.is_active = :val WHERE {$w}");
+        $up->execute(['val' => $val] + $params);
+        $pdo->commit();
+        syc_api_out(['ok' => true, 'count' => $now, 'changed' => $up->rowCount()]);
     }
 
     if ($action === 'delete') {
