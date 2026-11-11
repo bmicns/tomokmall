@@ -590,6 +590,10 @@ function tool_search_products(array $input): string
     // ⓪ 용도 배타 필터: 부속(집게·몰드 등) 제외 — 지정 상품(only_ids)은 이미 고객에게 보인 제품이라 그대로
     if (!$onlyIds) {
         $rows = ai_exclude_accessories($rows, $query);
+        // 수로 덮개를 찾는데 맨홀·집수정 위 덮개가 섞이지 않게(쓰는 곳이 다름 — 2026-11-10 운영 상담 #195: 10m 수로에 집수정용 그레이팅 17조 추천)
+        if (ai_is_channel_cover_query($query) || (($input['cover_use'] ?? '') === 'channel' && preg_match('/맨홀|집수정/u', $query) !== 1)) {
+            $rows = array_values(array_filter($rows, static fn($r) => !preg_match('/맨홀|집수정/u', (string) ($r['name'] ?? '') . ' ' . (string) ($r['category_name'] ?? ''))));
+        }
     }
     // ⓪-1 '투수' 를 찾으면 '불투수' 제품은 빼기(글자 포함 관계로 반대 성질이 섞이던 문제). 둘 다 비교하려면 '불투수' 를 함께 적는다
     if (preg_match('/투수/u', $query) && !preg_match('/불\s*투수/u', $query)) {
@@ -651,6 +655,7 @@ function tool_search_products(array $input): string
     // ⓪-5 맞는 등급이 없거나 이미 본 제품뿐이라 비었으면: 같은 폭의 같은 등급 그레이팅(검색어의 '수로용' 같은 세부어 없이)을 찾는다
     //      — 과잉 등급만 남기거나 '다른 제품 없음'으로 끝내지 않게(예: 보행자용 폭 500mm → EX메탈망·플라스틱 그레이팅)
     $broadened = false;
+    $substituteNote = '';
     $extraNotes = [];
     if (!$onlyIds && ($classEmptied || $exclEmptied) && $traffic !== '' && isset($want['w']) && preg_match('/그레이팅/u', $query)) {
         $alt = ai_same_class_gratings($query, $want['w'], $traffic, $fetch);
@@ -661,7 +666,8 @@ function tool_search_products(array $input): string
         if ($alt) {
             $rows = $alt;
             $broadened = true;
-            $extraNotes[] = ai_broadened_note($query, ai_dim_cond_label(['w' => $want['w']]), $traffic, $classEmptied ? $heavier : [], $exclEmptied ? $excludedHit : []);
+            $substituteNote = ai_broadened_note($query, ai_dim_cond_label(['w' => $want['w']]), $traffic, $classEmptied ? $heavier : [], $exclEmptied ? $excludedHit : []);
+            $extraNotes[] = $substituteNote;
         }
     }
 
@@ -844,10 +850,17 @@ function tool_search_products(array $input): string
         'count'    => count($cards),
         '_sse'     => [
             ['type' => 'product_cards', 'products' => ai_cards_for_screen(ai_cards_with_member_price($cards)),   // 화면용: 회원은 할인가
-             'cond' => ai_search_cond($query, $want, $specMm, $lengthM, $areaM2, $traffic, $excludeIds)],   // 이 표의 검색 조건(고객이 뺀 제품 포함) — 다음 턴 조건 유지·금액 비교 기준 확인용(화면은 쓰지 않음)
+             'cond' => ai_search_cond($query, $want, $specMm, $lengthM, $areaM2, $traffic, $excludeIds)
+                 + (ai_is_channel_cover_query($query) || ($input['cover_use'] ?? '') === 'channel' ? ['cover_use' => 'channel'] : [])],   // 수로 덮개 상담 — 다음 턴 검색어에 '수로'가 빠져도 집수정(맨홀)용을 빼도록   // 이 표의 검색 조건(고객이 뺀 제품 포함) — 다음 턴 조건 유지·금액 비교 기준 확인용(화면은 쓰지 않음)
         ],
     ];
     if ($strongerNote !== '') { $extraNotes[] = $strongerNote; }
+    // 찾은 품목이 없어 같은 폭·같은 등급의 다른 그레이팅으로 넓힌 표(대체품): GPT 가 표의 제품을 찾은 품목('수로용')처럼 말하지 않게 알리고,
+    // 답에서 이 사실을 빠뜨리면 rag_process 가 안내 문장을 넣는다(2026-11-10 운영 상담 #193 — 화면 카드에는 표시하지 않음, 사용자 결정 2026-11-11)
+    if ($broadened && $substituteNote !== '') {
+        $out['substitute'] = ['searched' => $query, 'note' => $substituteNote];
+        foreach ($out['products'] as $i => $c) { $out['products'][$i]['substitute_for'] = $query; }
+    }
     if ($recheck) {
         $out['recheck'] = $recheck;   // 앞서 보인 제품을 지금 조건으로 다시 확인한 결과
         $rn = ai_recheck_note($recheck);
@@ -885,12 +898,11 @@ function tool_search_products(array $input): string
         }
     }
     // 검색어의 제품 종류·형태(예: '날개형')가 표의 어느 제품에도 없으면 알린다 — 다른 제품을 그 제품처럼 말하지 않게(2026-11-09 운영 상담 '날개형은 안돼?')
-    if (!$broadened) {
-        $missing = ai_missing_terms_registered(ai_missing_terms($query, $products));
-        if ($missing) {
-            $out['missing_terms'] = array_keys($missing);
-            $extraNotes[] = ai_missing_terms_note($missing, $cond);
-        }
+    // 대체품 표(broadened)도 확인한다 — 2026-11-10 운영 상담 #195 '날개형은 안돼??': 날개형 등록 규격(185~385mm) 안내 없이 다른 제품만 보임
+    $missing = ai_missing_terms_registered(ai_missing_terms($query, $products));
+    if ($missing) {
+        $out['missing_terms'] = array_keys($missing);
+        $extraNotes[] = ai_missing_terms_note($missing, $cond);
     }
     $notes = array_values(array_filter(array_merge([$note], $extraNotes), static fn($n) => is_string($n) && $n !== ''));
     if ($notes)              { $out['note']      = implode(' ', $notes); }      // 교정/규격완화·하중 등급·없는 조건 안내
@@ -1468,6 +1480,14 @@ function ai_same_class_gratings(string $query, float $widthMm, string $traffic, 
     }));
 }
 
+/** 수로(배수로·측구·트렌치) 덮개를 찾는 검색어인지 (순수 함수) — 맨홀·집수정 위 덮개는 쓰는 곳이 달라 후보에서 뺀다 */
+function ai_is_channel_cover_query(string $query): bool
+{
+    return preg_match('/그레이팅|덮개|뚜껑|커버/u', $query) === 1
+        && preg_match('/수로|배수로|측구|트렌치/u', $query) === 1
+        && preg_match('/맨홀|집수정/u', $query) !== 1;
+}
+
 /** 같은 폭의 같은 등급 그레이팅으로 바꿔 보여 줄 때의 안내 (순수 함수) — $cond '폭 500mm'. 높은 등급만 있었거나($heavier) 이미 보여 준 제품뿐이었을 때($excludedNames) */
 function ai_broadened_note(string $query, string $cond, string $traffic, array $heavier, array $excludedNames = []): string
 {
@@ -1665,7 +1685,7 @@ function ai_category_descs(array $categoryIds): array
 /** 화면 비교표 이벤트용 카드 (순수 함수) — 상담 글 재료(category_desc·weight_kg·standard)는 빼고 보낸다(표에 표시하지 않고 상담 기록 용량도 줄임) */
 function ai_cards_for_screen(array $cards): array
 {
-    return array_map(static function (array $c): array { unset($c['category_desc'], $c['weight_kg'], $c['standard']); return $c; }, $cards);
+    return array_map(static function (array $c): array { unset($c['category_desc'], $c['weight_kg'], $c['standard'], $c['substitute_for']); return $c; }, $cards);
 }
 
 /** 규격 칸의 판매 단위 1개당 중량 kg (순수 함수) — 등록 규격의 '중량: 40kg' 표기만 읽는다(단위가 ㎡면 1㎡당, 본이면 1본당). 없으면 null(추정하지 않음) */

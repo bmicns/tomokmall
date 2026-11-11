@@ -1006,6 +1006,10 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "- 면적을 모르면 '가로 몇 m × 세로 몇 m인지' 물어보고, 답을 받으면 직접 곱해 area_m2로 넘긴다(예: 5m×4m → 20). 대략값도 괜찮다고 안내한다.\n"
         . "- 자재 종류의 차이·특징·물빠짐·주의사항·KS(인증) 질문과, 사용 조건(유모차·휠체어·미끄럼·오염·차량 통행 등)에 맞는 자재를 고르는 질문에는 material_info 를 먼저 호출하고, 돌려준 원문 문장을 그 문장의 maker(제조사 이름)를 그대로 밝혀(예: maker 가 'A산업'이면 'A산업 자료에 따르면') 그 제조사 제품 설명으로 쉬운 말로 전한다(출처끼리 다르면 단정하지 않음, 공식 기준 수치는 [L번호] 근거만).\n"
         . "  원문 문장의 제품명(예: '안전 중하중 그레이팅')을 더 넓은 종류('중하중 그레이팅' 전체)로 바꿔 말하지 않는다. 원문에 없는 성능·용도·비교·수치(중장비 통과, 'n톤 이상', 다른 제품도 같다 등)를 덧붙이거나, 한 제조사의 제품 표기를 '이걸 쓰면 된다'는 일반 선택 기준으로 단정하지 않는다. KS·표준 번호는 [참조 문서]·material_info 원문에 있는 것만 쓴다. material_info 결과가 비어 있으면 '제조사 자료에 따르면'이라고 말하지 말고, 수치 없는 일반 설명임을 밝힌다.\n"
+        . "- 제품·자재를 권할 때는 그 제품을 고르는 근거를 문장 앞에 먼저 밝힌다('…이므로 …을 권합니다'). 근거는 제품 쪽 사실이어야 한다:\n"
+        . "  토목몰 하중 등급 구분(상품명 — 등급 표기 없음=보행자용, 중하중=승용차, 안전중하중=트럭·버스), 제품 분류의 용도(예: '수로용'은 배수로 위 덮개, '맨홀(집수정)용'은 집수정 위 덮개), 도구 결과의 등록 규격·category_desc·guide, 제조사 자료(material_info), 공식 기준 [L번호], 저희 권장 기준 중 실제로 있는 것만 쓴다.\n"
+        . "  고객이 이미 말한 조건을 되풀이하거나 누구나 아는 상식(예: '주방은 차량이 다니지 않는 보행자 구역이므로')은 근거로 쓰지 않는다(전문성이 없어 보여 신뢰를 떨어뜨림). 근거를 지어내지 않고, 근거 없이 '~을 고려하시면 좋습니다'·'~이 적합합니다'로만 말하지 않는다.\n"
+        . "  예: '그레이팅수로용은 배수로 위에 덮는 격자 덮개로, 상품명에 중하중·안전중하중 표기가 없는 보행자용 하중 등급이라 사람만 다니는 곳에 맞는 제품입니다.'\n"
         . "- 선택지를 비교한 뒤 면적·길이가 확인되면 search_products의 queries로 종류별 제품을 한 표에 모아 보여준다.\n"
         . "  도구가 제품별 권장 수량(suggested_qty)과 예상 자재비(est_cost, " . (price_basis_label() !== '' ? price_basis_label() . ' 기준·' : '') . "운반·시공비 별도)를 계산해 준다. 그 비교는 답변 글에서 아래 [검색 결과 답변 형식]대로 한다.\n"
         // 로그인 회원: 표·도구 금액이 할인 적용 금액 — 그 금액 그대로 말하되 '회원가'·'판매가' 같은 이름은 붙이지 않게(비회원 프롬프트는 기존 그대로)
@@ -1036,7 +1040,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "- 검색 결과는 화면에 비교표(사진·제품명·규격·" . (price_basis_label() ?: '가격') . "·예상 비용·수량·견적추가)로 자동 표시된다. 답변 글은 표가 보여 주지 않는 자재 설명·제품 간 비교·추천 근거를 맡는다.\n"
         . "- 순서는 이것만: ① 첫 문장 — 고객 조건(장소·차량·면적 등)을 짧게 정리하고 '…제품입니다.'로 맺는다.\n"
         . "  ② 제품마다 한 줄씩 '- 제품명: 설명. 권장 수량은 N개이며, 예상 자재비는 약 X원입니다.' — 설명은 그 자재가 무엇이고 어디에 쓰는지, 함께 나온 다른 제품과 무엇이 다른지 1~2문장.\n"
-        . "  ③ 마지막 문단 — 고객 조건과 근거(공식 기준 [L번호] / 제조사 자료 / 저희 권장 기준 / 등록 규격)를 밝혀 어떤 제품을 왜 추천하는지 1~2문장, 이어서 '원하시는 제품을 선택해 주세요.'\n"
+        . "  ③ 마지막 문단 — 제품 쪽 근거를 먼저 밝히고(하중 등급 구분 / 공식 기준 [L번호] / 제조사 자료 / 저희 권장 기준 / 등록 규격 — 고객 조건 되풀이·상식은 근거로 쓰지 않음) 그 근거로 어떤 제품을 추천하는지 1~2문장('…이므로 …을 추천합니다'), 이어서 '원하시는 제품을 선택해 주세요.'\n"
         . "- 설명 재료는 도구 결과 제품별 category_desc(토목몰 자재 분류 설명)·guide(규격에서 읽은 고르는 기준)·규격 표기·weight_kg·standard 와 [참조 문서]·material_info 원문뿐이다. 여기에 없는 용도·성능·수치는 지어내지 않는다.\n"
         . "  weight_kg 는 등록 규격의 판매 단위(unit — 본·개·㎡ 등) 1개당 중량이다. 단위와 함께 그대로 쓴다(예: '흄관 1본 194kg', '인터로킹 블록 1㎡당 164kg'). 무게로 강도·내구성을 짐작해 말하지 않는다.\n"
         . "  standard 는 그 제품 종류가 대상인 국가표준 번호·이름이다. 'KS F 4403(원심력 철근 콘크리트관) 표준 대상 종류'처럼만 말하고, 이 상품이 KS 인증을 받았다고 말하지 않는다(인증 여부는 상품명 표기·제조사 자료로만). 도구 결과 basics.standards 에 scope(사람이 표준 상세 화면에서 확인한 적용 범위)가 있으면 '이 표준은 ~을 대상으로 한다'처럼 그 문구만 쓴다.\n"
@@ -1047,6 +1051,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "- guide 의 '참고 자료(판매 상품 아님)' 줄은 공공데이터·제조사 자료로 확인한 정보다. 판매 상품이나 가격처럼 말하지 않고 출처와 함께 참고로만 언급한다.\n"
         . "- 고객이 '어떤 게 더 저렴해?'처럼 가격 차이를 물으면 도구 결과 cost_summary 의 상품명·예상 금액·차이만 인용해 1~2문장으로 답한다(cost_summary 가 없으면 금액을 말하지 않는다).\n"
         . "- 도구 결과에 note 필드가 있으면 그 note 문장을 첫 문장 다음에 그대로 한 줄 전한다(교정·대안 안내).\n"
+        . "- 도구 결과에 substitute 가 있으면 표의 제품은 고객이 찾은 품목(substitute.searched)이 아니라 같은 조건의 다른 제품(대체품)이다. 그 사실을 첫 문장 다음에 전하고, 표의 제품을 찾은 품목(예: '수로용')처럼 말하지 않는다.\n"
         . "- 추천 순서: 고객 조건(하중 등급·규격·용도)을 만족하는 제품 중 예상 자재비(없으면 단가)가 가장 낮은 제품을 먼저 권한다(표도 그 순서). 더 비싼 제품은 고객 조건에 그 등급·기능이 꼭 필요한 이유가 있을 때만 그 이유와 함께 권한다.\n"
         . "- 고객 조건보다 높은 등급(예: 사람만 다니는 주방·실내·인도에 차량용 중하중·안전중하중)을 '적합하다'·'적절하다'고 말하지 않는다. 도구가 높은 등급만 있다고 알려 주면(note·over_spec_options) 그대로 전하고, 고객이 원한다고 할 때만 그 제품을 찾는다.\n"
         . "- 도구 결과에 missing_terms 가 있으면 그 말(예: 날개형)이 들어간 제품은 이번 조건에서 찾지 못한 것이다. note 대로 먼저 알리고, 표의 제품을 그 제품이라고 말하지 않는다.\n"
@@ -1265,6 +1270,29 @@ function rag_prepare_search_input(array $input, array $ctx): array
     $prevFam = rag_product_family((string) ($recentCond['query'] ?? ''));
     $fam = rag_product_family((string) ($input['query'] ?? ''));
     $sameFamily = $recentCond === [] || $prevFam === '' || $fam === '' || $fam === $prevFam;
+    // 품목 용도·형태 말 유지(2026-11-11, 운영 상담 #195): GPT 가 같은 품목 검색에서 앞 표의 용도('수로용')를 빼면 수로 덮개 상담 표시를 넘기고,
+    // 고객이 이번에 말한 형태('날개형')를 검색어에 넣지 않으면 더한다 — '그레이팅'만으로 찾아 집수정용 덮개를 수로에 추천하던 문제
+    $q = trim((string) ($input['query'] ?? ''));
+    if ($q !== '') {
+        // 용도는 검색어에 붙이지 않고(‘수로용’ 글자로 좁히면 이름에 그 말이 없는 일반 그레이팅까지 빠짐) 수로 덮개 상담 표시(cover_use)로 넘긴다 — 도구가 집수정(맨홀)용만 뺀다
+        $prevChannel = ($recentCond['cover_use'] ?? '') === 'channel' || preg_match('/수로|배수로|측구|트렌치/u', (string) ($recentCond['query'] ?? '')) === 1;
+        if ($fam !== '' && $fam === $prevFam && $prevChannel && preg_match(RAG_USE_WORD, $q) !== 1 && ($input['cover_use'] ?? '') === '') {
+            $input['cover_use'] = 'channel';
+            $fills[] = "수로 덮개 상담 유지(검색어에 '수로'가 빠짐 — 집수정(맨홀)용 제외)";
+        }
+        foreach ($ctx['form_terms'] ?? [] as $t) {
+            if (mb_strpos(str_replace(' ', '', $q), (string) $t) === false) {
+                $q .= ' ' . $t;
+                $fills[] = "검색어에 고객이 말한 형태 '{$t}' 더함";
+            }
+        }
+        $input['query'] = $q;
+    }
+    // '과한 제품'인데 직전 표가 이미 가장 낮은 하중 등급이면 직전 제품을 빼지 않는다(빼면 '없음'만 남아 앞 안내와 어긋남 — 운영 상담 #194)
+    if (!empty($ctx['already_lowest']) && ai_int_list($input['exclude_ids'] ?? null) !== []) {
+        unset($input['exclude_ids']);
+        $fills[] = 'exclude_ids 뺌(직전 표가 이미 가장 낮은 하중 등급 — 과한 제품이 아님)';
+    }
     $explicit = $ctx['explicit'] ?? [];
     [$input, $f2] = rag_apply_explicit($input, $explicit, $sameFamily);
     $fills = array_merge($fills, $f2);
@@ -1680,6 +1708,75 @@ function rag_explicit_conditions(array $messages): array
 }
 
 /** 검색어의 품목 종류 (순수 함수) — 조건 유지(이전 표와 같은 품목인지) 판단용. 모르면 '' */
+/** 품목의 쓰는 곳(용도) 말 — 같은 품목 상담에서 검색어에 유지한다(수로 덮개 ↔ 집수정 덮개 구분) */
+const RAG_USE_WORD = '/수로|배수로|측구|트렌치|맨홀|집수정/u';
+
+/**
+ * 고객 말의 제품 형태 말 후보 (순수 함수, 2026-11-11) — '날개형은 안돼??' → ['날개형']. ○○형·○○무늬만, 조사는 뗀다.
+ * 크기·종류를 뜻하는 말(대형·중형·소형·유형 등)은 뺀다. 카탈로그에 실제로 있는 말인지는 rag_process 가 확인(ai_missing_terms_registered).
+ * @return list<string>
+ */
+function rag_form_terms(string $msg): array
+{
+    $out = [];
+    foreach (preg_split('/[^가-힣A-Za-z]+/u', $msg) ?: [] as $tok) {
+        $tok = (string) preg_replace('/(으로|이나|이요|로|은|는|이|가|을|를|도|만|요)$/u', '', (string) $tok);
+        if (mb_strlen($tok) < 2 || preg_match('/^(대형|중형|소형|초대형|유형|모형|형태|정형|변형|체형|기형|어떤형)$/u', $tok)) { continue; }
+        if (preg_match('/(형|무늬)$/u', $tok)) { $out[$tok] = true; }
+    }
+    return array_slice(array_keys($out), 0, 3);
+}
+
+/** '과한 제품 같은데'·'오버스펙'·'너무 튼튼한' — 직전 제품이 필요 이상이라는 말인지 (순수 함수) */
+function rag_wants_lighter(string $msg): bool
+{
+    return preg_match('/과한|과하|과해|과잉|오버\s*스펙|필요\s*이상|너무\s*(튼튼|무겁|무거운|강한|센)/u', $msg) === 1;
+}
+
+/** 직전 표 제품이 모두 가장 낮은 하중 등급(상품명 등급 — 보행자용)인지 (순수 함수 — 행은 ai_rows_by_ids) */
+function rag_all_lowest_grade(array $rows): bool
+{
+    return $rows !== [] && !array_filter($rows, static fn($r) => ai_load_class_of($r) !== 'pedestrian');
+}
+
+/** 직전 표가 이미 가장 낮은 하중 등급이라는 안내 (순수 함수) — 고객에게 그대로 전하는 문장 */
+function rag_already_lowest_note(array $names): string
+{
+    $names = array_values(array_unique(array_filter(array_map('strval', $names))));
+    return '직전에 보여 드린 ' . implode(', ', array_slice($names, 0, 4)) . '은(는) 모두 상품명에 하중 등급(중하중·안전중하중) 표기가 없는 가장 낮은 하중 등급(보행자용) 제품입니다.';
+}
+
+/**
+ * 대체품 표(도구 substitute)인데 답에 '찾은 품목이 아니다'는 말이 없으면 안내 문장을 둘째 문단에 넣는다 (순수 함수, 2026-11-11 — 운영 상담 #193).
+ * 프롬프트로도 시키지만 GPT 가 빠뜨리면 고객은 표의 제품을 찾은 품목(수로용)으로 알게 되고 다음 턴 안내와 어긋난다.
+ * @param list<array{searched?:string, note?:string}> $subs 이번 턴 search_products 의 substitute
+ */
+function rag_substitute_note(string $text, array $subs): string
+{
+    if (!$subs) { return $text; }
+    $sub = end($subs);
+    $note = trim((string) ($sub['note'] ?? ''));
+    if ($note === '' || trim($text) === '' || rag_mentions_substitute($text, (string) ($sub['searched'] ?? ''))) { return $text; }
+    $paras = preg_split('/\n{2,}/u', trim($text)) ?: [trim($text)];
+    array_splice($paras, 1, 0, [$note]);
+    return implode("\n\n", $paras);
+}
+
+/** 답의 한 문장에 찾은 품목(용도 말, 없으면 검색어)과 '없다·아니다·대신' 말이 함께 있는지 (순수 함수) */
+function rag_mentions_substitute(string $text, string $searched): bool
+{
+    $keys = preg_match_all('/\S*(?:수로|배수로|측구|트렌치|맨홀|집수정)\S*/u', $searched, $m) ? $m[0] : [];
+    if (!$keys) { $keys = [str_replace(' ', '', $searched)]; }
+    foreach (preg_split('/(?<=[.!?])\s+|\n+/u', $text) ?: [] as $sen) {
+        $c = str_replace(' ', '', (string) $sen);
+        foreach ($keys as $k) {
+            $k = str_replace(' ', '', (string) $k);
+            if ($k !== '' && mb_strpos($c, $k) !== false && preg_match('/없|아닌|아니|않|대신|대체/u', (string) $sen) === 1) { return true; }
+        }
+    }
+    return false;
+}
+
 function rag_product_family(string $query): string
 {
     $q = str_replace(' ', '', $query);
@@ -2065,6 +2162,7 @@ function rag_process(array $messages, string $sid): array
     $promised     = '';      // 검색 약속 문장(강제 검색 재요청 때 버림 — 도구가 안 불리면 되살림)
     $toolLog      = [];      // 부른 도구 이름·인자·결과 요약(시험 결과 기록용 — chat.php 는 화면에 보내지 않음)
     $turnCards    = [];      // 이번 턴 검색 결과 카드(동률 최저가 안내용)
+    $substitutes  = [];      // 이번 턴 대체품 표(찾은 품목이 없어 넓힌 검색) — 답에 그 사실이 없으면 안내 문장을 넣음
     $preToolText  = '';      // 도구 호출과 함께 온 중간 글(최종 답이 없을 때만 사용)
     $basicsSeen   = [];      // material_info·search_products 가 준 확인된 기본 정보(국가표준·등록 상품) — 답에 실제로 쓴 것만 출처 카드로
     $known        = $system . ' ' . implode(' ', array_map(static fn($m) => (string) ($m['content'] ?? ''), $messages));   // 답에 나올 수 있는 확인된 글(KS 번호 대조용)
@@ -2074,6 +2172,18 @@ function rag_process(array $messages, string $sid): array
         if (($m['role'] ?? '') === 'user') { $lastUser = (string) ($m['content'] ?? ''); break; }
     }
     $wantsAlt    = $recentCards && rag_wants_alternative($lastUser);
+    // '과한 제품'인데 직전 표가 이미 가장 낮은 하중 등급(보행자용) — 빼고 다시 찾지 않고 그 사실을 근거로 알린다(운영 상담 #194)
+    $alreadyLowest = $recentCards && rag_wants_lighter($lastUser) && rag_all_lowest_grade(ai_rows_by_ids(array_column($recentCards, 'id')));
+    $lowestNote    = $alreadyLowest ? rag_already_lowest_note(array_column($recentCards, 'name')) : '';
+    if ($alreadyLowest) {
+        $system .= "\n\n=== 이번 고객 말 확인 ===\n- 고객이 직전 제품이 과하다고 했지만, {$lowestNote} 하중 등급을 더 낮춘 제품은 없다. 이 사실을 먼저 전한다. 앞 대화에 없던 사실(예: 앞 제품이 과한 등급이었다)을 만들지 않는다.\n"
+            . ($wantsAlt
+                ? "- 고객이 다른 제품도 원했으므로 검색 결과(note)를 이어서 전한다.\n"
+                : "- 다른 제품을 찾지 않는다(search_products 를 다시 부르지 않음). 금액이 부담인지(더 저렴한 제품) 크기·규격이 문제인지 한 가지만 묻는다.\n");
+        $oaiMessages[0]['content'] = $system;
+    }
+    // 고객이 이번에 말한 형태 말 중 카탈로그에 실제로 있는 것(날개형 등) — 검색어에 없으면 서버가 더함
+    $formTerms = ($ft = rag_form_terms($lastUser)) ? array_keys(ai_missing_terms_registered($ft)) : [];
     $wantsCheap  = $recentCards && rag_wants_cheaper($lastUser);
     $trafficInfo = rag_traffic_info($messages);
     $recentCond  = $recentCards ? rag_recent_cond($sid) : [];
@@ -2083,6 +2193,8 @@ function rag_process(array $messages, string $sid): array
         'recent_cards' => $recentCards,
         'recent_cond'  => $recentCond,
         'exclude'      => $wantsAlt ? (rag_session_shown_ids($sid) ?: array_column($recentCards, 'id')) : [],   // 이 상담에서 보인 제품 전체(최근 30개)
+        'already_lowest' => $alreadyLowest && !$wantsAlt,   // '과한'만 말함 → GPT 가 넘긴 제외도 뺌. '다시 추천'·'다른 거'를 함께 말하면 제외 검색은 그대로(안내만 앞에)
+        'form_terms'   => $formTerms,
         'cheaper'      => $wantsCheap,
         // 수량·최종 비교, 설치 길이만 새로 말함('설치 구간은 총 20m야'), '이 제품 써도 돼?' → 직전 표 제품으로(앞서 뺀 제품을 다시 꺼내지 않게)
         'only_recent'  => $recentCards && !$wantsAlt && (rag_wants_quantity($lastUser) || rag_wants_compare($lastUser) || $explicit['last'] === ['length_m'] || rag_wants_suitability($lastUser)),
@@ -2166,6 +2278,10 @@ function rag_process(array $messages, string $sid): array
             $output   = ai_tool_dispatch($tc['function']['name'] ?? '', $input, $sid);
             $toolData = json_decode($output, true) ?? [];
             if ($clarify !== '') { $toolData['clarify'] = $clarify; }   // 모호한 고객 말 — GPT 가 확인 질문을 하게(서버가 해석을 정하지 않음)
+            if (($tc['function']['name'] ?? '') === 'search_products') {
+                if (!empty($toolData['substitute'])) { $substitutes[] = $toolData['substitute']; }
+                if ($lowestNote !== '') { $toolData['note'] = trim($lowestNote . ' ' . (string) ($toolData['note'] ?? '')); }
+            }
             $toolLog[] = ['name' => (string) ($tc['function']['name'] ?? ''), 'input' => $input, 'raw_input' => $rawInput, 'fills' => $fills, 'clarify' => $clarify,
                           'result_ids' => array_values(array_map(static fn($p) => (int) ($p['id'] ?? 0), (array) ($toolData['products'] ?? []))),
                           'summary' => rag_tool_summary((string) ($tc['function']['name'] ?? ''), $toolData)];
@@ -2211,6 +2327,7 @@ function rag_process(array $messages, string $sid): array
     // '제일 저렴한 것'을 담았는데 같은 금액 제품이 또 있으면 그 사실을 한 줄로(실제 GPT-4o 3차까지 안내 누락 — 프롬프트만으로는 일정하지 않음)
     $added = array_map(static fn($t) => (int) ($t['input']['product_id'] ?? 0), array_values(array_filter($toolLog, static fn($t) => $t['name'] === 'add_to_cart')));
     $responseText .= rag_tie_note($responseText, $added, $turnCards, $recentCards);
+    $responseText = rag_substitute_note($responseText, $substitutes);   // 대체품 표인데 답이 '찾은 품목이 아님'을 빠뜨렸으면(운영 상담 #193)
     $basicSrc = rag_basic_sources_used($responseText, $basicsSeen);
     if ($basicSrc['standards'] || $basicSrc['products'] || $basicSrc['procurement']) {
         $events[] = ['type' => 'basic_sources'] + $basicSrc;

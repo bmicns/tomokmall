@@ -1147,6 +1147,25 @@ echo "[상담원 연결 유도 노출 consult_cta_visible — 로그인한 개�
 eq('비로그인·개인·기업·직원·관리자', [consult_cta_visible(null), consult_cta_visible(['role' => 'customer']), consult_cta_visible(['role' => 'corporate']), consult_cta_visible(['role' => 'staff']), consult_cta_visible(['role' => 'admin'])], [false, true, true, false, false]);
 eq('역할 값이 없거나 다른 값이면 표시 안 함', [consult_cta_visible([]), consult_cta_visible(['role' => 'CUSTOMER']), consult_cta_visible(['role' => 'guest'])], [false, false, false]);
 
+echo "[운영 상담 #193~#195 (2026-11-11) — 대체품 안내·과한 제품·수로 덮개 유지·형태 말]\n";
+eq('수로 덮개 검색어 판정(맨홀·집수정은 아님)', [ai_is_channel_cover_query('그레이팅 수로용'), ai_is_channel_cover_query('트렌치 커버'), ai_is_channel_cover_query('그레이팅 맨홀 집수정'), ai_is_channel_cover_query('측구 수로관'), ai_is_channel_cover_query('그레이팅')], [true, true, false, false, false]);
+eq("형태 말 후보: ○○형·○○무늬만, 조사 떼고, 크기 말(대형 등) 제외", [rag_form_terms('날개형은 안돼??'), rag_form_terms('대형차 다녀요'), rag_form_terms('U형으로 바꿔줘'), rag_form_terms('하트무늬도 있어?'), rag_form_terms('폭 300 그레이팅')], [['날개형'], [], ['U형'], ['하트무늬'], []]);
+eq("'과하다' 판정", [rag_wants_lighter('과한 제품인거 같은데? 다시 추천'), rag_wants_lighter('오버스펙 같아요'), rag_wants_lighter('너무 튼튼한 거 아니야?'), rag_wants_lighter('다른 제품 보여줘'), rag_wants_lighter('더 튼튼한 거')], [true, true, true, false, false]);
+eq('가장 낮은 하중 등급 판정(상품명 등급)', [rag_all_lowest_grade([['name' => 'EX메탈망그레이팅'], ['name' => '플라스틱그레이팅']]), rag_all_lowest_grade([['name' => '그레이팅수로용'], ['name' => '중하중그레이팅수로용']]), rag_all_lowest_grade([])], [true, false, false]);
+$subN = "보행자용 '그레이팅 수로용' 제품은 폭 500mm가 없어, 같은 폭의 보행자용 그레이팅을 보여 드립니다.";
+$subs = [['searched' => '그레이팅 수로용', 'note' => $subN]];
+eq('대체품 안내가 없으면 둘째 문단에 넣음', rag_substitute_note("폭 500mm 보행자용 그레이팅입니다.\n\n- A: 설명", $subs), "폭 500mm 보행자용 그레이팅입니다.\n\n{$subN}\n\n- A: 설명");
+eq('답에 수로용이 없다는 말이 있으면 그대로', rag_substitute_note("보행자용 수로용 제품은 폭 500mm가 등록되어 있지 않아 다른 그레이팅입니다.\n\n- A", $subs), "보행자용 수로용 제품은 폭 500mm가 등록되어 있지 않아 다른 그레이팅입니다.\n\n- A");
+eq("'수로용'을 대체품처럼 말하면(부정 없음) 안내를 넣음", str_contains(rag_substitute_note("수로용 그레이팅을 추천합니다.", $subs), $subN), true);
+eq('대체품 표가 없으면 그대로', rag_substitute_note('답', []), '답');
+eq("'과한'만 말함(already_lowest): GPT 가 넘긴 exclude_ids 를 뺌", isset($prep(['query' => '그레이팅 수로용', 'exclude_ids' => [1, 2]], $cx($u('그레이팅', '좀 과한 거 같은데'), ['already_lowest' => true]))['exclude_ids']), false);
+eq("같은 품목·앞 표가 수로 덮개면 cover_use=channel, 고객 형태 말을 검색어에 더함", (function () use ($prep, $cx, $u) {
+    $i = $prep(['query' => '그레이팅'], $cx($u('그레이팅 수로용 폭 500', '날개형은 안돼??'), ['recent_cond' => ['query' => '그레이팅 수로용', 'width_mm' => 500], 'form_terms' => ['날개형']]));
+    return [$i['cover_use'] ?? '', $i['query']];
+})(), ['channel', '그레이팅 날개형']);
+eq('검색어에 용도 말이 있거나(집수정) 품목이 바뀌면 cover_use 를 넣지 않음', [isset($prep(['query' => '그레이팅 집수정'], $cx($u('그레이팅 수로용', '집수정용으로'), ['recent_cond' => ['query' => '그레이팅 수로용']]))['cover_use']),
+    isset($prep(['query' => '측구 수로관'], $cx($u('그레이팅 수로용', '수로관도'), ['recent_cond' => ['query' => '그레이팅 수로용']]))['cover_use'])], [false, false]);
+
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);
