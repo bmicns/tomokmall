@@ -1281,6 +1281,14 @@ $orig = (string) file_get_contents(__DIR__ . '/../database/20261110_syc_categori
 eq('카테고리 나누기: 새 13개·기존 slug 와 안 겹침', [count(array_unique($cs2[1])), count(array_filter($cs2[1], static fn($x) => str_contains($orig, "'" . $x . "'")))], [13, 0]);
 eq('테스트 데이터 분류코드가 모두 카테고리 마이그레이션에 있음', array_values(array_filter($pjSlugs, static fn($x) => !str_contains($catMig, "'" . $x . "'"))), []);
 eq('카테고리 나누기: 새 카테고리 INSERT 에 마진율 칸 없음(대분류 값 상속)', preg_match('/INSERT INTO syc_categories \([^)]*discount/', (string) file_get_contents(__DIR__ . '/../database/20261111_syc_categories_split.sql')), 0);
+// 측구수로관 합치기(2026-11-11): 숨긴 카테고리(syc-s2~s7)를 테스트 데이터가 쓰지 않음, 측구수로관 모델 코드 = 형식만
+$mergeMig = (string) file_get_contents(__DIR__ . '/../database/20261111_syc_categories_merge.sql');
+preg_match('/SET is_active = 0\s+WHERE slug IN \(([^)]*)\)/', $mergeMig, $hm);
+preg_match_all("/'(syc-[sw]\d+)'/", $hm[1] ?? '', $hidden);
+$sideCodes = array_values(array_unique(array_column(array_filter($pj['rows'] ?? [], static fn($r) => $r['category_slug'] === 'syc-s1'), 'spec_code')));
+sort($sideCodes);
+eq('측구수로관 합치기: 숨긴 6개를 데이터가 안 씀·모델 코드 형식만·품명 하나', [count($hidden[1]), array_values(array_intersect($pjSlugs, $hidden[1])), $sideCodes,
+    array_values(array_unique(array_column(array_filter($pj['rows'] ?? [], static fn($r) => $r['category_slug'] === 'syc-s1'), 'name')))], [6, [], ['AN형', 'A형', 'B형', 'Z형'], ['측구수로관']]);
 // 목록 표 나누기: 값이 있는 목록 칸 구성이 같은 상품끼리(유공 침투측구수로관 W·H·L / 침투집수정 W·H·V)
 $axG = [['axis_key' => 'w', 'label' => '폭'], ['axis_key' => 'h', 'label' => '높이'], ['axis_key' => 'l', 'label' => '길이'], ['axis_key' => 'v', 'label' => '세로']];
 $gr = syc_list_groups([['name' => '수로관', 'dim_w' => 300, 'dim_h' => 300, 'dim_l' => 2000], ['name' => '집수정', 'dim_w' => 600, 'dim_h' => 850, 'dim_v' => 600], ['name' => '수로관', 'dim_w' => 400, 'dim_h' => 400, 'dim_l' => 2000]], $axG);
