@@ -8,7 +8,7 @@
 -- 행 수: 추가 50, 변경 1
 -- 되돌리기: DELETE FROM syc_category_spec_axes WHERE axis_key IN ('a_w','a_l','a_t','a2_w','a2_l','a2_t')
 --            OR (axis_key IN ('x1','x2') AND category_id = (SELECT id FROM syc_categories WHERE slug = 'syc-s76'));
---          UPDATE syc_category_spec_axes a JOIN syc_categories c ON c.id = a.category_id SET a.label = '두께' WHERE c.slug = 'syc-w1' AND a.axis_key = 't';
+--          UPDATE syc_category_spec_axes SET label = '두께' WHERE axis_key = 't' AND category_id IN (SELECT id FROM syc_categories WHERE slug = 'syc-w1');
 
 INSERT INTO syc_category_spec_axes (category_id, seq, axis_key, label, symbol, unit, in_list, use_filter)
 SELECT c.id, x.seq, x.axis_key, x.label, x.symbol, x.unit, x.in_list, x.use_filter
@@ -67,9 +67,9 @@ FROM (
 JOIN syc_categories c ON c.slug = x.slug
 WHERE NOT EXISTS (SELECT 1 FROM syc_category_spec_axes a WHERE a.category_id = c.id AND a.axis_key = x.axis_key);
 
-UPDATE syc_category_spec_axes a JOIN syc_categories c ON c.id = a.category_id
-SET a.label = '최소두께'
-WHERE c.slug = 'syc-w1' AND a.axis_key = 't' AND a.label = '두께';
+UPDATE syc_category_spec_axes
+SET label = '최소두께'
+WHERE axis_key = 't' AND label = '두께' AND category_id IN (SELECT id FROM syc_categories WHERE slug = 'syc-w1');
 
 -- 확인(읽기 전용)
 -- SELECT c.slug, a.seq, a.axis_key, a.label, a.in_list FROM syc_category_spec_axes a JOIN syc_categories c ON c.id = a.category_id
