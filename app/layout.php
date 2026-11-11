@@ -182,6 +182,9 @@ function render_header(string $title, string $mode = 'normal'): void
             <?php if (is_logged_in()): ?>
             <a href="/chat.php" class="btn-header-ai<?= $path === '/chat.php' ? ' active' : '' ?>">AI 상담</a>
             <a href="/estimate.php" class="btn-header-est<?= $path === '/estimate.php' ? ' active' : '' ?>">견적보기</a>
+            <?php if ((current_user()['role'] ?? '') === 'admin'): // 관리자만: 관리 대시보드(/admin.php)로 가기 — 사용자 요청 2026-11-11 ?>
+            <a href="/admin.php" class="nav-link" title="관리 대시보드">관리자</a>
+            <?php endif; ?>
             <a href="/mypage.php" class="nav-link<?= $path === '/mypage.php' ? ' active' : '' ?>">마이페이지</a>
             <a href="#" class="nav-link" onclick="event.preventDefault();fetch('/api/auth/logout.php',{method:'POST'}).then(function(){location.href='/'});">로그아웃</a>
             <?php else: ?>
