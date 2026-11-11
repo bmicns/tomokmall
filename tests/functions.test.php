@@ -1207,8 +1207,8 @@ eq('행 변환: 분류 id·출처 기본 syccrt·규격 원문 칸·썸네일 �
 $pr = syc_bulk_parse_row(['syc-x9', '', 'abc', '', ''], $map, ['syc-s1' => 7]);
 eq('행 오류 3개(숫자·상품명·분류코드) → 저장 행 없음', [count($pr['errors']), $pr['row']], [3, null]);
 eq('빈 행은 건너뜀', syc_bulk_parse_row(['', ' ', '', '', ''], $map, [])['empty'], true);
-// 실제 테스트 엑셀(data/syccrt) 704행 — 분류코드는 카테고리 마이그레이션의 품목 slug
-preg_match_all("/'(syc-[sw]\d+)'/", (string) file_get_contents(__DIR__ . '/../database/20261110_syc_categories.sql'), $sm);
+// 실제 테스트 엑셀(data/syccrt) 704행 — 분류코드는 카테고리 마이그레이션(+ 2026-11-11 나누기)의 품목 slug
+preg_match_all("/'(syc-[sw]\d+)'/", (string) file_get_contents(__DIR__ . '/../database/20261110_syc_categories.sql') . (string) file_get_contents(__DIR__ . '/../database/20261111_syc_categories_split.sql'), $sm);
 $cats = array_flip(array_values(array_unique($sm[1])));
 $rx = syc_bulk_read_excel(__DIR__ . '/../data/syccrt/syc-products-bulk-test.xlsx', 'xlsx', $cats);
 eq('테스트 엑셀: 704행·오류 0·대표/썸네일 파일명', [count($rx['rows']), $rx['error_count'], $rx['rows'][0]['_image_file'], $rx['rows'][0]['_image_thumb_file'], $rx['rows'][0]['dim_w']], [704, 0, 'syc-s1-01.jpg', 'syc-s1-01_thumb.jpg', 200.0]);
@@ -1272,6 +1272,15 @@ $rowsF = [['dim_w' => 300, 'spec_code' => '300A'], ['dim_w' => 300, 'spec_code' 
 $fc = syc_facets($rowsF, [$axA[0]], ['ax' => ['w' => ['300']], 'ax_code' => [], 'ax_type' => []]);
 eq('파세트: 값 목록(숫자 순)·개수·모델 코드(다른 필터 적용 뒤)', [$fc['all']['w'], $fc['vals']['w'], $fc['type_all'], $fc['type']], [['300', '400'], ['300' => 2, '400' => 1], ['300A', '300B', '400A'], ['300A' => 1, '300B' => 1]]);
 eq('필터 일치: 축끼리 그리고·축 안 또는', [syc_row_matches($rowsF[0], ['ax' => ['w' => ['300', '400']], 'ax_code' => ['300A']]), syc_row_matches($rowsF[1], ['ax' => ['w' => ['300']], 'ax_code' => ['300A']])], [true, false]);
+// 카테고리 나누기(2026-11-11): 새 slug 가 기존과 겹치지 않고, 테스트 데이터 분류코드가 모두 마이그레이션에 있음
+$catMig = (string) file_get_contents(__DIR__ . '/../database/20261110_syc_categories.sql') . (string) file_get_contents(__DIR__ . '/../database/20261111_syc_categories_split.sql');
+preg_match_all("/AS name, '(syc-[sw]\d+)' AS slug/", (string) file_get_contents(__DIR__ . '/../database/20261111_syc_categories_split.sql'), $cs2);
+$pj = json_decode((string) file_get_contents(__DIR__ . '/../data/syccrt/products.json'), true);
+$pjSlugs = array_values(array_unique(array_column($pj['rows'] ?? [], 'category_slug')));
+$orig = (string) file_get_contents(__DIR__ . '/../database/20261110_syc_categories.sql');
+eq('카테고리 나누기: 새 13개·기존 slug 와 안 겹침', [count(array_unique($cs2[1])), count(array_filter($cs2[1], static fn($x) => str_contains($orig, "'" . $x . "'")))], [13, 0]);
+eq('테스트 데이터 분류코드가 모두 카테고리 마이그레이션에 있음', array_values(array_filter($pjSlugs, static fn($x) => !str_contains($catMig, "'" . $x . "'"))), []);
+eq('카테고리 나누기: 새 카테고리 INSERT 에 마진율 칸 없음(대분류 값 상속)', preg_match('/INSERT INTO syc_categories \([^)]*discount/', (string) file_get_contents(__DIR__ . '/../database/20261111_syc_categories_split.sql')), 0);
 // 목록 표 나누기: 값이 있는 목록 칸 구성이 같은 상품끼리(유공 침투측구수로관 W·H·L / 침투집수정 W·H·V)
 $axG = [['axis_key' => 'w', 'label' => '폭'], ['axis_key' => 'h', 'label' => '높이'], ['axis_key' => 'l', 'label' => '길이'], ['axis_key' => 'v', 'label' => '세로']];
 $gr = syc_list_groups([['name' => '수로관', 'dim_w' => 300, 'dim_h' => 300, 'dim_l' => 2000], ['name' => '집수정', 'dim_w' => 600, 'dim_h' => 850, 'dim_v' => 600], ['name' => '수로관', 'dim_w' => 400, 'dim_h' => 400, 'dim_l' => 2000]], $axG);

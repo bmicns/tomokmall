@@ -7,7 +7,7 @@ declare(strict_types=1);
  *       왼쪽에 규격 필터(위)·카테고리(아래). 치수 칸 구성이 다른 상품은 표를 나눔(syc_list_groups). 가격은 기존 계산(price_tag_list → price_bundle)에 상용콘크리트 마진율을 넣어 같은 식으로.
  * 금지: 고객 노출(미리보기가 아니면 홈으로), products·categories 조회·변경.
  * 화면 틀·클래스는 기존 목록(public/products.php)과 같다. 로직: app/syc_catalog.php
- * URL: ?category=<syc_categories.id>&s=<목록검색>&sort=&ax_<키>[]=값&ax_code[]=코드
+ * URL: ?category=<syc_categories.id>&s=<목록검색>&sort=&ax_<키>[]=값  (모델 코드 필터 없음)
  */
 require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/layout.php';
@@ -20,6 +20,7 @@ $categoryId = max(0, (int) ($_GET['category'] ?? 0));
 $search     = mb_substr(trim((string) ($_GET['s'] ?? '')), 0, 60);
 $sort       = in_array($_GET['sort'] ?? '', ['price_asc', 'price_desc', 'newest'], true) ? (string) $_GET['sort'] : '';
 $f          = syc_filter_input($_GET);
+$f['ax_code'] = [];   // 왼쪽 필터에 모델 코드 그룹 없음(사용자 결정 2026-11-11) — 예전 주소의 ax_code 도 무시
 $ready      = db() !== null && syc_tables_ready();
 
 $all = $tree = $rows = $shown = $axes = [];
@@ -72,15 +73,8 @@ foreach (syc_list_groups($shown, $axisCols) as $g) {
     $tables[] = $t;
 }
 
-// 필터 그룹(기존 함수 — 값 버튼 모양·고정 값 처리 같음)
-// product_filter_axis_groups 는 defs 가 비면 아무것도 만들지 않으므로, 축 필터 없이 모델 코드만 있을 때는
-// 필터에 쓰지 않는 빈 정의 하나를 넣어 모델 코드 그룹만 만들게 한다.
-$fgroups = [];
-if ($facets['defs']) {
-    $fgroups = product_filter_axis_groups($facets, $f);
-} elseif (!empty($facets['type_all'])) {
-    $fgroups = product_filter_axis_groups(['defs' => [['axis_key' => '', 'use_filter' => false]]] + $facets, $f);
-}
+// 필터 그룹(기존 함수 — 값 버튼 모양·고정 값 처리 같음). 모델 코드 그룹은 빼고 치수 칸만(사용자 결정 2026-11-11)
+$fgroups = $facets['defs'] ? product_filter_axis_groups(['type_all' => [], 'type' => []] + $facets, $f) : [];
 $keepGet = array_filter(['category' => $categoryId ?: null, 's' => $search !== '' ? $search : null, 'sort' => $sort !== '' ? $sort : null]);
 
 // 적용된 필터 칩
