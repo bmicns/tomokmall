@@ -63,7 +63,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s1-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s1",
@@ -128,7 +129,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s1-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s2",
@@ -193,7 +195,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s2-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s2",
@@ -258,7 +261,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s2-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s3",
@@ -323,7 +327,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s3-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s3",
@@ -388,7 +393,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s3-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s3",
@@ -453,7 +459,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s3-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s4",
@@ -518,7 +525,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s4-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s4",
@@ -583,7 +591,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s4-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s5",
@@ -648,7 +657,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s5-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s5",
@@ -713,7 +723,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s5-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s5",
@@ -778,7 +789,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s5-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s6",
@@ -843,7 +855,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s6-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s6",
@@ -908,7 +921,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s6-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s6",
@@ -973,7 +987,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s6-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s6",
@@ -1038,7 +1053,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s6-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s6",
@@ -1103,7 +1119,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s6-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s6",
@@ -1168,7 +1185,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s6-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s6",
@@ -1233,7 +1251,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s6-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s7",
@@ -1298,7 +1317,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s7-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s7",
@@ -1363,7 +1383,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s7-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s7",
@@ -1428,7 +1449,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s7-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s7",
@@ -1493,7 +1515,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s7-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s7",
@@ -1558,7 +1581,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s7-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s8",
@@ -1623,7 +1647,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s8-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s8",
@@ -1688,7 +1713,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s8-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s9",
@@ -1753,7 +1779,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s9-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s9",
@@ -1818,7 +1845,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s9-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s9",
@@ -1883,7 +1911,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s9-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s9",
@@ -1948,7 +1977,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s9-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s9",
@@ -2013,7 +2043,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s9-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s9",
@@ -2078,7 +2109,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s9-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s10",
@@ -2143,7 +2175,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s10-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s10",
@@ -2208,7 +2241,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s10-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s10",
@@ -2273,7 +2307,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s10-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s10",
@@ -2338,7 +2373,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s10-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s10",
@@ -2403,7 +2439,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s10-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s10",
@@ -2468,7 +2505,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s10-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s10",
@@ -2533,7 +2571,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s10-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s10",
@@ -2598,7 +2637,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s10-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s10",
@@ -2663,7 +2703,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s10-09",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s10",
@@ -2728,7 +2769,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s10-10",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s10",
@@ -2793,7 +2835,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s10-11",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s10",
@@ -2858,7 +2901,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s10-12",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s10",
@@ -2923,7 +2967,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s10-13",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s10",
@@ -2988,7 +3033,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s10-14",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -3053,7 +3099,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -3118,7 +3165,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -3183,7 +3231,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -3248,7 +3297,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -3313,7 +3363,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -3378,7 +3429,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -3443,7 +3495,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -3508,7 +3561,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -3573,7 +3627,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-09",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -3638,7 +3693,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-10",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -3703,7 +3759,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-11",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -3768,7 +3825,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-12",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -3833,7 +3891,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-13",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -3898,7 +3957,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-14",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -3963,7 +4023,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-15",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -4028,7 +4089,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-16",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -4093,7 +4155,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-17",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -4158,7 +4221,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-18",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -4223,7 +4287,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-19",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -4288,7 +4353,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-20",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -4353,7 +4419,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-21",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -4418,7 +4485,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-22",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -4483,7 +4551,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-23",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -4548,7 +4617,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-24",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -4613,7 +4683,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-25",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -4678,7 +4749,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-26",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -4743,7 +4815,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-27",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -4808,7 +4881,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-28",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -4873,7 +4947,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-29",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -4938,7 +5013,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-30",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -5003,7 +5079,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-31",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -5068,7 +5145,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-32",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -5133,7 +5211,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-33",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -5198,7 +5277,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-34",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -5263,7 +5343,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-35",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -5328,7 +5409,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-36",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -5393,7 +5475,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-37",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -5458,7 +5541,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-38",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -5523,7 +5607,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-39",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -5588,7 +5673,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-40",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -5653,7 +5739,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-41",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -5718,7 +5805,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-42",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -5783,7 +5871,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-43",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -5848,7 +5937,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-44",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -5913,7 +6003,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-45",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -5978,7 +6069,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-46",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -6043,7 +6135,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-47",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -6108,7 +6201,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-48",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -6173,7 +6267,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-49",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -6238,7 +6333,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-50",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -6303,7 +6399,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-51",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s11",
@@ -6368,7 +6465,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s11-52",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s12",
@@ -6433,7 +6531,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s12-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s12",
@@ -6498,7 +6597,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s12-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s12",
@@ -6563,7 +6663,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s12-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s12",
@@ -6628,7 +6729,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s12-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s12",
@@ -6693,7 +6795,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s12-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s12",
@@ -6758,7 +6861,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s12-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s12",
@@ -6823,7 +6927,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s12-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s12",
@@ -6888,7 +6993,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s12-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s12",
@@ -6953,7 +7059,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s12-09",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s12",
@@ -7018,7 +7125,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s12-10",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s12",
@@ -7083,7 +7191,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s12-11",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s12",
@@ -7148,7 +7257,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s12-12",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s12",
@@ -7213,7 +7323,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s12-13",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s13",
@@ -7278,7 +7389,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s13-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s13",
@@ -7343,7 +7455,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s13-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s13",
@@ -7408,7 +7521,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s13-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s13",
@@ -7473,7 +7587,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s13-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s13",
@@ -7538,7 +7653,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s13-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s13",
@@ -7603,7 +7719,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s13-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s13",
@@ -7668,7 +7785,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s13-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s13",
@@ -7733,7 +7851,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s13-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s13",
@@ -7798,7 +7917,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s13-09",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -7863,7 +7983,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -7928,7 +8049,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -7993,7 +8115,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -8058,7 +8181,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -8123,7 +8247,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -8188,7 +8313,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -8253,7 +8379,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -8318,7 +8445,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -8383,7 +8511,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-09",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -8448,7 +8577,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-10",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -8513,7 +8643,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-11",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -8578,7 +8709,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-12",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -8643,7 +8775,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-13",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -8708,7 +8841,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-14",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -8773,7 +8907,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-15",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -8838,7 +8973,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-16",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -8903,7 +9039,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-17",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -8968,7 +9105,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-18",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -9033,7 +9171,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-19",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -9098,7 +9237,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-20",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -9163,7 +9303,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-21",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -9228,7 +9369,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-22",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -9293,7 +9435,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-23",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -9358,7 +9501,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-24",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -9423,7 +9567,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-25",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -9488,7 +9633,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-26",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -9553,7 +9699,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-27",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -9618,7 +9765,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-28",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -9683,7 +9831,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-29",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -9748,7 +9897,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-30",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -9813,7 +9963,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-31",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -9878,7 +10029,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-32",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -9943,7 +10095,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-33",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -10008,7 +10161,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-34",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -10073,7 +10227,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-35",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -10138,7 +10293,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-36",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -10203,7 +10359,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-37",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -10268,7 +10425,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-38",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -10333,7 +10491,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-39",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -10398,7 +10557,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-40",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -10463,7 +10623,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-41",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s14",
@@ -10528,7 +10689,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s14-42",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s15",
@@ -10593,7 +10755,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s15-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s15",
@@ -10658,7 +10821,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s15-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s15",
@@ -10723,7 +10887,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s15-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s15",
@@ -10788,7 +10953,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s15-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s15",
@@ -10853,7 +11019,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s15-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s15",
@@ -10918,7 +11085,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s15-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s15",
@@ -10983,7 +11151,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s15-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s15",
@@ -11048,7 +11217,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s15-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s16",
@@ -11113,7 +11283,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s16-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s16",
@@ -11178,7 +11349,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s16-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s16",
@@ -11243,7 +11415,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s16-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s16",
@@ -11308,7 +11481,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s16-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s16",
@@ -11373,7 +11547,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s16-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s16",
@@ -11438,7 +11613,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s16-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s16",
@@ -11503,7 +11679,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s16-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s16",
@@ -11568,7 +11745,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s16-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s17",
@@ -11633,7 +11811,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s17-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s17",
@@ -11698,7 +11877,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s17-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s17",
@@ -11763,7 +11943,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s17-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s17",
@@ -11828,7 +12009,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s17-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s17",
@@ -11893,7 +12075,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s17-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s17",
@@ -11958,7 +12141,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s17-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s17",
@@ -12023,7 +12207,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s17-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s17",
@@ -12088,7 +12273,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s17-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s17",
@@ -12153,7 +12339,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s17-09",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s17",
@@ -12218,7 +12405,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s17-10",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s17",
@@ -12283,7 +12471,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s17-11",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s17",
@@ -12348,7 +12537,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s17-12",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s17",
@@ -12413,7 +12603,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s17-13",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s17",
@@ -12478,7 +12669,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s17-14",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s17",
@@ -12543,7 +12735,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s17-15",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s17",
@@ -12608,7 +12801,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s17-16",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s17",
@@ -12673,7 +12867,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s17-17",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s17",
@@ -12738,7 +12933,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s17-18",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s17",
@@ -12803,7 +12999,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s17-19",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s17",
@@ -12868,7 +13065,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s17-20",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -12933,7 +13131,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-a01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -12998,7 +13197,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-a02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -13063,7 +13263,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-a03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -13128,7 +13329,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-a04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -13193,7 +13395,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-a05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -13258,7 +13461,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-a06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -13323,7 +13527,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-a07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -13388,7 +13593,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-a08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -13453,7 +13659,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-a09",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -13518,7 +13725,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-a10",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -13583,7 +13791,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-a11",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -13648,7 +13857,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-a12",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -13713,7 +13923,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-a13",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -13778,7 +13989,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-b01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -13843,7 +14055,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-b02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -13908,7 +14121,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-b03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -13973,7 +14187,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-b04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -14038,7 +14253,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-b05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -14103,7 +14319,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -14168,7 +14385,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -14233,7 +14451,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -14298,7 +14517,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -14363,7 +14583,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -14428,7 +14649,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -14493,7 +14715,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -14558,7 +14781,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -14623,7 +14847,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c09",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -14688,7 +14913,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c10",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -14753,7 +14979,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c11",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -14818,7 +15045,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c12",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -14883,7 +15111,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c13",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -14948,7 +15177,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c14",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -15013,7 +15243,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c15",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -15078,7 +15309,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c16",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -15143,7 +15375,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c17",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -15208,7 +15441,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c18",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -15273,7 +15507,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c19",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -15338,7 +15573,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c20",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -15403,7 +15639,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c21",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -15468,7 +15705,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c22",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -15533,7 +15771,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c23",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s18",
@@ -15598,7 +15837,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s18-c24",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s19",
@@ -15663,7 +15903,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s19-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s19",
@@ -15728,7 +15969,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s19-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s19",
@@ -15793,7 +16035,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s19-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s19",
@@ -15858,7 +16101,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s19-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s19",
@@ -15923,7 +16167,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s19-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s19",
@@ -15988,7 +16233,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s19-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s19",
@@ -16053,7 +16299,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s19-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s19",
@@ -16118,7 +16365,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s19-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s19",
@@ -16183,7 +16431,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s19-09",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s19",
@@ -16248,7 +16497,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s19-10",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s19",
@@ -16313,7 +16563,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s19-11",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s19",
@@ -16378,7 +16629,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s19-12",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s19",
@@ -16443,7 +16695,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s19-13",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s19",
@@ -16508,7 +16761,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s19-14",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s19",
@@ -16573,7 +16827,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s19-15",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s20",
@@ -16638,7 +16893,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s20-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s20",
@@ -16703,7 +16959,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s20-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s20",
@@ -16768,7 +17025,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s20-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s20",
@@ -16833,7 +17091,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s20-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s20",
@@ -16898,7 +17157,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s20-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s20",
@@ -16963,7 +17223,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s20-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s20",
@@ -17028,7 +17289,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s20-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s20",
@@ -17093,7 +17355,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s20-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s20",
@@ -17158,7 +17421,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s20-09",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s20",
@@ -17223,7 +17487,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s20-10",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s20",
@@ -17288,7 +17553,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s20-11",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -17353,7 +17619,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -17418,7 +17685,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -17483,7 +17751,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -17548,7 +17817,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -17613,7 +17883,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -17678,7 +17949,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -17743,7 +18015,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -17808,7 +18081,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -17873,7 +18147,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-09",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -17938,7 +18213,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-10",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -18003,7 +18279,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-11",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -18068,7 +18345,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-12",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -18133,7 +18411,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-13",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -18198,7 +18477,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-14",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -18263,7 +18543,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-15",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -18328,7 +18609,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-16",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -18393,7 +18675,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-17",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -18458,7 +18741,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-18",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -18523,7 +18807,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-19",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -18588,7 +18873,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-20",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -18653,7 +18939,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-21",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -18718,7 +19005,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-22",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -18783,7 +19071,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-23",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -18848,7 +19137,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-24",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -18913,7 +19203,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-25",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -18978,7 +19269,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-26",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -19043,7 +19335,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-27",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -19108,7 +19401,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-28",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -19173,7 +19467,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-29",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -19238,7 +19533,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-30",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -19303,7 +19599,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-31",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -19368,7 +19665,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-32",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -19433,7 +19731,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-33",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -19498,7 +19797,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-34",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -19563,7 +19863,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-35",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -19628,7 +19929,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-36",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -19693,7 +19995,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-37",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -19758,7 +20061,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-38",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -19823,7 +20127,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-39",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -19888,7 +20193,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-40",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -19953,7 +20259,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-41",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -20018,7 +20325,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-42",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -20083,7 +20391,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-43",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -20148,7 +20457,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-44",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -20213,7 +20523,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-45",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -20278,7 +20589,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-46",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -20343,7 +20655,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-47",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -20408,7 +20721,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-48",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -20473,7 +20787,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-49",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -20538,7 +20853,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-50",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -20603,7 +20919,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-51",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -20668,7 +20985,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-52",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -20733,7 +21051,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-53",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -20798,7 +21117,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-54",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s21",
@@ -20863,7 +21183,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s21-55",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s22",
@@ -20928,7 +21249,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s22-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s22",
@@ -20993,7 +21315,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s22-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s22",
@@ -21058,7 +21381,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s22-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s22",
@@ -21123,7 +21447,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s22-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s22",
@@ -21188,7 +21513,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s22-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s22",
@@ -21253,7 +21579,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s22-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s22",
@@ -21318,7 +21645,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s22-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s22",
@@ -21383,7 +21711,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s22-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s22",
@@ -21448,7 +21777,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s22-09",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s22",
@@ -21513,7 +21843,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s22-10",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s22",
@@ -21578,7 +21909,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s22-11",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s22",
@@ -21643,7 +21975,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s22-12",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s22",
@@ -21708,7 +22041,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s22-13",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s22",
@@ -21773,7 +22107,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s22-14",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s22",
@@ -21838,7 +22173,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s22-15",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s22",
@@ -21903,7 +22239,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s22-16",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s23",
@@ -21968,7 +22305,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s23-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s23",
@@ -22033,7 +22371,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s23-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s23",
@@ -22098,7 +22437,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s23-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s23",
@@ -22163,7 +22503,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s23-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s23",
@@ -22228,7 +22569,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s23-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s23",
@@ -22293,7 +22635,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s23-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s23",
@@ -22358,7 +22701,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s23-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s23",
@@ -22423,7 +22767,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s23-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s23",
@@ -22488,7 +22833,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s23-09",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s23",
@@ -22553,7 +22899,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s23-10",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s23",
@@ -22618,7 +22965,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s23-11",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s23",
@@ -22683,7 +23031,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s23-12",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s23",
@@ -22748,7 +23097,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s23-13",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s23",
@@ -22813,7 +23163,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s23-14",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s23",
@@ -22878,7 +23229,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s23-15",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s23",
@@ -22943,7 +23295,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s23-16",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s23",
@@ -23008,7 +23361,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s23-17",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s23",
@@ -23073,7 +23427,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s23-18",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s23",
@@ -23138,7 +23493,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s23-19",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s24",
@@ -23203,7 +23559,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s24-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s24",
@@ -23268,7 +23625,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s24-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s24",
@@ -23333,7 +23691,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s24-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s24",
@@ -23398,7 +23757,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s24-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s24",
@@ -23463,7 +23823,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s24-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s24",
@@ -23528,7 +23889,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s24-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s24",
@@ -23593,7 +23955,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s24-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s24",
@@ -23658,7 +24021,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s24-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s24",
@@ -23723,7 +24087,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s24-09",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s24",
@@ -23788,7 +24153,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s24-10",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s24",
@@ -23853,7 +24219,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s24-11",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s24",
@@ -23918,7 +24285,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s24-12",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s24",
@@ -23983,7 +24351,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s24-13",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s25",
@@ -24048,7 +24417,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s25-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s25",
@@ -24113,7 +24483,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s25-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s25",
@@ -24178,7 +24549,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s25-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s25",
@@ -24243,7 +24615,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s25-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s25",
@@ -24308,7 +24681,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s25-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s25",
@@ -24373,7 +24747,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s25-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s25",
@@ -24438,7 +24813,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s25-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s25",
@@ -24503,7 +24879,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s25-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s25",
@@ -24568,7 +24945,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s25-09",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s25",
@@ -24633,7 +25011,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s25-10",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s25",
@@ -24698,7 +25077,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s25-11",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s25",
@@ -24763,7 +25143,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s25-12",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s25",
@@ -24828,7 +25209,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s25-13",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s25",
@@ -24893,7 +25275,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s25-14",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s26",
@@ -24958,7 +25341,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s26-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s26",
@@ -25023,7 +25407,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s26-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s26",
@@ -25088,7 +25473,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s26-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s26",
@@ -25153,7 +25539,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s26-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s26",
@@ -25218,7 +25605,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s26-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s26",
@@ -25283,7 +25671,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s26-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s26",
@@ -25348,7 +25737,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s26-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s26",
@@ -25413,7 +25803,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s26-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s26",
@@ -25478,7 +25869,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s26-09",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s26",
@@ -25543,7 +25935,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s26-10",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s26",
@@ -25608,7 +26001,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s26-11",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s26",
@@ -25673,7 +26067,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s26-12",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s26",
@@ -25738,7 +26133,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s26-13",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s26",
@@ -25803,7 +26199,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s26-14",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -25868,7 +26265,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -25933,7 +26331,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -25998,7 +26397,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -26063,7 +26463,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -26128,7 +26529,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -26193,7 +26595,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -26258,7 +26661,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -26323,7 +26727,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -26388,7 +26793,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-09",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -26453,7 +26859,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-10",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -26518,7 +26925,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-11",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -26583,7 +26991,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-12",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -26648,7 +27057,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-13",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -26713,7 +27123,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-14",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -26778,7 +27189,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-15",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -26843,7 +27255,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-16",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -26908,7 +27321,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-17",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -26973,7 +27387,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-18",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -27038,7 +27453,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-19",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -27103,7 +27519,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-20",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -27168,7 +27585,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-21",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -27233,7 +27651,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-22",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -27298,7 +27717,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-23",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -27363,7 +27783,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-24",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -27428,7 +27849,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-25",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -27493,7 +27915,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-26",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -27558,7 +27981,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-27",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -27623,7 +28047,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-28",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -27688,7 +28113,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-29",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -27753,7 +28179,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-30",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -27818,7 +28245,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-31",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -27883,7 +28311,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-32",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -27948,7 +28377,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-33",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -28013,7 +28443,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-34",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -28078,7 +28509,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-35",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -28143,7 +28575,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-36",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -28208,7 +28641,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-37",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -28273,7 +28707,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-38",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -28338,7 +28773,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-p01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -28403,7 +28839,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-p02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -28468,7 +28905,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-p03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -28533,7 +28971,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-p04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s28",
@@ -28598,7 +29037,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s28-p05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s29",
@@ -28663,7 +29103,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s29-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s29",
@@ -28728,7 +29169,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s29-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s29",
@@ -28793,7 +29235,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s29-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s29",
@@ -28858,7 +29301,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s29-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s29",
@@ -28923,7 +29367,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s29-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s29",
@@ -28988,7 +29433,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s29-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s30",
@@ -29053,7 +29499,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s30-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s30",
@@ -29118,7 +29565,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s30-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s30",
@@ -29183,7 +29631,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s30-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s31",
@@ -29248,7 +29697,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s31-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s31",
@@ -29313,7 +29763,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s31-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s31",
@@ -29378,7 +29829,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s31-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s31",
@@ -29443,7 +29895,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s31-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s31",
@@ -29508,7 +29961,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s31-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s31",
@@ -29573,7 +30027,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s31-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s31",
@@ -29638,7 +30093,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s31-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s31",
@@ -29703,7 +30159,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s31-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s31",
@@ -29768,7 +30225,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s31-09",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s31",
@@ -29833,7 +30291,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s31-10",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s31",
@@ -29898,7 +30357,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s31-11",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s31",
@@ -29963,7 +30423,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s31-12",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s31",
@@ -30028,7 +30489,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s31-13",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s31",
@@ -30093,7 +30555,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s31-14",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s36",
@@ -30158,7 +30621,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s36-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s41",
@@ -30223,7 +30687,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s41-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s41",
@@ -30288,7 +30753,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s41-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s41",
@@ -30353,7 +30819,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s41-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s42",
@@ -30418,7 +30885,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s42-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s42",
@@ -30483,7 +30951,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s42-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s43",
@@ -30548,7 +31017,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s43-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s43",
@@ -30613,7 +31083,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s43-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s43",
@@ -30678,7 +31149,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s43-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s44",
@@ -30743,7 +31215,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s44-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s45",
@@ -30808,7 +31281,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s45-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s46",
@@ -30873,7 +31347,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s46-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s46",
@@ -30938,7 +31413,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s46-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s46",
@@ -31003,7 +31479,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s46-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s47",
@@ -31068,7 +31545,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s47-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s47",
@@ -31133,7 +31611,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s47-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s47",
@@ -31198,7 +31677,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s47-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s48",
@@ -31263,7 +31743,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s48-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s48",
@@ -31328,7 +31809,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s48-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s51",
@@ -31393,7 +31875,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s51-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s51",
@@ -31458,7 +31941,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s51-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s51",
@@ -31523,7 +32007,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s51-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s52",
@@ -31588,7 +32073,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s52-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s52",
@@ -31653,7 +32139,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s52-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s52",
@@ -31718,7 +32205,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s52-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s52",
@@ -31783,7 +32271,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s52-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s52",
@@ -31848,7 +32337,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s52-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s52",
@@ -31913,7 +32403,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s52-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s53",
@@ -31978,7 +32469,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s53-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s53",
@@ -32043,7 +32535,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s53-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s53",
@@ -32108,7 +32601,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s53-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s53",
@@ -32173,7 +32667,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s53-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s53",
@@ -32238,7 +32733,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s53-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s53",
@@ -32303,7 +32799,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s53-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s54",
@@ -32368,7 +32865,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s54-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s54",
@@ -32433,7 +32931,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s54-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s55",
@@ -32498,7 +32997,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s55-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s55",
@@ -32563,7 +33063,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s55-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s56",
@@ -32628,7 +33129,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s56-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s56",
@@ -32693,7 +33195,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s56-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s57",
@@ -32758,7 +33261,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s57-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s57",
@@ -32823,7 +33327,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s57-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s58",
@@ -32888,7 +33393,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s58-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s59",
@@ -32953,7 +33459,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s59-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s60",
@@ -33018,7 +33525,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s60-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s61",
@@ -33083,7 +33591,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s61-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s62",
@@ -33148,7 +33657,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s62-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s63",
@@ -33213,7 +33723,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s63-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s64",
@@ -33278,7 +33789,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s64-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s65",
@@ -33343,7 +33855,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s65-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s66",
@@ -33408,7 +33921,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s66-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s67",
@@ -33473,7 +33987,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s67-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s68",
@@ -33538,7 +34053,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s68-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s69",
@@ -33603,7 +34119,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s69-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s70",
@@ -33668,7 +34185,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s70-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s71",
@@ -33733,7 +34251,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s71-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s72",
@@ -33798,7 +34317,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s72-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s72",
@@ -33863,7 +34383,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s72-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s72",
@@ -33928,7 +34449,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s72-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s72",
@@ -33993,7 +34515,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s72-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s72",
@@ -34058,7 +34581,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s72-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s72",
@@ -34123,7 +34647,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s72-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s73",
@@ -34188,7 +34713,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s73-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s73",
@@ -34253,7 +34779,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s73-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s73",
@@ -34318,7 +34845,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s73-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s73",
@@ -34383,7 +34911,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s73-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s73",
@@ -34448,7 +34977,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s73-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s73",
@@ -34513,7 +35043,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s73-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s74",
@@ -34578,7 +35109,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s74-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s74",
@@ -34643,7 +35175,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s74-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s74",
@@ -34708,7 +35241,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s74-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s74",
@@ -34773,7 +35307,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s74-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s74",
@@ -34838,7 +35373,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s74-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s74",
@@ -34903,7 +35439,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s74-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s74",
@@ -34968,7 +35505,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s74-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s74",
@@ -35033,7 +35571,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s74-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s74",
@@ -35098,7 +35637,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s74-09",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s74",
@@ -35163,7 +35703,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s74-10",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s74",
@@ -35228,7 +35769,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s74-11",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s74",
@@ -35293,7 +35835,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s74-12",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s74",
@@ -35358,7 +35901,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s74-13",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s74",
@@ -35423,7 +35967,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s74-14",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -35488,7 +36033,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -35553,7 +36099,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -35618,7 +36165,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -35683,7 +36231,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -35748,7 +36297,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -35813,7 +36363,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -35878,7 +36429,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -35943,7 +36495,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -36008,7 +36561,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-09",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -36073,7 +36627,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-10",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -36138,7 +36693,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-11",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -36203,7 +36759,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-12",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -36268,7 +36825,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-13",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -36333,7 +36891,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-14",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -36398,7 +36957,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-15",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -36463,7 +37023,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-16",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -36528,7 +37089,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-17",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -36593,7 +37155,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-18",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -36658,7 +37221,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-19",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -36723,7 +37287,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-20",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -36788,7 +37353,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-21",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -36853,7 +37419,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-22",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -36918,7 +37485,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-23",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s75",
@@ -36983,7 +37551,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s75-24",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -37048,7 +37617,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-001",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -37113,7 +37683,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-002",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -37178,7 +37749,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-003",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -37243,7 +37815,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-004",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -37308,7 +37881,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-005",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -37373,7 +37947,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-006",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -37438,7 +38013,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-007",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -37503,7 +38079,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-008",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -37568,7 +38145,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-009",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -37633,7 +38211,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-010",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -37698,7 +38277,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-011",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -37763,7 +38343,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-012",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -37828,7 +38409,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-013",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -37893,7 +38475,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-014",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -37958,7 +38541,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-015",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -38023,7 +38607,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-016",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -38088,7 +38673,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-017",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -38153,7 +38739,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-018",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -38218,7 +38805,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-019",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -38283,7 +38871,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-020",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -38348,7 +38937,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-021",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -38413,7 +39003,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-022",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -38478,7 +39069,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-023",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -38543,7 +39135,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-024",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -38608,7 +39201,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-025",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -38673,7 +39267,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-026",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -38738,7 +39333,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-027",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -38803,7 +39399,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-028",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -38868,7 +39465,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-029",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -38933,7 +39531,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-030",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -38998,7 +39597,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-031",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -39063,7 +39663,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-032",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -39128,7 +39729,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-033",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -39193,7 +39795,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-034",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -39258,7 +39861,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-035",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -39323,7 +39927,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-036",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -39388,7 +39993,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-037",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -39453,7 +40059,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-038",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -39518,7 +40125,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-039",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -39583,7 +40191,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-040",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -39648,7 +40257,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-041",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -39713,7 +40323,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-042",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -39778,7 +40389,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-043",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -39843,7 +40455,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-044",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -39908,7 +40521,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-045",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -39973,7 +40587,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-046",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -40038,7 +40653,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-047",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -40103,7 +40719,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-048",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -40168,7 +40785,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-049",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -40233,7 +40851,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-050",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -40298,7 +40917,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-051",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -40363,7 +40983,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-052",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -40428,7 +41049,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-053",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -40493,7 +41115,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-054",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -40558,7 +41181,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-055",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -40623,7 +41247,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-056",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -40688,7 +41313,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-057",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -40753,7 +41379,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-058",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -40818,7 +41445,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-059",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -40883,7 +41511,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-060",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -40948,7 +41577,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-061",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -41013,7 +41643,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-062",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -41078,7 +41709,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-063",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -41143,7 +41775,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-064",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -41208,7 +41841,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-065",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -41273,7 +41907,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-066",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -41338,7 +41973,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-067",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -41403,7 +42039,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-068",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -41468,7 +42105,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-069",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -41533,7 +42171,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-070",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -41598,7 +42237,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-071",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -41663,7 +42303,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-072",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -41728,7 +42369,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-073",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -41793,7 +42435,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-074",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -41858,7 +42501,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-075",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -41923,7 +42567,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-076",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -41988,7 +42633,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-077",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -42053,7 +42699,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-078",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -42118,7 +42765,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-079",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -42183,7 +42831,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-080",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -42248,7 +42897,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-081",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -42313,7 +42963,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-082",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -42378,7 +43029,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-083",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -42443,7 +43095,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-084",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -42508,7 +43161,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-085",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -42573,7 +43227,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-086",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -42638,7 +43293,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-087",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -42703,7 +43359,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-088",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -42768,7 +43425,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-089",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -42833,7 +43491,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-090",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -42898,7 +43557,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-091",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -42963,7 +43623,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-092",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -43028,7 +43689,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-093",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -43093,7 +43755,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-094",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -43158,7 +43821,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-095",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -43223,7 +43887,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-096",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -43288,7 +43953,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-097",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -43353,7 +44019,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-098",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -43418,7 +44085,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-099",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -43483,7 +44151,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-100",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -43548,7 +44217,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-101",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s76",
@@ -43613,7 +44283,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s76-102",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s77",
@@ -43678,7 +44349,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s81-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s77",
@@ -43743,7 +44415,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s81-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s77",
@@ -43808,7 +44481,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s81-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s77",
@@ -43873,7 +44547,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s81-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s77",
@@ -43938,7 +44613,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s81-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s77",
@@ -44003,7 +44679,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s81-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s77",
@@ -44068,7 +44745,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s81-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-s77",
@@ -44133,7 +44811,8 @@
    "external_source": "syccrt",
    "external_id": "syc-s81-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w1",
@@ -44198,7 +44877,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w1-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w1",
@@ -44263,7 +44943,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w1-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w1",
@@ -44328,7 +45009,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w1-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w1",
@@ -44393,7 +45075,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w1-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w2",
@@ -44458,7 +45141,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w2-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w2",
@@ -44523,7 +45207,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w2-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w2",
@@ -44588,7 +45273,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w2-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w2",
@@ -44653,7 +45339,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w2-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w2",
@@ -44718,7 +45405,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w2-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w2",
@@ -44783,7 +45471,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w2-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w2",
@@ -44848,7 +45537,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w2-07",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w2",
@@ -44913,7 +45603,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w2-08",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w2",
@@ -44978,7 +45669,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w2-09",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w2",
@@ -45043,7 +45735,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w2-10",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w2",
@@ -45108,7 +45801,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w2-11",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w2",
@@ -45173,7 +45867,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w2-12",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w2",
@@ -45238,7 +45933,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w2-13",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w2",
@@ -45303,7 +45999,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w2-14",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w3",
@@ -45368,7 +46065,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w3-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w3",
@@ -45433,7 +46131,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w3-02",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w3",
@@ -45498,7 +46197,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w3-03",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w3",
@@ -45563,7 +46263,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w3-04",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w3",
@@ -45628,7 +46329,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w3-05",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w3",
@@ -45693,7 +46395,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w3-06",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   },
   {
    "category_slug": "syc-w4",
@@ -45758,7 +46461,8 @@
    "external_source": "syccrt",
    "external_id": "syc-w4-01",
    "source_url": null,
-   "image_file": null
+   "image_file": null,
+   "image_thumb_file": null
   }
  ],
  "notes": [

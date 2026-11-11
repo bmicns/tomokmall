@@ -4,7 +4,10 @@
 -- 사용 코드: 없음(만들어 두기만 함 — 사용자 결정 2026-11-10). 사이트 목록·검색·견적·가격 계산(app/pricing.php)에 영향 없음.
 -- 구조: 운영 products(2026-11-10 DESCRIBE)를 참조하되 다음이 다르다.
 --   · category_id → syc_categories.id (database/20261110_syc_categories.sql 을 먼저 실행)
---   · 이미지: image_url(외부 주소) 대신 image_file — 일괄 등록이 이미지 ZIP 에서 꺼내 서버에 저장한 파일 경로
+--   · 이미지: image_url(외부 주소 1개) 대신 크기 2가지 파일(사용자 결정 2026-11-11) — 일괄 등록이 이미지 ZIP 에서 꺼내 서버에 저장한 경로
+--       image_file = 대표(상세 화면용 큰 이미지), image_thumb_file = 썸네일(목록·관련상품용 작은 이미지)
+--       ZIP 에 썸네일(…_thumb.jpg)이 없으면 일괄 등록이 대표 이미지로 만든다(기능 개발 때 구현).
+--       기존 products 는 40×40 썸네일 1장으로 상세 화면까지 써서 상세 이미지가 흐림 — 이 표는 두 크기를 따로 둔다.
 --   · spec_code = 모델코드 = 카탈로그 '호칭'(예: 300A, 500C, 1.0m×1.0m 암거는 '1000*1000')
 --   · 치수 칸(dim_*): products 의 dim_d ~ spec_dims_src 를 카탈로그(2025) 판독본·웹사이트 화면의 실제 머리글에 맞춰 조정
 --       남김  dim_d·dim_d_i·dim_d_o·dim_w·dim_w_b·dim_w_t·dim_h·dim_depth·dim_l·dim_v·dim_t·dim_t2
@@ -107,7 +110,8 @@ CREATE TABLE IF NOT EXISTS syc_products (
     external_source VARCHAR(40) NULL             COMMENT '출처(예: syccrt) — external_id 와 함께 다시 올릴 때 같은 상품 찾기',
     external_id   VARCHAR(80)  NULL              COMMENT '출처 상품 식별값(엑셀 행 코드 등)',
     source_url    VARCHAR(255) NULL              COMMENT '출처 페이지 주소(참고)',
-    image_file    VARCHAR(255) NULL              COMMENT '이미지 파일 경로(웹루트 기준 상대 경로) — 일괄 등록이 이미지 ZIP 에서 꺼내 저장',
+    image_file    VARCHAR(255) NULL              COMMENT '대표 이미지(상세 화면용 큰 이미지) 파일 경로(웹루트 기준 상대 경로) — 일괄 등록이 이미지 ZIP 에서 꺼내 저장',
+    image_thumb_file VARCHAR(255) NULL           COMMENT '썸네일(목록·관련상품용 작은 이미지) 파일 경로(웹루트 기준 상대 경로) — ZIP 의 …_thumb 파일, 없으면 대표 이미지로 생성',
     is_active     TINYINT(1) NOT NULL DEFAULT 0  COMMENT '일괄 등록은 비활성(0)으로 저장 → 확인 뒤 활성(1)',
     created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     cost_price    INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '공장도가(원가) 관리자전용',
