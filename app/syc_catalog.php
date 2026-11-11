@@ -27,7 +27,8 @@ const SYC_SOURCE_KTOMOK = 'ktomok';
 const SYC_AXIS_KEYS = ['d', 'd_i', 'd_o', 'w', 'w_o', 'w_b', 'w_t', 'h', 'h_o', 'depth', 'l', 'v', 't', 't2', 't_top', 't_wall', 't_bottom', 't_mid',
                        'mesh', 'wire_d', 'wire_no', 'd_inlet', 'd_outlet',
                        'w1', 'w2', 'h1', 'h2', 'h3', 'h4', 't1', 't3', 't4', 'l1', 'l2', 'l3', 'l4', 'l5', 'l6', 'd1', 'd2', 'd3', 'd4', 'd5',
-                       'r1', 'r2', 'c', 'x1', 'x2', 'x3', 'x4'];
+                       'r1', 'r2', 'c', 'x1', 'x2', 'x3', 'x4',
+                       'a_w', 'a_l', 'a_t', 'a2_w', 'a2_l', 'a2_t'];   // 부속(그레이팅·덮개·받침틀 등) 치수 — 뜻은 품목별 이름표(상세 전용)
 /** 글자 값 칸(숫자 아님) — 기존 SPEC_AXIS_TEXT 와 같은 키라 spec_axis_value_display 가 그대로 처리 */
 const SYC_AXIS_TEXT = ['d_inlet', 'd_outlet'];
 
@@ -241,6 +242,35 @@ function syc_facets(array $rows, array $axes, array $f): array
         }
     }
     return ['defs' => $defs, 'all' => $all, 'vals' => $vals, 'type_all' => array_values($typeAll), 'type' => $typeCnt, 'code_key' => SPEC_AXIS_CODE];
+}
+
+/**
+ * 목록 표 나누기: 같은 품목이라도 치수 칸 구성이 다른 상품(예: 유공 침투측구수로관 W·H·L / 유공 침투집수정 W·H·V)은
+ * 한 표에 묶으면 서로 없는 치수가 빈칸으로 보이므로, 값이 있는 목록 칸 구성이 같은 상품끼리 표를 나눈다(사용자 결정 2026-11-11).
+ * @param list<array> $rows 보일 상품(순서 유지) @param list<array> $axes 목록 칸 이름표
+ * @return list<array{title:string,rows:list<array>,axes:list<array>}> 표가 하나면 title ''. 순수 함수(테스트)
+ */
+function syc_list_groups(array $rows, array $axes): array
+{
+    $groups = [];
+    foreach ($rows as $p) {
+        $keys = [];
+        foreach ($axes as $a) { if (syc_axis_row_value($p, $a['axis_key']) !== null) { $keys[] = $a['axis_key']; } }
+        $sig = implode(',', $keys);
+        if (!isset($groups[$sig])) {
+            $groups[$sig] = ['rows' => [], 'axes' => array_values(array_filter($axes, static fn($a) => in_array($a['axis_key'], $keys, true))), 'names' => []];
+        }
+        $groups[$sig]['rows'][] = $p;
+        $groups[$sig]['names'][(string) $p['name']] = true;
+    }
+    $out = [];
+    foreach ($groups as $g) {
+        $names = array_keys($g['names']);
+        $title = count($names) <= 3 ? implode(' · ', $names) : implode(' · ', array_slice($names, 0, 2)) . ' 외 ' . (count($names) - 2) . '종';
+        $out[] = ['title' => $title, 'rows' => $g['rows'], 'axes' => $g['axes']];
+    }
+    if (count($out) === 1) { $out[0]['title'] = ''; }
+    return $out;
 }
 
 /** 상품 조회(카테고리 범위·목록검색·정렬). 필터는 화면에서 syc_row_matches 로 거른다(품목당 수십~수백 행) */
