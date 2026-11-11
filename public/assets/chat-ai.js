@@ -358,7 +358,7 @@ function renderBasicSources(ev, container) {
     const url = /^https?:\/\//.test(s.url || '') ? s.url : '';
     return `<li>${escHtml(s.ref || '')} ${escHtml(s.name || '')} · 국가표준 목록(표준 번호·이름 확인)${url ? ` · <a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">표준 정보</a>` : ''}</li>`;
   }).concat(pr.map(p => `<li>${escHtml(p.name || '')} · 토목몰 등록 상품${p.count ? ' ' + (parseInt(p.count, 10) || 0) + '개 규격' : ''}</li>`))
-    .concat(pc.map(c => `<li>${escHtml(c.name || '')} · 조달청 나라장터 쇼핑몰 품목 등록 내역 ${(parseInt(c.items, 10) || 0).toLocaleString('ko-KR')}개 품목${c.as_of ? ' (' + escHtml(c.as_of) + ' 기준)' : ''} · <a href="https://www.data.go.kr/data/15142663/fileData.do" target="_blank" rel="noopener noreferrer">공공데이터</a></li>`)).join('');
+    .concat(pc.map(c => `<li>${escHtml(c.name || '')} · 조달청 품목 등록 현황 ${(parseInt(c.items, 10) || 0).toLocaleString('ko-KR')}개 품목${c.as_of ? ' (' + escHtml(c.as_of) + ' 기준)' : ''} · <a href="https://www.data.go.kr/data/15142663/fileData.do" target="_blank" rel="noopener noreferrer">공공데이터</a></li>`)).join('');
   const kinds = [st.length ? '국가표준 목록' : '', pr.length ? '토목몰 등록 상품' : '', pc.length ? '공공조달 등록 현황' : ''].filter(Boolean).join(' · ');
   wrap.innerHTML = `<div class="legal-sources-title">확인된 기본 정보 (${kinds})</div><ul>${items}</ul>`;
   container.appendChild(wrap);
