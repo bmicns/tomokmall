@@ -358,6 +358,10 @@ function sycSelCount() {
     document.getElementById('syc-sel-count').textContent = sycAllMatching ? `검색 결과 전체 ${shown.toLocaleString()}개 선택됨` : `선택 ${n}개`;
     document.getElementById('syc-bulkbar').classList.toggle('syc-all-on', sycAllMatching);
     document.getElementById('syc-bulk-on').disabled = document.getElementById('syc-bulk-off').disabled = shown === 0;
+    // 상태 드롭다운: 비활성 제품 → '선택 활성으로'만, 활성 제품 → '선택 비활성으로'만, 전체 → 둘 다
+    const st = document.getElementById('filter-status').value;
+    document.getElementById('syc-bulk-on').hidden  = st === 'active';
+    document.getElementById('syc-bulk-off').hidden = st === 'inactive';
     document.getElementById('syc-chk-all').checked = pageAll;
     const btn = document.getElementById('syc-all-btn');
     btn.hidden = !(pageAll && sycTotal > all.length);    // 여러 페이지일 때만

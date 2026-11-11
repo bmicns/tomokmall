@@ -37,7 +37,9 @@ function syc_bulk_columns(): array
               'dim_t', 'dim_t2', 'dim_t_top', 'dim_t_wall', 'dim_t_bottom', 'dim_t_mid',
               'dim_w1', 'dim_w2', 'dim_h1', 'dim_h2', 'dim_h3', 'dim_h4', 'dim_t1', 'dim_t3', 'dim_t4',
               'dim_l1', 'dim_l2', 'dim_l3', 'dim_l4', 'dim_l5', 'dim_l6', 'dim_d1', 'dim_d2', 'dim_d3', 'dim_d4', 'dim_d5',
-              'dim_r1', 'dim_r2', 'dim_c', 'dim_x1', 'dim_x2', 'dim_x3', 'dim_x4', 'dim_mesh', 'dim_wire_d'] as $k) {
+              'dim_r1', 'dim_r2', 'dim_c', 'dim_x1', 'dim_x2', 'dim_x3', 'dim_x4',
+              'dim_a_w', 'dim_a_l', 'dim_a_t', 'dim_a2_w', 'dim_a2_l', 'dim_a2_t',   // 부속(그레이팅·덮개 등) 치수 — 2026-11-11 추가
+              'dim_mesh', 'dim_wire_d'] as $k) {
         $c[$k] = ['dec', [7, 1]];
     }
     return $c + [

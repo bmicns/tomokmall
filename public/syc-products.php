@@ -4,7 +4,7 @@ declare(strict_types=1);
  * 상용콘크리트 품목 목록 — 관리자 '상용콘크리트로 보기' 미리보기 전용(사용자 결정 2026-11-11, (가) 단계)
  *
  * 책임: syc_categories 카테고리별 syc_products 목록. 규격은 syc_category_spec_axes 이름표대로 '규격' 머리글 아래 칸을 나누고,
- *       왼쪽에 카테고리·규격 필터. 가격은 기존 계산(price_tag_list → price_bundle)에 상용콘크리트 마진율을 넣어 같은 식으로.
+ *       왼쪽에 규격 필터(위)·카테고리(아래). 치수 칸 구성이 다른 상품은 표를 나눔(syc_list_groups). 가격은 기존 계산(price_tag_list → price_bundle)에 상용콘크리트 마진율을 넣어 같은 식으로.
  * 금지: 고객 노출(미리보기가 아니면 홈으로), products·categories 조회·변경.
  * 화면 틀·클래스는 기존 목록(public/products.php)과 같다. 로직: app/syc_catalog.php
  * URL: ?category=<syc_categories.id>&s=<목록검색>&sort=&ax_<키>[]=값&ax_code[]=코드
@@ -58,16 +58,19 @@ foreach ($axes as $a) {
     if ($n === 0 || ($n === 1 && $a['use_filter'])) { continue; }
     $axisCols[] = $a;
 }
-$hasCode = $hasOpt = $hasUnit = $hasWeight = false;
-foreach ($shown as $p) {
-    if ((string) ($p['spec_code'] ?? '') !== '')   { $hasCode = true; }
-    if ((string) ($p['spec_option'] ?? '') !== '') { $hasOpt = true; }
-    if ((string) ($p['unit'] ?? '') !== '')        { $hasUnit = true; }
-    if ($p['weight_kg'] !== null)                  { $hasWeight = true; }
+// 표 나누기: 치수 칸 구성이 다른 상품은 따로 표(서로 없는 치수가 빈칸으로 보이지 않게 — syc_list_groups)
+$tables = [];
+foreach (syc_list_groups($shown, $axisCols) as $g) {
+    $t = $g + ['hasCode' => false, 'hasOpt' => false, 'hasUnit' => false, 'hasWeight' => false];
+    foreach ($g['rows'] as $p) {
+        if ((string) ($p['spec_code'] ?? '') !== '')   { $t['hasCode'] = true; }
+        if ((string) ($p['spec_option'] ?? '') !== '') { $t['hasOpt'] = true; }
+        if ((string) ($p['unit'] ?? '') !== '')        { $t['hasUnit'] = true; }
+        if ($p['weight_kg'] !== null)                  { $t['hasWeight'] = true; }
+    }
+    $t['span'] = $axes ? count($g['axes']) + ($t['hasCode'] ? 1 : 0) + ($t['hasOpt'] ? 1 : 0) : 0;
+    $tables[] = $t;
 }
-$axisSpan = $axes ? count($axisCols) + ($hasCode ? 1 : 0) + ($hasOpt ? 1 : 0) : 0;
-$axisMode = $axisSpan > 0;
-$axRs     = $axisMode ? ' rowspan="2"' : '';
 
 // 필터 그룹(기존 함수 — 값 버튼 모양·고정 값 처리 같음)
 // product_filter_axis_groups 는 defs 가 비면 아무것도 만들지 않으므로, 축 필터 없이 모델 코드만 있을 때는
@@ -119,6 +122,12 @@ render_header($pageTitle);
 .syc-index a:hover{color:var(--color-primary);text-decoration:underline}
 .syc-off{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;background:#FCE4EC;color:#C62828;font-size:11px;font-weight:700;vertical-align:middle}
 .syc-weight{white-space:nowrap}
+/* 품명: 길면 말줄임 대신 줄바꿈(최대 3줄 — 사진 칸 높이 안이라 행 높이는 그대로) */
+.syc-list .pt-col-name .pt-name-text{white-space:normal;word-break:keep-all;overflow-wrap:anywhere;line-height:1.4;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+/* 칸 구성이 다른 상품끼리 나눈 표 */
+.syc-grp-title{display:flex;align-items:baseline;gap:8px;margin:22px 0 8px;font-size:15px;font-weight:700;color:var(--color-text-primary)}
+.syc-grp-title:first-child{margin-top:4px}
+.syc-grp-title small{font-size:12px;font-weight:400;color:var(--color-text-secondary)}
 </style>
 <div class="content-wrap">
     <section class="ut-banner" aria-label="목록 상단 배너">
@@ -134,23 +143,6 @@ render_header($pageTitle);
 <?php else: ?>
     <div class="pt-layout">
       <aside class="pt-filter">
-        <details class="syc-cat-box" open>
-        <summary class="syc-cat-sum">상용콘크리트 카테고리</summary>
-        <nav class="syc-cat-nav" aria-labelledby="syc-cat-title">
-          <h2 id="syc-cat-title">상용콘크리트 카테고리</h2>
-          <?php foreach ($tree as $gid => $g): $open = $categoryId === $gid || ($category && (int) $category['parent_id'] === $gid); ?>
-          <details<?= $open ? ' open' : '' ?>>
-            <summary><?= e($g['group']['name']) ?></summary>
-            <ul>
-              <li><a href="/syc-products.php?category=<?= (int) $gid ?>"<?= $categoryId === $gid ? ' class="is-on" aria-current="page"' : '' ?>>전체 보기</a></li>
-              <?php foreach ($g['items'] as $it): $on = $categoryId === (int) $it['id']; ?>
-              <li><a href="/syc-products.php?category=<?= (int) $it['id'] ?>"<?= $on ? ' class="is-on" aria-current="page"' : '' ?>><?= e($it['name']) ?></a></li>
-              <?php endforeach; ?>
-            </ul>
-          </details>
-          <?php endforeach; ?>
-        </nav>
-        </details>
         <?php if ($fgroups): ?>
         <details class="fltbox" open>
           <summary><span class="flt-sum-title">필터로 좁히기</span></summary>
@@ -173,6 +165,23 @@ render_header($pageTitle);
           </form>
         </details>
         <?php endif; ?>
+        <details class="syc-cat-box" open>
+        <summary class="syc-cat-sum">상용콘크리트 카테고리</summary>
+        <nav class="syc-cat-nav" aria-labelledby="syc-cat-title">
+          <h2 id="syc-cat-title">상용콘크리트 카테고리</h2>
+          <?php foreach ($tree as $gid => $g): $open = $categoryId === $gid || ($category && (int) $category['parent_id'] === $gid); ?>
+          <details<?= $open ? ' open' : '' ?>>
+            <summary><?= e($g['group']['name']) ?></summary>
+            <ul>
+              <li><a href="/syc-products.php?category=<?= (int) $gid ?>"<?= $categoryId === $gid ? ' class="is-on" aria-current="page"' : '' ?>>전체 보기</a></li>
+              <?php foreach ($g['items'] as $it): $on = $categoryId === (int) $it['id']; ?>
+              <li><a href="/syc-products.php?category=<?= (int) $it['id'] ?>"<?= $on ? ' class="is-on" aria-current="page"' : '' ?>><?= e($it['name']) ?></a></li>
+              <?php endforeach; ?>
+            </ul>
+          </details>
+          <?php endforeach; ?>
+        </nav>
+        </details>
         <script>
         // 모바일(760px 이하): 카테고리·필터를 접은 채 시작 → 상품 목록이 바로 보이게(기존 목록 필터와 같은 방식). 제목줄을 누르면 펼침
         (function () {
@@ -233,6 +242,9 @@ render_header($pageTitle);
           <?php if (!syc_preview_include_inactive()): ?><p class="empty-hint">일괄 등록한 상품은 비활성으로 저장됩니다. 위 띠에서 '비활성도 보기'를 누르면 함께 보입니다.</p><?php endif; ?>
         </div>
         <?php else: ?>
+        <div class="syc-list">
+        <?php foreach ($tables as $t): $axisMode = $t['span'] > 0; $axRs = $axisMode ? ' rowspan="2"' : ''; ?>
+        <?php if ($t['title'] !== ''): ?><h4 class="syc-grp-title"><?= e($t['title']) ?> <small><?= number_format(count($t['rows'])) ?>개</small></h4><?php endif; ?>
         <div class="product-table-wrap">
           <table class="product-table">
             <thead>
@@ -240,41 +252,43 @@ render_header($pageTitle);
                 <th class="pt-col-photo"<?= $axRs ?>>사진</th>
                 <th class="pt-col-name"<?= $axRs ?>>품명</th>
                 <th class="pt-col-vendor"<?= $axRs ?>>업체</th>
-                <?php if ($hasUnit): ?><th class="pt-col-unit"<?= $axRs ?>>단위</th><?php endif; ?>
-                <?php if ($axisMode): ?><th class="pt-col-specgrp" colspan="<?= $axisSpan ?>">규격</th><?php else: ?><th class="pt-col-spec">규격</th><?php endif; ?>
+                <?php if ($t['hasUnit']): ?><th class="pt-col-unit"<?= $axRs ?>>단위</th><?php endif; ?>
+                <?php if ($axisMode): ?><th class="pt-col-specgrp" colspan="<?= $t['span'] ?>">규격</th><?php else: ?><th class="pt-col-spec">규격</th><?php endif; ?>
                 <?php if ($isInternal): ?><th class="pt-col-cost"<?= $axRs ?>>매입가<span>내부용</span></th><?php endif; ?>
                 <th class="pt-col-price"<?= $axRs ?>>판매가<span>부가세별도</span></th>
-                <?php if ($hasWeight): ?><th class="pt-col-weight"<?= $axRs ?>>중량<span>kg</span></th><?php endif; ?>
+                <?php if ($t['hasWeight']): ?><th class="pt-col-weight"<?= $axRs ?>>중량<span>kg</span></th><?php endif; ?>
               </tr>
               <?php if ($axisMode): ?>
               <tr class="pt-head-ax">
-                <?php if ($hasCode): ?><th class="pt-col-ax">모델 코드</th><?php endif; ?>
-                <?php foreach ($axisCols as $a): ?><th class="pt-col-ax"><?= e(spec_axis_title($a)) ?></th><?php endforeach; ?>
-                <?php if ($hasOpt): ?><th class="pt-col-ax pt-col-axopt">옵션</th><?php endif; ?>
+                <?php if ($t['hasCode']): ?><th class="pt-col-ax">모델 코드</th><?php endif; ?>
+                <?php foreach ($t['axes'] as $a): ?><th class="pt-col-ax"><?= e(spec_axis_title($a)) ?></th><?php endforeach; ?>
+                <?php if ($t['hasOpt']): ?><th class="pt-col-ax pt-col-axopt">옵션</th><?php endif; ?>
               </tr>
               <?php endif; ?>
             </thead>
             <tbody>
-              <?php foreach ($shown as $p): $pp = syc_price_row($p, $all); $href = '/syc-product.php?id=' . (int) $p['id']; ?>
+              <?php foreach ($t['rows'] as $p): $pp = syc_price_row($p, $all); $href = '/syc-product.php?id=' . (int) $p['id']; ?>
               <tr class="pt-prod-row" onclick="location.href='<?= e($href) ?>'" style="cursor:pointer">
                 <td class="pt-col-photo">
                   <?php $img = $p['image_thumb_file'] ?: $p['image_file']; if ($img): ?><img src="<?= e($img) ?>" alt="<?= e($p['name']) ?>"><?php else: ?><span class="pt-placeholder"><?= e(mb_substr($p['name'], 0, 2)) ?></span><?php endif; ?>
                 </td>
-                <td class="pt-col-name"><a class="pt-name-text" href="<?= e($href) ?>" onclick="event.stopPropagation()"><?= e($p['name']) ?></a><?php if ((int) $p['is_active'] !== 1): ?><span class="syc-off">비활성</span><?php endif; ?></td>
+                <td class="pt-col-name"><a class="pt-name-text" href="<?= e($href) ?>" onclick="event.stopPropagation()" title="<?= e($p['name']) ?>"><?= e($p['name']) ?></a><?php if ((int) $p['is_active'] !== 1): ?><span class="syc-off">비활성</span><?php endif; ?></td>
                 <td class="pt-col-vendor"><?= $p['brand'] ? e($p['brand']) : '<span class="pt-vendor-none">-</span>' ?></td>
-                <?php if ($hasUnit): ?><td class="pt-col-unit"><?= e(unit_display_label((string) ($p['unit'] ?? ''))) ?></td><?php endif; ?>
+                <?php if ($t['hasUnit']): ?><td class="pt-col-unit"><?= e(unit_display_label((string) ($p['unit'] ?? ''))) ?></td><?php endif; ?>
                 <?php if ($axisMode): ?>
-                  <?php if ($hasCode): $hit = in_array((string) $p['spec_code'], $f['ax_code'], true); ?><td class="pt-col-ax pt-col-axcode<?= $hit ? ' is-hit' : '' ?>" data-label="모델 코드"><?= e((string) ($p['spec_code'] ?? '')) ?></td><?php endif; ?>
-                  <?php foreach ($axisCols as $a): $ak = $a['axis_key']; $av = syc_axis_row_value($p, $ak); ?><td class="pt-col-ax<?= ($av !== null && in_array($av, $f['ax'][$ak] ?? [], true)) ? ' is-hit' : '' ?>" data-label="<?= e(spec_axis_title($a)) ?>"><?= $av !== null ? e(spec_axis_value_display($a, $av)) : '' ?></td><?php endforeach; ?>
-                  <?php if ($hasOpt): ?><td class="pt-col-ax pt-col-axopt" data-label="옵션"><?= e(spec_option_display((string) ($p['spec_option'] ?? ''))) ?></td><?php endif; ?>
+                  <?php if ($t['hasCode']): $hit = in_array((string) $p['spec_code'], $f['ax_code'], true); ?><td class="pt-col-ax pt-col-axcode<?= $hit ? ' is-hit' : '' ?>" data-label="모델 코드"><?= e((string) ($p['spec_code'] ?? '')) ?></td><?php endif; ?>
+                  <?php foreach ($t['axes'] as $a): $ak = $a['axis_key']; $av = syc_axis_row_value($p, $ak); ?><td class="pt-col-ax<?= ($av !== null && in_array($av, $f['ax'][$ak] ?? [], true)) ? ' is-hit' : '' ?>" data-label="<?= e(spec_axis_title($a)) ?>"><?= $av !== null ? e(spec_axis_value_display($a, $av)) : '' ?></td><?php endforeach; ?>
+                  <?php if ($t['hasOpt']): ?><td class="pt-col-ax pt-col-axopt" data-label="옵션"><?= e(spec_option_display((string) ($p['spec_option'] ?? ''))) ?></td><?php endif; ?>
                 <?php else: ?><td class="pt-col-spec"><?= e((string) ($p['spec'] ?? '')) ?></td><?php endif; ?>
                 <?php if ($isInternal): ?><td class="pt-col-cost"><?= price_cost_cell($pp) ?></td><?php endif; ?>
                 <td class="pt-col-price"><?= price_tag_list($pp) ?></td>
-                <?php if ($hasWeight): ?><td class="pt-col-weight syc-weight"><?= $p['weight_kg'] !== null ? e(rtrim(rtrim(number_format((float) $p['weight_kg'], 2, '.', ','), '0'), '.')) . 'kg' : '' ?></td><?php endif; ?>
+                <?php if ($t['hasWeight']): ?><td class="pt-col-weight syc-weight"><?= $p['weight_kg'] !== null ? e(rtrim(rtrim(number_format((float) $p['weight_kg'], 2, '.', ','), '0'), '.')) . 'kg' : '' ?></td><?php endif; ?>
               </tr>
               <?php endforeach; ?>
             </tbody>
           </table>
+        </div>
+        <?php endforeach; ?>
         </div>
         <?php endif; ?>
       <?php endif; ?>
