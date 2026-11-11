@@ -41,7 +41,7 @@ function ai_tool_definitions(): array
                         'length_m' => ['type' => 'number',  'description' => '설치 총 길이/연장(미터). 예: 100m 수로 → 100. 선형 제품의 소요 수량 자동 계산에 사용(제품 1개 길이는 product_length_mm).'],
                         'area_m2'  => ['type' => 'number',  'description' => '설치 면적(㎡). 예: 보도블록 200㎡ → 200. 면적 단위(㎡) 제품의 소요 수량 계산에 사용.'],
                         'spec_strict' => ['type' => 'boolean', 'description' => 'spec_mm이 반드시 지켜야 하는 조건이면 true(예: 차량이 올라가는 곳의 블록 두께 80). 맞는 규격이 없으면 다른 규격을 보여주지 않습니다. queries 비교에서는 항상 적용됩니다.'],
-                        'traffic'  => ['type' => 'string', 'enum' => ['pedestrian', 'car', 'truck'], 'description' => '그레이팅(수로·맨홀 덮개) 검색의 통행 조건. 사람만 다님(식당 주방·화장실·실내·베란다·인도·공원·보행자 전용) → pedestrian, 승용차·SUV → car, 트럭·버스·지게차 등 대형차 → truck. 조건보다 낮은 하중 등급(안전 부족)과 높은 등급(과잉·더 비쌈)은 표에서 빠집니다.'],
+                        'traffic'  => ['type' => 'string', 'enum' => ['pedestrian', 'car', 'truck'], 'description' => '그레이팅(수로·맨홀 덮개) 검색의 통행 조건. 사람만 다님(식당 주방·화장실·실내·베란다·인도·공원·보행자 전용) → pedestrian, 승용차·SUV → car, 트럭·버스·지게차 등 대형차 → truck. 조건보다 낮은 하중 등급(안전 부족)과 높은 등급(과잉)은 표에서 빠집니다.'],
                         'exclude_ids' => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => "고객이 '다른 제품', 'A 말고', '다시 추천', '앞에 추천한 제품은 제외'처럼 이미 본 제품이 아닌 다른 제품을 원할 때 뺄 상품 id(직전 추천표의 id). 같은 상품명의 다른 규격도 함께 빠집니다."],
                         'max_est_cost' => ['type' => 'integer', 'description' => "고객이 '좀 더 저렴한 제품'을 원할 때 직전 추천표의 가장 낮은 예상 자재비(원). 같은 설치 길이·면적으로 계산한 예상 자재비가 이보다 낮은 제품만 나옵니다(수량을 계산할 수 없는 제품은 비교하지 않음)."],
                         'max_unit_price' => ['type' => 'integer', 'description' => "설치 길이·면적이 아직 없어 예상 자재비가 없을 때의 '더 저렴한 제품' 기준 — 직전 추천표의 가장 낮은 단가(원). price_unit 과 같은 판매 단위 제품만 비교합니다."],
@@ -264,7 +264,7 @@ function ai_ks_display_name(string $name, string $appliesTo): string
 }
 
 /** 공공조달 등록 현황(basics.procurement)을 답에 쓰는 규칙 — material_info·search_products 공통 */
-const AI_PROCUREMENT_NOTE = 'procurement = 조달청 나라장터 쇼핑몰(공공기관 구매용)에 등록된 같은 종류 품목의 집계다. 인증을 설명하거나 제품을 고르는 기준을 말할 때 summary 를 \'공공 조달몰에 등록된 흄관 176개 품목 중 146개가 KS 표시 제품\'처럼 출처(조달청 품목 등록 내역)와 함께 한 문장으로만 쓴다. 토목몰 상품이 KS 인증·조달 등록 제품이라고 말하지 않고, 비율로 품질을 단정하지 않는다(\'KS 표시 제품이 많은 자재라 표기를 확인해 보시면 좋습니다\' 정도).';
+const AI_PROCUREMENT_NOTE = 'procurement = 조달청에 등록된 같은 종류 다른 회사 품목의 집계다. KS·인증을 설명할 때만 summary 를 \'조달청에 따르면 파형강관 466개 품목 중 465개가 KS 표시 제품입니다\'처럼 \'조달청에 따르면\'으로 시작해 한 문장으로 쓴다. 조달몰·나라장터 쇼핑몰·공공 구매처는 말하지 않는다(다른 곳에서 사라는 뜻으로 들림). 품목 수만 말하지 않는다. 토목몰 상품이 KS 인증·조달 등록 제품이라고 말하지 않고, 비율로 품질·신뢰성을 단정하지 않는다(\'품질 면에서 신뢰할 수 있다\' 같은 해석 금지).';
 
 /**
  * 자재 종류별 공공조달 등록 현황 데이터(app/procurement_summary.php — scripts/external/g2b_summary.php 가 조달청 공공데이터에서 생성). 파일이 없으면 [].
@@ -324,9 +324,9 @@ function ai_procurement_summary(string $text, int $limit = 2): array
         return [
             'name' => (string) $g['label'], 'items' => (int) $g['items'], 'makers' => (int) $g['makers'],
             'ks' => (int) ($c['ks'] ?? 0), 'group_standard' => (int) ($c['group_standard'] ?? 0), 'excellent' => (int) ($c['excellent'] ?? 0), 'as_of' => $asOf,
-            'summary' => "공공 조달몰(나라장터 쇼핑몰)에 등록된 {$g['label']} {$g['items']}개 품목({$g['makers']}개 업체) 중 "
+            'summary' => "{$g['label']} {$g['items']}개 품목({$g['makers']}개 업체) 중 "
                 . ($certs ? implode('·', array_map(static fn($k, $v) => "{$k} {$v}개", array_keys($certs), $certs)) : 'KS 표시·단체표준인증 품목 없음')
-                . " (조달청 품목 등록 내역, {$asOf} 기준)",
+                . " ({$asOf} 기준)",
         ];
     }, array_slice($hits, 0, $limit));
 }
@@ -867,10 +867,10 @@ function tool_search_products(array $input): string
         if ($rn !== '') { $extraNotes[] = $rn; }
     }
     if ($costSummary) { $out['cost_summary'] = $costSummary; }   // '어떤 게 더 저렴해?' 답변용 — 도구가 계산한 값만
-    $procurement = ai_procurement_summary($qText . ' ' . implode(' ', array_slice(array_column($cards, 'name'), 0, 3)));   // 질문·상위 결과 자재의 공공조달 등록 현황
-    if ($standards || $procurement) {   // 답에 표준 번호·'조달'을 쓰면 '확인된 기본 정보' 출처 카드(rag_process)
-        $out['basics'] = ['standards' => array_values($standards), 'products' => [], 'procurement' => $procurement];
-        if ($procurement) { $out['procurement_note'] = AI_PROCUREMENT_NOTE; }
+    // 상품 추천 결과에는 공공조달 등록 현황을 넣지 않는다(2026-11-11 사용자 결정 — '공공 조달몰에 여러 품목 등록'이 조달청에서 사라는 뜻으로 들림).
+    // KS·인증을 묻는 자재 설명(material_info)에서만 쓴다.
+    if ($standards) {   // 답에 표준 번호를 쓰면 '확인된 기본 정보' 출처 카드(rag_process)
+        $out['basics'] = ['standards' => array_values($standards), 'products' => [], 'procurement' => []];
     }
     if ($traffic !== '' && ($heavier || array_filter($products, static fn($p) => ai_load_class_of($p) !== '' || ($p['_load'] ?? '') === 'unverified'))) {
         $out['traffic'] = $traffic;   // 적용한 통행 조건(하중 등급 필터) — 그레이팅이 있을 때만
@@ -1498,7 +1498,7 @@ function ai_broadened_note(string $query, string $cond, string $traffic, array $
         return "{$label} '{$query}' 제품은 {$cond}에서 직전에 보여 드린 " . implode(', ', array_slice($excludedNames, 0, 4)) . " 외에는 없어, 같은 폭의 다른 {$label} 그레이팅을 보여 드립니다.";
     }
     return "{$label} '{$query}' 제품은 {$cond}가 없어, 같은 폭의 {$label} 그레이팅을 보여 드립니다."
-        . ($heavier ? " 같은 폭의 '{$query}'은(는) " . implode(', ', ai_heavier_labels($heavier)) . '뿐이라 필요보다 높은 하중 등급(더 비쌈)이어서 표에서 뺐습니다.' : '');
+        . ($heavier ? " 같은 폭의 '{$query}'은(는) " . implode(', ', ai_heavier_labels($heavier)) . '뿐이라 필요보다 높은 하중 등급이어서 표에서 뺐습니다.' : '');
 }
 
 /** 높은 등급 행 → '안전중하중그레이팅수로용(대형차용)' 목록 (순수 함수, 등급 낮은 순) */
