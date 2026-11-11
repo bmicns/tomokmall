@@ -50,6 +50,12 @@ function render_admin_header(string $title, string $activeMenu = ''): void
     .adm-topbar{background:#fff;border-bottom:1px solid #e8eaed;padding:0 28px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
     .adm-topbar-title{font-size:14px;font-weight:700;color:#1a2035}
     .adm-topbar-user{font-size:12px;color:#888}
+    .adm-src{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+    .adm-src form{margin:0}
+    .adm-src-l{font-size:12px;color:#888}
+    .adm-src-b{height:32px;padding:0 10px;border:1px solid #c5cad3;border-radius:6px;background:#fff;color:#444;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
+    .adm-src-b:hover{border-color:#004EA1;color:#004EA1}
+    .adm-src-b.on{background:#004EA1;border-color:#004EA1;color:#fff}
     .adm-content{padding:24px 28px;flex:1}
     /* 공통 컴포넌트 */
     .page-heading{font-size:20px;font-weight:800;color:#1a2035;margin-bottom:20px}
@@ -130,6 +136,13 @@ function render_admin_header(string $title, string $activeMenu = ''): void
     <main class="adm-main">
         <div class="adm-topbar">
             <span class="adm-topbar-title"><?= htmlspecialchars($title, ENT_QUOTES) ?></span>
+            <?php // 사이트 보기 출처(이 관리자 세션에만): 케이토목 = 기존 화면, 상용콘크리트 = 상용콘크리트 목록·상세 미리보기(app/syc_catalog.php)
+            $sycOn = ($_SESSION['site_source'] ?? 'syc') !== 'ktomok';   // 관리자 기본 = 상용콘크리트 보기 ?>
+            <div class="adm-src" role="group" aria-label="사이트 보기">
+                <span class="adm-src-l">사이트 보기</span>
+                <form method="post" action="/api/admin/site-source.php"><input type="hidden" name="source" value="ktomok"><input type="hidden" name="return" value="/index.php"><button type="submit" class="adm-src-b<?= $sycOn ? '' : ' on' ?>" aria-pressed="<?= $sycOn ? 'false' : 'true' ?>" formtarget="_blank">케이토목으로 보기</button></form>
+                <form method="post" action="/api/admin/site-source.php"><input type="hidden" name="source" value="syc"><input type="hidden" name="return" value="/syc-products.php"><button type="submit" class="adm-src-b<?= $sycOn ? ' on' : '' ?>" aria-pressed="<?= $sycOn ? 'true' : 'false' ?>" formtarget="_blank">상용콘크리트로 보기</button></form>
+            </div>
         </div>
         <div class="adm-content">
 <?php

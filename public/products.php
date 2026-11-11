@@ -5,6 +5,13 @@ require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/layout.php';
 require __DIR__ . '/../app/product_filter_renderer.php';
 require __DIR__ . '/../app/work_types.php';
+require_once __DIR__ . '/../app/syc_catalog.php';
+
+// 관리자 '상용콘크리트로 보기' 미리보기: 상용콘크리트 목록으로(검색어는 목록검색으로). 고객·미리보기 아닐 때는 기존 그대로
+if (syc_preview_on()) {
+    $sycQ = trim((string) ($_GET['q'] ?? $_GET['s'] ?? ''));
+    redirect('/syc-products.php' . ($sycQ !== '' ? '?s=' . rawurlencode($sycQ) : ''));
+}
 
 $categoryId = isset($_GET['category']) ? max(0, (int) $_GET['category']) : null;
 $query      = trim((string) ($_GET['q'] ?? ''));

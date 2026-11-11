@@ -126,6 +126,8 @@ function render_header(string $title, string $mode = 'normal'): void
     </div>
     <?php
     $megaTabsHtml = ob_get_clean();
+    require_once __DIR__ . '/syc_catalog.php';
+    if (syc_preview_on()) { $megaTabsHtml = syc_mega_tabs_html() ?? $megaTabsHtml; }   // 관리자 상용콘크리트 보기: 상용콘크리트 카테고리 메뉴
     ?>
 <!doctype html>
 <html lang="ko">
@@ -159,6 +161,7 @@ function render_header(string $title, string $mode = 'normal'): void
     </script>
 </head>
 <body class="mode-<?= in_array($mode, ['chat', 'corp', 'home'], true) ? $mode : 'normal' ?>">
+<?php require_once __DIR__ . '/syc_catalog.php'; syc_render_preview_bar(); // 관리자 '상용콘크리트로 보기' 미리보기 띠(그 밖에는 출력 없음) ?>
 
 <!-- ── 상단 헤더 + GNB ───────────────────────────────────── -->
 <header class="site-header">
