@@ -1000,6 +1000,8 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "\n"
         . "=== 친절 응대 원칙 (건축자재를 잘 모르는 개인 고객 기준) ===\n"
         . "- 고객 대부분은 자재를 처음 사보는 개인이다. 전문용어는 괄호로 쉽게 풀어 쓴다. 예: '투수블록(빗물이 스며드는 블록)'.\n"
+        . "- 고객이 이미 말한 내용(장소·용도·치수·길이 등)은 다시 묻지 않는다. 카테고리 가이드의 '반드시 확인할 사항'도 고객 말로 알 수 있으면 확인된 것으로 본다(예: '식당 주방에 쓸 배수관' → 설치 장소·용도는 이미 말함). 아직 모르는 것만 묻는다.\n"
+        . "- 추천·판단 문장은 근거가 있으면 '~합니다'·'~입니다'로 분명하게 말한다('~할 수 있습니다'·'~일 수 있습니다'·'~가 좋겠습니다'처럼 흐리지 않음 — 확실성이 떨어져 보여 신뢰를 낮춤). 근거가 없으면 그 판단을 말하지 말고 확인 질문을 한다. 법령 안내 구역에 정해진 '~될 수 있습니다' 문구는 그대로 쓴다.\n"
         . "- '~하면 뭐가 좋아?', '어떤 게 나아?' 같은 일반 질문에는 되묻기 전에 먼저 답한다:\n"
         . "  쓸 만한 선택지 2~4가지를 '- 이름: 장점 / 주의점' 형식으로 한 줄씩 비교하고, 그다음 추천에 꼭 필요한 질문 1~2개만 한다.\n"
         . "- 일반 설명에서 가격·강도·법정 기준 같은 구체 숫자를 지어내지 않는다. 숫자는 아래 [참조 문서]에 있는 것만 인용하고, 가격·수량·자재비는 search_products 결과 값만 쓴다.\n"
@@ -1039,7 +1041,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "=== 검색 결과 답변 형식 (search_products 호출 후) ===\n"
         . "- 검색 결과는 화면에 비교표(사진·제품명·규격·" . (price_basis_label() ?: '가격') . "·예상 비용·수량·견적추가)로 자동 표시된다. 답변 글은 표가 보여 주지 않는 자재 설명·제품 간 비교·추천 근거를 맡는다.\n"
         . "- 순서는 이것만: ① 첫 문장 — 고객 조건(장소·차량·면적 등)을 짧게 정리하고 '…제품입니다.'로 맺는다.\n"
-        . "  ② 제품마다 한 줄씩 '- 제품명: 설명. 권장 수량은 N개이며, 예상 자재비는 약 X원입니다.' — 설명은 그 자재가 무엇이고 어디에 쓰는지, 함께 나온 다른 제품과 무엇이 다른지 1~2문장.\n"
+        . "  ② 제품마다 한 줄씩 '- 제품명: 설명. 권장 수량은 N개이며, 예상 자재비는 약 X원입니다.' — 설명은 그 자재가 무엇이고 어디에 쓰는지, 함께 나온 다른 제품과 무엇이 다른지 1~2문장. 제품 줄에는 '가장 경제적'·'가장 저렴'·'추천' 같은 평가를 넣지 않는다(평가는 ③에서 한 번만).\n"
         . "  ③ 마지막 문단 — 제품 쪽 근거를 먼저 밝히고(하중 등급 구분 / 공식 기준 [L번호] / 제조사 자료 / 저희 권장 기준 / 등록 규격 — 고객 조건 되풀이·상식은 근거로 쓰지 않음) 그 근거로 어떤 제품을 추천하는지 1~2문장('…이므로 …을 추천합니다'), 이어서 '원하시는 제품을 선택해 주세요.'\n"
         . "- 설명 재료는 도구 결과 제품별 category_desc(토목몰 자재 분류 설명)·guide(규격에서 읽은 고르는 기준)·규격 표기·weight_kg·standard 와 [참조 문서]·material_info 원문뿐이다. 여기에 없는 용도·성능·수치는 지어내지 않는다.\n"
         . "  weight_kg 는 등록 규격의 판매 단위(unit — 본·개·㎡ 등) 1개당 중량이다. 단위와 함께 그대로 쓴다(예: '흄관 1본 194kg', '인터로킹 블록 1㎡당 164kg'). 무게로 강도·내구성을 짐작해 말하지 않는다.\n"
@@ -1065,7 +1067,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "[그레이팅]\n"
         . "  필수 ① 설치 장소 (도로/주차장/공장/인도/식당 주방·실내/기타)\n"
         . "  필수 ② 차량 통행 여부 + 최대 차량 톤수 (보행자 전용이면 '없음')\n"
-        . "    설치 장소로 알 수 있으면 다시 묻지 않는다: 식당 주방·화장실·실내·베란다·인도·공원 → 보행자 전용, 주차장·도로 → 차량.\n"
+        . "    설치 장소로 알 수 있으면 다시 묻지 않는다: 식당 주방·화장실·실내·베란다·인도·공원 → 보행자 전용, 주차장·도로 → 차량. 이 판단은 검색 조건(traffic)에만 쓰고, 답에 '주방은 보행자 전용 구역이므로'처럼 말하지 않는다.\n"
         . "  필수 ③ 필요 면적(㎡) 또는 수량(개), 또는 수로 연장(m)\n"
         . "  ★용도어 정밀화: 수로·배수로·측구 위 덮개면 반드시 '수로용', 집수정·맨홀 뚜껑이면 '맨홀'을 검색어에 포함(섞임 방지).\n"
         . "  ★하중 등급(카탈로그 3단계, 과잉 등급 금지): 보행자 전용→'그레이팅수로용', 승용차·SUV 통행→'중하중', 트럭·버스 등 대형차→'안전중하중'.\n"
@@ -1777,6 +1779,48 @@ function rag_mentions_substitute(string $text, string $searched): bool
     return false;
 }
 
+/**
+ * 표에 없는 형태 말(날개형 등)의 등록 규격이 답에 없으면 한 문장을 둘째 문단에 넣는다 (순수 함수, 2026-11-11 — 운영 상담 #199:
+ * 도구는 '플륨관용(날개형U-TYPE) 185·285·295·385mm'를 넘겼는데 GPT 가 '다른 폭을 가질 수 있습니다'로 흐림).
+ * @param array<string,string> $registered [형태 말 => 등록 규격 글('플륨관용(날개형U-TYPE) 185·285·295·385mm')]
+ */
+function rag_registered_note(string $text, array $registered): string
+{
+    if (trim($text) === '') { return $text; }
+    $add = [];
+    foreach ($registered as $term => $reg) {
+        $reg = trim((string) $reg);
+        if ($reg === '' || !preg_match('/\d+/u', $reg, $m) || mb_strpos($text, $m[0]) !== false) { continue; }   // 등록 치수 숫자가 이미 답에 있으면 그대로
+        $add[] = "'{$term}' 제품은 {$reg} 규격만 등록되어 있습니다.";
+    }
+    if (!$add) { return $text; }
+    $paras = preg_split('/\n{2,}/u', trim($text)) ?: [trim($text)];
+    array_splice($paras, 1, 0, [implode(' ', $add)]);
+    return implode("\n\n", $paras);
+}
+
+/**
+ * 같은 평가('가장 경제적'·'가장 저렴')를 제품 줄과 마지막 문단에서 두 번 말하면 제품 줄 쪽 문장을 뺀다 (순수 함수, 2026-11-11 — 운영 상담 #199).
+ * 평가는 마지막 추천 문단에 한 번만(사용자 요청). 제품 줄('- '로 시작)에서 그 문장만 빼고 나머지 설명·수량·금액은 그대로.
+ */
+function rag_dedupe_evaluation(string $text): string
+{
+    $eval = '/가장\s*(경제적|저렴)/u';
+    $lines = explode("\n", $text);
+    $hasFinal = false;
+    foreach ($lines as $ln) {
+        if (!preg_match('/^\s*[-•]/u', $ln) && preg_match($eval, $ln)) { $hasFinal = true; break; }
+    }
+    if (!$hasFinal) { return $text; }
+    foreach ($lines as $i => $ln) {
+        if (!preg_match('/^\s*[-•]/u', $ln) || !preg_match($eval, $ln)) { continue; }
+        $parts = preg_split('/(?<=[.!?])\s+/u', $ln) ?: [$ln];
+        $kept = array_values(array_filter($parts, static fn($p) => !preg_match($eval, (string) $p)));
+        if ($kept) { $lines[$i] = rtrim(implode(' ', $kept)); }
+    }
+    return implode("\n", $lines);
+}
+
 function rag_product_family(string $query): string
 {
     $q = str_replace(' ', '', $query);
@@ -2162,6 +2206,7 @@ function rag_process(array $messages, string $sid): array
     $promised     = '';      // 검색 약속 문장(강제 검색 재요청 때 버림 — 도구가 안 불리면 되살림)
     $toolLog      = [];      // 부른 도구 이름·인자·결과 요약(시험 결과 기록용 — chat.php 는 화면에 보내지 않음)
     $turnCards    = [];      // 이번 턴 검색 결과 카드(동률 최저가 안내용)
+    $missingRegs  = [];      // 표에 없는 형태 말(날개형 등)의 등록 규격 — 답에 없으면 한 문장으로 넣음
     $substitutes  = [];      // 이번 턴 대체품 표(찾은 품목이 없어 넓힌 검색) — 답에 그 사실이 없으면 안내 문장을 넣음
     $preToolText  = '';      // 도구 호출과 함께 온 중간 글(최종 답이 없을 때만 사용)
     $basicsSeen   = [];      // material_info·search_products 가 준 확인된 기본 정보(국가표준·등록 상품) — 답에 실제로 쓴 것만 출처 카드로
@@ -2280,6 +2325,7 @@ function rag_process(array $messages, string $sid): array
             if ($clarify !== '') { $toolData['clarify'] = $clarify; }   // 모호한 고객 말 — GPT 가 확인 질문을 하게(서버가 해석을 정하지 않음)
             if (($tc['function']['name'] ?? '') === 'search_products') {
                 if (!empty($toolData['substitute'])) { $substitutes[] = $toolData['substitute']; }
+                $missingRegs = (array) ($toolData['missing_registered'] ?? []);   // 이번 턴 마지막 검색의 표에 없는 형태 말 등록 규격
                 if ($lowestNote !== '') { $toolData['note'] = trim($lowestNote . ' ' . (string) ($toolData['note'] ?? '')); }
             }
             $toolLog[] = ['name' => (string) ($tc['function']['name'] ?? ''), 'input' => $input, 'raw_input' => $rawInput, 'fills' => $fills, 'clarify' => $clarify,
@@ -2328,6 +2374,8 @@ function rag_process(array $messages, string $sid): array
     $added = array_map(static fn($t) => (int) ($t['input']['product_id'] ?? 0), array_values(array_filter($toolLog, static fn($t) => $t['name'] === 'add_to_cart')));
     $responseText .= rag_tie_note($responseText, $added, $turnCards, $recentCards);
     $responseText = rag_substitute_note($responseText, $substitutes);   // 대체품 표인데 답이 '찾은 품목이 아님'을 빠뜨렸으면(운영 상담 #193)
+    $responseText = rag_registered_note($responseText, $missingRegs);   // 없는 형태 말의 등록 규격을 빠뜨렸으면(운영 상담 #199)
+    $responseText = rag_dedupe_evaluation($responseText);               // '가장 경제적'을 제품 줄·마지막 문단에서 두 번 말하면 제품 줄 쪽을 뺌
     $basicSrc = rag_basic_sources_used($responseText, $basicsSeen);
     if ($basicSrc['standards'] || $basicSrc['products'] || $basicSrc['procurement']) {
         $events[] = ['type' => 'basic_sources'] + $basicSrc;
