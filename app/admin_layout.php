@@ -56,6 +56,7 @@ function render_admin_header(string $title, string $activeMenu = ''): void
     .adm-src-b{height:32px;padding:0 10px;border:1px solid #c5cad3;border-radius:6px;background:#fff;color:#444;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
     .adm-src-b:hover{border-color:#004EA1;color:#004EA1}
     .adm-src-b.on{background:#004EA1;border-color:#004EA1;color:#fff}
+    @media (max-width:640px){.adm-topbar{height:auto;min-height:52px;flex-wrap:wrap;gap:6px 10px;padding:8px 16px}}   /* 좁은 화면: '사이트 보기' 버튼이 다음 줄로(가로 넘침 방지) */
     .adm-content{padding:24px 28px;flex:1}
     /* 공통 컴포넌트 */
     .page-heading{font-size:20px;font-weight:800;color:#1a2035;margin-bottom:20px}
