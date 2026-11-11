@@ -902,6 +902,8 @@ function tool_search_products(array $input): string
     $missing = ai_missing_terms_registered(ai_missing_terms($query, $products));
     if ($missing) {
         $out['missing_terms'] = array_keys($missing);
+        // 말별 등록 규격('플륨관용(날개형U-TYPE) 185·285·295·385mm') — 답에 빠지면 rag_process 가 한 문장으로 넣는다(2026-11-11 운영 상담 #199)
+        $out['missing_registered'] = array_filter(array_map(static fn($w) => $w ? ai_format_widths($w, 2) : '', $missing));
         $extraNotes[] = ai_missing_terms_note($missing, $cond);
     }
     $notes = array_values(array_filter(array_merge([$note], $extraNotes), static fn($n) => is_string($n) && $n !== ''));
