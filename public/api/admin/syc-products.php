@@ -88,8 +88,8 @@ try {
         elseif ($status === 'inactive') { $where[] = 'p.is_active = 0'; }
         if ($catId) { $where[] = 'p.category_id = :cat_id'; $params['cat_id'] = $catId; }
         if ($q !== '') {
-            $where[] = '(p.name LIKE :q OR p.spec LIKE :q2 OR p.spec_code LIKE :q3 OR p.external_id LIKE :q4)';
-            $params['q'] = $params['q2'] = $params['q3'] = $params['q4'] = '%' . $q . '%';
+            $where[] = '(p.name LIKE :q OR p.spec LIKE :q2 OR p.spec_code LIKE :q3 OR p.external_id LIKE :q4 OR p.brand LIKE :q5)';
+            $params['q'] = $params['q2'] = $params['q3'] = $params['q4'] = $params['q5'] = '%' . $q . '%';
         }
         $w = $where ? implode(' AND ', $where) : '1=1';
         $cnt = $pdo->prepare("SELECT COUNT(*) FROM syc_products p WHERE {$w}");

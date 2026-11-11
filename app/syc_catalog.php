@@ -1,7 +1,9 @@
 <?php
 declare(strict_types=1);
 /**
- * 상용콘크리트(syc_*) 사이트 화면 공통 — 관리자 '상용콘크리트로 보기' 미리보기 전용(사용자 결정 2026-11-11)
+ * 상용콘크리트(syc_*) 사이트 화면 공통 — 관리자 확인용(사용자 결정 2026-11-11)
+ *   관리자는 사이트에서 케이토목 대신 상용콘크리트 제품만 본다(기본, 활성 상품만 — 고객이 보게 될 조건과 같게).
+ *   관리자 상단·사이트 띠의 '케이토목으로 보기'를 누르면 그 관리자 세션만 기존 화면. 관리자 외 사용자는 항상 케이토목.
  *
  * 책임: 미리보기 상태 판단, 상용콘크리트 카테고리·규격 이름표(syc_category_spec_axes)·상품 조회, 목록 필터·파세트,
  *       가격 계산 입력(syc_categories 마진율 → price_bundle 과 같은 식).
@@ -35,17 +37,17 @@ function syc_axis_column(string $key): ?string
     return $key === 'wire_no' ? 'spec_wire_no' : 'dim_' . $key;
 }
 
-/** 지금 요청이 상용콘크리트 미리보기인지: 관리자 + 세션 출처 syc. 그 밖의 사용자는 항상 false(기존 화면) */
+/** 지금 요청이 상용콘크리트 보기인지: 관리자이고 '케이토목으로 보기'를 고르지 않았을 때(관리자 기본). 그 밖의 사용자는 항상 false(기존 화면) */
 function syc_preview_on(): bool
 {
     $u = current_user();
-    return $u !== null && $u['role'] === 'admin' && ($_SESSION[SYC_SOURCE_SESSION_KEY] ?? '') === SYC_SOURCE_SYC;
+    return $u !== null && $u['role'] === 'admin' && ($_SESSION[SYC_SOURCE_SESSION_KEY] ?? SYC_SOURCE_SYC) !== SYC_SOURCE_KTOMOK;
 }
 
-/** 미리보기에서 비활성 상품도 보이기(기본: 보임 — 일괄 등록 상품은 비활성으로 들어오므로) */
+/** 비활성 상품도 보이기(기본: 안 보임 — 활성화한 상품이 고객 화면처럼 보이는지 확인. 띠에서 바꿀 수 있음) */
 function syc_preview_include_inactive(): bool
 {
-    return ($_SESSION['syc_preview_inactive'] ?? '1') === '1';
+    return ($_SESSION['syc_preview_inactive'] ?? '0') === '1';
 }
 
 /** 필요한 표가 DB 에 있는지(없으면 화면은 안내 문구) */
@@ -297,9 +299,15 @@ function syc_render_preview_bar(): void
         .syc-preview-in button{min-height:32px;padding:0 12px;border-radius:6px;border:1px solid rgba(255,255,255,.4);background:transparent;color:#fff;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
         .syc-preview-in button:hover{background:rgba(255,255,255,.12);color:#fff}
         .syc-preview-in .syc-pv-go{margin-left:auto}
+        /* 상용콘크리트 메뉴: 대분류 10칸이 한 줄에 넘치지 않게 여러 줄로(기존 메뉴 규칙은 그대로) */
+        .syc-mega{flex-wrap:wrap;justify-content:flex-start;row-gap:20px}
+        .syc-mega .mega-col{flex:0 0 228px;padding-right:20px}
+        .syc-mega .mega-col-title-link{white-space:normal}
+        .syc-mega .mega-3item{line-height:1.35;white-space:normal;align-items:flex-start;min-width:0;overflow-wrap:anywhere}
+        .syc-mega .mega-3item > img,.syc-mega .mega-3item > span{flex-shrink:0}
         </style>
         <div class="syc-preview-in">
-            <span><strong>상용콘크리트 미리보기</strong> · 관리자에게만 보입니다(고객 화면은 케이토목 그대로)</span>
+            <span><strong>관리자 화면 · 상용콘크리트 제품만</strong> · 관리자 외 사용자에게는 케이토목 제품이 그대로 보입니다</span>
             <form method="post" action="/api/admin/site-source.php">
                 <input type="hidden" name="source" value="<?= SYC_SOURCE_SYC ?>">
                 <input type="hidden" name="inactive" value="<?= $inc ? '0' : '1' ?>">
@@ -314,4 +322,32 @@ function syc_render_preview_bar(): void
         </div>
     </div>
     <?php
+}
+
+/** 관리자 상용콘크리트 보기의 상단 메뉴: 탭 하나('상용콘크리트 제품') + 펼침에 대분류(칸)·품목. 기존 메뉴와 같은 클래스(styles.css) */
+function syc_mega_tabs_html(): ?string
+{
+    if (!syc_tables_ready()) { return null; }
+    try {
+        $tree = syc_category_tree(syc_categories_all());
+        $thumbs = [];
+        $st = db()->query('SELECT category_id, MIN(image_thumb_file) AS t FROM syc_products WHERE image_thumb_file IS NOT NULL'
+                        . (syc_preview_include_inactive() ? '' : ' AND is_active = 1') . ' GROUP BY category_id');
+        foreach ($st as $r) { $thumbs[(int) $r['category_id']] = (string) $r['t']; }
+    } catch (\Throwable $e) {
+        return null;
+    }
+    $h = '<div class="mega-tabs"><div class="mega-item"><a href="/syc-products.php" class="mega-tab">상용콘크리트 제품</a>'
+       . '<div class="mega-panel"><div class="mega-panel-inner syc-mega">';
+    foreach ($tree as $gid => $g) {
+        $h .= '<div class="mega-col"><a href="/syc-products.php?category=' . (int) $gid . '" class="mega-col-title-link">' . e($g['group']['name']) . '</a><div class="mega-col-items">';
+        foreach ($g['items'] as $it) {
+            $t = $thumbs[(int) $it['id']] ?? '';
+            $h .= '<a href="/syc-products.php?category=' . (int) $it['id'] . '" class="mega-3item">'
+                . ($t !== '' ? '<img src="' . e($t) . '" alt="" class="mega-3item-img">' : '<span class="mega-3item-thumb"></span>')
+                . e($it['name']) . '</a>';
+        }
+        $h .= '</div></div>';
+    }
+    return $h . '</div></div></div></div>';
 }

@@ -74,6 +74,11 @@ render_admin_header('제품관리', 'products');
 .bk-done-t{font-size:17px;font-weight:800}
 .bk-done-s{font-size:13px;line-height:1.6;color:#555}
 .bk-hide{display:none!important}
+.syc-bulkbar{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;margin:-4px 0 12px;font-size:13px}
+.syc-bulkbar label{display:inline-flex;align-items:center;gap:6px;min-height:36px;cursor:pointer}
+.syc-bulkbar input,.syc-chk{width:18px;height:18px;cursor:pointer}
+.syc-sel{display:inline-flex;align-items:center;justify-content:center;min-width:36px;min-height:36px;cursor:pointer;vertical-align:middle}
+.syc-brand{display:block;font-size:11.5px;font-weight:500;color:#888;margin-top:2px}
 @media (max-width:640px){.bk-b,.bk-h,.bk-f{padding-left:16px;padding-right:16px}.bk-hint{flex-basis:100%}}
 </style>
 
@@ -120,6 +125,14 @@ render_admin_header('제품관리', 'products');
         <?php endforeach; ?>
     </select>
     <input type="text" id="filter-q" placeholder="제품명 검색" oninput="debounce()">
+</div>
+
+<!-- 상용콘크리트: 여러 상품 한 번에 활성/비활성 -->
+<div class="syc-bulkbar bk-hide" id="syc-bulkbar">
+    <label><input type="checkbox" id="syc-chk-all" onchange="sycCheckAll(this.checked)">이 페이지 전체 선택</label>
+    <span id="syc-sel-count" aria-live="polite">선택 0개</span>
+    <button type="button" class="btn-sm btn-sm-edit" onclick="sycBulk(1)" disabled id="syc-bulk-on">선택 활성으로</button>
+    <button type="button" class="btn-sm btn-sm-del" onclick="sycBulk(0)" disabled id="syc-bulk-off">선택 비활성으로</button>
 </div>
 
 <!-- 테이블 -->
@@ -278,6 +291,7 @@ async function sourceChanged() {
     document.getElementById('filter-cat').classList.toggle('bk-hide', syc);
     document.getElementById('filter-syc-cat').classList.toggle('bk-hide', !syc);
     document.getElementById('btn-create').classList.toggle('bk-hide', syc);   // 상용콘크리트는 일괄 등록으로만 넣음
+    document.getElementById('syc-bulkbar').classList.toggle('bk-hide', !syc);
     if (syc && !sycCatsLoaded) {
         const d = await fetch(`${SYC_API}?action=categories`).then(r => r.json()).catch(() => ({ok:false}));
         if (d.ok) {
@@ -302,7 +316,7 @@ async function load(page) {
     // 오류는 200 + ok:false + error 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
     const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok) { alert(d.error); return; }
-    if (syc) renderSyc(d.products); else render(d.products);
+    if (syc) { renderSyc(d.products); sycSelCount(); } else render(d.products);
     renderPaging(d.total, d.limit, page);
 }
 
@@ -314,7 +328,7 @@ function renderSyc(rows) {
         const active = p.is_active == 1;
         return `<tr>
             <td>${p.image_thumb_file ? `<img src="${x(p.image_thumb_file)}" class="prod-img-thumb" alt="">` : '<span class="prod-no-img"></span>'}</td>
-            <td style="font-weight:600;color:#1a2035">${x(p.name)}</td>
+            <td style="font-weight:600;color:#1a2035">${x(p.name)}${p.brand ? `<span class="syc-brand">${x(p.brand)}</span>` : ''}</td>
             <td style="font-size:12px;color:#888">${x(p.cat_name)}</td>
             <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${x(p.spec)}">${x(p.spec || '-')}</td>
             <td style="font-size:13px">${+p.price_b2b ? Number(p.price_b2b).toLocaleString()+'원' : '-'}</td>
@@ -322,14 +336,34 @@ function renderSyc(rows) {
             <td style="font-size:12px">-</td>
             <td><span class="badge ${active?'badge-on':'badge-off'}">${active?'활성':'비활성'}</span></td>
             <td style="white-space:nowrap">
+                <label class="syc-sel"><input type="checkbox" class="syc-chk" value="${+p.id}" aria-label="${x(p.name)} ${x(p.spec)} 선택" onchange="sycSelCount()"></label>
                 <button class="btn-sm ${active?'btn-sm-del':'btn-sm-edit'}" onclick="sycToggle(${+p.id}, ${active?0:1})">${active?'비활성으로':'활성으로'}</button>
             </td>
         </tr>`;
     }).join('');
 }
 
+function sycSelCount() {
+    const n = document.querySelectorAll('.syc-chk:checked').length;
+    document.getElementById('syc-sel-count').textContent = `선택 ${n}개`;
+    document.getElementById('syc-bulk-on').disabled = document.getElementById('syc-bulk-off').disabled = n === 0;
+    const all = document.querySelectorAll('.syc-chk');
+    document.getElementById('syc-chk-all').checked = all.length > 0 && n === all.length;
+}
+function sycCheckAll(on) {
+    document.querySelectorAll('.syc-chk').forEach(c => { c.checked = on; });
+    sycSelCount();
+}
+async function sycBulk(val) {
+    const ids = [...document.querySelectorAll('.syc-chk:checked')].map(c => +c.value);
+    if (!ids.length) return;
+    if (!confirm(`선택한 ${ids.length}개를 ${val ? '활성' : '비활성'}으로 바꿀까요?`)) return;
+    await sycToggle(ids, val);
+}
+
 async function sycToggle(id, val) {
-    const r = await fetch(SYC_API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'set_active', ids:[id], is_active:val})});
+    const ids = Array.isArray(id) ? id : [id];
+    const r = await fetch(SYC_API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'set_active', ids, is_active:val})});
     const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok) { alert(d.error); return; }
     load(curPage);

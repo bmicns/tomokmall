@@ -4,6 +4,10 @@ declare(strict_types=1);
 require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/auth.php';
 require __DIR__ . '/../app/layout.php';
+require_once __DIR__ . '/../app/syc_catalog.php';
+
+// 관리자 상용콘크리트 보기(관리자 기본): 홈 대신 상용콘크리트 제품 목록 — 관리자 외 사용자는 기존 홈 그대로
+if (syc_preview_on()) { redirect('/syc-products.php'); }
 
 $isCorporate = is_corporate_member();
 $quickHref   = $isCorporate ? '/estimate-quick.php' : '/login.php?redirect=' . urlencode('/estimate-quick.php');

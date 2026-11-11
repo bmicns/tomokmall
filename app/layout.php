@@ -126,6 +126,8 @@ function render_header(string $title, string $mode = 'normal'): void
     </div>
     <?php
     $megaTabsHtml = ob_get_clean();
+    require_once __DIR__ . '/syc_catalog.php';
+    if (syc_preview_on()) { $megaTabsHtml = syc_mega_tabs_html() ?? $megaTabsHtml; }   // 관리자 상용콘크리트 보기: 상용콘크리트 카테고리 메뉴
     ?>
 <!doctype html>
 <html lang="ko">
