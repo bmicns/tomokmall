@@ -314,8 +314,8 @@ render_header($pageTitle);
           </ul>
         </nav>
         <?php endif; ?>
-        <?php // 상황별 자재 목록의 비로그인·개인회원만 필터 펼치기/접기('자재 종류' 패널과 필터가 함께 있어 길어짐 — 사용자 결정 2026-11-06) ?>
-        <?php if ($showFilters) { render_product_filters($filters, $query, $categoryId, $sort, $facets, $inStock, $workType ? ['work' => $workType['key']] : [], $workType !== null && in_array(price_tier(), ['guest', 'customer'], true)); } ?>
+        <?php // 상황별·주요 자재 목록도 필터를 접지 않고 항상 펼침(사용자 결정 2026-11-12 — 2026-11-06 의 비로그인·개인회원 접기 패널 대신). 모바일은 다른 목록과 같은 규칙 ?>
+        <?php if ($showFilters) { render_product_filters($filters, $query, $categoryId, $sort, $facets, $inStock, $workType ? ['work' => $workType['key']] : [], false); } ?>
       </aside>
     <?php endif; ?>
     <div class="pt-list-main">
