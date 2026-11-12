@@ -234,17 +234,18 @@ if ($query) {
     ];
     // 상용콘크리트로 전환돼 있으면(app/syc_publish.php) 상용콘크리트에 있는 자재로 — 같은 카드 모양·이미지(사용자 요청 2026-11-12).
     // 벽돌·돌망태·그레이팅·PE이중벽관은 상용콘크리트에 상품이 없어(검색 0건·관 없음) 경계석·맨홀·집수정·맨홀 뚜껑·측구수로관으로 바꿈(이미지는 기존 것을 내용에 맞게).
-    // cat = 반영된 카테고리 slug(그 카테고리 목록), q = 검색어(여러 품목에 걸친 자재). 카테고리가 없으면 이름 검색
+    // cat = 반영된 카테고리 slug. 규격이 칸으로 나뉘어 보이도록 이름표가 같은 품목(대표 품목 하나 또는 이름표가 모두 같은 중분류)으로 연결
+    //   (2026-11-12 사용자 결정 — 여러 품목이 섞이면 목록이 규격 원문 한 칸). 카테고리가 없으면 이름 검색
     if (syc_catalog_mode() === 'syc') {
         $matItems = [
-            ['name' => '플륨관',   'q' => '플륨',        'desc' => "물을 흘려보내는\n콘크리트 수로", 'img' => '/assets/images/home-플륨관.png'],
-            ['name' => '수로관',   'q' => '수로관',      'desc' => "배수로를\n만드는 자재",          'img' => '/assets/images/home-수로관.png'],
-            ['name' => '옹벽블록', 'cat' => 'syc-g11',   'desc' => "흙을 지지하는\n블록",             'img' => '/assets/images/home-옹벽블록.png'],
-            ['name' => '보도블록', 'cat' => 'syc-g8',    'desc' => '바닥 · 조경 시공',                'img' => '/assets/images/home-블록.png'],
-            ['name' => '경계석',   'cat' => 'syc-g12',   'desc' => "차도·보도·녹지\n경계 마감",       'img' => '/assets/images/home-경계석.png'],
-            ['name' => '맨홀·집수정', 'cat' => 'syc-g5', 'desc' => "빗물을 모으고\n관을 잇는 구조물",  'img' => '/assets/images/home-집수정.png'],
-            ['name' => '맨홀 뚜껑', 'cat' => 'syc-g7',   'desc' => "맨홀·전기통신\n주철 덮개",         'img' => '/assets/images/home-맨홀.png'],
-            ['name' => '측구수로관', 'cat' => 'syc-g1',  'desc' => "그레이팅을 얹는\n길가 배수로",      'img' => '/assets/images/home-그레이팅.png'],
+            ['name' => '플륨관',     'cat' => 'syc-s12', 'desc' => "물을 흘려보내는\n콘크리트 수로",   'img' => '/assets/images/home-플륨관.png'],
+            ['name' => '측구수로관', 'cat' => 'syc-s1',  'desc' => "그레이팅을 얹는\n길가 배수로",     'img' => '/assets/images/home-수로관.png'],
+            ['name' => '옹벽블록',   'cat' => 'syc-g11', 'desc' => "흙을 지지하는\n블록",              'img' => '/assets/images/home-옹벽블록.png'],
+            ['name' => '보도블록',   'cat' => 'syc-g8',  'desc' => '바닥 · 조경 시공',                 'img' => '/assets/images/home-블록.png'],
+            ['name' => '경계석',     'cat' => 'syc-s72', 'desc' => "차도·보도\n경계 마감",            'img' => '/assets/images/home-경계석.png'],
+            ['name' => '사각맨홀',   'cat' => 'syc-s24', 'desc' => "빗물을 모으는\n집수정용 맨홀",    'img' => '/assets/images/home-집수정.png'],
+            ['name' => '맨홀 뚜껑',  'cat' => 'syc-s85', 'desc' => "원형 맨홀\n주철 덮개",            'img' => '/assets/images/home-맨홀.png'],
+            ['name' => '트렌치',     'cat' => 'syc-s18', 'desc' => "덮개 얹는\n가로 배수로",          'img' => '/assets/images/home-그레이팅.png'],
         ];
         try {
             $slugs = array_values(array_filter(array_column($matItems, 'cat')));
