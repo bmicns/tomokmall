@@ -328,7 +328,7 @@ function processEvent(event, content) {
       renderLegalSources(event.sources, content);
       break;
     case 'material_sources':
-      // 제조사 자료 출처 박스는 표시하지 않음(사용자 결정 2026-11-10 — 답변 글과 추천표 사이 박스 제거). 답변 글의 'OO 자료에 따르면'은 그대로
+      renderMaterialSources(event.sources, content);   // 2026-11-12: 답 글에는 '~에 따르면'을 쓰지 않고 출처는 한 줄 + 펼치기로(큰 박스는 2026-11-10 제거)
       break;
     case 'basic_sources':
       renderBasicSources(event, content);
@@ -343,6 +343,30 @@ function renderSpecUnavailable(event, container) {
   wrap.className = 'spec-unavailable';
   wrap.innerHTML = `<div class="spec-unavailable-title">두께 ${mm}mm 포장 블록 — 현재 등록된 적합 상품이 없습니다</div>
     <div class="spec-unavailable-body">${escHtml(event.item || '')} · 기준보다 얇은 제품은 대체로 추천하지 않습니다.<br>발주처 설계도서·시방서의 블록 규격(두께·크기·수량)을 확인해 주세요. 해당 규격은 별도 견적이 필요합니다.</div>`;
+  container.appendChild(wrap);
+}
+
+/** material_sources 이벤트 → 답 아래 한 줄 '참고 자료: 제조사 제품 자료 · 출처 보기'(누르면 제조사·원문 목록). 판매 상품·가격 아님 */
+function renderMaterialSources(sources, container) {
+  if (!sources || sources.length === 0) return;
+  // 같은 제조사는 한 줄로 묶고 원문 링크를 이어 붙인다(원문이 여러 개면 '원문 1·2')
+  const byMaker = new Map();
+  for (const s of sources.slice(0, 8)) {
+    const m = s.maker || '';
+    if (!byMaker.has(m)) byMaker.set(m, { links: [], pages: [] });
+    const g = byMaker.get(m);
+    const url = /^https?:\/\//.test(s.url || '') ? s.url : '';
+    const cat = /^catalog:.*#p(\d+)$/.exec(s.url || '');   // 허락받은 제조사 카탈로그 — 링크 없이 쪽만
+    if (url && !g.links.includes(url)) g.links.push(url);
+    if (cat && !g.pages.includes(cat[1])) g.pages.push(cat[1]);
+  }
+  const items = [...byMaker.entries()].slice(0, 5).map(([maker, g]) => {
+    const links = g.links.map((u, i) => `<a href="${escHtml(u)}" target="_blank" rel="noopener noreferrer">원문 보기${g.links.length > 1 ? ' ' + (i + 1) : ''}</a>`).join(' · ');
+    return `<li>${escHtml(maker)}${links ? ' · ' + links : ''}${g.pages.length ? ' · 제조사 카탈로그 ' + g.pages.map(escHtml).join('·') + '쪽' : ''}</li>`;
+  }).join('');
+  const wrap = document.createElement('details');
+  wrap.className = 'ref-sources';
+  wrap.innerHTML = `<summary><span class="ref-sources-label"><svg class="ref-sources-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M2 5.5C4.5 4 8 4 12 6c4-2 7.5-2 10-.5V19c-2.5-1.5-6-1.5-10 .5-4-2-7.5-2-10-.5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 6v13.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>참고 자료: 제조사 제품 자료</span><span class="ref-sources-btn">출처 보기<svg class="ref-sources-chev" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></summary><ul>${items}</ul>`;
   container.appendChild(wrap);
 }
 

@@ -152,7 +152,7 @@ ok('보행자 전용: 모두 폭 W 500mm(이름표로 확인) 보행자용 그�
 $costs = array_column($r['products'] ?? [], 'est_cost');
 ok('표는 예상 자재비 낮은 순(첫 줄이 최저)', $costs && !in_array(null, $costs, true) && $costs === array_values(call_user_func(static function ($c) { sort($c); return $c; }, $costs)));
 ok('최저 예상 자재비가 수정 전(안전중하중 1,367,000원)보다 낮음 — 500×500 은 길이 L 500 으로 20개 계산(738,000원)', $costs && min($costs) === 738000);
-ok('안내: 같은 폭 보행자용으로 바꾼 사실·뺀 대형차용', str_contains((string) ($r['note'] ?? ''), '같은 폭의 보행자용 그레이팅') && in_array('안전중하중그레이팅수로용', $r['over_spec_excluded'] ?? [], true) && ($r['traffic'] ?? '') === 'pedestrian');
+ok('안내: 같은 폭 보행자용으로 바꾼 사실·뺀 대형차용', str_contains((string) ($r['note'] ?? ''), "같은 폭의 보행자용 '그레이팅' 제품") && in_array('안전중하중그레이팅수로용', $r['over_spec_excluded'] ?? [], true) && ($r['traffic'] ?? '') === 'pedestrian');
 $shown = array_column($r['products'] ?? [], 'id');
 $r2 = search($base + ['traffic' => 'pedestrian', 'exclude_ids' => $shown]);
 ok("'다른 거' (직전 표 제외): 같은 표를 다시 보여 주지 않음(표 없음)", empty($r2['products']) && empty($r2['_sse']));

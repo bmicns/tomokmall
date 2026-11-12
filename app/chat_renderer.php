@@ -259,6 +259,19 @@ render_header('AI 자재 상담', 'chat');
   .legal-badge { padding: 1px 7px; border: 1px solid #F0C48A; background: #FFF4E5; color: #7A3E00; font-size: 11px; font-weight: 700; }
   .legal-source-meta, .legal-source-cond { color: var(--color-text-secondary); word-break: keep-all; }
   .legal-source-meta a { color: var(--color-primary); text-decoration: underline; }
+  /* 제조사 자료 출처 — 답 아래 한 줄 + 펼치기(2026-11-12). 답 글에는 '~에 따르면'을 쓰지 않음 */
+  .ref-sources { margin-top: 10px; font-size: 13px; color: var(--color-text-secondary); }
+  .ref-sources summary { list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; }
+  .ref-sources summary::-webkit-details-marker { display: none; }
+  .ref-sources-label { display: inline-flex; align-items: center; gap: 6px; }
+  .ref-sources-icon { flex: none; }
+  .ref-sources-btn { display: inline-flex; align-items: center; gap: 4px; padding: 5px 14px; border: 1px solid var(--color-border); border-radius: 999px; background: #fff; color: var(--color-text-primary); font-size: 13px; }
+  .ref-sources summary:hover .ref-sources-btn, .ref-sources summary:focus-visible .ref-sources-btn { border-color: var(--color-text-secondary); }
+  .ref-sources summary:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+  .ref-sources-chev { transition: transform .15s; }
+  .ref-sources[open] .ref-sources-chev { transform: rotate(180deg); }
+  .ref-sources ul { list-style: none; margin: 2px 0 0; padding: 8px 12px; border: 1px solid var(--color-border); background: var(--color-surface); display: flex; flex-direction: column; gap: 6px; font-size: 12px; line-height: 1.55; }
+  .ref-sources a { color: var(--color-primary); text-decoration: underline; }
   .compare-price.is-state { color: var(--color-text-secondary); font-weight: 500; }
   .compare-state-note { font-size: 11px; color: var(--color-danger); margin-top: 3px; }
   .compare-dim-note { font-size: 11px; color: #8A5A00; margin-top: 3px; line-height: 1.4; }   /* 폭·길이를 규격 표기로 확인하지 못한 제품(AI 검색 dim_note)·차량 통행 하중 확인 필요(load_note) */
