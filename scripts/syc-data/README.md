@@ -17,3 +17,9 @@ python3 -I scripts/syc-data/build_images.py data/syccrt/products.json /tmp/syc-p
 
 - `data/syccrt/syc-products-bulk-test-raw.xlsx` = **예전 업체 표기 원본**(자동 정리 전). 자동 정리(app/syc_normalize.php) 결과가 products.json 과 같아야 한다 — `tests/functions.test.php` 가 대조.
 - 테스트 데이터를 고칠 때: products.json 을 고치고 1)·2) 다시 실행 → `php tests/functions.test.php`.
+
+## 표준 분류 매핑 대조표(2026-11-12)
+
+`build_category_map.py <입력 폴더> <엑셀> <md>` — 상용콘크리트 품목 → 표준 분류(categories) 추천표. 판단(추천 표준 분류·신뢰도·근거)은 스크립트 안 `M` 에 있다.
+입력 폴더의 JSON 은 운영 읽기 전용 조회 결과(`scripts/tomok db query`): `std_cats.json`(categories id·parent·name·slug·상품 수),
+`std_axes.json`(category_spec_axes 분류별 칸), `syc_items.json`(syc_categories 품목·상품 수·상품명·목록 칸). 결과: `data/mapping/syc-std-category-map.xlsx`, `docs/02-design/syc-std-category-map.md`.
