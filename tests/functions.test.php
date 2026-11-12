@@ -1372,6 +1372,14 @@ $withProducts = array_count_values(array_column($pj['rows'] ?? [], 'category_slu
 $wtBad = [];
 foreach (WORK_TYPE_SYC_MATERIALS as $k => $mats) { foreach ($mats as [$slug]) { if (empty($withProducts[$slug])) { $wtBad[] = "{$k}:{$slug}"; } } }
 eq('상황별 자재(상용콘크리트): 설정 규칙 통과·모든 품목에 상품 있음·12개 작업 모두', [work_types_syc_validate(work_types(), WORK_TYPE_SYC_MATERIALS), $wtBad, count(WORK_TYPE_SYC_MATERIALS)], [[], [], 12]);
+// 메인 '주요 자재' 묶음(2026-11-12): 카드 8개, 키가 작업 유형과 겹치지 않음, 품목은 상품 있는 품목 또는 중분류(syc-g), 묶음 안 중복 없음
+$mmBad = [];
+foreach (MAIN_MATERIAL_GROUPS as $g) {
+    $sl = array_column($g['materials'], 0);
+    if (count($sl) !== count(array_unique($sl))) { $mmBad[] = $g['key'] . ':중복'; }
+    foreach ($sl as $x) { if (!str_starts_with($x, 'syc-g') && empty($withProducts[$x])) { $mmBad[] = $g['key'] . ':' . $x; } }
+}
+eq('주요 자재 묶음: 8개·키 고유(작업 유형과 안 겹침)·품목 유효', [count(MAIN_MATERIAL_GROUPS), count(array_unique(array_merge(array_column(MAIN_MATERIAL_GROUPS, 'key'), array_column(work_types(), 'key')))) === count(MAIN_MATERIAL_GROUPS) + count(work_types()), $mmBad], [8, true, []]);
 // 목록 표 나누기: 값이 있는 목록 칸 구성이 같은 상품끼리(유공 침투측구수로관 W·H·L / 침투집수정 W·H·V)
 $axG = [['axis_key' => 'w', 'label' => '폭'], ['axis_key' => 'h', 'label' => '높이'], ['axis_key' => 'l', 'label' => '길이'], ['axis_key' => 'v', 'label' => '세로']];
 $gr = syc_list_groups([['name' => '수로관', 'dim_w' => 300, 'dim_h' => 300, 'dim_l' => 2000], ['name' => '집수정', 'dim_w' => 600, 'dim_h' => 850, 'dim_v' => 600], ['name' => '수로관', 'dim_w' => 400, 'dim_h' => 400, 'dim_l' => 2000]], $axG);
