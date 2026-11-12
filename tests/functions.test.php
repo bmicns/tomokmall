@@ -1372,6 +1372,28 @@ echo "[운영 테스트 지적 (2026-11-11) — '(더 비쌈)' 제거·조달 �
 eq("대체품 안내에 '(더 비쌈)' 없음", str_contains(ai_broadened_note('그레이팅 수로용', '폭 500mm', 'pedestrian', [['name' => '안전중하중그레이팅수로용']]), '더 비쌈'), false);
 eq("조달 요약·답변 규칙에 조달몰·나라장터 쇼핑몰 없음, '조달청에 따르면'", [str_contains(AI_PROCUREMENT_NOTE, "'조달청에 따르면'으로 시작"), str_contains(ai_procurement_summary('흄관')[0]['summary'] ?? '', '조달몰')], [true, false]);
 
+echo "[운영 #224·#226·#228·#233·#235·#237 (2026-11-12) — 검색 강제·면적 질문·법령 카드·'배수로' 오인]\n";
+$ec = static fn(string $t): array => rag_explicit_conditions([['role' => 'user', 'content' => $t]]);
+eq("'폭 300 배수로'의 '배'를 배수로 읽지 않음(폭 300, 90000 아님)", [$ec('마당에 폭 300 배수로 20m 덮개 필요해요')['cond']['width_mm'] ?? null, $ec('폭 300 배수관 덮개')['cond']['width_mm'] ?? null], [300.0, 300.0]);
+eq('검색 강제 판정: 카탈로그 형태 말(직전 표 있음)·폭+품목은 강제, 일반 질문·과한(검색 금지)은 아님', [
+    rag_must_search('날개형은 안돼??', $ec('날개형은 안돼??'), ['날개형'], true, '그레이팅 수로용', false),
+    rag_must_search('마당에 폭 300 배수로 20m 덮개 필요해요', $ec('마당에 폭 300 배수로 20m 덮개 필요해요'), [], false, '', false),
+    rag_must_search('배송은 언제 돼요?', $ec('배송은 언제 돼요?'), [], true, '그레이팅', false),
+    rag_must_search('날개형은 안돼??', $ec('날개형은 안돼??'), ['날개형'], true, '그레이팅', true)], [true, true, false, false]);
+eq('길이로 까는 자재의 면적 질문 → 그 자재 치수(블록은 그대로)', [
+    rag_fix_area_question('필요한 배수관 뚜껑의 면적(㎡) 또는 수량을 알려주시면 추천해 드리겠습니다.', 'grating'),
+    rag_fix_area_question('필요한 면적(㎡)이나 수량(개)을 말씀해 주시면 안내해 드리겠습니다.', 'pe_pipe'),
+    rag_fix_area_question('면적(㎡)을 알려 주세요.', 'pavement')],
+    ['필요한 배수관 뚜껑의 폭(mm)과 설치 길이(m)를 알려주시면 추천해 드리겠습니다.', '관경(mm)과 총 길이(m)를 말씀해 주시면 안내해 드리겠습니다.', '면적(㎡)을 알려 주세요.']);
+$ld = [['id' => 57, 'source_name' => '보행안전 및 편의증진에 관한 법률 시행규칙 (행정안전부령 제344호)', 'content' => '자동차 진입억제용 말뚝은 … 간격은 1.5미터 안팎(1.5m)으로 한다'],
+       ['id' => 56, 'source_name' => '보행안전 및 편의증진에 관한 법률 시행규칙 (행정안전부령 제344호)', 'content' => '보행자길에 설치하는 시설'],
+       ['id' => 68, 'source_name' => '보도 설치 및 관리 지침 (국토교통부예규 제321호)', 'content' => '구분 Ⅱ … 표층 80mm']];
+eq('[L번호] 없이 쓴 근거: 수치가 원문에 있는 근거만, 없으면 이름이 나온 근거, 법령을 쓰지 않으면 없음', [
+    rag_legal_implicit_ids('보행안전법 시행규칙 별표 1 기준 간격 1.5m 내외로 설치합니다.', $ld),
+    rag_legal_implicit_ids('보행안전법 시행규칙에서 기준을 정하고 있습니다.', $ld),
+    rag_legal_implicit_ids('포장 블록 두께는 80mm 이상을 권합니다.', $ld),
+    rag_legal_implicit_ids('스테인리스 볼라드가 있습니다.', $ld)], [[57], [57, 56], [68], []]);
+
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

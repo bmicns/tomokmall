@@ -161,6 +161,56 @@ try {
     }
     ok("프롬프트: 답 글에 제조사 이름을 출처로 붙이지 않음(하단 자동 표시)", str_contains($sys8, "답 글에 'A산업 자료에 따르면'처럼 제조사 이름을 출처로 붙이지 않는다") && !str_contains($sys8, "'maker 자료에 따르면'으로."));
 
+    echo "[228 재현(2026-11-12) — '날개형은 안돼??'에 GPT 가 검색 없이 답함 → 서버가 검색 1회 강제]\n";
+    $clean();
+    $messages = [];
+    $turn('식당 주방에 배수관 뚜껑이 필요해요', [$say('폭과 설치 길이를 알려 주세요.')]);
+    $turn('10미터길이에 50센치 폭이야', [$call($s193, 31), $say('표입니다.')]);
+    [$r9, $q9] = $turn('날개형은 안돼??', [$say('날개형 그레이팅은 찾을 수 없었으므로, 특수 제작을 고려하셔야 할 것 같습니다.'),
+        $call(['query' => '날개형 그레이팅', 'width_mm' => 500, 'length_m' => 10, 'traffic' => 'pedestrian'], 32), $say('날개형 확인 결과입니다.')]);
+    $t9 = (string) ($r9['text'] ?? '');
+    ok('검색 없이 끝난 답을 버리고 search_products 를 강제(tool_choice)', ($q9[1]['tool_choice']['function']['name'] ?? '') === 'search_products' && in_array('search_products', array_column($r9['tools'] ?? [], 'name'), true));
+    ok("최종 답에 '특수 제작' 없음 + 날개형 등록 규격(185~385mm) 안내", !str_contains($t9, '특수 제작') && str_contains($t9, '185·285·295·385mm'), $t9);
+
+    echo "[233 재현 — '마당에 폭 300 배수로 20m 덮개'에 검색 없이 '없습니다' → 검색 강제]\n";
+    $clean();
+    $messages = [];
+    [$r10, $q10] = $turn('마당에 폭 300 배수로 20m 덮개 필요해요. 차는 안 다녀요', [$say("말씀하신 폭 300mm의 '그레이팅 수로용' 제품은 현재 없습니다. 다른 폭을 고려하실 수 있는지요?"),
+        $call(['query' => '그레이팅 수로용', 'width_mm' => 300, 'length_m' => 20, 'traffic' => 'pedestrian'], 33), $say('폭 300mm 표입니다.')]);
+    $c10 = $cards($r10);
+    ok('검색을 강제해 폭 300 보행자용 표가 나옴(' . implode(', ', array_column($c10, 'name')) . ')', ($q10[1]['tool_choice']['function']['name'] ?? '') === 'search_products' && $c10 !== [] && !array_filter($c10, static fn($c) => !str_starts_with((string) ($c['size'] ?? ''), '폭 W 300mm')));
+    ok("검색 전에 한 '현재 없습니다' 답은 버림", !str_contains((string) ($r10['text'] ?? ''), '다른 폭을 고려하실 수 있는지요'));
+    $keep = $messages;
+    [$r10b, $q10b] = $turn('배송은 언제 돼요?', [$say('배송 일정은 견적 요청 후 담당자가 직접 확인하여 연락드립니다.')]);
+    $messages = $keep;
+    ok('검색이 필요 없는 말(배송 문의)에는 검색을 강제하지 않음', count($q10b) === 1 && !in_array('search_products', array_column($r10b['tools'] ?? [], 'name'), true));
+
+    echo "[224·226 재현 — 그레이팅에 면적(㎡)을 물음 → 폭·설치 길이로]\n";
+    $clean();
+    $messages = [];
+    [$r11, $q11] = $turn('식당 주방에 배수관 뚜껑이 필요해요', [$say('필요한 배수관 뚜껑의 면적(㎡) 또는 수량을 알려주시면 적절한 제품을 추천해 드리겠습니다.')]);
+    $t11 = (string) ($r11['text'] ?? '');
+    $sys11 = (string) ($q11[0]['messages'][0]['content'] ?? '');
+    ok('그레이팅 답의 면적 질문을 폭(mm)·설치 길이(m) 질문으로', !str_contains($t11, '면적') && str_contains($t11, '폭(mm)과 설치 길이(m)를 알려주시면'), $t11);
+    ok('프롬프트: 그레이팅 필수 ③ = 폭·설치 길이, 길이로 까는 자재에 면적을 묻지 않음', str_contains($sys11, '필수 ③ 덮을 배수로의 폭(mm)과 설치 길이(수로 연장, m)') && str_contains($sys11, '길이로 까는 자재에 면적을 묻지 않는다'));
+
+    echo "[235·237 재현 — [L번호] 없이 법령 수치·이름을 씀 → 법령 카드]\n";
+    $legalCard = static fn(array $res): array => array_merge(...array_map(static fn($e) => array_column($e['sources'] ?? [], 'ref'), array_values(array_filter($res['events'] ?? [], static fn($e) => ($e['type'] ?? '') === 'legal_sources'))) ?: [[]]);
+    $clean();
+    $messages = [];
+    [$r12] = $turn('가게 앞 인도를 차가 가로질러 들어오는데 인도 블록 두께는요?', [$say('가게 앞 인도가 차량 진입 구역이라면 포장 블록 두께는 80mm 이상을 권합니다. 인도 면적을 알려 주시겠어요?')]);
+    $lc12 = $legalCard($r12);
+    ok('#235: 80mm(보도 지침 원문 수치) → 보도 설치 및 관리 지침 카드', $lc12 !== [] && (bool) array_filter($lc12, static fn($r) => str_contains($r, '4-1')), json_encode($lc12, JSON_UNESCAPED_UNICODE));
+    $clean();
+    $messages = [];
+    [$r13] = $turn('볼라드 간격은 얼마로 해야 해요?', [$say('보행안전법 시행규칙 별표 1 기준에 따르면 보행자길의 차량 진입억제용 말뚝(볼라드)은 간격 1.5m 내외로 설치하도록 하고 있습니다.')]);
+    $lc13 = $legalCard($r13);
+    ok('#237: 법령 이름·1.5m → [별표 1] 제10호 카드만(같은 법 제5조는 붙지 않음)', $lc13 === ['[별표 1] 제10호 (자동차 진입억제용 말뚝)'], json_encode($lc13, JSON_UNESCAPED_UNICODE));
+    $clean();
+    $messages = [];
+    [$r14] = $turn('볼라드 추천해줘', [$say('스테인리스 볼라드와 우레탄 볼라드가 있습니다. 설치 개수를 알려 주세요.')]);
+    ok('법령을 쓰지 않은 답(볼라드 추천)에는 카드 없음', $legalCard($r14) === []);
+
     echo "[196 재현 — '식당 주방에 쓸 배수관 추천해줘' 프롬프트 규칙]\n";
     $clean();
     $messages = [];

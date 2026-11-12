@@ -1005,6 +1005,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "- '~하면 뭐가 좋아?', '어떤 게 나아?' 같은 일반 질문에는 되묻기 전에 먼저 답한다:\n"
         . "  쓸 만한 선택지 2~4가지를 '- 이름: 장점 / 주의점' 형식으로 한 줄씩 비교하고, 그다음 추천에 꼭 필요한 질문 1~2개만 한다.\n"
         . "- 일반 설명에서 가격·강도·법정 기준 같은 구체 숫자를 지어내지 않는다. 숫자는 아래 [참조 문서]에 있는 것만 인용하고, 가격·수량·자재비는 search_products 결과 값만 쓴다.\n"
+        . "- 치수는 자재에 맞게 묻는다: 그레이팅·수로관·측구·배수관처럼 길이로 까는 자재는 폭(또는 관경, mm)과 설치 길이(m), 보도블록·포장재처럼 면으로 까는 자재만 면적(㎡). 길이로 까는 자재에 면적을 묻지 않는다.\n"
         . "- 면적을 모르면 '가로 몇 m × 세로 몇 m인지' 물어보고, 답을 받으면 직접 곱해 area_m2로 넘긴다(예: 5m×4m → 20). 대략값도 괜찮다고 안내한다.\n"
         . "- 자재 종류의 차이·특징·물빠짐·주의사항·KS(인증) 질문과, 사용 조건(유모차·휠체어·미끄럼·오염·차량 통행 등)에 맞는 자재를 고르는 질문에는 material_info 를 먼저 호출하고, 돌려준 원문 문장(facts)을 그 제품(about)의 설명으로 쉬운 말로 전한다. 답 글에 'A산업 자료에 따르면'처럼 제조사 이름을 출처로 붙이지 않는다(출처는 화면 하단 '참고 자료: 제조사 제품 자료'로 자동 표시). 출처끼리 다르면 단정하지 않고, 공식 기준 수치는 [L번호] 근거만.\n"
         . "  원문 문장의 제품명(예: '안전 중하중 그레이팅')을 더 넓은 종류('중하중 그레이팅' 전체)로 바꿔 말하지 않는다. 원문에 없는 성능·용도·비교·수치(중장비 통과, 'n톤 이상', 다른 제품도 같다 등)를 덧붙이거나, 한 제조사의 제품 표기를 '이걸 쓰면 된다'는 일반 선택 기준으로 단정하지 않는다. KS·표준 번호는 [참조 문서]·material_info 원문에 있는 것만 쓴다. material_info 결과가 비어 있으면 '제조사 자료에 따르면'이라고 말하지 말고, 수치 없는 일반 설명임을 밝힌다.\n"
@@ -1068,7 +1069,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "  필수 ① 설치 장소 (도로/주차장/공장/인도/식당 주방·실내/기타)\n"
         . "  필수 ② 차량 통행 여부 + 최대 차량 톤수 (보행자 전용이면 '없음')\n"
         . "    설치 장소로 알 수 있으면 다시 묻지 않는다: 식당 주방·화장실·실내·베란다·인도·공원 → 보행자 전용, 주차장·도로 → 차량. 이 판단은 검색 조건(traffic)에만 쓰고, 답에 '주방은 보행자 전용 구역이므로'처럼 말하지 않는다.\n"
-        . "  필수 ③ 필요 면적(㎡) 또는 수량(개), 또는 수로 연장(m)\n"
+        . "  필수 ③ 덮을 배수로의 폭(mm)과 설치 길이(수로 연장, m) — 그레이팅은 길이로 까는 자재라 면적(㎡)을 묻지 않는다(집수정·맨홀 위 덮개는 규격(가로×세로 mm)과 수량)\n"
         . "  ★용도어 정밀화: 수로·배수로·측구 위 덮개면 반드시 '수로용', 집수정·맨홀 뚜껑이면 '맨홀'을 검색어에 포함(섞임 방지).\n"
         . "  ★하중 등급(카탈로그 3단계, 과잉 등급 금지): 보행자 전용→'그레이팅수로용', 승용차·SUV 통행→'중하중', 트럭·버스 등 대형차→'안전중하중'.\n"
         . "    search_products 에 traffic 을 함께 넘긴다(보행자 전용 pedestrian / 승용차·SUV car / 트럭·버스·지게차 등 대형차 truck). 조건과 다른 하중 등급은 표에서 빠진다.\n"
@@ -1604,7 +1605,8 @@ function rag_explicit_conditions(array $messages): array
                                 '/' . $num . $uM . '\s*(?:정도|쯤|가량|내외)?\s*(?:를|을|가|이)?\s*(?:설치|시공|깔|놓|필요|들어)/u'],
     ];
     $rel = ['width_mm' => '/(?:폭|너비)\s*(?:은|는|조건은)?\s*(?:상관\s*(?:없|없이)|무관|아무거나)/u', 'product_length_mm' => '/(?:제품\s*)?길이\s*(?:은|는|조건은)?\s*(?:상관\s*(?:없|없이)|무관|아무거나)/u'];
-    $mulRe = '/(폭|너비|길이)\s*(?:만|을|를|은|는|도)?\s*(?:(두|세|네|\d+(?:\.\d+)?)\s*배|(절반|반\s*으로))/u';
+    // '배' 다음이 '로·만큼·정도'·띄어쓰기·끝일 때만 배수 — '폭 300 배수로'의 '배수로'를 300배로 읽어 폭 90000mm 가 되던 문제(2026-11-12 운영 #233)
+    $mulRe = '/(폭|너비|길이)\s*(?:만|을|를|은|는|도)?\s*(?:(두|세|네|\d+(?:\.\d+)?)\s*배(?=로|만큼|정도|$|[\s.,!?])|(절반|반\s*으로))/u';
     $factor = static fn(string $a, string $b): float => $b !== '' ? 0.5 : (float) (['두' => 2, '세' => 3, '네' => 4][$a] ?? (float) $a);
     $cond = $released = [];
     $widths = [];
@@ -1882,6 +1884,68 @@ function rag_dedupe_evaluation(string $text): string
         if ($kept) { $lines[$i] = rtrim(implode(' ', $kept)); }
     }
     return implode("\n", $lines);
+}
+
+/**
+ * 검색 없이 답하면 안 되는 턴인지 (순수 함수, 2026-11-12 — 운영 상담 #228 '날개형은 안돼??'·#233 '마당에 폭 300 배수로 20m 덮개').
+ * ① 직전 표가 있고 고객이 카탈로그에 있는 형태 말(날개형 등)을 새로 말함 ② 고객이 이번 말에 폭·제품 길이를 말하고 품목(그레이팅·수로관·관 등)을 알 수 있음.
+ * 이런 턴에 GPT 가 검색하지 않고 '등록되어 있지 않다'·'특수 제작' 등으로 답하면 rag_process 가 search_products 를 한 번 강제한다.
+ * '과한' 등 서버가 검색하지 말라고 안내한 턴($noSearch)은 제외.
+ */
+function rag_must_search(string $lastUser, array $explicit, array $formTerms, bool $hasRecent, string $recentQuery, bool $noSearch): bool
+{
+    if ($noSearch) { return false; }
+    if ($hasRecent && $formTerms) { return true; }
+    $dims = array_intersect((array) ($explicit['last'] ?? []), ['width_mm', 'product_length_mm']);
+    return $dims !== [] && (rag_product_family($lastUser) !== '' || rag_product_family($recentQuery) !== '');
+}
+
+/**
+ * 길이로 까는 자재(그레이팅·수로관·관)에 면적(㎡)을 묻는 문장 바로잡기 (순수 함수, 2026-11-12 — 운영 상담 #224·#226 '배수관 뚜껑의 면적(㎡) 또는 수량').
+ * 프롬프트로도 고쳤지만 남으면 '면적(㎡) (또는 수량)'을 그 자재의 치수(폭·설치 길이 / 관경·총 길이)로 바꾼다. 블록·포장재 등은 그대로.
+ */
+function rag_fix_area_question(string $text, string $categoryKey): string
+{
+    $dims = match ($categoryKey) {
+        'grating', 'culvert' => '폭(mm)과 설치 길이(m)',
+        'pe_pipe'            => '관경(mm)과 총 길이(m)',
+        default              => '',
+    };
+    if ($dims === '' || !preg_match('/면적/u', $text)) { return $text; }
+    $out = [];
+    foreach (preg_split('/(?<=[.!?])\s+/u', $text) ?: [$text] as $sen) {
+        if (preg_match('/알려|말씀|확인/u', (string) $sen)) {
+            $sen = (string) preg_replace('/(?:필요한\s*)?면적\s*\(?\s*㎡\s*\)?\s*(?:(?:이나|또는|과|와|및|,)\s*수량\s*(?:\(\s*개\s*\))?)?\s*(?:을|를|이나|과|와)?/u', $dims . '를', (string) $sen, 1);
+        }
+        $out[] = $sen;
+    }
+    return implode(' ', $out);
+}
+
+/**
+ * 답이 [L번호] 표시 없이 법령 근거를 쓴 경우 그 근거 id (순수 함수, 2026-11-12 — 운영 상담 #235 '80mm 이상'·#237 '보행안전법 … 1.5m').
+ * 이번 질문에 넣은 근거($legalDocs, 고객 말과 태그가 맞은 것)만 본다: 법령 이름이 답에 있거나, 답의 수치(mm·m·%·t 등)가 그 근거 원문에 있으면 인용한 것으로 본다.
+ * @return list<int>
+ */
+function rag_legal_implicit_ids(string $text, array $legalDocs): array
+{
+    $norm = static fn(string $x): string => (string) preg_replace('/[\s·ㆍ・「」『』\'"]/u', '', $x);
+    $c = $norm($text);
+    preg_match_all('/\d+(?:\.\d+)?\s*(?:mm|cm|m|%|t|톤|대|세대|도)(?![a-z])/u', $text, $mm);
+    $figs = array_values(array_unique(array_map(static fn($f) => str_replace(' ', '', (string) $f), $mm[0])));
+    $byName = $byFig = [];
+    foreach ($legalDocs as $d) {
+        $name = trim((string) preg_replace('/\s*\(.*$/u', '', (string) ($d['source_name'] ?? '')));
+        $first = (string) (preg_split('/\s+/u', $name)[0] ?? '');
+        $nameHit = ($name !== '' && str_contains($c, $norm($name)))
+            || (mb_strlen($norm($first)) >= 3 && !in_array($first, ['도로의', '도로와'], true) && str_contains($c, $norm($first)));
+        $content = $norm((string) ($d['content'] ?? ''));
+        $figHit = (bool) array_filter($figs, static fn($f) => $f !== '' && str_contains($content, $f));
+        if ($figHit) { $byFig[] = (int) $d['id']; }
+        if ($nameHit) { $byName[] = (int) $d['id']; }
+    }
+    // 답의 수치가 원문에 있는 근거가 있으면 그것만(같은 법령의 다른 조항까지 붙지 않게), 없으면 이름이 나온 근거
+    return array_values(array_unique($byFig ?: $byName));
 }
 
 function rag_product_family(string $query): string
@@ -2292,6 +2356,8 @@ function rag_process(array $messages, string $sid): array
     }
     // 고객이 이번에 말한 형태 말 중 카탈로그에 실제로 있는 것(날개형 등) — 검색어에 없으면 서버가 더함
     $formTerms = ($ft = rag_form_terms($lastUser)) ? array_keys(ai_missing_terms_registered($ft)) : [];
+    $mustSearch = rag_must_search($lastUser, $explicit, $formTerms, (bool) $recentCards, (string) (($recentCards ? rag_recent_cond($sid) : [])['query'] ?? ''), $alreadyLowest && !$wantsAlt);
+    $forcedMust = false;
     $wantsCheap  = $recentCards && rag_wants_cheaper($lastUser);
     $trafficInfo = rag_traffic_info($messages);
     $recentCond  = $recentCards ? rag_recent_cond($sid) : [];
@@ -2355,6 +2421,15 @@ function rag_process(array $messages, string $sid): array
             $promised = (string) $content;
             $oaiMessages[] = ['role' => 'assistant', 'content' => (string) $content];
             $oaiMessages[] = ['role' => 'system', 'content' => '방금 제품을 찾아 드리겠다고 했다. 지금 search_products 를 호출하고, 결과 안내만 한다(같은 안내 문장 반복 금지).'];
+            $forceSearch = true;
+            $maxIter++;
+            continue;
+        }
+        // 검색 없이 답한 턴인데 검색이 필요한 말(카탈로그의 형태 말·폭/길이 + 품목)이면 그 답은 버리고 search_products 를 1회 강제(운영 상담 #228·#233)
+        if ($noTool && !$toolUsed && $mustSearch && !$forcedMust) {
+            $forcedMust = true;
+            $promised = (string) $content;   // 강제해도 도구를 안 부르면 이 답이라도 돌려준다
+            $oaiMessages[] = ['role' => 'system', 'content' => '고객이 말한 조건(품목·폭·길이·형태)으로 지금 search_products 를 호출해 등록 여부와 규격을 확인한 뒤 그 결과로 답한다. 검색 없이 등록되지 않았다·특수 제작이 필요하다고 단정하지 않는다.'];
             $forceSearch = true;
             $maxIter++;
             continue;
@@ -2429,6 +2504,9 @@ function rag_process(array $messages, string $sid): array
     }
     // 실제로 인용한 법령 근거만 출처로 표시(지어낸 번호는 버리고 표시는 본문에서 제거)
     $cit = rag_extract_legal_citations($responseText, $legalDocs);
+    if (!$cit['sources'] && $legalDocs && ($implicit = rag_legal_implicit_ids($cit['text'], $legalDocs))) {   // [L번호] 없이 근거를 쓴 답에도 출처 카드(운영 상담 #235·#237)
+        $cit = rag_extract_legal_citations($cit['text'] . implode('', array_map(static fn($id) => " [L{$id}]", $implicit)), $legalDocs);
+    }
     $responseText = rag_strip_dangling_choice(rag_clean_answer_format($cit['text']), $events);   // ** 굵게·끝 콜론 정리 — 화면·저장·로그 모두 정리된 글
     if ($cit['sources']) {
         $events[] = ['type' => 'legal_sources', 'sources' => $cit['sources']];
@@ -2436,7 +2514,8 @@ function rag_process(array $messages, string $sid): array
     // '제일 저렴한 것'을 담았는데 같은 금액 제품이 또 있으면 그 사실을 한 줄로(실제 GPT-4o 3차까지 안내 누락 — 프롬프트만으로는 일정하지 않음)
     $added = array_map(static fn($t) => (int) ($t['input']['product_id'] ?? 0), array_values(array_filter($toolLog, static fn($t) => $t['name'] === 'add_to_cart')));
     $responseText .= rag_tie_note($responseText, $added, $turnCards, $recentCards);
-    $responseText = rag_strip_place_inference($responseText);   // '식당 주방은 보행자 전용 구역이므로' 같은 장소 상식 근거(운영 상담 #224·#226)
+    $responseText = rag_strip_place_inference($responseText);
+    $responseText = rag_fix_area_question($responseText, (string) $categoryKey);   // 길이로 까는 자재에 면적(㎡)을 물으면 그 자재 치수로(운영 상담 #224·#226)   // '식당 주방은 보행자 전용 구역이므로' 같은 장소 상식 근거(운영 상담 #224·#226)
     $responseText = rag_substitute_note($responseText, $substitutes);   // 대체품 표: GPT 가 따로 말한 '수로용 제외' 문장은 빼고 서버 안내를 한 번만(운영 상담 #193·#227)
     $matMakers = [];
     foreach ($events as $ev) { if (($ev['type'] ?? '') === 'material_sources') { $matMakers = array_merge($matMakers, array_column((array) ($ev['sources'] ?? []), 'maker')); } }
