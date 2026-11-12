@@ -107,6 +107,8 @@ if ($query) {
     require __DIR__ . '/../app/corp_home.php';
     $corpUid      = (int) current_user()['id'];
     $corpTree     = corp_home_category_tree(db() ? fetch_categories() : []);
+    // 보이는 하위 분류가 없는 대분류는 빠른 견적에서 뺌(상용콘크리트 전환 뒤 석재 — 상단 메뉴와 같은 규칙). DB 미연결 시 그대로
+    if (db()) { $corpTree['lv1'] = array_values(array_filter($corpTree['lv1'], static fn($r) => !empty($corpTree['byParent'][$r['id']]))); }
     $corpRegulars = db() ? corp_home_regulars(db(), $corpUid) : [];
     $corpHistory  = db() ? corp_home_history(db(), $corpUid) : ['items' => [], 'has_more' => false];
     require __DIR__ . '/../app/corp_home_renderer.php';

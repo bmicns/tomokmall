@@ -134,7 +134,8 @@ try {
          LIMIT 10"
     );
     $cst->execute(['%' . $q . '%', $q . '%']);
-    $catRows = $cst->fetchAll();
+    $hideEmpty = category_empty_hidden_ids();   // 상품 없는 상용콘크리트 카테고리는 제안하지 않음(DB 그대로)
+    $catRows = array_values(array_filter($cst->fetchAll(), static fn($r) => !isset($hideEmpty[(int) $r['id']])));
     if ($catRows) {
         // 경로용 카테고리 트리(전체 245행 수준) 1회 조회 — 임의 깊이
         $tree = $pdo->query('SELECT id, parent_id, name FROM categories')->fetchAll(PDO::FETCH_UNIQUE);
