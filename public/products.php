@@ -50,7 +50,8 @@ if (!$query && !$categoryId) {
 // 카테고리가 그 작업의 대표 자재일 때만 적용 → 상단 작업 배너 + 좌측 '자재 종류' 패널. 조회·필터·정렬은 기존 카테고리 목록 그대로.
 $workType = null;
 if ($categoryId && is_string($_GET['work'] ?? null)) {
-    $wt = work_type_find($_GET['work'], work_types_effective());   // 상용콘크리트로 전환돼 있으면 상용콘크리트 대표 자재
+    // 상용콘크리트로 전환돼 있으면 상용콘크리트 대표 자재 + 메인 '주요 자재' 묶음(같은 화면 — 배너 경로만 '주요 자재')
+    $wt = work_type_find($_GET['work'], array_merge(work_types_effective(), main_material_groups_effective()));
     if ($wt && work_type_has_material($wt, $categoryId)) { $workType = $wt; }
 }
 
@@ -189,7 +190,7 @@ render_header($pageTitle);
     ?>
     <section class="ut-banner<?= $bannerFull ? ' has-photo' : '' ?>" aria-label="목록 상단 배너">
         <div class="ut-banner-text">
-            <nav class="ut-banner-path" aria-label="현재 위치"><a href="/index.php">홈</a> › 상황별 자재 › <?= e($workType['name']) ?></nav>
+            <nav class="ut-banner-path" aria-label="현재 위치"><a href="/index.php">홈</a> › <?= e($workType['crumb'] ?? '상황별 자재') ?> › <?= e($workType['name']) ?></nav>
             <h1 class="ut-banner-title"><?= e($workType['name']) ?></h1>
             <p class="ut-banner-sub"><?= e($workType['summary']) ?></p>
         </div>

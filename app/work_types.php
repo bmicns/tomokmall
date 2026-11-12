@@ -360,6 +360,69 @@ function work_type_materials(array $type, array $info): array
 }
 
 /**
+ * 메인 '주요 자재 둘러보기' 카드별 자재 묶음(상용콘크리트 전환 뒤 — 사용자 결정 2026-11-12).
+ * 카드를 누르면 첫 품목(대표 자재) 목록으로 가고, 왼쪽 '자재 종류' 패널에 같은 묶음의 품목이 보인다(상황별 자재와 같은 화면).
+ * 대표 자재는 규격이 칸으로 나뉘는 품목(이름표가 같은 품목 하나 또는 이름표가 모두 같은 중분류). materials: [slug, 짧은 설명]
+ */
+const MAIN_MATERIAL_GROUPS = [
+    ['key' => 'mat-flume', 'name' => '플륨관', 'desc' => "물을 흘려보내는\n콘크리트 수로", 'img' => '/assets/images/home-플륨관.png',
+     'materials' => [['syc-s12', 'U자형 기본 수로'], ['syc-s10', '얕은 소형 수로'], ['syc-s11', '수로 본체'], ['syc-s13', '생태 수로']]],
+    ['key' => 'mat-channel', 'name' => '측구수로관', 'desc' => "그레이팅을 얹는\n길가 배수로", 'img' => '/assets/images/home-수로관.png',
+     'materials' => [['syc-s1', '그레이팅 얹는 길가 측구'], ['syc-s9', '그레이팅 높이 맞춤'], ['syc-s8', '땅속으로 스미는 측구'], ['syc-w1', '진입로 밑 배수로'],
+                     ['syc-s16', '덮개 있는 사각 배수로'], ['syc-s14', '원형 배수로'], ['syc-s15', '스틸그레이팅 원형 배수로'], ['syc-s17', '원심력 수로(W2·S2)'], ['syc-s79', '원심력 수로(무개·유개)']]],
+    ['key' => 'mat-retaining', 'name' => '옹벽블록', 'desc' => "흙을 지지하는\n블록", 'img' => '/assets/images/home-옹벽블록.png',
+     'materials' => [['syc-g11', '옹벽·호안블록 전체'], ['syc-s63', '보강토 옹벽 본체'], ['syc-s64', '옹벽 상단 마감'], ['syc-s67', '식생형 축조'], ['syc-s65', '계단형'],
+                     ['syc-s68', '하천 호안'], ['syc-s69', '장대 블록'], ['syc-s70', '게다 블록']]],
+    ['key' => 'mat-paving', 'name' => '보도블록', 'desc' => '바닥 · 조경 시공', 'img' => '/assets/images/home-블록.png',
+     'materials' => [['syc-g8', '보도블록 전체'], ['syc-s54', '빗물 스미는 블록'], ['syc-s55', '광장·건물 앞 포장'], ['syc-s56', '기본 보도블록'], ['syc-s57', '보도블록 I형'],
+                     ['syc-s62', '사각 보도 포장'], ['syc-s58', '시각장애인 안내'], ['syc-s59', '시각장애인 안내(고강도)'], ['syc-s60', '잔디 포장'], ['syc-s61', '잔디 주차 바닥'], ['syc-s66', '대형 잔디블록']]],
+    ['key' => 'mat-curb', 'name' => '경계석', 'desc' => "차도·보도\n경계 마감", 'img' => '/assets/images/home-경계석.png',
+     'materials' => [['syc-s72', '경제형 경계석'], ['syc-s73', '화강석 대체 경계석'], ['syc-s74', '차도·보도 경계·턱 낮춤'], ['syc-s87', '진입부 높이 전환'], ['syc-s71', '보도·녹지 경계']]],
+    ['key' => 'mat-manhole', 'name' => '맨홀·집수정', 'desc' => "빗물을 모으고\n관을 잇는 구조물", 'img' => '/assets/images/home-집수정.png',
+     'materials' => [['syc-s24', '집수정용 사각맨홀'], ['syc-s25', '집수정용 빗물받이'], ['syc-s26', '원형 맨홀'], ['syc-s28', '깊은 맨홀 조립'], ['syc-s83', '조립식 맨홀 관 연결'],
+                     ['syc-s29', '전기·통신 맨홀'], ['syc-s30', '통신 맨홀'], ['syc-s78', '땅속으로 스미는 집수정'], ['syc-s47', 'PE 집수정']]],
+    ['key' => 'mat-cover', 'name' => '맨홀 뚜껑', 'desc' => "원형 맨홀\n주철 덮개", 'img' => '/assets/images/home-맨홀.png',
+     'materials' => [['syc-s85', '원형 맨홀 뚜껑'], ['syc-s51', '단체표준 주철 뚜껑'], ['syc-s52', '전기·통신 사각 뚜껑'], ['syc-s53', '전기통신 맨홀 뚜껑(BS)'], ['syc-s86', '뚜껑 높이 조절링']]],
+    ['key' => 'mat-trench', 'name' => '트렌치', 'desc' => "덮개 얹는\n가로 배수로", 'img' => '/assets/images/home-그레이팅.png',
+     'materials' => [['syc-s18', '물도랑·하나로 본체'], ['syc-s80', '엔젤·엔드·코너·연결 소켓'], ['syc-s81', '단차 소켓'], ['syc-s82', '이형 소켓']]],
+];
+
+/** 반영된 상용콘크리트 카테고리 slug => [id, 이름] (요청당 1회, 활성만) */
+function work_type_syc_categories(): array
+{
+    static $ids = null;
+    if ($ids !== null) { return $ids; }
+    $ids = [];
+    if (!db()) { return $ids; }
+    try {
+        foreach (db()->query("SELECT id, slug, name FROM categories WHERE slug LIKE 'syc-%' AND is_active = 1")->fetchAll() as $r) { $ids[(string) $r['slug']] = [(int) $r['id'], (string) $r['name']]; }
+    } catch (\Throwable $e) {
+        error_log('work_type_syc_categories: ' . $e->getMessage());
+    }
+    return $ids;
+}
+
+/**
+ * 메인 '주요 자재' 묶음 — 상황별 자재(작업 유형)와 같은 모양으로(key·name·summary·img·materials[[id,name,desc]]·crumb).
+ * 상용콘크리트로 전환돼 있을 때만, 반영된 카테고리가 있는 품목만. 아니면 [].
+ */
+function main_material_groups_effective(): array
+{
+    if (!function_exists('syc_catalog_mode')) { require_once __DIR__ . '/syc_catalog.php'; }
+    if (syc_catalog_mode() !== 'syc' || !db()) { return []; }
+    $ids = work_type_syc_categories();
+    $out = [];
+    foreach (MAIN_MATERIAL_GROUPS as $g) {
+        $mats = [];
+        foreach ($g['materials'] as [$slug, $desc]) { if (isset($ids[$slug])) { $mats[] = [$ids[$slug][0], $ids[$slug][1], $desc]; } }
+        if (!$mats) { continue; }
+        $out[] = ['key' => $g['key'], 'name' => $g['name'], 'summary' => str_replace("\n", ' ', $g['desc']), 'desc' => $g['desc'],
+                  'img' => $g['img'], 'img_kind' => 'product', 'img_alt' => $g['name'], 'crumb' => '주요 자재', 'materials' => $mats];
+    }
+    return $out;
+}
+
+/**
  * 화면에 쓸 작업 유형 목록: 고객 화면이 상용콘크리트로 전환돼 있으면(app/syc_catalog.php syc_catalog_mode) 대표 자재를
  * WORK_TYPE_SYC_MATERIALS(반영된 categories 의 slug → id)로 바꾼다. 아니면 work_types() 그대로.
  */
@@ -368,15 +431,7 @@ function work_types_effective(): array
     $types = work_types();
     if (!function_exists('syc_catalog_mode')) { require_once __DIR__ . '/syc_catalog.php'; }
     if (syc_catalog_mode() !== 'syc' || !db()) { return $types; }
-    static $ids = null;
-    if ($ids === null) {
-        $ids = [];
-        try {
-            foreach (db()->query("SELECT id, slug, name FROM categories WHERE slug LIKE 'syc-%'")->fetchAll() as $r) { $ids[(string) $r['slug']] = [(int) $r['id'], (string) $r['name']]; }
-        } catch (\Throwable $e) {
-            error_log('work_types_effective: ' . $e->getMessage());
-        }
-    }
+    $ids = work_type_syc_categories();
     foreach ($types as $i => $t) {
         $mats = [];
         foreach (WORK_TYPE_SYC_MATERIALS[$t['key']] ?? [] as [$slug, $desc]) {
