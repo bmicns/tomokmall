@@ -39,15 +39,21 @@ if (!$pdo) {
 }
 
 // 활성화된 카테고리인지 확인
-$catStmt = $pdo->prepare('SELECT id FROM categories WHERE id = :id AND is_active = 1');
+$catStmt = $pdo->prepare('SELECT id, slug FROM categories WHERE id = :id AND is_active = 1');
 $catStmt->execute(['id' => $categoryId]);
-if (!$catStmt->fetch()) {
+$cat = $catStmt->fetch();
+if (!$cat) {
     echo json_encode(['ok' => false, 'error' => '유효하지 않은 카테고리입니다.']);
     exit;
 }
 
+// 상용콘크리트 반영 카테고리(app/syc_publish.php): 규격 필터를 이름표(폭 W·높이 H…)와 치수 칸 값으로 — 규격 원문 끝에 예전 코드가 붙어 있어
+// 글자 나누기로는 이름을 못 붙임(추가 필드 axes·ax·opt, 케이토목 카테고리는 응답 그대로)
+$sycAxes = (str_starts_with((string) ($cat['slug'] ?? ''), 'syc-') && spec_axes_ready()) ? spec_axes_for_category($categoryId) : [];
+$axCols  = $sycAxes ? ', ' . implode(', ', array_unique(array_merge(SPEC_AXES_NEW_COLUMNS, spec_axes_extra_ready() ? SPEC_AXES_EXTRA_COLUMNS : []))) : '';
+
 $stmt = $pdo->prepare(
-    'SELECT id, category_id, name, spec, price_b2c, price_b2b, cost_price, stock_qty, image_url
+    'SELECT id, category_id, name, spec, price_b2c, price_b2b, cost_price, stock_qty, image_url' . $axCols . '
      FROM products
      WHERE category_id = :cid AND is_active = 1
      ORDER BY name, id'
@@ -57,7 +63,7 @@ $rows = $stmt->fetchAll();
 
 $isCorporate = is_corporate_member();
 
-$products = array_map(function ($row) use ($isCorporate) {
+$products = array_map(function ($row) use ($isCorporate, $sycAxes) {
     $item = [
         'id'        => (int)   $row['id'],
         'name'      =>         $row['name'],
@@ -72,6 +78,15 @@ $products = array_map(function ($row) use ($isCorporate) {
         'price_list'   => (int) $row['price_b2c'],
         'price_member' => display_unit_price($row),
     ];
+    if ($sycAxes) {
+        $item['ax'] = [];
+        foreach ($sycAxes as $a) {
+            $v = spec_axes_row_value($row, (string) $a['axis_key']);
+            if ($v !== null) { $item['ax'][$a['axis_key']] = spec_axis_value_display($a, $v); }
+        }
+        if (trim((string) ($row['spec_code'] ?? '')) !== '') { $item['ax']['_code'] = (string) $row['spec_code']; }
+        $item['opt'] = spec_option_display((string) ($row['spec_option'] ?? ''));
+    }
     if ($isCorporate) {
         // price_b2b = 0이면 price_b2c로 폴백
         $b2b = (int) $row['price_b2b'];
@@ -80,4 +95,12 @@ $products = array_map(function ($row) use ($isCorporate) {
     return $item;
 }, $rows);
 
-echo json_encode(['ok' => true, 'products' => $products], JSON_UNESCAPED_UNICODE);
+$out = ['ok' => true, 'products' => $products];
+if ($sycAxes) {
+    $out['axes'] = [['key' => '_code', 'label' => '모델 코드']];
+    foreach ($sycAxes as $a) {
+        $unit = spec_axis_unit_label($a);
+        $out['axes'][] = ['key' => (string) $a['axis_key'], 'label' => spec_axis_title($a) . ($unit !== '' ? ' ' . $unit : '')];
+    }
+}
+echo json_encode($out, JSON_UNESCAPED_UNICODE);

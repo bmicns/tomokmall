@@ -34,7 +34,11 @@ const SPEC_AXIS_COLUMNS = [
     't_tb' => 'dim_t_tb', 't_wall' => 'dim_t_wall', 't_top' => 'dim_t_top', 't_bottom' => 'dim_t_bottom',
     'mesh' => 'dim_mesh', 'wire_d' => 'dim_wire_d', 'wire_no' => 'spec_wire_no', 'ts' => 'dim_ts',
     'd_connect' => 'dim_d_connect', 'd_inlet' => 'dim_d_inlet', 'd_outlet' => 'dim_d_outlet',
+    // 상용콘크리트 반영 칸(database/20261112_catalog_switch.sql) — 외경폭·외경높이·중간벽두께·보조 높이·기타 2칸
+    'w_o' => 'dim_w_o', 'h_o' => 'dim_h_o', 't_mid' => 'dim_t_mid', 'h1' => 'dim_h1', 'x1' => 'dim_x1', 'x2' => 'dim_x2',
 ];
+/** 위 상용콘크리트 반영 칸(새 칸 목록 SPEC_AXES_NEW_COLUMNS 와 따로 — DB 반영 전에도 기존 화면이 그대로 동작하게) */
+const SPEC_AXES_EXTRA_COLUMNS = ['dim_w_o', 'dim_h_o', 'dim_t_mid', 'dim_h1', 'dim_x1', 'dim_x2'];
 
 /** 글자 값 축(숫자가 아니라 'VG150'·'DC200' 처럼 관 종류+지름 그대로 저장·표시) — PVC소형맨홀 접속구, PVC오수받이 유입구·유출구 */
 const SPEC_AXIS_TEXT = ['d_connect', 'd_inlet', 'd_outlet', 'd_base'];
@@ -453,6 +457,24 @@ function spec_axes_ready(): bool
     return $ready;
 }
 
+/** 상용콘크리트 반영 칸(SPEC_AXES_EXTRA_COLUMNS)이 products 에 있는지 — 목록 파세트 조회에 넣을지 */
+function spec_axes_extra_ready(): bool
+{
+    static $ok = null;
+    if ($ok !== null) { return $ok; }
+    $ok = false;
+    if (!db()) { return false; }
+    try {
+        $ph = implode(',', array_fill(0, count(SPEC_AXES_EXTRA_COLUMNS), '?'));
+        $st = db()->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products' AND COLUMN_NAME IN ($ph)");
+        $st->execute(SPEC_AXES_EXTRA_COLUMNS);
+        $ok = (int) $st->fetchColumn() === count(SPEC_AXES_EXTRA_COLUMNS);
+    } catch (\Throwable $e) {
+        $ok = false;
+    }
+    return $ok;
+}
+
 /** category_id => 이름표 행 목록(seq 순, 사용 중인 것만). 요청당 1회 */
 function spec_axes_rows(): array
 {
@@ -621,10 +643,13 @@ function spec_axes_filter_sql(array $f, array &$params): string
 function spec_axes_sync_product(int $id): bool
 {
     if ($id <= 0 || !spec_axes_ready()) { return false; }
-    $st = db()->prepare('SELECT id, category_id, spec, ' . implode(', ', SPEC_AXES_NEW_COLUMNS) . ' FROM products WHERE id = ?');
+    $st = db()->prepare('SELECT p.id, p.category_id, p.spec, c.slug AS cat_slug, ' . implode(', ', array_map(static fn($c) => 'p.' . $c, SPEC_AXES_NEW_COLUMNS)) . '
+                         FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE p.id = ?');
     $st->execute([$id]);
     $p = $st->fetch();
     if (!$p) { return false; }
+    // 상용콘크리트 반영 상품(app/syc_publish.php): 치수 칸은 원본(일괄 등록·자동 정리)에서 오므로 규격 원문으로 다시 계산하지 않음
+    if (str_starts_with((string) ($p['cat_slug'] ?? ''), 'syc-')) { return false; }
     $plan = spec_axes_plan($p, spec_axes_for_category((int) $p['category_id']));
     if ($plan === null) { return false; }
     $sets = []; $vals = [];

@@ -503,7 +503,7 @@ function product_facets(?int $categoryId, ?string $query, array $active = []): a
             $ids = category_descendants($categoryId);
             if (!$ids) { return $empty; }
             $ph  = implode(',', array_fill(0, count($ids), '?'));
-            $axCols = spec_axes_ready() ? ', ' . implode(', ', SPEC_AXES_NEW_COLUMNS) : '';
+            $axCols = spec_axes_ready() ? ', ' . implode(', ', array_merge(SPEC_AXES_NEW_COLUMNS, spec_axes_extra_ready() ? SPEC_AXES_EXTRA_COLUMNS : [])) : '';
             $st  = db()->prepare("SELECT id, category_id, name, spec, stock_qty{$axCols} FROM products WHERE is_active = 1 AND category_id IN ($ph)");
             $st->execute(array_values($ids));
             $rows = $st->fetchAll();

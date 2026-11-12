@@ -50,7 +50,7 @@ if (!$query && !$categoryId) {
 // 카테고리가 그 작업의 대표 자재일 때만 적용 → 상단 작업 배너 + 좌측 '자재 종류' 패널. 조회·필터·정렬은 기존 카테고리 목록 그대로.
 $workType = null;
 if ($categoryId && is_string($_GET['work'] ?? null)) {
-    $wt = work_type_find($_GET['work']);
+    $wt = work_type_find($_GET['work'], work_types_effective());   // 상용콘크리트로 전환돼 있으면 상용콘크리트 대표 자재
     if ($wt && work_type_has_material($wt, $categoryId)) { $workType = $wt; }
 }
 

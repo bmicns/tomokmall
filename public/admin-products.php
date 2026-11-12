@@ -96,6 +96,17 @@ render_admin_header('제품관리', 'products');
 .syc-sel{display:inline-flex;align-items:center;justify-content:center;min-width:36px;min-height:36px;cursor:pointer;vertical-align:middle}
 .syc-all-link{min-height:36px;padding:0 4px;border:0;background:none;color:#004EA1;font-size:13px;font-weight:600;text-decoration:underline;cursor:pointer;font-family:inherit}
 .syc-all-on #syc-sel-count{color:#004EA1;font-weight:700}
+.syc-pub{border:1px solid #d6e4f5;border-radius:8px;background:#f7faff;padding:14px 16px;margin:0 0 14px;display:flex;flex-direction:column;gap:8px}
+.syc-pub-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.syc-pub-h h2{margin:0;font-size:15px;font-weight:800}
+.syc-pub-mode{padding:2px 8px;border-radius:10px;font-size:12px;font-weight:700;background:#e8f0fe;color:#004EA1}
+.syc-pub-mode.is-syc{background:#e8f5e9;color:#1b5e20}
+.syc-pub-s{margin:0;font-size:12.5px;line-height:1.7;color:#444}
+.syc-pub-btns{display:flex;gap:8px;flex-wrap:wrap}
+.syc-pub-btns button{min-height:38px;padding:0 14px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid #004EA1;background:#fff;color:#004EA1}
+.syc-pub-btns button.is-main{background:#004EA1;color:#fff}
+.syc-pub-btns button.is-warn{border-color:#c62828;color:#c62828}
+.syc-pub-btns button:disabled{opacity:.5;cursor:wait}
 .syc-brand{display:block;font-size:11.5px;font-weight:500;color:#888;margin-top:2px}
 @media (max-width:640px){.bk-b,.bk-h,.bk-f{padding-left:16px;padding-right:16px}.bk-hint{flex-basis:100%}}
 </style>
@@ -146,6 +157,13 @@ render_admin_header('제품관리', 'products');
 </div>
 
 <!-- 상용콘크리트: 여러 상품 한 번에 활성/비활성 -->
+<!-- 상용콘크리트 → 사이트 반영·전환(app/syc_publish.php, api/admin/syc-catalog.php) -->
+<section class="syc-pub bk-hide" id="syc-pub" aria-labelledby="syc-pub-t">
+    <div class="syc-pub-h"><h2 id="syc-pub-t">사이트 반영</h2><span id="syc-pub-mode" class="syc-pub-mode"></span></div>
+    <p class="syc-pub-s" id="syc-pub-s">불러오는 중…</p>
+    <div class="syc-pub-btns" id="syc-pub-btns"></div>
+</section>
+
 <div class="syc-bulkbar bk-hide" id="syc-bulkbar">
     <label><input type="checkbox" id="syc-chk-all" onchange="sycCheckAll(this.checked)">이 페이지 전체 선택</label>
     <span id="syc-sel-count" aria-live="polite">선택 0개</span>
@@ -311,6 +329,8 @@ async function sourceChanged() {
     document.getElementById('filter-syc-cat').classList.toggle('bk-hide', !syc);
     document.getElementById('btn-create').classList.toggle('bk-hide', syc);   // 상용콘크리트는 일괄 등록으로만 넣음
     document.getElementById('syc-bulkbar').classList.toggle('bk-hide', !syc);
+    document.getElementById('syc-pub').classList.toggle('bk-hide', !syc);
+    if (syc) sycPubLoad();
     if (syc && !sycCatsLoaded) {
         const d = await fetch(`${SYC_API}?action=categories`).then(r => r.json()).catch(() => ({ok:false}));
         if (d.ok) {
@@ -412,6 +432,44 @@ async function sycToggle(id, val) {
     const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok) { alert(d.error); return; }
     load(curPage);
+}
+
+/* ── 사이트 반영·전환 ── 원본(상용콘크리트 표) → 고객 화면 상품 표. 반영 = 원본 값으로 덮어쓰기, 전환 = 케이토목 숨기기/되돌리기 */
+const SYC_CAT_API = '/api/admin/syc-catalog.php';
+const sycDt = v => v ? String(v).slice(0, 16) : '없음';
+async function sycPubLoad() {
+    const d = await fetch(SYC_CAT_API).then(r => r.json()).catch(() => ({ok:false, error:'상태를 불러오지 못했습니다.'}));
+    const s = document.getElementById('syc-pub-s'), btns = document.getElementById('syc-pub-btns'), mode = document.getElementById('syc-pub-mode');
+    if (!d.ok) { s.textContent = d.error; btns.innerHTML = ''; return; }
+    if (!d.ready) { s.textContent = d.message; btns.innerHTML = ''; mode.textContent = ''; return; }
+    const syc = d.state.mode === 'syc', p = d.plan;
+    mode.textContent = syc ? '고객 화면: 상용콘크리트' : '고객 화면: 케이토목';
+    mode.classList.toggle('is-syc', syc);
+    s.innerHTML = `원본 카테고리 ${p.categories.toLocaleString()}개 · 상품 ${p.products.toLocaleString()}개(활성 ${p.products_active.toLocaleString()})`
+        + (p.categories_new || p.products_new ? ` — 아직 반영 안 된 카테고리 ${p.categories_new.toLocaleString()} · 상품 ${p.products_new.toLocaleString()}` : '')
+        + (p.stale ? ` · 원본에서 빠져 숨길 상품 ${p.stale.toLocaleString()}` : '')
+        + `<br>마지막 반영 ${x(sycDt(d.state.published_at))} · 마지막 전환 ${x(sycDt(d.state.switched_at))}`
+        + (syc ? ` · 숨긴 케이토목 카테고리 ${d.hidden.category.toLocaleString()} · 상품 ${d.hidden.product.toLocaleString()}` : '<br>전환 전에는 반영해도 고객에게 보이지 않습니다(미리 넣어 둠).');
+    btns.innerHTML = `<button type="button" class="is-main" onclick="sycPubRun('publish')">사이트에 반영</button>`
+        + (syc ? `<button type="button" class="is-warn" onclick="sycPubRun('ktomok')">케이토목으로 되돌리기</button>`
+               : `<button type="button" onclick="sycPubRun('syc')">상용콘크리트로 전환</button>`);
+}
+async function sycPubRun(what) {
+    const msg = {
+        publish: '상용콘크리트 원본(카테고리·이름표·상품·가격)을 사이트 상품 표에 반영합니다. 계속할까요?',
+        syc: '고객 화면을 상용콘크리트로 전환합니다.\n케이토목 카테고리·상품은 지우지 않고 숨기며, 되돌리기로 그대로 다시 보이게 할 수 있습니다.\n계속할까요?',
+        ktomok: '고객 화면을 케이토목으로 되돌립니다(상용콘크리트 상품은 숨김). 계속할까요?'
+    }[what];
+    if (!confirm(msg)) return;
+    document.querySelectorAll('#syc-pub-btns button').forEach(b => b.disabled = true);
+    const body = what === 'publish' ? {action:'publish'} : {action:'switch', to: what};
+    const d = await fetch(SYC_CAT_API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}).then(r => r.json()).catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
+    if (!d.ok) { alert(d.error); sycPubLoad(); return; }
+    const r = d.result, pb = r.publish || r;
+    alert(what === 'publish' ? `반영했습니다: 카테고리 ${pb.categories} · 이름표 ${pb.axes} · 상품 ${pb.products}` + (pb.stale ? ` · 숨긴 상품 ${pb.stale}` : '')
+        : what === 'syc' ? `전환했습니다: 케이토목 카테고리 ${r.hidden_categories} · 상품 ${r.hidden_products} 숨김, 상용콘크리트 상품 ${pb.products} 반영`
+        : `되돌렸습니다: 케이토목 카테고리 ${r.restored_categories} · 상품 ${r.restored_products} 다시 보임`);
+    sycPubLoad();
 }
 
 /* ── 일괄 등록 ── 상태: empty → busy(올리는 중) → done(검증 완료) | err */
@@ -566,6 +624,7 @@ async function bkRegister() {
         : '이미지 ZIP 없이 등록했습니다(이미 있던 이미지는 그대로, 새 상품은 빈 이미지로 표시).');
     if (d.normalized_rows) parts.push(`자동 정리: 상품 ${d.normalized_rows.toLocaleString()}건의 품명·모델 코드·옵션·치수·분류를 사이트 표기로 고쳐 저장했습니다.`);
     parts.push('제품관리에서 내용을 확인한 뒤 활성으로 바꿔 주세요.');
+    parts.push('고객 화면에 적용하려면 위 <strong style="color:#1a2035">사이트 반영</strong> 상자의 \'사이트에 반영\'을 눌러 주세요.');
     document.getElementById('bk-done-s').innerHTML = parts.join('<br>');
     document.getElementById('bk-done').classList.remove('bk-hide');
     bk.last = d;

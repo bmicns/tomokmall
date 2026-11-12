@@ -138,12 +138,16 @@ function render_admin_header(string $title, string $activeMenu = ''): void
         <div class="adm-topbar">
             <span class="adm-topbar-title"><?= htmlspecialchars($title, ENT_QUOTES) ?></span>
             <?php // 사이트 보기 출처(이 관리자 세션에만): 케이토목 = 기존 화면, 상용콘크리트 = 상용콘크리트 목록·상세 미리보기(app/syc_catalog.php)
+            // 고객 화면을 상용콘크리트로 전환한 뒤(app/syc_publish.php)에는 미리보기가 필요 없어 버튼을 숨긴다
+            require_once __DIR__ . '/syc_catalog.php';
             $sycOn = ($_SESSION['site_source'] ?? 'syc') !== 'ktomok';   // 관리자 기본 = 상용콘크리트 보기 ?>
+            <?php if (syc_catalog_mode() !== 'syc'): ?>
             <div class="adm-src" role="group" aria-label="사이트 보기">
                 <span class="adm-src-l">사이트 보기</span>
                 <form method="post" action="/api/admin/site-source.php"><input type="hidden" name="source" value="ktomok"><input type="hidden" name="return" value="/index.php"><button type="submit" class="adm-src-b<?= $sycOn ? '' : ' on' ?>" aria-pressed="<?= $sycOn ? 'false' : 'true' ?>" formtarget="_blank">케이토목으로 보기</button></form>
                 <form method="post" action="/api/admin/site-source.php"><input type="hidden" name="source" value="syc"><input type="hidden" name="return" value="/syc-products.php"><button type="submit" class="adm-src-b<?= $sycOn ? ' on' : '' ?>" aria-pressed="<?= $sycOn ? 'true' : 'false' ?>" formtarget="_blank">상용콘크리트로 보기</button></form>
             </div>
+            <?php endif; ?>
         </div>
         <div class="adm-content">
 <?php

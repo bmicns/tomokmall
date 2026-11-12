@@ -12,7 +12,7 @@ if (!$id || !db()) { header('Location: /index.php'); exit; }
 
 $st = db()->prepare(
     "SELECT p.*, " . vendor_names_subquery() . " AS vendor_names,
-            c.id AS cat_id, c.name AS cat_name, c.parent_id AS mid_id,
+            c.id AS cat_id, c.name AS cat_name, c.parent_id AS mid_id, c.slug AS cat_slug,
             mid.name AS mid_name, mid.parent_id AS root_id,
             root.name AS root_name
      FROM products p
@@ -54,6 +54,22 @@ if ($p['mid_id'] && db()) {
     } catch (\Throwable $e) {
         error_log('product.php category_gallery 조회 실패: ' . $e->getMessage());
         $galleryImgs = [];
+    }
+}
+
+// 상용콘크리트 상품(반영본 — app/syc_publish.php): 상세에 치수를 더 보여 줌(사용자 결정 2026-11-12, 다른 화면은 기존 디자인 그대로)
+//   주요 치수 = 카테고리 이름표(category_spec_axes) 칸 값, 세부 치수 = products.spec_detail(목록에 없는 도면·부속 치수)
+$dimMain = $dimDetail = [];
+if (str_starts_with((string) ($p['cat_slug'] ?? ''), 'syc-')) {
+    foreach (spec_axes_ready() ? spec_axes_for_category((int) $p['cat_id']) : [] as $a) {
+        $v = spec_axes_row_value($p, (string) $a['axis_key']);
+        if ($v === null) { continue; }
+        $dimMain[] = [spec_axis_title($a), spec_axis_value_display($a, $v) . (in_array($a['axis_key'], SPEC_AXIS_TEXT, true) || $a['unit'] === 'no' ? '' : ' ' . $a['unit'])];
+    }
+    foreach ((array) json_decode((string) ($p['spec_detail'] ?? ''), true) as $d) {
+        if (!is_array($d) || !isset($d['label'], $d['value'])) { continue; }
+        $title = trim((string) $d['label'] . ' ' . (string) ($d['symbol'] ?? ''));
+        $dimDetail[] = [$title, (string) $d['value'] . (($d['unit'] ?? '') !== '' ? ' ' . $d['unit'] : '')];
     }
 }
 
@@ -154,6 +170,13 @@ render_header($p['name']);
 .gallery-thumb.active,.gallery-thumb:hover{border-color:#004ea1}
 .gallery-main{flex:1;border-radius:8px;overflow:hidden;background:#f7f7f7;min-height:400px;display:flex;align-items:center;justify-content:center}
 .gallery-main img{max-width:100%;max-height:500px;object-fit:contain}
+/* 상용콘크리트 상품: 주요·세부 치수(기존 표 머리 굵은 선·회색 구분선과 같은 모양) */
+.pd-dim{margin-top:28px}
+.pd-dim h2{font-size:16px;font-weight:700;margin:0 0 10px;color:var(--color-text-primary)}
+.pd-dim-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));border-top:2px solid var(--color-text-primary)}
+.pd-dim-grid div{display:flex;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--color-border);font-size:13px;min-width:0}
+.pd-dim-grid b{font-weight:600;color:var(--color-text-primary);overflow-wrap:anywhere}
+.pd-dim-grid span{color:var(--color-text-secondary);white-space:nowrap}
 /* 다른 규격 그리드 */
 .pd-others-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
 .pd-other-card{border:1px solid var(--color-border);border-radius:0;overflow:hidden;cursor:pointer;text-decoration:none;display:block;transition:border-color 0.15s}
@@ -411,6 +434,13 @@ render_header($p['name']);
             </div>
         </div>
     </div>
+
+    <?php foreach ([['주요 치수', $dimMain], ['세부 치수', $dimDetail]] as [$dimTitle, $dimList]): if (!$dimList) { continue; } ?>
+    <section class="pd-dim" aria-label="<?= e($dimTitle) ?>">
+        <h2><?= e($dimTitle) ?></h2>
+        <div class="pd-dim-grid"><?php foreach ($dimList as [$k, $v]): ?><div><b><?= e($k) ?></b><span><?= e($v) ?></span></div><?php endforeach; ?></div>
+    </section>
+    <?php endforeach; ?>
 
     <!-- 하단 탭 -->
     <div class="pd-tabs-wrap">
