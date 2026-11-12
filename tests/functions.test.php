@@ -1347,6 +1347,8 @@ $catSql = (string) file_get_contents(__DIR__ . '/../database/20261110_syc_catego
 preg_match_all("/'(syc-g\d+)'/", $catSql, $gm);
 eq('대분류 연결: 상용콘크리트 대분류 10개 모두 재질 대분류(11·12·13·15)에', [array_values(array_diff(array_unique($gm[1]), array_keys(SYC_PUBLISH_GROUP_ROOT))), array_values(array_unique(array_values(SYC_PUBLISH_GROUP_ROOT)))],
     [[], [11, 15, 13, 12]]);
+preg_match_all("/'(syc-g\d+)' AS slug/", (string) file_get_contents(__DIR__ . '/../database/20261112_syc_categories_regroup.sql'), $rg);
+eq('중분류 나누기(2026-11-12): 새 중분류 3개 모두 재질 대분류에(콘크리트 2·PE/PVC 1)', array_map(static fn($g) => SYC_PUBLISH_GROUP_ROOT[$g] ?? null, $rg[1]), [12, 12, 15]);
 $swSql = (string) file_get_contents(__DIR__ . '/../database/20261112_catalog_switch.sql');
 preg_match('/MODIFY axis_key ENUM\(([^)]*)\)/s', $swSql, $em);
 preg_match_all("/'([a-z0-9_]+)'/", $em[1] ?? '', $ek);

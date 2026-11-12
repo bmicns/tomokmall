@@ -32,7 +32,9 @@ function render_header(string $title, string $mode = 'normal'): void
                  ORDER BY c.parent_id IS NULL DESC, c.parent_id, c.sort_order, c.id'
             )->fetchAll();
             $roots = $midsByRoot = $subsByMid = [];
+            $hideEmpty = category_empty_hidden_ids();   // 상품 없는 상용콘크리트 카테고리는 메뉴에서 뺌(DB 그대로)
             foreach ($rows as $r) {
+                if (isset($hideEmpty[(int) $r['id']])) { continue; }
                 if ($r['parent_id'] === null)                   $roots[$r['id']] = $r;
                 elseif (isset($roots[$r['parent_id']]))         $midsByRoot[$r['parent_id']][] = $r;
                 else                                            $subsByMid[$r['parent_id']][] = $r;

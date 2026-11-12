@@ -25,9 +25,9 @@ require_once __DIR__ . '/syc_catalog.php';   // SYC_AXIS_KEYS · syc_axis_column
 /** 상용콘크리트 대분류 slug → 기존 재질 대분류 categories.id */
 const SYC_PUBLISH_GROUP_ROOT = [
     'syc-g1' => 11, 'syc-g2' => 11, 'syc-g3' => 11, 'syc-g4' => 11, 'syc-g5' => 11,   // 측구수로관·수로관·흄관·암거·맨홀 → 철근콘크리트제품
-    'syc-g6' => 15,                                                                     // PE·PVC관 → PE/PVC제품
+    'syc-g6' => 15, 'syc-g13' => 15,                                                   // 배수관(PE·PVC관)·받이·집수정 → PE/PVC제품
     'syc-g7' => 13, 'syc-g9' => 13, 'syc-g10' => 13,                                   // 그레이팅·주철 / 보호틀·파형강관·철망 / 볼라드 → 스틸제품
-    'syc-g8' => 12,                                                                     // 보도블록·옹벽·경계석 → 콘크리트제품
+    'syc-g8' => 12, 'syc-g11' => 12, 'syc-g12' => 12,                                 // 보도블록·옹벽·호안블록·경계석 → 콘크리트제품(2026-11-12 나눔)
 ];
 /** category_spec_axes.axis_key 에 넣을 수 있는 키(목록 칸) — 그 밖의 키는 세부 치수(products.spec_detail)로 */
 const SYC_PUBLISH_LIST_KEYS = ['d', 'd_base', 'v', 'd_i', 'd_o', 'w', 'w_b', 'w_r', 'w_t', 'h', 'h_high', 'h_low', 'depth', 'l', 't', 't2', 't_tb', 't_wall',

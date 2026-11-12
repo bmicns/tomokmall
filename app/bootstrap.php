@@ -172,7 +172,34 @@ function redirect(string $path): never
 
 function fetch_categories(): array
 {
-    return db()->query('SELECT * FROM categories WHERE is_active = 1 ORDER BY parent_id IS NOT NULL, sort_order, name')->fetchAll();
+    $rows = db()->query('SELECT * FROM categories WHERE is_active = 1 ORDER BY parent_id IS NOT NULL, sort_order, name')->fetchAll();
+    $hide = category_empty_hidden_ids();
+    return $hide ? array_values(array_filter($rows, static fn($c) => !isset($hide[(int) $c['id']]))) : $rows;
+}
+
+/**
+ * 화면에서 숨길 빈 카테고리: 상용콘크리트 반영 카테고리(slug 'syc-…') 중 자신·하위 품목에 활성 상품이 하나도 없는 것.
+ * DB 의 카테고리 행·활성 여부는 그대로 두고(사용자 결정 2026-11-12) 메뉴·빠른 견적·검색 추천에서만 뺀다 —
+ * 실제 데이터로 상품이 들어오면 자동으로 다시 보인다. 케이토목 카테고리는 대상 아님(기존 화면 그대로).
+ * @return array<int,true> [category_id => true] (요청당 1회)
+ */
+function category_empty_hidden_ids(): array
+{
+    static $ids = null;
+    if ($ids !== null) { return $ids; }
+    $ids = [];
+    if (!db()) { return $ids; }
+    try {
+        foreach (db()->query("SELECT c.id FROM categories c
+                               WHERE c.is_active = 1 AND c.slug LIKE 'syc-%'
+                                 AND NOT EXISTS (SELECT 1 FROM products p JOIN categories pc ON pc.id = p.category_id
+                                                  WHERE p.is_active = 1 AND (pc.id = c.id OR pc.parent_id = c.id))")->fetchAll() as $r) {
+            $ids[(int) $r['id']] = true;
+        }
+    } catch (\Throwable $e) {
+        $ids = [];
+    }
+    return $ids;
 }
 
 function fetch_categories_with_thumb(): array
