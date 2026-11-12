@@ -147,6 +147,8 @@ if ($workType && !$category) {
 }
 $loggedIn  = !empty($_SESSION['user']);
 $isInternal = price_tier() === 'internal';   // 직원·관리자: 원가 컬럼 노출
+// 목록 '상세설명' 칸(products.description 요약): 관리자·직원 로그인 때만(사용자 결정 2026-11-12)
+$showDescCol = in_array((string) ($_SESSION['user']['role'] ?? ''), ['admin', 'staff'], true);
 
 // ── Figma 하드코딩 데모 데이터 (DB 미연결 시에만) ──────────
 // ⚠️ 검색 결과 0건을 데모로 표시하면 "엉뚱한 제품"으로 보이므로,
@@ -315,7 +317,7 @@ render_header($pageTitle);
         </nav>
         <?php endif; ?>
         <?php // 상황별·주요 자재 목록도 필터를 접지 않고 항상 펼침(사용자 결정 2026-11-12 — 2026-11-06 의 비로그인·개인회원 접기 패널 대신). 모바일은 다른 목록과 같은 규칙 ?>
-        <?php if ($showFilters) { render_product_filters($filters, $query, $categoryId, $sort, $facets, $inStock, $workType ? ['work' => $workType['key']] : [], false); } ?>
+        <?php if ($showFilters) { render_product_filters($filters, $query, $categoryId, $sort, $facets, $inStock, $workType ? ['work' => $workType['key']] : [], false, $workType !== null); } ?>
       </aside>
     <?php endif; ?>
     <div class="pt-list-main">
@@ -420,6 +422,12 @@ render_header($pageTitle);
             if ($sp['weight']) $hasWeight = true;
         }
     }
+    // 요약 줄이 있는 상품이 하나라도 있을 때만 칸 표시('[임시값]' 정리 메모만 있는 설명은 표시 안 함 — 사용자 결정 2026-11-12)
+    $descSum = [];
+    if (!$demoMode && $showDescCol) {
+        foreach ($products as $i => $p) { $descSum[$i] = product_desc_summary((string) ($p['description'] ?? ''))['lines']; }
+    }
+    $hasDesc = array_filter($descSum) !== [];
 
     // 규격 축 모드: 결과 카테고리가 모두 같은 이름표(category_spec_axes)를 쓰면 '규격' 한 칸 → 규격 묶음 아래 모델 코드(spec_code)·축별 칸.
     //  - 결과 전체에 값이 하나뿐인 축은 필터에 고정(선택된 채) 표시되므로 표 칸에서 뺀다(필터에 안 쓰는 축은 표에 남김)
@@ -483,6 +491,7 @@ render_header($pageTitle);
                     <?php if ($isInternal && !$demoMode): ?><th class="pt-col-cost"<?= $axRs ?>>매입가<span>내부용</span></th><?php endif; ?>
                     <th class="pt-col-price"<?= $axRs ?>>판매가<span>부가세별도</span></th>
                     <?php if ($demoMode || $hasWeight):  ?><th class="pt-col-weight"<?= $axRs ?>>중량<span>kg/m²</span></th><?php endif; ?>
+                    <?php if ($hasDesc):                 ?><th class="pt-col-desc"<?= $axRs ?>>상세설명<span>관리자·직원</span></th><?php endif; ?>
                 </tr>
                 <?php if ($axisMode): ?>
                 <tr class="pt-head-ax">
@@ -549,6 +558,7 @@ render_header($pageTitle);
                         <?php if ($isInternal): ?><td class="pt-col-cost"><?= price_cost_cell($p) ?></td><?php endif; ?>
                         <td class="pt-col-price"><?= price_tag_list($p) ?></td>
                         <?php if ($hasWeight):  ?><td class="pt-col-weight"><?= e($sp['weight']) ?></td><?php endif; ?>
+                        <?php if ($hasDesc): $dsc = trim((string) ($p['description'] ?? '')); ?><td class="pt-col-desc"<?= $descSum[$i] ? ' title="' . e($dsc) . '"' : '' ?>><?= implode('<br>', array_map('e', $descSum[$i])) ?></td><?php endif; ?>
                     </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>

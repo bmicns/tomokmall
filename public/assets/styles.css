@@ -1515,6 +1515,9 @@ a.pt-name-text:hover { color: var(--color-primary); }
   line-height: 16px;
   color: #555;
 }
+/* 목록 '상세설명' 칸(관리자·직원 전용, 설명 요약): 칸 폭 고정·줄바꿈 */
+.product-table :is(th, td).pt-col-desc { width: 190px; min-width: 150px; }
+.product-table td.pt-col-desc { text-align: left; overflow-wrap: anywhere; }
 
 /* 색상 도트 */
 .pt-color-dots {
@@ -1743,6 +1746,9 @@ mark.hl{background:#fff3b0;color:inherit;padding:0 1px;border-radius:2px;font-we
 .fltbox{border:1px solid var(--color-border);border-radius:10px;background:#fff;overflow:hidden}
 .fltbox>summary{display:flex;align-items:center;gap:8px;padding:12px 14px;font-size:13px;font-weight:800;cursor:pointer;list-style:none}
 .fltbox>summary::-webkit-details-marker{display:none}
+/* 항상 펼친 필터(상황별·주요 자재 목록 — 모바일 포함, 제목줄 없음. app/product_filter_renderer.php $alwaysOpen) */
+.fltbox.is-always-open>summary{display:none !important}
+.fltbox.is-always-open>.flt-body{display:block !important;border-top:0}
 .fltbox>summary::before{content:"⚙";color:var(--color-primary)}
 .flt-body{padding:4px 14px 16px;border-top:1px solid var(--color-border)}
 .flt-top{display:flex;justify-content:space-between;align-items:center;padding:12px 0 4px}
@@ -1853,6 +1859,8 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
     width: auto; display: inline-block; margin-right: 14px; font-size: 12px; color: var(--color-primary); font-weight: 600;
   }
   .pt-col-cost::before   { content: "매입가 "; color: var(--color-text-disabled); font-weight: 400; }
+  .product-table td.pt-col-desc { width: auto; min-width: 0; margin-top: 4px; font-size: 12px; line-height: 1.5; }
+  .pt-col-desc::before   { content: "설명 "; color: var(--color-text-disabled); }
   .pt-col-price { margin-top: 6px; }
   .pt-col-price::before { content: "판매가 "; color: var(--color-text-disabled); font-size: 12px; }
   .pt-col-price .pt-price-val { font-size: 15px; }

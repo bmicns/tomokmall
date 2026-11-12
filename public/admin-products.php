@@ -532,7 +532,7 @@ function bkRender() {
 }
 
 // 자동 정리 미리보기: 서버가 등록 때와 같은 규칙으로 계산한 '바뀌는 곳'. 끄면 엑셀 그대로 등록
-const BK_FIELD = {category_slug:'분류코드', name:'상품명', spec_code:'모델 코드', spec_option:'옵션', dim_a_w:'부속 폭', dim_a_l:'부속 길이', dim_a_t:'부속 두께',
+const BK_FIELD = {category_slug:'분류코드', name:'상품명', spec:'규격', spec_code:'모델 코드', spec_option:'옵션', dim_a_w:'부속 폭', dim_a_l:'부속 길이', dim_a_t:'부속 두께',
     dim_a2_w:'부속2 폭', dim_a2_l:'부속2 길이', dim_a2_t:'부속2 두께', dim_x1:'기타 x1', dim_x2:'기타 x2', dim_t:'두께'};
 const bkV = v => v === null || v === undefined || v === '' ? '(빈칸)' : String(v);
 function bkNormHtml(n) {

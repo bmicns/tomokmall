@@ -17,6 +17,8 @@ declare(strict_types=1);
  *   3 옵션 속 치수  '그레이팅 245*995*25' → 옵션 '그레이팅' + 부속 치수 칸(칸이 비어 있을 때만 — 업체 값 우선)
  *   4 모델 코드     카테고리 단위: 모든 코드가 '크기[+형식]' 이고 크기가 치수 칸에 있을 때만 → 형식만(B형·W2), 크기뿐이면 비움,
  *                   형식이 옵션 글자(무개)면 옵션으로. 하나라도 아니면 그 카테고리 코드는 그대로(빈칸·뒤섞임 방지)
+ *   4b 규격 원문     끝 괄호 '(300*400B)' 의 예전 코드를 4와 같은 기준으로: 형식 → '(B형)', 크기뿐·옵션 글자 → 괄호 뺌,
+ *                   지금 모델 코드와 같거나 정리할 수 없는 글자('(NS-01)'·'(앙카식)')는 그대로(2026-11-12 사용자 요청)
  *   5 품명          품명 속 옵션 글자(규칙 option_words) → 옵션 앞으로, 모델 코드(형식)와 같은 낱말 → 뺌. 품명이 비면 그대로
  *                   (그 밖의 낱말은 옵션에 같은 글자가 있어도 둔다 — 예: '그레이팅 높이조절용 측구수로관' 의 '그레이팅')
  * 원칙: 바꾼 칸마다 [행, 칸, 전, 후, 규칙] 기록. 같은 결과를 다시 넣으면 바뀌는 것 없음(멱등). 가격·출처·이미지 칸은 읽지도 바꾸지도 않음.
@@ -24,7 +26,7 @@ declare(strict_types=1);
 
 const SYC_NORM_RULE_LABELS = [
     'category_merge' => '분류 합치기', 'category_split' => '분류 나누기(치수 칸 구성)', 'option_dims' => '옵션 속 치수 → 치수 칸',
-    'code' => '모델 코드 정리', 'name' => '품명 정리', 'option_words' => '품명·코드의 옵션 글자 → 옵션',
+    'code' => '모델 코드 정리', 'spec' => '규격 원문 속 예전 코드', 'name' => '품명 정리', 'option_words' => '품명·코드의 옵션 글자 → 옵션',
 ];
 
 /** 옵션 글자 → 조각(괄호 밖 쉼표로만 나눔 — '그레이팅(인도,차도)뚜껑' 은 한 조각) */
@@ -175,6 +177,23 @@ function syc_normalize_rows(array $rows, array $rules, ?array $active = null): a
         }
     }
     unset($r);
+    // 6(4b): 규격 원문 끝 괄호의 예전 코드 — 옵션 정리(5) 뒤에(옵션으로 옮긴 글자 '(무개)' 도 뺄 수 있게)
+    foreach ($rows as $i => &$r) {
+        $spec = (string) ($r['spec'] ?? '');
+        if (!preg_match('/^(.*?)\s*\(([^()]+)\)\s*$/u', $spec, $m) || trim($m[1]) === '') { continue; }
+        $x = trim($m[2]);
+        if ($x === trim((string) ($r['spec_code'] ?? ''))) { continue; }
+        if (substr_count($x, '*') >= 2 || preg_match('/^[\d.*]+T$/', $x)) { continue; }   // '(320*320*2000*60T)' 같은 치수 목록은 코드 아님
+        $p = syc_norm_code_parse($x, $r, $words);
+        if ($p === null && in_array($x, $words, true) && in_array($x, syc_norm_option_parts($r['spec_option'] ?? null), true)) {
+            $p = ['kind' => 'word', 'value' => $x];      // '(무개)' — 옵션 글자이고 옵션에 이미 있음 → 괄호 뺌
+        }
+        if ($p === null || $p['kind'] === 'keep') { continue; }
+        $new = $p['kind'] === 'code' ? $m[1] . ' (' . $p['value'] . ')' : $m[1];
+        $set($i, $r, 'spec', $new, 'spec');
+    }
+    unset($r);
+
     return ['rows' => $rows, 'changes' => $changes, 'warnings' => $warnings];
 }
 

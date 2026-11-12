@@ -1115,6 +1115,41 @@ function unit_display_label(string $unit): string
     return preg_match('/^(?:m\s*[2²]|㎡)$/iu', $u) ? '㎡' : $u;
 }
 
+/**
+ * 목록 표 '상세설명' 칸(관리자·직원 전용)용 설명 요약. DB 값은 그대로, 화면 표시만 줄인다.
+ *  - ' / ' 로 나뉜 조각마다 한 줄. '[임시값]…' 조각(데이터 정리 메모)은 줄에서 빼고 temp=true 만(목록에는 표시 안 함)
+ *  - 괄호 보충 설명((mm)·(원문, 단위 미표기) 등)은 빼고, 줄마다 $max 자를 넘으면 ' · '·', ' 경계에서 잘라 '…'
+ *  - 최대 $maxLines 줄, 남은 조각이 있으면 마지막 줄 끝에 '…'
+ * 예) '[임시값] 소켓부 … / 균열하중 2종 1700 · 파괴하중 2종 2600(원문, 단위 미표기)'
+ *     → ['lines' => ['균열하중 2종 1700 · 파괴하중 2종 2600'], 'temp' => true]
+ * @return array{lines: list<string>, temp: bool}
+ */
+function product_desc_summary(string $desc, int $max = 36, int $maxLines = 2): array
+{
+    $lines = []; $temp = false; $more = false;
+    $segs = preg_split('/\s*(?:\R|\s\/\s)\s*/u', trim($desc)) ?: [];
+    foreach ($segs as $seg) {
+        $seg = trim($seg);
+        if ($seg === '') { continue; }
+        if (str_starts_with($seg, '[임시값]')) { $temp = true; continue; }
+        if (count($lines) >= $maxLines) { $more = true; continue; }
+        $s = (string) preg_replace('/\s*\([^()]*\)/u', '', $seg);   // 괄호 보충 설명 빼기
+        $s = trim((string) preg_replace('/\s+/u', ' ', $s), " \t.,;");
+        if ($s === '') { continue; }
+        if (mb_strlen($s) > $max) {
+            $cut = mb_substr($s, 0, $max);
+            $pos = max((int) mb_strrpos($cut, ' · '), (int) mb_strrpos($cut, ', '), (int) mb_strrpos($cut, '·'));
+            $s = rtrim(mb_substr($s, 0, $pos >= (int) ($max / 2) ? $pos : $max), " ·,") . '…';
+        }
+        $lines[] = $s;
+    }
+    if ($more && $lines) {
+        $k = count($lines) - 1;
+        if (!str_ends_with($lines[$k], '…')) { $lines[$k] .= ' …'; }
+    }
+    return ['lines' => $lines, 'temp' => $temp];
+}
+
 function fetch_related_categories(int $categoryId, string $type): array
 {
     $stmt = db()->prepare(
