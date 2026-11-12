@@ -181,10 +181,11 @@ function fetch_categories(): array
  * 화면에서 숨길 빈 카테고리: 상용콘크리트 반영 카테고리(slug 'syc-…') 중 자신·하위 품목에 활성 상품이 하나도 없는 것.
  * DB 의 카테고리 행·활성 여부는 그대로 두고(사용자 결정 2026-11-12) 메뉴·빠른 견적·검색 추천에서만 뺀다 —
  * 실제 데이터로 상품이 들어오면 자동으로 다시 보인다. 케이토목 카테고리는 대상 아님(기존 화면 그대로).
- * 예외: CATEGORY_EMPTY_SHOW_ROOT_IDS 대분류 아래는 상품이 없어도 보인다(PE/PVC — 사용자 결정 2026-11-12).
+ * 예외: CATEGORY_EMPTY_SHOW_ROOT_IDS 대분류 아래는 상품이 없어도 보인다(사용자 결정 2026-11-12 — PE/PVC 먼저,
+ *       이어서 맨홀 안전 사다리·그레이팅 등 카탈로그 품목도 보이게 해 상용콘크리트 대분류 4개 모두). 대분류를 빼면 다시 숨김.
  * @return array<int,true> [category_id => true] (요청당 1회)
  */
-const CATEGORY_EMPTY_SHOW_ROOT_IDS = [15];   // PE/PVC제품: 배수관(PE·PVC관) 등 상품 없는 품목도 메뉴에 보임
+const CATEGORY_EMPTY_SHOW_ROOT_IDS = [11, 12, 13, 15];   // 철근콘크리트·콘크리트·스틸·PE/PVC제품: 상품 없는 카탈로그 품목도 메뉴에 보임
 
 function category_empty_hidden_ids(): array
 {
