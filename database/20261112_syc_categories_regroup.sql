@@ -18,7 +18,7 @@ UPDATE syc_categories SET name = CASE slug
 WHERE slug IN ('syc-g8', 'syc-g6');
 
 INSERT INTO syc_categories (parent_id, name, description, slug, sort_order, is_active)
-SELECT NULL, x.name, NULL, x.slug, x.sort_order, 1
+SELECT NULL AS parent_id, x.name, NULL AS description, x.slug, x.sort_order, 1 AS is_active
 FROM (
     SELECT '옹벽·호안블록' AS name, 'syc-g11' AS slug, 81 AS sort_order
     UNION ALL SELECT '경계석' AS name, 'syc-g12' AS slug, 82 AS sort_order
