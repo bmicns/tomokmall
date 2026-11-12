@@ -1313,6 +1313,14 @@ eq('모델 코드 분석: 크기+형식·크기+W2·크기+옵션 글자·크기
     syc_norm_code_parse('B형', [], $NR['option_words'])],
     [['kind' => 'code', 'value' => 'B형'], ['kind' => 'code', 'value' => 'W2'], ['kind' => 'word', 'value' => '무개'], ['kind' => 'clear', 'value' => null], ['kind' => 'keep', 'value' => 'B형']]);
 eq('모델 코드 분석: 크기가 치수 칸에 없거나(800B·폭 795) 크기로 시작 안 하면 정리 안 함', [syc_norm_code_parse('800B', ['dim_w' => 795.0], []), syc_norm_code_parse('KCI-S1', [], []), syc_norm_code_parse('NS-01', [], [])], [null, null, null]);
+$sp = syc_normalize_rows([
+    ['_category_slug' => 'syc-s1', 'name' => '측구수로관', 'spec' => '300*400*2000*150T (300*400B)', 'spec_code' => 'B형', 'spec_option' => null, 'dim_w' => 300.0, 'dim_h' => 400.0],
+    ['_category_slug' => 'syc-s79', 'name' => '원심력수로관', 'spec' => 'D250 (340*330*2500*45T) (무개)', 'spec_code' => null, 'spec_option' => '무개', 'dim_d_i' => 250.0],
+    ['_category_slug' => 'syc-s14', 'name' => '원형수로관', 'spec' => 'D150*2M (260*294*1998) (NS-01)', 'spec_code' => 'NS-01', 'spec_option' => null],
+    ['_category_slug' => 'syc-s15', 'name' => '원형사각수로관', 'spec' => 'D200*2M (320*320*2000*60T)', 'spec_code' => null, 'spec_option' => null, 'dim_d_i' => 200.0],
+], $NR);
+eq('규격 끝 예전 코드: 형식으로·옵션 글자 뺌·지금 코드와 같으면 그대로·치수 목록 괄호 그대로', array_column($sp['rows'], 'spec'),
+    ['300*400*2000*150T (B형)', 'D250 (340*330*2500*45T)', 'D150*2M (260*294*1998) (NS-01)', 'D200*2M (320*320*2000*60T)']);
 eq('옵션 조각: 괄호 안 쉼표는 나누지 않음', syc_norm_option_parts('그레이팅(인도,차도)뚜껑 / PE뚜껑 1050, 주문품'), ['그레이팅(인도,차도)뚜껑 / PE뚜껑 1050', '주문품']);
 $nr = syc_normalize_rows([
     ['_category_slug' => 'syc-s6', 'name' => '측구수로관 앵글부착 B형', 'spec_code' => '300*400B', 'spec_option' => '그레이팅 395*995*50', 'dim_w' => 300.0, 'dim_h' => 400.0, 'price_b2c' => 1000, 'external_id' => 'x1'],
@@ -1333,19 +1341,19 @@ $gd = 0; $guard = 0;
 foreach ($rawR['rows'] as $row) {
     $w = $pjById[$row['external_id']] ?? [];
     foreach ($w as $f => $ev) {
-        if ($f !== 'category_slug' && $f !== 'name' && $f !== 'spec_code' && $f !== 'spec_option' && !str_starts_with($f, 'dim_')) { continue; }
+        if ($f !== 'category_slug' && $f !== 'name' && $f !== 'spec' && $f !== 'spec_code' && $f !== 'spec_option' && !str_starts_with($f, 'dim_')) { continue; }
         $gv = $f === 'category_slug' ? $row['_category_slug'] : ($row[$f] ?? null);
         if (is_numeric($gv) && is_numeric($ev) ? (float) $gv !== (float) $ev : $gv !== $ev) { $gd++; }
     }
 }
 $rawPlain = syc_bulk_read_excel(__DIR__ . '/../data/syccrt/syc-products-bulk-test-raw.xlsx', 'xlsx', $normCats, false);
 foreach ($rawPlain['rows'] as $k => $row) {
-    foreach (['price_b2c', 'price_b2b', 'cost_price', 'stock_qty', 'external_source', 'external_id', '_image_file', '_image_thumb_file', 'spec', 'weight_kg', 'unit', 'brand'] as $f) {
+    foreach (['price_b2c', 'price_b2b', 'cost_price', 'stock_qty', 'external_source', 'external_id', '_image_file', '_image_thumb_file', 'spec_dims_src', 'weight_kg', 'unit', 'brand'] as $f) {
         if (($rawR['rows'][$k][$f] ?? null) !== ($row[$f] ?? null)) { $guard++; }
     }
 }
 $again = syc_bulk_read_excel(__DIR__ . '/../data/syccrt/syc-products-bulk-test.xlsx', 'xlsx', $normCats, true);
-eq('자동 정리 실제 데이터: 옛 표기 704행 → 지금 데이터와 차이 0·가격·출처·이미지·규격 원문 그대로·정리된 엑셀 다시 넣으면 바뀜 0', [count($rawR['rows']), $gd, $guard, $again['normalize']['changes'], $rawR['normalize']['warning_count']], [704, 0, 0, 0, 0]);
+eq('자동 정리 실제 데이터: 옛 표기 704행 → 지금 데이터와 차이 0(규격 끝 예전 코드 포함)·가격·출처·이미지·규격 원본(spec_dims_src) 그대로·정리된 엑셀 다시 넣으면 바뀜 0', [count($rawR['rows']), $gd, $guard, $again['normalize']['changes'], $rawR['normalize']['warning_count']], [704, 0, 0, 0, 0]);
 // ── 사이트 반영·전환(app/syc_publish.php, B 방식 2026-11-12) ──
 require_once __DIR__ . '/../app/syc_publish.php';
 require_once __DIR__ . '/../app/work_types.php';
