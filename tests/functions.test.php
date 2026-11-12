@@ -65,6 +65,14 @@ eq('단위 라벨 없음',      ai_unit_label('220*110*60T'), '');
 eq('표시 단위 m 2 → ㎡',  unit_display_label('m 2'), '㎡');
 eq('표시 단위 m2·M2·m² → ㎡', [unit_display_label('m2'), unit_display_label('M2'), unit_display_label('m²'), unit_display_label(' ㎡ ')], ['㎡', '㎡', '㎡', '㎡']);
 eq('표시 단위 M(미터)·본·개·빈 값 그대로', [unit_display_label('M'), unit_display_label('본'), unit_display_label('개'), unit_display_label('')], ['M', '본', '개', '']);
+// 목록 '상세설명' 칸 요약(관리자·직원 전용) — 임시값 메모는 표시만, 괄호 보충 설명 빼기, 길면 경계에서 자르기
+eq('설명 요약: 임시값 메모 + 제품 정보', product_desc_summary('[임시값] 균열2종 원문 "4800" → 1800(앞뒤 행) / 균열하중 2종 1800 · 파괴하중 2종 2700(원문, 단위 미표기)'),
+    ['lines' => ['균열하중 2종 1800 · 파괴하중 2종 2700'], 'temp' => true]);
+eq('설명 요약: 임시값 메모뿐이면 줄 없음', product_desc_summary('[임시값] 길이 원문 없음 → 2500(기존 DB …)'), ['lines' => [], 'temp' => true]);
+eq('설명 요약: 긴 항목은 · 경계에서 자름', product_desc_summary('소켓부 치수(mm): aS 311이상 · cS 284이상 · dS 27이상 · eS 30이상 · hS 210이상 · lS 50이상'),
+    ['lines' => ['소켓부 치수: aS 311이상 · cS 284이상…'], 'temp' => false]);
+eq('설명 요약: 최대 2줄, 넘치면 …', product_desc_summary("수량 50개/m²\n뚜껑 일체형 / 스텐304 기둥 Ø114(도면)"), ['lines' => ['수량 50개/m²', '뚜껑 일체형 …'], 'temp' => false]);
+eq('설명 요약: 빈 값·kg/m 같은 빗금은 나누지 않음', [product_desc_summary(''), product_desc_summary('단위중량 83.2kg/m')['lines']], [['lines' => [], 'temp' => false], ['단위중량 83.2kg/m']]);
 eq('표시 단위 m 2 이외 m 표기는 그대로', [unit_display_label('m'), unit_display_label('m3'), unit_display_label('m 2 이상')], ['m', 'm3', 'm 2 이상']);
 
 echo "[AI 검색 대표 규격·부속 제외 — 실제 수집 상품(data/ktomok/products.json)]\n";

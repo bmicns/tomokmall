@@ -147,6 +147,8 @@ if ($workType && !$category) {
 }
 $loggedIn  = !empty($_SESSION['user']);
 $isInternal = price_tier() === 'internal';   // 직원·관리자: 원가 컬럼 노출
+// 목록 '상세설명' 칸(products.description 요약): 관리자·직원 로그인 때만(사용자 결정 2026-11-12)
+$showDescCol = in_array((string) ($_SESSION['user']['role'] ?? ''), ['admin', 'staff'], true);
 
 // ── Figma 하드코딩 데모 데이터 (DB 미연결 시에만) ──────────
 // ⚠️ 검색 결과 0건을 데모로 표시하면 "엉뚱한 제품"으로 보이므로,
@@ -420,6 +422,7 @@ render_header($pageTitle);
             if ($sp['weight']) $hasWeight = true;
         }
     }
+    $hasDesc = !$demoMode && $showDescCol && array_filter($products, fn($p) => trim((string) ($p['description'] ?? '')) !== '') !== [];
 
     // 규격 축 모드: 결과 카테고리가 모두 같은 이름표(category_spec_axes)를 쓰면 '규격' 한 칸 → 규격 묶음 아래 모델 코드(spec_code)·축별 칸.
     //  - 결과 전체에 값이 하나뿐인 축은 필터에 고정(선택된 채) 표시되므로 표 칸에서 뺀다(필터에 안 쓰는 축은 표에 남김)
@@ -483,6 +486,7 @@ render_header($pageTitle);
                     <?php if ($isInternal && !$demoMode): ?><th class="pt-col-cost"<?= $axRs ?>>매입가<span>내부용</span></th><?php endif; ?>
                     <th class="pt-col-price"<?= $axRs ?>>판매가<span>부가세별도</span></th>
                     <?php if ($demoMode || $hasWeight):  ?><th class="pt-col-weight"<?= $axRs ?>>중량<span>kg/m²</span></th><?php endif; ?>
+                    <?php if ($hasDesc):                 ?><th class="pt-col-desc"<?= $axRs ?>>상세설명<span>관리자·직원</span></th><?php endif; ?>
                 </tr>
                 <?php if ($axisMode): ?>
                 <tr class="pt-head-ax">
@@ -549,6 +553,7 @@ render_header($pageTitle);
                         <?php if ($isInternal): ?><td class="pt-col-cost"><?= price_cost_cell($p) ?></td><?php endif; ?>
                         <td class="pt-col-price"><?= price_tag_list($p) ?></td>
                         <?php if ($hasWeight):  ?><td class="pt-col-weight"><?= e($sp['weight']) ?></td><?php endif; ?>
+                        <?php if ($hasDesc): $dsc = trim((string) ($p['description'] ?? '')); $ds = product_desc_summary($dsc); ?><td class="pt-col-desc"<?= $dsc !== '' ? ' title="' . e($dsc) . '"' : '' ?>><?php if ($ds['temp']): ?><span class="pt-desc-tmp" title="정리 중 임시로 채운 값이 있습니다(전체 내용은 상세 화면)">임시값</span><?php endif; ?><?= implode('<br>', array_map('e', $ds['lines'])) ?></td><?php endif; ?>
                     </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
