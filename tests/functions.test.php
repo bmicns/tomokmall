@@ -1289,6 +1289,49 @@ $sideCodes = array_values(array_unique(array_column(array_filter($pj['rows'] ?? 
 sort($sideCodes);
 eq('측구수로관 합치기: 숨긴 6개를 데이터가 안 씀·모델 코드 형식만·품명 하나', [count($hidden[1]), array_values(array_intersect($pjSlugs, $hidden[1])), $sideCodes,
     array_values(array_unique(array_column(array_filter($pj['rows'] ?? [], static fn($r) => $r['category_slug'] === 'syc-s1'), 'name')))], [6, [], ['AN형', 'A형', 'B형', 'Z형'], ['측구수로관']]);
+// ── 업체 엑셀 자동 정리(app/syc_normalize.php — 규칙 app/syc_normalize_rules.php) ──
+$NR = syc_normalize_rules();
+eq('모델 코드 분석: 크기+형식·크기+W2·크기+옵션 글자·크기뿐·이미 정리됨', [
+    syc_norm_code_parse('300*400B', ['dim_w' => 300.0, 'dim_h' => 400.0], $NR['option_words']),
+    syc_norm_code_parse('250W2', ['dim_d_i' => 250.0], $NR['option_words']),
+    syc_norm_code_parse('250무개', ['dim_d_i' => 250.0], $NR['option_words']),
+    syc_norm_code_parse('0.6*0.6', ['dim_w' => 600.0, 'dim_h' => 600.0], $NR['option_words']),
+    syc_norm_code_parse('B형', [], $NR['option_words'])],
+    [['kind' => 'code', 'value' => 'B형'], ['kind' => 'code', 'value' => 'W2'], ['kind' => 'word', 'value' => '무개'], ['kind' => 'clear', 'value' => null], ['kind' => 'keep', 'value' => 'B형']]);
+eq('모델 코드 분석: 크기가 치수 칸에 없거나(800B·폭 795) 크기로 시작 안 하면 정리 안 함', [syc_norm_code_parse('800B', ['dim_w' => 795.0], []), syc_norm_code_parse('KCI-S1', [], []), syc_norm_code_parse('NS-01', [], [])], [null, null, null]);
+eq('옵션 조각: 괄호 안 쉼표는 나누지 않음', syc_norm_option_parts('그레이팅(인도,차도)뚜껑 / PE뚜껑 1050, 주문품'), ['그레이팅(인도,차도)뚜껑 / PE뚜껑 1050', '주문품']);
+$nr = syc_normalize_rows([
+    ['_category_slug' => 'syc-s6', 'name' => '측구수로관 앵글부착 B형', 'spec_code' => '300*400B', 'spec_option' => '그레이팅 395*995*50', 'dim_w' => 300.0, 'dim_h' => 400.0, 'price_b2c' => 1000, 'external_id' => 'x1'],
+    ['_category_slug' => 'syc-s12', 'name' => 'U형 플륨', 'spec_code' => null, 'spec_option' => null, 'dim_w' => 300.0],
+], $NR);
+eq('행 정리: 측구수로관 B형(분류 합치기·형식 코드·옵션 앞 앵글부착·부속 치수) / U형 플륨 품명은 그대로', [
+    array_intersect_key($nr['rows'][0], array_flip(['_category_slug', 'name', 'spec_code', 'spec_option', 'dim_a_w', 'dim_a_l', 'dim_a_t', 'price_b2c', 'external_id'])), $nr['rows'][1]['name']],
+    [['_category_slug' => 'syc-s1', 'name' => '측구수로관', 'spec_code' => 'B형', 'spec_option' => '앵글부착, 그레이팅', 'price_b2c' => 1000, 'external_id' => 'x1', 'dim_a_w' => 395.0, 'dim_a_l' => 995.0, 'dim_a_t' => 50.0], 'U형 플륨']);
+$nw = syc_normalize_rows([['_category_slug' => 'syc-s1', 'name' => '측구수로관', 'spec_code' => null, 'spec_option' => '그레이팅 395*995*50', 'dim_a_w' => 400.0],
+                          ['_category_slug' => 'syc-s48', 'name' => 'PE 부속', 'spec_code' => null, 'spec_option' => null, 'dim_d' => 1.0]], $NR, ['syc-s1' => true, 'syc-s48' => true]);
+eq('경고: 업체 치수와 옵션 치수가 다르면 옮기지 않음·나누기 묶음에 맞는 치수 구성 없음', [$nw['rows'][0]['spec_option'], $nw['rows'][0]['dim_a_w'], count($nw['warnings']), $nw['rows'][1]['_category_slug']],
+    ['그레이팅 395*995*50', 400.0, 2, 'syc-s48']);
+// 실제 데이터: 옛 표기 원본 엑셀(data/syccrt/syc-products-bulk-test-raw.xlsx) → 정리 결과 = 지금 데이터(products.json), 정리된 엑셀 다시 넣기 = 바뀜 0
+$normCats = $cats;
+$rawR = syc_bulk_read_excel(__DIR__ . '/../data/syccrt/syc-products-bulk-test-raw.xlsx', 'xlsx', $normCats, true);
+$pjById = array_column($pj['rows'] ?? [], null, 'external_id');
+$gd = 0; $guard = 0;
+foreach ($rawR['rows'] as $row) {
+    $w = $pjById[$row['external_id']] ?? [];
+    foreach ($w as $f => $ev) {
+        if ($f !== 'category_slug' && $f !== 'name' && $f !== 'spec_code' && $f !== 'spec_option' && !str_starts_with($f, 'dim_')) { continue; }
+        $gv = $f === 'category_slug' ? $row['_category_slug'] : ($row[$f] ?? null);
+        if (is_numeric($gv) && is_numeric($ev) ? (float) $gv !== (float) $ev : $gv !== $ev) { $gd++; }
+    }
+}
+$rawPlain = syc_bulk_read_excel(__DIR__ . '/../data/syccrt/syc-products-bulk-test-raw.xlsx', 'xlsx', $normCats, false);
+foreach ($rawPlain['rows'] as $k => $row) {
+    foreach (['price_b2c', 'price_b2b', 'cost_price', 'stock_qty', 'external_source', 'external_id', '_image_file', '_image_thumb_file', 'spec', 'weight_kg', 'unit', 'brand'] as $f) {
+        if (($rawR['rows'][$k][$f] ?? null) !== ($row[$f] ?? null)) { $guard++; }
+    }
+}
+$again = syc_bulk_read_excel(__DIR__ . '/../data/syccrt/syc-products-bulk-test.xlsx', 'xlsx', $normCats, true);
+eq('자동 정리 실제 데이터: 옛 표기 704행 → 지금 데이터와 차이 0·가격·출처·이미지·규격 원문 그대로·정리된 엑셀 다시 넣으면 바뀜 0', [count($rawR['rows']), $gd, $guard, $again['normalize']['changes'], $rawR['normalize']['warning_count']], [704, 0, 0, 0, 0]);
 // 목록 표 나누기: 값이 있는 목록 칸 구성이 같은 상품끼리(유공 침투측구수로관 W·H·L / 침투집수정 W·H·V)
 $axG = [['axis_key' => 'w', 'label' => '폭'], ['axis_key' => 'h', 'label' => '높이'], ['axis_key' => 'l', 'label' => '길이'], ['axis_key' => 'v', 'label' => '세로']];
 $gr = syc_list_groups([['name' => '수로관', 'dim_w' => 300, 'dim_h' => 300, 'dim_l' => 2000], ['name' => '집수정', 'dim_w' => 600, 'dim_h' => 850, 'dim_v' => 600], ['name' => '수로관', 'dim_w' => 400, 'dim_h' => 400, 'dim_l' => 2000]], $axG);

@@ -6,9 +6,10 @@ declare(strict_types=1);
  * GET  ?status=&cat_id=&q=&page=        목록(20개씩)
  * GET  ?action=categories                분류 선택용 카테고리(대분류 › 품목)
  * GET  ?action=progress&job=…            등록 진행률(등록 요청이 처리되는 동안 화면이 읽음)
- * POST multipart action=stage_excel      엑셀(xlsx·csv) 올리기 → 검증 결과(행 수·오류). 파일은 웹 밖 임시 폴더에 보관
+ * POST multipart action=stage_excel      엑셀(xlsx·csv) 올리기 → 검증 결과(행 수·오류) + 자동 정리 미리보기(normalize). 파일은 웹 밖 임시 폴더에 보관
  * POST multipart action=stage_zip        이미지 ZIP 올리기 → 이미지 수
- * POST JSON {action:'commit', job}       올린 엑셀(+ZIP)로 등록: 새 상품 비활성, 같은 출처ID 는 덮어쓰기(활성 상태 유지)
+ * POST JSON {action:'commit', job, normalize} 올린 엑셀(+ZIP)로 등록: 새 상품 비활성, 같은 출처ID 는 덮어쓰기(활성 상태 유지).
+ *                                        normalize(기본 true) = 자동 정리(app/syc_normalize.php) 적용 — 올릴 때 미리보기와 같은 결과
  * POST JSON {action:'set_active', ids, is_active} / {action:'delete', id}(비활성화)
  * POST JSON {action:'set_active_filter', filter:{status,cat_id,q}, expect, is_active}  검색 결과 전체(모든 페이지) 활성/비활성
  * 권한: 관리자만. 오류는 HTTP 200 + ok:false(닷홈이 4xx 본문을 바꿈 — 기존 api/admin/products.php 와 같음)
@@ -116,14 +117,15 @@ try {
         syc_api_drop_stage('excel');
         [$path, $name, $ext] = syc_api_take_upload(['xlsx', 'csv'], SYC_BULK_MAX_EXCEL_BYTES);
         try {
-            $r = syc_bulk_read_excel($path, $ext, syc_bulk_category_ids($pdo));
+            // 자동 정리 미리보기: 등록 때와 같은 함수·규칙(app/syc_normalize.php) — 화면에 바뀌는 곳을 보여 주고 등록 때 다시 적용
+            $r = syc_bulk_read_excel($path, $ext, syc_bulk_category_ids($pdo), true, syc_bulk_category_active($pdo));
         } catch (Throwable $e) {
             unlink($path);
             throw $e;
         }
         $_SESSION['syc_bulk']['excel'] = ['path' => $path, 'ext' => $ext, 'name' => $name, 'rows' => count($r['rows']), 'error_count' => $r['error_count']];
         syc_api_out(['ok' => true, 'name' => $name, 'rows' => count($r['rows']), 'data_rows' => $r['data_rows'],
-                     'error_count' => $r['error_count'], 'errors' => $r['errors']]);
+                     'error_count' => $r['error_count'], 'errors' => $r['errors'], 'normalize' => $r['normalize']]);
     }
 
     if ($action === 'stage_zip') {
@@ -167,7 +169,8 @@ try {
 
         $zip = null;
         try {
-            $r = syc_bulk_read_excel((string) $ex['path'], (string) $ex['ext'], syc_bulk_category_ids($pdo));
+            $norm = ($body['normalize'] ?? true) !== false;      // 자동 정리(기본 켬). 창에서 끄면 엑셀 그대로
+            $r = syc_bulk_read_excel((string) $ex['path'], (string) $ex['ext'], syc_bulk_category_ids($pdo), $norm, syc_bulk_category_active($pdo));
             if ($r['error_count'] > 0) { throw new InvalidArgumentException('엑셀에 오류가 있는 행이 있어 등록하지 않았습니다. 고친 뒤 다시 올려 주세요.'); }
             $total = count($r['rows']);
             $idx = [];
@@ -214,7 +217,8 @@ try {
             $zip?->close();
             foreach ([$ex, $zp] as $s) { if (is_array($s) && is_file((string) $s['path'])) { unlink((string) $s['path']); } }   // 성공·실패 모두 임시 파일 삭제
         }
-        $result = ['done' => $total, 'total' => $total, 'finished' => true, 'with_zip' => $zip !== null] + $count;
+        $result = ['done' => $total, 'total' => $total, 'finished' => true, 'with_zip' => $zip !== null,
+                   'normalized_rows' => $norm ? (int) ($r['normalize']['changed_rows'] ?? 0) : 0] + $count;
         file_put_contents($progress, json_encode($result));
         syc_api_out(['ok' => true] + $result);
     }

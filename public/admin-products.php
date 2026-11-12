@@ -75,6 +75,21 @@ render_admin_header('제품관리', 'products');
 .bk-done-t{font-size:17px;font-weight:800}
 .bk-done-s{font-size:13px;line-height:1.6;color:#555}
 .bk-hide{display:none!important}
+/* 자동 정리 미리보기(업체 표기 → 사이트 표기, app/syc_normalize.php) */
+.bk-norm{border:1px solid #d6e4f5;border-radius:8px;background:#f7faff;padding:12px 14px;display:flex;flex-direction:column;gap:8px;font-size:12.5px;color:#333}
+.bk-norm-on{display:flex;align-items:center;gap:8px;min-height:40px;font-size:13px;font-weight:700;cursor:pointer}
+.bk-norm-on input{width:18px;height:18px;cursor:pointer}
+.bk-norm-chips{display:flex;flex-wrap:wrap;gap:6px}
+.bk-norm-chips span{padding:3px 8px;border-radius:12px;background:#e8f0fe;color:#004EA1;font-size:11.5px;font-weight:600}
+.bk-norm details summary{cursor:pointer;min-height:32px;display:flex;align-items:center;font-weight:600;color:#004EA1}
+.bk-norm-tbl{max-height:220px;overflow:auto;border:1px solid #e8eaed;border-radius:6px;background:#fff}
+.bk-norm-tbl table{width:100%;min-width:560px;border-collapse:collapse;font-size:11.5px}   /* 좁은 화면: 표 안에서만 옆으로 넘김 */
+.bk-norm-tbl td:first-child,.bk-norm-tbl td:nth-child(3){white-space:nowrap}
+.bk-norm-tbl th,.bk-norm-tbl td{padding:5px 8px;border-bottom:1px solid #f0f2f5;text-align:left;vertical-align:top}
+.bk-norm-tbl th{position:sticky;top:0;background:#f8f9fb;font-weight:700;white-space:nowrap}
+.bk-norm-tbl del{color:#9b1c1c}.bk-norm-tbl ins{color:#1b5e20;text-decoration:none;font-weight:600}
+.bk-norm-warn{margin:0;padding:8px 10px 8px 26px;border-radius:6px;background:#fff8e1;color:#7a5200;font-size:12px;line-height:1.6}
+.bk-norm-dl{align-self:flex-start;min-height:32px;padding:0 10px;border:1px solid #c5cad3;border-radius:6px;background:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
 .syc-bulkbar{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;margin:-4px 0 12px;font-size:13px}
 .syc-bulkbar label{display:inline-flex;align-items:center;gap:6px;min-height:36px;cursor:pointer}
 .syc-bulkbar input,.syc-chk{width:18px;height:18px;cursor:pointer}
@@ -409,7 +424,7 @@ const BK_LABEL = {ex: ['엑셀 파일(csv, xlsx)을 끌어다 놓거나', '엑�
 function bkSize(n) { return n >= 1048576 ? (n/1048576).toFixed(1)+' MB' : Math.max(1, Math.round(n/1024))+' KB'; }
 
 function bkOpen() {
-    bk.ex = {state:'empty'}; bk.zp = {state:'empty'};
+    bk.ex = {state:'empty'}; bk.zp = {state:'empty'}; bk.norm = true;   // 자동 정리 기본 켬
     ['bk-running','bk-done'].forEach(id => document.getElementById(id).classList.add('bk-hide'));
     document.getElementById('bk-form').classList.remove('bk-hide');
     bkRender();
@@ -442,7 +457,8 @@ function bkRender() {
             + (st ? `<span class="bk-st">${st}</span>` : '')
             + `<button type="button" class="bk-fx" aria-label="${BK_LABEL[k][1]} ${busy?'업로드 취소':'파일 삭제'}" onclick="bkClear('${k}')">×</button></div>`
             + (busy ? `<div class="bk-bar" role="progressbar" aria-label="${BK_LABEL[k][1]} 업로드 진행률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${s.pct}"><div style="width:${s.pct}%"></div></div>` : '')
-            + (s.errors?.length ? `<ul class="bk-errs">${s.errors.map(e => `<li>${x(e)}</li>`).join('')}${s.errorCount > s.errors.length ? `<li>…외 ${s.errorCount - s.errors.length}행</li>` : ''}</ul>` : '');
+            + (s.errors?.length ? `<ul class="bk-errs">${s.errors.map(e => `<li>${x(e)}</li>`).join('')}${s.errorCount > s.errors.length ? `<li>…외 ${s.errorCount - s.errors.length}행</li>` : ''}</ul>` : '')
+            + (k === 'ex' && s.state === 'done' ? bkNormHtml(s.normalize) : '');
     });
     const exOk = bk.ex.state === 'done', zpBusy = bk.zp.state === 'busy', ready = exOk && !zpBusy && bk.zp.state !== 'err';
     let hint = '';
@@ -455,6 +471,37 @@ function bkRender() {
     const go = document.getElementById('bk-go');
     go.disabled = !ready;
     go.textContent = exOk ? `${Number(bk.ex.rows).toLocaleString()}건 등록하기` : '등록하기';
+}
+
+// 자동 정리 미리보기: 서버가 등록 때와 같은 규칙으로 계산한 '바뀌는 곳'. 끄면 엑셀 그대로 등록
+const BK_FIELD = {category_slug:'분류코드', name:'상품명', spec_code:'모델 코드', spec_option:'옵션', dim_a_w:'부속 폭', dim_a_l:'부속 길이', dim_a_t:'부속 두께',
+    dim_a2_w:'부속2 폭', dim_a2_l:'부속2 길이', dim_a2_t:'부속2 두께', dim_x1:'기타 x1', dim_x2:'기타 x2', dim_t:'두께'};
+const bkV = v => v === null || v === undefined || v === '' ? '(빈칸)' : String(v);
+function bkNormHtml(n) {
+    if (!n) return '';
+    if (!n.changes) return `<div class="bk-norm"><b>자동 정리</b><span>정리할 곳이 없습니다 — 엑셀이 사이트 표기(품명·모델 코드·옵션·치수·분류)에 이미 맞습니다.</span></div>`;
+    const on = bk.norm !== false;
+    const rows = n.items.slice(0, 200).map(c => `<tr><td>${x(c.id)}</td><td>${x(c.name)}</td><td>${x(BK_FIELD[c.field] || c.field)}</td><td><del>${x(bkV(c.before))}</del> → <ins>${x(bkV(c.after))}</ins></td><td>${x(c.rule)}</td></tr>`).join('');
+    return `<div class="bk-norm" role="group" aria-labelledby="bk-norm-t">
+        <label class="bk-norm-on" id="bk-norm-t"><input type="checkbox" ${on ? 'checked' : ''} onchange="bk.norm = this.checked; bkRender()">등록 전에 자동 정리 (권장)</label>
+        <span>${on ? '' : '<b style="color:#c62828">끔 — 엑셀 값 그대로 등록합니다.</b> '}업체 표기를 사이트 표기로 고칩니다: 상품 <b>${n.changed_rows.toLocaleString()}</b>개, <b>${n.changes.toLocaleString()}</b>곳.</span>
+        <div class="bk-norm-chips">${Object.entries(n.by_rule).map(([k, v]) => `<span>${x(k)} ${Number(v).toLocaleString()}</span>`).join('')}</div>
+        ${n.warning_count ? `<ul class="bk-norm-warn">${n.warnings.map(w => `<li>${x(w)}</li>`).join('')}${n.warning_count > n.warnings.length ? `<li>…외 ${n.warning_count - n.warnings.length}건</li>` : ''}</ul>` : ''}
+        <details><summary>바뀌는 곳 보기${n.changes > 200 ? ' (앞 200곳)' : ''}</summary>
+          <div class="bk-norm-tbl"><table><thead><tr><th>출처ID</th><th>상품명(원래)</th><th>칸</th><th>원래 → 정리</th><th>규칙</th></tr></thead><tbody>${rows}</tbody></table></div>
+        </details>
+        <button type="button" class="bk-norm-dl" onclick="bkNormCsv()">정리 내역 전체 내려받기(CSV)</button>
+    </div>`;
+}
+function bkNormCsv() {
+    const n = bk.ex.normalize; if (!n) return;
+    const q = v => '"' + bkV(v).replace(/"/g, '""') + '"';
+    const lines = [['출처ID', '상품명(원래)', '칸', '원래', '정리', '규칙'].map(q).join(',')]
+        .concat(n.items.map(c => [c.id, c.name, BK_FIELD[c.field] || c.field, c.before, c.after, c.rule].map(q).join(',')));
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['\ufeff' + lines.join('\r\n')], {type: 'text/csv;charset=utf-8'}));
+    a.download = 'syc-normalize-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '.csv';   // 영문 이름(한글 이름은 일부 브라우저가 'download' 로 바꿈)
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 function bkPicked(k, file) {
@@ -472,7 +519,7 @@ function bkPicked(k, file) {
         let d; try { d = JSON.parse(xhr.responseText); } catch (e) { d = {ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}; }
         if (!d.ok) Object.assign(s, {state:'err', error:d.error});
         else if (k === 'ex' && d.error_count > 0) Object.assign(s, {state:'err', error:`오류 ${d.error_count}행`, errors:d.errors, errorCount:d.error_count});
-        else Object.assign(s, {state:'done', rows:d.rows, images:d.images});
+        else Object.assign(s, {state:'done', rows:d.rows, images:d.images, normalize:d.normalize || null});
         bkRender();
     };
     xhr.onerror = () => { if (bk[k] === s) { Object.assign(s, {state:'err', error:'업로드에 실패했습니다.'}); bkRender(); } };
@@ -501,7 +548,7 @@ async function bkRegister() {
         const p = await fetch(`${SYC_API}?action=progress&job=${job}`).then(r => r.json()).catch(() => null);
         if (p?.ok && p.progress && !p.progress.finished) setRun(p.progress.done);
     }, 800);
-    const r = await fetch(SYC_API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'commit', job})});
+    const r = await fetch(SYC_API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'commit', job, normalize: bk.norm !== false})});
     clearInterval(timer);
     const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     document.getElementById('bk-running').classList.add('bk-hide');
@@ -517,6 +564,7 @@ async function bkRegister() {
     parts.push(d.with_zip
         ? `이미지 ${d.images.toLocaleString()}장 저장` + (d.images_missing ? ` · 대표 이미지 없음 ${d.images_missing.toLocaleString()}건` : '') + (d.thumbs_missing ? ` · 썸네일 없음 ${d.thumbs_missing.toLocaleString()}건(빈 이미지로 표시)` : '')
         : '이미지 ZIP 없이 등록했습니다(이미 있던 이미지는 그대로, 새 상품은 빈 이미지로 표시).');
+    if (d.normalized_rows) parts.push(`자동 정리: 상품 ${d.normalized_rows.toLocaleString()}건의 품명·모델 코드·옵션·치수·분류를 사이트 표기로 고쳐 저장했습니다.`);
     parts.push('제품관리에서 내용을 확인한 뒤 활성으로 바꿔 주세요.');
     document.getElementById('bk-done-s').innerHTML = parts.join('<br>');
     document.getElementById('bk-done').classList.remove('bk-hide');

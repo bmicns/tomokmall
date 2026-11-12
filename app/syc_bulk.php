@@ -15,6 +15,8 @@ declare(strict_types=1);
  */
 
 require_once __DIR__ . '/external_products.php';   // ext_iter_xlsx · ext_iter_csv (라이브러리 없는 xlsx·csv 읽기)
+require_once __DIR__ . '/syc_normalize_rules.php';  // 자동 정리 규칙(데이터)
+require_once __DIR__ . '/syc_normalize.php';        // 자동 정리 엔진(순수 함수)
 
 const SYC_BULK_MAX_ROWS        = 5000;
 const SYC_BULK_MAX_EXCEL_BYTES = 20 * 1024 * 1024;
@@ -141,6 +143,7 @@ function syc_bulk_parse_row(array $raw, array $map, array $catIds): array
     if ($slug === '') { $err[] = '[category_slug] 분류코드가 비어 있습니다'; }
     elseif (!isset($catIds[$slug])) { $err[] = "[category_slug] 없는 분류코드입니다('{$slug}')"; }
     $row['category_id'] = $catIds[$slug] ?? null;
+    $row['_category_slug'] = $slug;      // 자동 정리가 분류를 바꿀 수 있어 slug 도 둔다(정리 뒤 category_id 다시 정함)
     $row['spec_dims_src'] = $row['spec'];
     foreach (['image_file', 'image_thumb_file'] as $k) {
         [$v, $e] = syc_bulk_image_name($cells[$k] ?? '');
@@ -164,10 +167,12 @@ function syc_bulk_iter_raw(string $file, string $ext): Generator
 }
 
 /**
- * 엑셀 전체 검증. 등록 전(미리 확인)과 등록 때 같은 함수를 쓴다.
- * @return array{rows:list<array>, errors:list<string>, error_count:int, data_rows:int, present:list<string>} present = 엑셀에 있는 저장 칸
+ * 엑셀 전체 검증(+ 자동 정리). 등록 전(미리 확인)과 등록 때 같은 함수를 쓴다 → 미리보기 = 실제 등록.
+ * @param bool $normalize 자동 정리(app/syc_normalize.php) 적용 @param array<string,bool>|null $active 분류코드 => 보이는 카테고리(정리 경고용)
+ * @return array{rows:list<array>, errors:list<string>, error_count:int, data_rows:int, present:list<string>, normalize:?array}
+ *         present = 엑셀에 있는 저장 칸(정리로 값이 생긴 칸 포함), normalize = 정리 요약(syc_normalize_summary) 또는 null
  */
-function syc_bulk_read_excel(string $file, string $ext, array $catIds): array
+function syc_bulk_read_excel(string $file, string $ext, array $catIds, bool $normalize = false, ?array $active = null): array
 {
     $map = null;
     $rows = [];
@@ -197,8 +202,21 @@ function syc_bulk_read_excel(string $file, string $ext, array $catIds): array
         $rows[] = $r['row'];
     }
     if ($map === null) { throw new InvalidArgumentException('엑셀이 비어 있습니다.'); }
+    $present = array_values(array_intersect(array_keys(syc_bulk_columns()), $map));
+    $summary = null;
+    if ($normalize && $rows) {
+        $res = syc_normalize_rows($rows, syc_normalize_rules(), $active);
+        $summary = syc_normalize_summary($rows, $res);
+        foreach ($res['rows'] as &$nr) { $nr['category_id'] = $catIds[$nr['_category_slug']] ?? $nr['category_id']; }
+        unset($nr);
+        // 정리로 값이 생긴 칸은 저장 칸에 넣는다(엑셀에 그 칸이 없어도 — 예: 옛 양식에 부속 치수 칸 없음)
+        foreach ($res['changes'] as $c) {
+            if ($c['field'] !== '_category_slug' && !in_array($c['field'], $present, true)) { $present[] = $c['field']; }
+        }
+        $rows = $res['rows'];
+    }
     return ['rows' => $rows, 'errors' => $errors, 'error_count' => $errCount, 'data_rows' => count($rows) + $errCount,
-            'present' => array_values(array_intersect(array_keys(syc_bulk_columns()), $map))];
+            'present' => $present, 'normalize' => $summary];
 }
 
 /**
@@ -273,6 +291,14 @@ function syc_bulk_save_row(PDO $pdo, array $row, ?string $img, ?string $thumb, a
 }
 
 /** 분류코드 → syc_categories.id (품목 단계만 — 대분류에는 상품을 넣지 않음) */
+/** 분류코드 => 보이는 카테고리인지(자동 정리 경고: 숨긴 카테고리로 들어가는 상품) */
+function syc_bulk_category_active(PDO $pdo): array
+{
+    $out = [];
+    foreach ($pdo->query('SELECT slug, is_active FROM syc_categories WHERE parent_id IS NOT NULL') as $r) { $out[(string) $r['slug']] = (int) $r['is_active'] === 1; }
+    return $out;
+}
+
 function syc_bulk_category_ids(PDO $pdo): array
 {
     $out = [];
