@@ -315,7 +315,7 @@ render_header($pageTitle);
         </nav>
         <?php endif; ?>
         <?php // 상황별·주요 자재 목록도 필터를 접지 않고 항상 펼침(사용자 결정 2026-11-12 — 2026-11-06 의 비로그인·개인회원 접기 패널 대신). 모바일은 다른 목록과 같은 규칙 ?>
-        <?php if ($showFilters) { render_product_filters($filters, $query, $categoryId, $sort, $facets, $inStock, $workType ? ['work' => $workType['key']] : [], false); } ?>
+        <?php if ($showFilters) { render_product_filters($filters, $query, $categoryId, $sort, $facets, $inStock, $workType ? ['work' => $workType['key']] : [], false, $workType !== null); } ?>
       </aside>
     <?php endif; ?>
     <div class="pt-list-main">

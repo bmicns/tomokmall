@@ -1743,6 +1743,9 @@ mark.hl{background:#fff3b0;color:inherit;padding:0 1px;border-radius:2px;font-we
 .fltbox{border:1px solid var(--color-border);border-radius:10px;background:#fff;overflow:hidden}
 .fltbox>summary{display:flex;align-items:center;gap:8px;padding:12px 14px;font-size:13px;font-weight:800;cursor:pointer;list-style:none}
 .fltbox>summary::-webkit-details-marker{display:none}
+/* 항상 펼친 필터(상황별·주요 자재 목록 — 모바일 포함, 제목줄 없음. app/product_filter_renderer.php $alwaysOpen) */
+.fltbox.is-always-open>summary{display:none !important}
+.fltbox.is-always-open>.flt-body{display:block !important;border-top:0}
 .fltbox>summary::before{content:"⚙";color:var(--color-primary)}
 .flt-body{padding:4px 14px 16px;border-top:1px solid var(--color-border)}
 .flt-top{display:flex;justify-content:space-between;align-items:center;padding:12px 0 4px}

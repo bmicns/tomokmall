@@ -148,7 +148,8 @@ function product_filters_applied_count(array $a, bool $inStock = false): int
  *               이 필터만: 초기화는 맨 아래 '필터 적용' 옆 버튼(고른 값이 없으면 비활성). 그 밖의 필터는 위 초기화 링크 유지.
  * 규격 값 버튼(모든 필터 — 기업회원 포함): 누르는 즉시(적용 전) 함께 고른 값·재고 체크와 맞는 상품이 없는 값을 비활성.
  */
-function render_product_filters(array $a, ?string $q, ?int $categoryId, string $sort = '', ?array $facets = null, bool $inStock = false, array $keep = [], bool $collapsible = false): void
+/** @param bool $alwaysOpen 모바일에서도 접지 않고 항상 펼침(제목줄 없음) — 상황별·주요 자재 목록(사용자 결정 2026-11-12) */
+function render_product_filters(array $a, ?string $q, ?int $categoryId, string $sort = '', ?array $facets = null, bool $inStock = false, array $keep = [], bool $collapsible = false, bool $alwaysOpen = false): void
 {
     // 하위호환: 파세트 미제공 시 전체 옵션 노출(개수 없음)
     if ($facets === null) {
@@ -173,7 +174,7 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
     // 누르는 즉시 비활성(규격 값 버튼, 모든 필터 — 사용자 결정 2026-11-06): 축 외 적용 필터만 반영한 값 조합(product_facets 'combos')
     $combos = $v['axes'] ? ($facets['axes']['combos'] ?? null) : null;
     ?>
-    <details class="fltbox<?= $collapsible ? ' is-collapsible' : '' ?>"<?= (!$collapsible || $nApplied > 0) ? ' open' : '' ?>>
+    <details class="fltbox<?= $collapsible ? ' is-collapsible' : '' ?><?= $alwaysOpen ? ' is-always-open' : '' ?>"<?= (!$collapsible || $nApplied > 0) ? ' open' : '' ?>>
       <?php // 접는 필터(상황별 목록)는 위 '자재 종류' 제목과 같은 모양의 '자재 규격' + 화살표(⚙·'펼치기'·'N개 적용' 글자 없음) ?>
       <summary><span class="flt-sum-title"><?= $collapsible ? '자재 규격' : '필터로 좁히기' ?></span><?php if ($collapsible): ?><span class="flt-sum-state" aria-hidden="true"></span><?php endif; ?></summary>
       <form class="flt-body" method="get" action="/products.php"<?= $collapsible ? ' data-applied="' . ($nApplied > 0 ? '1' : '0') . '"' : '' ?><?= $combos ? ' data-live="1"' : '' ?>>
@@ -248,6 +249,7 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
         <?php endif; ?>
       </form>
     </details>
+    <?php if (!$alwaysOpen): ?>
     <script>
     // 모바일(760px 이하, 필터 제목줄이 보이는 폭): 필터를 접은 상태로 시작 → 상품 목록이 바로 보이게. 제목줄을 누르면 펼침.
     // 데스크톱은 CSS가 제목줄을 숨기고 항상 펼쳐 둔다(open 유지). 적용된 필터는 목록 위 칩으로 표시된다.
@@ -257,6 +259,7 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
         if (box && box.tagName === 'DETAILS' && window.matchMedia && window.matchMedia('(max-width: 760px)').matches) { box.open = false; }
     })();
     </script>
+    <?php endif; ?>
     <script>
     // 선택 중(미적용) 상태 표시: 체크 상태가 적용된 상태(checked 속성)와 다르면 버튼 강조. 제출은 버튼으로만.
     (function () {
