@@ -101,7 +101,7 @@ try {
     $sorted = $costs; sort($sorted);
     ok('추천표 첫 줄이 최저 예상 비용, 낮은 순', $costs !== [] && $costs === $sorted && $costs[0] < 1367000);
     $t3 = $toolMsg($q3);
-    ok('GPT 에 전달: 같은 폭 보행자용으로 바꾼 사실·뺀 대형차용', str_contains((string) ($t3['note'] ?? ''), '같은 폭의 보행자용 그레이팅') && in_array('안전중하중그레이팅수로용', $t3['over_spec_excluded'] ?? [], true));
+    ok('GPT 에 전달: 같은 폭 보행자용으로 바꾼 사실·뺀 대형차용', str_contains((string) ($t3['note'] ?? ''), "같은 폭의 보행자용 '그레이팅' 제품") && in_array('안전중하중그레이팅수로용', $t3['over_spec_excluded'] ?? [], true));
 
     echo "[4턴 '과한 제품인거 같은데? 다시 추천' (GPT 는 같은 검색, exclude_ids 없이)]\n";
     [$r4, $q4] = $turn('과한 제품인거 같은데? 다시 추천', [$call($search, 2), $say('조건에 맞는 다른 제품이 없습니다.')]);
@@ -126,7 +126,7 @@ try {
     [$a2, $qa2] = $turn(($first[0] ?? 'A') . ' 말고 다른 자재 추천해줘', [$call($s200, 5), $say('다른 제품입니다.')]);
     $second = array_column($cards($a2), 'name');
     ok('첫 표(' . implode(', ', $first) . ') → 다른 표(' . implode(', ', $second) . '): 겹치는 제품 없음', $first !== [] && $second !== [] && !array_intersect($first, $second));
-    ok('바뀐 표: 같은 폭(200mm)의 다른 보행자용 그레이팅이라고 GPT 에 안내', str_contains((string) ($toolMsg($qa2)['note'] ?? ''), '같은 폭의 다른 보행자용 그레이팅')
+    ok('바뀐 표: 같은 폭(200mm)의 다른 보행자용 그레이팅이라고 GPT 에 안내', str_contains((string) ($toolMsg($qa2)['note'] ?? ''), "같은 폭의 다른 보행자용 '그레이팅' 제품")
         && !array_filter($cards($a2), static fn($c) => !str_starts_with((string) ($c['size'] ?? ''), '폭 W 200mm') || ai_grating_load_class((string) $c['name']) !== 'pedestrian'));
 
     echo "[요청 6턴: '식당 주방 배수관 뚜껑 추천해줘' → '폭은 500mm이고 길이는 10m야' → '사람만 다니는 곳이야' → '저렴한 제품부터 추천해줘' → '다른 제품도 추천해줘' → '날개형도 있어?']\n";

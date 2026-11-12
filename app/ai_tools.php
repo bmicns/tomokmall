@@ -1493,12 +1493,26 @@ function ai_is_channel_cover_query(string $query): bool
 /** 같은 폭의 같은 등급 그레이팅으로 바꿔 보여 줄 때의 안내 (순수 함수) — $cond '폭 500mm'. 높은 등급만 있었거나($heavier) 이미 보여 준 제품뿐이었을 때($excludedNames) */
 function ai_broadened_note(string $query, string $cond, string $traffic, array $heavier, array $excludedNames = []): string
 {
+    // 2026-11-12 사용자 요청: 제품 이름은 작은따옴표로, 이유를 먼저·'대안으로'로 이어 흐름이 보이게, 같은 말을 두 번 하지 않게
     $label = AI_TRAFFIC_CLASS_LABEL[$traffic] ?? '';
+    $q = "'{$query}'";
     if ($excludedNames && !$heavier) {
-        return "{$label} '{$query}' 제품은 {$cond}에서 직전에 보여 드린 " . implode(', ', array_slice($excludedNames, 0, 4)) . " 외에는 없어, 같은 폭의 다른 {$label} 그레이팅을 보여 드립니다.";
+        return "{$label} {$q} 제품은 {$cond}에서 직전에 보여 드린 " . implode(', ', array_map(static fn($n) => "'{$n}'", array_slice($excludedNames, 0, 4)))
+            . " 외에는 없습니다. 대안으로 같은 폭의 다른 {$label} '그레이팅' 제품을 보여 드립니다.";
     }
-    return "{$label} '{$query}' 제품은 {$cond}가 없어, 같은 폭의 {$label} 그레이팅을 보여 드립니다."
-        . ($heavier ? " 같은 폭의 '{$query}'은(는) " . implode(', ', ai_heavier_labels($heavier)) . '뿐이라 필요보다 높은 하중 등급이어서 표에서 뺐습니다.' : '');
+    $why = $heavier
+        ? ' 같은 폭의 ' . $q . ai_josa($query, '은', '는') . ' ' . implode(', ', array_map(static fn($l) => (string) preg_replace("/^([^(]+)/u", "'$1'", $l), ai_heavier_labels($heavier))) . '뿐이라 필요보다 높은 하중 등급이어서 표에서 뺐습니다.'
+        : '';
+    return "{$label} {$q} 제품은 {$cond}가 없습니다.{$why} 대안으로 같은 폭의 {$label} '그레이팅' 제품을 보여 드립니다.";
+}
+
+/** 받침 유무로 조사 고르기 (순수 함수) — 한글 끝 글자 받침이 있으면 $withFinal('은'), 없으면 $without('는'). 한글이 아니면 '은(는)' 식 */
+function ai_josa(string $word, string $withFinal, string $without): string
+{
+    $last = mb_substr(trim($word), -1);
+    $code = mb_ord($last, 'UTF-8');
+    if ($code === false || $code < 0xAC00 || $code > 0xD7A3) { return "{$withFinal}({$without})"; }
+    return (($code - 0xAC00) % 28) !== 0 ? $withFinal : $without;
 }
 
 /** 높은 등급 행 → '안전중하중그레이팅수로용(대형차용)' 목록 (순수 함수, 등급 낮은 순) */

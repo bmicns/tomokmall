@@ -150,7 +150,8 @@ if (isset($opt['material'])) {
         $flat = str_replace(['*', '#'], '', $text);   // 굵게·제목 표시 제거 후 표현 점검
         $plain = (string) preg_replace('/\(주\)|㈜|주식회사|\s/u', '', $text);
         $askedMat = in_array('material_info', array_column($res['tools'] ?? [], 'name'), true);
-        $cited = (bool) preg_match('/제조사|자료|출처/u', $text) || array_filter(array_unique($makers), static fn($m) => $m !== '' && str_contains($plain, $m));
+        // 2026-11-12: 제조사 출처는 답 글이 아니라 화면 하단 '참고 자료: 제조사 제품 자료'(material_sources 이벤트)로 표시한다 — 이벤트가 있으면 출처 표시됨
+        $cited = (bool) $srcs;
         // 자료에 없는 하중 수치(톤·kN)·KS 번호 — 원문·법령 근거에 없으면 지어낸 것
         preg_match_all('/(\d+(?:\.\d+)?)\s*(톤|ton|kN)/u', $text, $tons);
         $badTon = array_values(array_filter($tons[0], static fn($x) => !str_contains($used, $x)));
@@ -171,6 +172,7 @@ if (isset($opt['material'])) {
             (bool) preg_match('/(폭|높이|길이|두께)\s*\((cm|mm|m)\)/u', $flat) => '실패(등록 규격 숫자를 폭·높이·단위로 풀어 씀 — 표기 그대로 써야 함)',
             $needMat && $avail && !$srcs => '확인 필요(승인 자료가 있는데 material_info 미사용)',
             $srcs && !$cited => '확인 필요(제조사 자료 출처 표시 없음)',
+            $srcs && (bool) preg_match('/자료에\s*따르면|의\s*설명에\s*따르면/u', $text) => "확인 필요(답 글에 '~자료에 따르면' — 출처는 하단 표시만)",
             $askedMat && !$srcs && !preg_match('/일반적인\s*(설명|특징|내용|정보|차이|기준)|일반\s*설명|자료[^.\n]{0,10}없|확보되지|확인되지/u', $text) => '확인 필요(참고 자료가 없는데 일반 설명이라고 밝히지 않음)',
             !$srcs && $askedMat && ($inv = array_values(array_filter(['하천', '호수', '농업', '농경지', '농수로', '지하차도', '운동장', '퇴적물', '청소가', '개방형', '벤치 기능', '측구'], static fn($w) => str_contains($flat, $w) && !str_contains($used . ' ' . implode(' ', $basicNames), $w)))) => '확인 필요(제조사 자료가 없는데 자료에 없는 용도·장점 설명: ' . implode(', ', $inv) . ')',
             (bool) preg_match(RAG_EFFECT_CLAIM_RE, $flat, $em) => '확인 필요(근거 없는 효과·성능 표현: ' . $em[0] . ')',

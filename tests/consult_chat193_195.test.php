@@ -93,7 +93,7 @@ try {
     ok('GPT 에 대체품 표시: substitute.searched = 그레이팅 수로용 · 카드마다 substitute_for', ($t2['substitute']['searched'] ?? '') === '그레이팅 수로용' && !array_filter($t2['products'] ?? [], static fn($p) => ($p['substitute_for'] ?? '') !== '그레이팅 수로용'));
     ok('화면 카드에는 대체품 표시 없음(사용자 결정)', !array_filter($c2, static fn($c) => isset($c['substitute_for'])));
     $txt2 = (string) ($r2['text'] ?? '');
-    ok('답에 대체품 안내가 빠져 서버가 둘째 문단에 넣음', str_contains($txt2, "보행자용 '그레이팅 수로용' 제품은 폭 500mm가 없어") && strpos($txt2, '설치 구간') === 0);
+    ok('답에 대체품 안내가 빠져 서버가 둘째 문단에 넣음(이유 → 대안, 제품 이름 작은따옴표)', str_contains($txt2, "보행자용 '그레이팅 수로용' 제품은 폭 500mm가 없습니다.") && str_contains($txt2, "대안으로 같은 폭의 보행자용 '그레이팅' 제품을 보여 드립니다.") && !str_contains($txt2, '더 비쌈') && strpos($txt2, '설치 구간') === 0);
     [$r2b] = (function () use ($turn, $call, $say, $s193, &$messages) {   // GPT 가 스스로 말하면 다시 넣지 않음(같은 대화 기록은 남기지 않게 되돌림)
         $keep = $messages;
         $out = $turn('10미터길이에 50센치 폭이야', [$call($s193, 2), $say("보행자용 수로용 그레이팅은 폭 500mm가 없어, 같은 폭의 다른 보행자용 그레이팅을 보여 드립니다.\n\n원하시는 제품을 선택해 주세요.")]);
@@ -101,7 +101,7 @@ try {
         db()->prepare('DELETE FROM chat_logs WHERE session_key = ? ORDER BY id DESC LIMIT 1')->execute([$GLOBALS['sid']]);
         return $out;
     })();
-    ok('답에 이미 대체품 사실이 있으면 안내를 다시 넣지 않음', substr_count((string) ($r2b['text'] ?? ''), '폭 500mm') === 1);
+    ok('GPT 가 같은 내용을 따로 말하면 그 문장은 빼고 서버 안내 한 번만(#227 중복)', substr_count((string) ($r2b['text'] ?? ''), '폭 500mm') === 1 && str_contains((string) ($r2b['text'] ?? ''), '대안으로 같은 폭'));
 
     echo "[194 '과한 제품인거 같은데? 다시 추천' — 직전 표는 이미 가장 낮은 등급]\n";
     $ids2 = array_map(static fn($c) => (int) $c['id'], $c2);
@@ -138,6 +138,28 @@ try {
     $t5 = (string) ($r5['text'] ?? '');
     ok('답에 등록 폭이 없어 서버가 한 문장 넣음(185·285·295·385mm)', str_contains($t5, "'날개형' 제품은 플륨관용(날개형U-TYPE) 185·285·295·385mm 규격만 등록되어 있습니다."));
     ok("'가장 경제적'은 마지막 문단에 한 번만(제품 줄 쪽 삭제)", substr_count($t5, '가장 경제적') === 0 && substr_count($t5, '가장 저렴') === 1 && str_contains($t5, '예상 자재비는 약 568,260원입니다.'));
+
+    echo "[224·226 재현(2026-11-12 운영) — '식당 주방은 보행자 전용 구역이므로' 상식 근거]\n";
+    $clean();
+    $messages = [];
+    [$r7] = $turn('식당 주방에 배수관 뚜껑이 필요해요', [$say('식당 주방은 보행자 전용 구역이므로, 보행자용 그레이팅을 사용하시면 됩니다. 폭과 설치 길이를 알려 주세요.')]);
+    $t7 = (string) ($r7['text'] ?? '');
+    ok('장소 상식 근거 앞부분을 서버가 지움(뒤 문장은 그대로)', !str_contains($t7, '주방은 보행자 전용 구역') && str_starts_with($t7, '보행자용 그레이팅을 사용하시면 됩니다.') && str_contains($t7, '폭과 설치 길이를 알려 주세요.'), $t7);
+
+    echo "[제조사 자료 — 답 글에 '~에 따르면' 없이 하단 출처(material_sources)]\n";
+    $clean();
+    $messages = [];
+    $matCall = ['choices' => [['finish_reason' => 'tool_calls', 'message' => ['role' => 'assistant', 'content' => null,
+        'tool_calls' => [['id' => 'm1', 'type' => 'function', 'function' => ['name' => 'material_info', 'arguments' => json_encode(['topic' => '중하중 그레이팅'], JSON_UNESCAPED_UNICODE)]]]]]]];
+    [$r8, $q8] = $turn('중하중 그레이팅은 일반 그레이팅이랑 구조가 뭐가 달라요?', [$matCall, $say('[TEST]가야 자료에 따르면, 중하중 그레이팅은 ㄷ형강으로 하중을 견디는 구조입니다.')]);
+    $ev8 = array_values(array_filter($r8['events'] ?? [], static fn($e) => ($e['type'] ?? '') === 'material_sources'));
+    $sys8 = (string) ($q8[0]['messages'][0]['content'] ?? '');
+    if ($ev8) {
+        ok("출처 이벤트가 있으면 답 글의 '(제조사) 자료에 따르면'을 지움", !str_contains((string) ($r8['text'] ?? ''), '자료에 따르면') && str_contains((string) ($r8['text'] ?? ''), '중하중 그레이팅은 ㄷ형강'), (string) ($r8['text'] ?? ''));
+    } else {
+        echo "  (로컬 DB 에 '중하중 그레이팅' 승인 제조사 자료가 없어 출처 이벤트 확인은 건너뜀 — 지우기 자체는 functions 테스트에서 확인)\n";
+    }
+    ok("프롬프트: 답 글에 제조사 이름을 출처로 붙이지 않음(하단 자동 표시)", str_contains($sys8, "답 글에 'A산업 자료에 따르면'처럼 제조사 이름을 출처로 붙이지 않는다") && !str_contains($sys8, "'maker 자료에 따르면'으로."));
 
     echo "[196 재현 — '식당 주방에 쓸 배수관 추천해줘' 프롬프트 규칙]\n";
     $clean();

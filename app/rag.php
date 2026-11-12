@@ -1006,7 +1006,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "  쓸 만한 선택지 2~4가지를 '- 이름: 장점 / 주의점' 형식으로 한 줄씩 비교하고, 그다음 추천에 꼭 필요한 질문 1~2개만 한다.\n"
         . "- 일반 설명에서 가격·강도·법정 기준 같은 구체 숫자를 지어내지 않는다. 숫자는 아래 [참조 문서]에 있는 것만 인용하고, 가격·수량·자재비는 search_products 결과 값만 쓴다.\n"
         . "- 면적을 모르면 '가로 몇 m × 세로 몇 m인지' 물어보고, 답을 받으면 직접 곱해 area_m2로 넘긴다(예: 5m×4m → 20). 대략값도 괜찮다고 안내한다.\n"
-        . "- 자재 종류의 차이·특징·물빠짐·주의사항·KS(인증) 질문과, 사용 조건(유모차·휠체어·미끄럼·오염·차량 통행 등)에 맞는 자재를 고르는 질문에는 material_info 를 먼저 호출하고, 돌려준 원문 문장을 그 문장의 maker(제조사 이름)를 그대로 밝혀(예: maker 가 'A산업'이면 'A산업 자료에 따르면') 그 제조사 제품 설명으로 쉬운 말로 전한다(출처끼리 다르면 단정하지 않음, 공식 기준 수치는 [L번호] 근거만).\n"
+        . "- 자재 종류의 차이·특징·물빠짐·주의사항·KS(인증) 질문과, 사용 조건(유모차·휠체어·미끄럼·오염·차량 통행 등)에 맞는 자재를 고르는 질문에는 material_info 를 먼저 호출하고, 돌려준 원문 문장(facts)을 그 제품(about)의 설명으로 쉬운 말로 전한다. 답 글에 'A산업 자료에 따르면'처럼 제조사 이름을 출처로 붙이지 않는다(출처는 화면 하단 '참고 자료: 제조사 제품 자료'로 자동 표시). 출처끼리 다르면 단정하지 않고, 공식 기준 수치는 [L번호] 근거만.\n"
         . "  원문 문장의 제품명(예: '안전 중하중 그레이팅')을 더 넓은 종류('중하중 그레이팅' 전체)로 바꿔 말하지 않는다. 원문에 없는 성능·용도·비교·수치(중장비 통과, 'n톤 이상', 다른 제품도 같다 등)를 덧붙이거나, 한 제조사의 제품 표기를 '이걸 쓰면 된다'는 일반 선택 기준으로 단정하지 않는다. KS·표준 번호는 [참조 문서]·material_info 원문에 있는 것만 쓴다. material_info 결과가 비어 있으면 '제조사 자료에 따르면'이라고 말하지 말고, 수치 없는 일반 설명임을 밝힌다.\n"
         . "- 제품·자재를 권할 때는 그 제품을 고르는 근거를 문장 앞에 먼저 밝힌다('…이므로 …을 권합니다'). 근거는 제품 쪽 사실이어야 한다:\n"
         . "  토목몰 하중 등급 구분(상품명 — 등급 표기 없음=보행자용, 중하중=승용차, 안전중하중=트럭·버스), 제품 분류의 용도(예: '수로용'은 배수로 위 덮개, '맨홀(집수정)용'은 집수정 위 덮개), 도구 결과의 등록 규격·category_desc·guide, 제조사 자료(material_info), 공식 기준 [L번호], 저희 권장 기준 중 실제로 있는 것만 쓴다.\n"
@@ -1021,7 +1021,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "\n"
         . "=== 근거 구분 (출처 종류를 섞지 않는다) ===\n"
         . "- 공식 기준: 아래 '공식 법령 근거'에 [L번호]로 들어온 법령·KDS·KCS 조항만. 기준 이름과 함께 말하고 [L번호]를 붙인다. 들어오지 않았으면 '공식 기준에 따르면'이라고 말하지 않는다.\n"
-        . "- 제조사 자료: material_info 의 원문 문장(facts)만, 'maker 자료에 따르면'으로. 국가표준·등록 규격: material_info 의 basics(표준 번호·이름, 토목몰 등록 상품 규격)만, 요구 수치를 덧붙이지 않는다.\n"
+        . "- 제조사 자료: material_info 의 원문 문장(facts)만, 답 글에 'maker 자료에 따르면'을 붙이지 않고(출처는 화면 하단에 자동 표시). 국가표준·등록 규격: material_info 의 basics(표준 번호·이름, 토목몰 등록 상품 규격)만, 요구 수치를 덧붙이지 않는다.\n"
         . "- 공공조달 등록 현황: KS·인증을 설명할 때만 도구 결과 basics.procurement 의 summary 를 '조달청에 따르면'으로 시작해 한 문장. 조달몰·나라장터 쇼핑몰·공공 구매처는 말하지 않는다(다른 곳에서 사라는 뜻으로 들림). 다른 회사 품목의 집계이므로 토목몰 상품이 KS 인증·조달 등록 제품이라고 말하지 않고, 품질·신뢰성의 근거로 해석하지 않는다.\n"
         . "- 저희 권장 기준: [참조 문서](사내 기준)의 내용은 '저희 권장 기준'으로 말하고 법정 의무처럼 말하지 않는다.\n"
         . "- 시공 조건 질문(예: '집 앞에 블록 깔면 차 지나가도 돼요?')은 ① 조건을 쉬운 말로 정리 ② 위 근거를 종류별로 한두 문장씩 ③ 필요한 확인(면적 등)을 물어 비교표(필요 수량·예상 자재비)로 이어 간다.\n"
@@ -1758,10 +1758,73 @@ function rag_substitute_note(string $text, array $subs): string
     if (!$subs) { return $text; }
     $sub = end($subs);
     $note = trim((string) ($sub['note'] ?? ''));
-    if ($note === '' || trim($text) === '' || rag_mentions_substitute($text, (string) ($sub['searched'] ?? ''))) { return $text; }
-    $paras = preg_split('/\n{2,}/u', trim($text)) ?: [trim($text)];
-    array_splice($paras, 1, 0, [$note]);
+    if ($note === '' || trim($text) === '') { return $text; }
+    // 2026-11-12: GPT 가 같은 내용을 덜 구체적으로 따로 말하면(예: "'그레이팅 수로용'은 안전중하중 등급 이상이라 제외되었습니다") 중복 — 그 문장은 빼고 서버 안내 한 번만
+    $text = rag_drop_substitute_sentences($text, (string) ($sub['searched'] ?? ''));
+    if (mb_strpos($text, $note) !== false) { return $text; }
+    $paras = array_values(array_filter(preg_split('/\n{2,}/u', trim($text)) ?: [], static fn($p) => trim((string) $p) !== ''));
+    $at = ($paras && !preg_match('/^\s*[-•]/u', (string) $paras[0])) ? 1 : 0;   // 첫 문단이 제품 목록이면 맨 앞에
+    array_splice($paras, $at, 0, [$note]);
     return implode("\n\n", $paras);
+}
+
+/**
+ * 대체품 표의 답에서 '찾은 품목이 없다·제외됐다·대체품이다'를 GPT 가 따로 말한 문장을 뺀다 (순수 함수, 2026-11-12 — 운영 상담 #227 중복).
+ * 제품 줄('- '로 시작)은 건드리지 않는다. 찾은 품목 말(용도 말 '수로용' 등, 없으면 검색어)과 제외·대체 말이 함께 있는 문장만.
+ */
+function rag_drop_substitute_sentences(string $text, string $searched): string
+{
+    $keys = preg_match_all('/\S*(?:수로|배수로|측구|트렌치|맨홀|집수정)\S*/u', $searched, $m) ? $m[0] : [];
+    if (!$keys) { $keys = [str_replace(' ', '', $searched)]; }
+    $keys = array_values(array_filter(array_map(static fn($k) => (string) preg_replace("/['\"]/u", '', str_replace(' ', '', (string) $k)), $keys)));
+    if (!$keys) { return $text; }
+    $out = [];
+    foreach (explode("\n", $text) as $line) {
+        if (preg_match('/^\s*[-•]/u', $line)) { $out[] = $line; continue; }
+        $kept = [];
+        foreach (preg_split('/(?<=[.!?])\s+/u', $line) ?: [$line] as $sen) {
+            $c = (string) preg_replace("/[\s'\"]/u", '', (string) $sen);
+            $hit = false;
+            foreach ($keys as $k) {
+                if (mb_strpos($c, $k) !== false && preg_match('/없|아닌|아니|않|대신|대체|대안|제외|뺐|빼|빠|이상이라|과잉|높은\s*(하중\s*)?등급/u', (string) $sen)) { $hit = true; break; }
+            }
+            if (!$hit) { $kept[] = $sen; }
+        }
+        $out[] = implode(' ', $kept);
+    }
+    return trim((string) preg_replace('/\n{3,}/u', "\n\n", implode("\n", $out)));
+}
+
+/**
+ * 장소로 통행 조건을 짐작한 상식 문장 걸러내기 (순수 함수, 2026-11-12 — 운영 상담 #224·#226 '식당 주방은 보행자 전용 구역이므로').
+ * 프롬프트로도 금지하지만 지켜지지 않아 서버가 뺀다: '(장소)은 보행자 (전용) 구역이므로,' 같은 앞부분만 지우고 뒤 문장은 둔다.
+ * 문장 전체가 그 판단뿐이면('주방은 보행자 전용 구역입니다') 그 문장을 뺀다.
+ */
+function rag_strip_place_inference(string $text): string
+{
+    $place = '(?:식당\s*)?(?:주방|부엌|화장실|실내|베란다|인도|공원|마당|정원|사무실|가게|매장|복도|옥상)';
+    $zone  = '(?:(?:일반적으로|보통|주로)\s*)?(?:보행자\s*(?:전용\s*)?(?:구역|공간|장소|지역)|사람만\s*다니는\s*(?:곳|구역|공간)|차량이?\s*(?:다니지|통행하지|들어오지)\s*않는\s*(?:곳|구역|공간|장소))';
+    $lead  = "/{$place}[^.!?\n]{0,12}?(?:은|는|이|의 경우)\s*{$zone}\s*(?:이므로|이라서|이라|이니|이기\s*때문에|으로\s*(?:간주|분류|보)(?:되|아야\s*하|아)?(?:므로|기\s*때문에|어서))\s*,?\s*/u";
+    $text = (string) preg_replace($lead, '', $text);
+    // 문장 전체가 장소 판단뿐: '주방은 보행자 전용 구역입니다'·'식당 주방에 사용할 배수관 뚜껑이라면 보행자 전용 구역으로 분류해야 합니다'(#197)
+    $whole = "/[^.!?\n]*{$place}[^.!?\n]{0,30}?{$zone}\s*(?:입니다|이에요|으로\s*(?:간주|분류)(?:됩니다|해야\s*합니다|할\s*수\s*있습니다))[.!]?\s*/u";
+    return trim((string) preg_replace($whole, '', $text));
+}
+
+/**
+ * 제조사 자료 출처를 답 글에서 빼기 (순수 함수, 2026-11-12 사용자 요청 — 출처는 화면 하단 '참고 자료: 제조사 제품 자료'로만).
+ * '(주)가야스틸 자료에 따르면,'·'가야스틸의 설명에 따르면'·'제조사 자료에 따르면' 같은 앞말만 지운다(내용은 그대로).
+ * @param list<string> $makers 이번 답에 쓰인 제조사 이름(material_sources)
+ */
+function rag_strip_source_phrases(string $text, array $makers): string
+{
+    $names = ['제조사'];
+    foreach ($makers as $m) {
+        $core = trim((string) preg_replace('/\(주\)|㈜|주식회사|\s+/u', '', (string) $m));
+        if ($core !== '') { $names[] = preg_quote($core, '/'); }
+    }
+    $re = '/(?:(?:\(주\)|㈜|주식회사)\s*)?(?:' . implode('|', array_unique($names)) . ')(?:\(주\)|㈜)?(?:의)?\s*(?:제품\s*|공개\s*)?(?:자료|설명|안내|소개|카탈로그)(?:에서|에|를)?\s*(?:따르면|의하면|보면)\s*,?\s*/u';
+    return (string) preg_replace($re, '', $text);
 }
 
 /** 답의 한 문장에 찾은 품목(용도 말, 없으면 검색어)과 '없다·아니다·대신' 말이 함께 있는지 (순수 함수) */
@@ -2373,7 +2436,11 @@ function rag_process(array $messages, string $sid): array
     // '제일 저렴한 것'을 담았는데 같은 금액 제품이 또 있으면 그 사실을 한 줄로(실제 GPT-4o 3차까지 안내 누락 — 프롬프트만으로는 일정하지 않음)
     $added = array_map(static fn($t) => (int) ($t['input']['product_id'] ?? 0), array_values(array_filter($toolLog, static fn($t) => $t['name'] === 'add_to_cart')));
     $responseText .= rag_tie_note($responseText, $added, $turnCards, $recentCards);
-    $responseText = rag_substitute_note($responseText, $substitutes);   // 대체품 표인데 답이 '찾은 품목이 아님'을 빠뜨렸으면(운영 상담 #193)
+    $responseText = rag_strip_place_inference($responseText);   // '식당 주방은 보행자 전용 구역이므로' 같은 장소 상식 근거(운영 상담 #224·#226)
+    $responseText = rag_substitute_note($responseText, $substitutes);   // 대체품 표: GPT 가 따로 말한 '수로용 제외' 문장은 빼고 서버 안내를 한 번만(운영 상담 #193·#227)
+    $matMakers = [];
+    foreach ($events as $ev) { if (($ev['type'] ?? '') === 'material_sources') { $matMakers = array_merge($matMakers, array_column((array) ($ev['sources'] ?? []), 'maker')); } }
+    if ($matMakers) { $responseText = rag_strip_source_phrases($responseText, $matMakers); }   // 제조사 출처는 화면 하단에만(2026-11-12)
     $responseText = rag_registered_note($responseText, $missingRegs);   // 없는 형태 말의 등록 규격을 빠뜨렸으면(운영 상담 #199)
     $responseText = rag_dedupe_evaluation($responseText);               // '가장 경제적'을 제품 줄·마지막 문단에서 두 번 말하면 제품 줄 쪽을 뺌
     $basicSrc = rag_basic_sources_used($responseText, $basicsSeen);
