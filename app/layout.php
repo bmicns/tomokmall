@@ -42,6 +42,7 @@ function render_header(string $title, string $mode = 'normal'): void
                 foreach (($midsByRoot[$rootId] ?? []) as $mid) {
                     $mids[] = ['mid' => $mid, 'subs' => $subsByMid[$mid['id']] ?? []];
                 }
+                if (!$mids) { continue; }   // 보이는 하위 분류가 없는 대분류(예: 상용콘크리트 전환 뒤 석재)는 탭을 만들지 않음
                 $megaMenu[] = ['root' => $root, 'mids' => $mids];
             }
         } catch (\Throwable $e) {}

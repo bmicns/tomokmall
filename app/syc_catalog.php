@@ -38,11 +38,31 @@ function syc_axis_column(string $key): ?string
     return $key === 'wire_no' ? 'spec_wire_no' : 'dim_' . $key;
 }
 
+const SYC_CATALOG_MODES = ['ktomok', 'syc'];
+
+/** 지금 고객 화면 상품 출처: 'ktomok'(기본 — 표·행이 없을 때 포함) | 'syc'. 요청당 1회 */
+function syc_catalog_mode(bool $fresh = false): string
+{
+    static $mode = null;
+    if ($mode !== null && !$fresh) { return $mode; }
+    $mode = 'ktomok';
+    if (!db()) { return $mode; }
+    try {
+        $v = db()->query('SELECT mode FROM syc_catalog_state WHERE id = 1')->fetchColumn();
+        if (in_array($v, SYC_CATALOG_MODES, true)) { $mode = (string) $v; }
+    } catch (\Throwable $e) {
+        $mode = 'ktomok';      // 표 없음(DB 반영 전) = 기존 그대로
+    }
+    return $mode;
+}
+
 /** 지금 요청이 상용콘크리트 보기인지: 관리자이고 '케이토목으로 보기'를 고르지 않았을 때(관리자 기본). 그 밖의 사용자는 항상 false(기존 화면) */
 function syc_preview_on(): bool
 {
     $u = current_user();
-    return $u !== null && $u['role'] === 'admin' && ($_SESSION[SYC_SOURCE_SESSION_KEY] ?? SYC_SOURCE_SYC) !== SYC_SOURCE_KTOMOK;
+    if ($u === null || $u['role'] !== 'admin') { return false; }
+    if (syc_catalog_mode() === 'syc') { return false; }   // 전환 뒤: 고객 화면이 이미 상용콘크리트(app/syc_publish.php) — 미리보기 이동 없음
+    return ($_SESSION[SYC_SOURCE_SESSION_KEY] ?? SYC_SOURCE_SYC) !== SYC_SOURCE_KTOMOK;
 }
 
 /** 비활성 상품도 보이기(기본: 안 보임 — 활성화한 상품이 고객 화면처럼 보이는지 확인. 띠에서 바꿀 수 있음) */

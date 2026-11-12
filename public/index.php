@@ -207,7 +207,7 @@ if ($query) {
     // 홈(일반회원·비로그인): 확정 디자인 '일반회원용 메인화면' — 히어로 검색 + 작업 유형 슬라이드(4개씩)·필요 자재 패널 + 주요 자재
     // 작업 유형 12개·대표 자재(카테고리 ID)는 app/work_types.php 설정을 사용 (4개씩 좌우 슬라이드, 3페이지)
     require_once __DIR__ . '/../app/work_types.php';
-    $useItems = work_types();
+    $useItems = work_types_effective();   // 상용콘크리트로 전환돼 있으면 상용콘크리트 대표 자재(app/work_types.php)
     $wtIds    = [];
     foreach ($useItems as $u) { $wtIds = array_merge($wtIds, array_column($u['materials'], 0)); }
     $wtInfo = work_type_category_info($wtIds);

@@ -129,7 +129,7 @@
   sel3.addEventListener('change', function () { loadProducts(sel3.value); });
 
   // ── 규격별 상품 + 규격 필터 ─────────────────────────────────
-  var products = [], filtered = [], prodPage = 1, fltDims = [], loadSeq = 0;
+  var products = [], filtered = [], prodPage = 1, fltDims = [], loadSeq = 0, axesDef = null;
   var prodBody = $('ch-prod-body'), prodCount = $('ch-prod-count');
   var fltToggle = $('ch-flt-toggle'), fltBox = $('ch-flt'), fltGrid = $('ch-flt-grid');
   // 모바일(640px 이하, corp-home.css 모바일 기준): 규격 필터를 접은 상태로 시작 → 상품 카드가 바로 보이게. 데스크톱은 기존처럼 펼침
@@ -152,6 +152,22 @@
   // 실제 상품 규격에서 필터 항목 생성(값이 2개 이상인 치수만). 폭·높이·길이·두께 명칭은
   // 모든 상품이 '숫자×숫자×숫자×숫자T' 형식(플륨관·수로관류)일 때만 붙이고, 그 외는 '치수 n'.
   function buildFilters() {
+    // 상용콘크리트 카테고리: API 가 준 이름표(axes)·치수 값(ax)·옵션(opt)으로 필터(값이 2개 이상인 칸만) — 화면 모양은 같음
+    if (axesDef && axesDef.length) {
+      fltDims = [];
+      axesDef.forEach(function (a) {
+        var vals = {};
+        products.forEach(function (p) { var v = (p.ax || {})[a.key]; if (v) vals[v] = 1; });
+        var list = Object.keys(vals).sort(natCmp);
+        if (list.length < 2) return;
+        fltDims.push({ key: 'a_' + a.key, label: a.label, values: list, pick: function (p) { return (p.ax || {})[a.key] || ''; } });
+      });
+      var ov = {};
+      products.forEach(function (p) { if (p.opt) ov[p.opt] = 1; });
+      var ol = Object.keys(ov).sort(natCmp);
+      if (ol.length >= 2) fltDims.push({ key: 'opt', label: '옵션', values: ol, pick: function (p) { return p.opt || ''; } });
+      return renderFilterGrid();
+    }
     var parsed = products.map(function (p) { return parseSize(p.size); });
     var n = parsed.reduce(function (m, x) { return Math.max(m, x.dims.length); }, 0);
     var whlt = parsed.length > 0 && parsed.every(function (x) { return x.dims.length === 4 && /^\d[\d.]*T$/i.test(x.dims[3]); });
@@ -165,14 +181,18 @@
       var allD = list.every(function (v) { return /^D/i.test(v); });
       var allT = list.every(function (v) { return /T$/i.test(v); });
       var label = whlt ? names[i] : allD ? '관경 (D)' : allT ? '두께 (T)' : '치수 ' + (i + 1);
-      fltDims.push({ key: 'd' + i, label: label, values: list, pick: (function (idx) { return function (x) { return x.dims[idx] || ''; }; })(i) });
+      fltDims.push({ key: 'd' + i, label: label, values: list, pick: (function (idx) { return function (p) { return parseSize(p.size).dims[idx] || ''; }; })(i) });
     }
     var opts = {};
     parsed.forEach(function (x) { if (x.opt) opts[x.opt] = 1; });
     var optList = Object.keys(opts).sort(natCmp);
     if (optList.length >= 2 || (optList.length === 1 && parsed.some(function (x) { return !x.opt; }))) {
-      fltDims.push({ key: 'opt', label: '옵션', values: optList, pick: function (x) { return x.opt; } });
+      fltDims.push({ key: 'opt', label: '옵션', values: optList, pick: function (p) { return parseSize(p.size).opt; } });
     }
+    renderFilterGrid();
+  }
+
+  function renderFilterGrid() {
     fltGrid.innerHTML = fltDims.map(function (f) {
       var id = 'ch-flt-' + f.key;
       return '<div class="ch-field"><label for="' + id + '">' + esc(f.label) + '</label><div class="ch-select">' +
@@ -190,8 +210,7 @@
       return { f: f, v: el ? el.value : '' };
     }).filter(function (c) { return c.v !== ''; });
     filtered = products.filter(function (p) {
-      var x = parseSize(p.size);
-      return conds.every(function (c) { return c.f.pick(x) === c.v; });
+      return conds.every(function (c) { return c.f.pick(p) === c.v; });
     });
     prodPage = 1;
     renderProducts();
@@ -241,7 +260,7 @@
 
   function loadProducts(catId) {
     var seq = ++loadSeq;
-    products = []; filtered = [];
+    products = []; filtered = []; axesDef = null;
     prodCount.textContent = '총 0개';
     $('ch-prod-pager').innerHTML = '';
     if (!catId) {
@@ -255,11 +274,12 @@
       .then(function (d) {
         if (seq !== loadSeq) return; // 그 사이 다른 품목을 선택함
         if (!d || !d.ok) throw new Error((d && d.error) || 'load');
+        axesDef = d.axes || null;
         products = (d.products || []).map(function (p) {
           return {
             id: p.id, name: p.name, size: p.size || '', unit: p.unit || '',
             price: p.price_b2b != null ? p.price_b2b : p.price_b2c, image_url: p.image_url || '',
-            price_list: p.price_list, price_member: p.price_member
+            price_list: p.price_list, price_member: p.price_member, ax: p.ax || null, opt: p.opt || ''
           };
         });
         buildFilters();

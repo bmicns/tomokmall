@@ -1332,6 +1332,30 @@ foreach ($rawPlain['rows'] as $k => $row) {
 }
 $again = syc_bulk_read_excel(__DIR__ . '/../data/syccrt/syc-products-bulk-test.xlsx', 'xlsx', $normCats, true);
 eq('자동 정리 실제 데이터: 옛 표기 704행 → 지금 데이터와 차이 0·가격·출처·이미지·규격 원문 그대로·정리된 엑셀 다시 넣으면 바뀜 0', [count($rawR['rows']), $gd, $guard, $again['normalize']['changes'], $rawR['normalize']['warning_count']], [704, 0, 0, 0, 0]);
+// ── 사이트 반영·전환(app/syc_publish.php, B 방식 2026-11-12) ──
+require_once __DIR__ . '/../app/syc_publish.php';
+require_once __DIR__ . '/../app/work_types.php';
+eq('반영 spec: 기존 상품과 같은 규격·중량(천 단위 쉼표)·단위 형식, 빈 값은 뺌', [
+    syc_publish_spec_text(['spec' => '1.5*1.5*2.0_160T*140T', 'weight_kg' => 3640.0, 'unit' => '본']),
+    syc_publish_spec_text(['spec' => '200*200', 'weight_kg' => 12.5, 'unit' => null]), syc_publish_spec_text(['spec' => '', 'weight_kg' => null, 'unit' => '개'])],
+    ['규격: 1.5*1.5*2.0_160T*140T | 중량: 3,640kg | 단위: 본', '규격: 200*200 | 중량: 12.5kg', '단위: 개']);
+$pd = syc_publish_detail(['dim_w' => 300.0, 'dim_w1' => 600.0, 'dim_a_w' => 395.0, 'dim_x1' => 68.0],
+    [['axis_key' => 'w', 'label' => '폭', 'symbol' => 'W', 'unit' => 'mm', 'in_list' => true], ['axis_key' => 'w1', 'label' => '세부', 'symbol' => 'w1', 'unit' => 'mm', 'in_list' => false],
+     ['axis_key' => 'a_w', 'label' => '그레이팅 폭', 'symbol' => '', 'unit' => 'mm', 'in_list' => false], ['axis_key' => 'x1', 'label' => '파형 피치', 'symbol' => 'p', 'unit' => 'mm', 'in_list' => true]]);
+eq('세부 치수: 목록 칸(폭·파형 피치) 빼고 상세 전용 칸만, 이름표 순서', array_column($pd, 'label'), ['세부', '그레이팅 폭']);
+$catSql = (string) file_get_contents(__DIR__ . '/../database/20261110_syc_categories.sql');
+preg_match_all("/'(syc-g\d+)'/", $catSql, $gm);
+eq('대분류 연결: 상용콘크리트 대분류 10개 모두 재질 대분류(11·12·13·15)에', [array_values(array_diff(array_unique($gm[1]), array_keys(SYC_PUBLISH_GROUP_ROOT))), array_values(array_unique(array_values(SYC_PUBLISH_GROUP_ROOT)))],
+    [[], [11, 15, 13, 12]]);
+$swSql = (string) file_get_contents(__DIR__ . '/../database/20261112_catalog_switch.sql');
+preg_match('/MODIFY axis_key ENUM\(([^)]*)\)/s', $swSql, $em);
+preg_match_all("/'([a-z0-9_]+)'/", $em[1] ?? '', $ek);
+eq('목록 칸 키: 이름표 ENUM(마이그레이션)·SPEC_AXIS_COLUMNS 에 모두 있음', [array_values(array_diff(SYC_PUBLISH_LIST_KEYS, $ek[1])), array_values(array_diff(SYC_PUBLISH_LIST_KEYS, array_keys(SPEC_AXIS_COLUMNS)))], [[], []]);
+eq('추가 칸 6개 = 마이그레이션 ADD COLUMN', array_values(array_filter(SPEC_AXES_EXTRA_COLUMNS, static fn($c) => !str_contains($swSql, 'ADD COLUMN ' . $c . ' '))), []);
+$withProducts = array_count_values(array_column($pj['rows'] ?? [], 'category_slug'));
+$wtBad = [];
+foreach (WORK_TYPE_SYC_MATERIALS as $k => $mats) { foreach ($mats as [$slug]) { if (empty($withProducts[$slug])) { $wtBad[] = "{$k}:{$slug}"; } } }
+eq('상황별 자재(상용콘크리트): 설정 규칙 통과·모든 품목에 상품 있음·12개 작업 모두', [work_types_syc_validate(work_types(), WORK_TYPE_SYC_MATERIALS), $wtBad, count(WORK_TYPE_SYC_MATERIALS)], [[], [], 12]);
 // 목록 표 나누기: 값이 있는 목록 칸 구성이 같은 상품끼리(유공 침투측구수로관 W·H·L / 침투집수정 W·H·V)
 $axG = [['axis_key' => 'w', 'label' => '폭'], ['axis_key' => 'h', 'label' => '높이'], ['axis_key' => 'l', 'label' => '길이'], ['axis_key' => 'v', 'label' => '세로']];
 $gr = syc_list_groups([['name' => '수로관', 'dim_w' => 300, 'dim_h' => 300, 'dim_l' => 2000], ['name' => '집수정', 'dim_w' => 600, 'dim_h' => 850, 'dim_v' => 600], ['name' => '수로관', 'dim_w' => 400, 'dim_h' => 400, 'dim_l' => 2000]], $axG);

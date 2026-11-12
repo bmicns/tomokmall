@@ -22,6 +22,35 @@ declare(strict_types=1);
  */
 
 const WORK_TYPE_MAX_MATERIALS = 10;
+
+/**
+ * 상용콘크리트로 전환했을 때(app/syc_publish.php)의 작업별 대표 자재 — 케이토목 대표 자재(work_types() materials)와 같은 기준으로
+ * 같은 쓰임의 상용콘크리트 품목을 고름(사용자 결정 2026-11-12). 상용콘크리트에 같은 쓰임 품목이 없으면 넣지 않음(추측 금지).
+ * [syc_categories slug, 짧은 용도 설명] — 이름은 DB(카테고리 이름). 상품이 있는 품목만, 작업당 최대 10개, 중복 금지(work_types_validate)
+ */
+const WORK_TYPE_SYC_MATERIALS = [
+    'drainage' => [['syc-s11', '마당 배수로 본체'], ['syc-s1', '덮개 얹는 길가 측구'], ['syc-s10', '얕은 소형 배수로'], ['syc-s18', '진입로 가로 배수'],
+                   ['syc-w1', '진입로 밑 배수로'], ['syc-s9', '그레이팅 높이 맞춤 측구'], ['syc-s16', '덮개 있는 사각 배수로'], ['syc-s15', '스틸그레이팅 원형 배수로'],
+                   ['syc-s14', '원형 배수로'], ['syc-s46', '가벼운 마당 배수로']],
+    'paving'   => [['syc-s56', '기본 보도블록'], ['syc-s54', '빗물 스미는 블록'], ['syc-s55', '광장·건물 앞 포장'], ['syc-s58', '시각장애인 안내'],
+                   ['syc-s59', '시각장애인 안내(고강도)'], ['syc-s57', '보도블록 I형'], ['syc-s62', '사각 보도 포장']],
+    'curb'     => [['syc-s74', '차도·보도 경계·턱 낮춤'], ['syc-s72', '경제형 경계석'], ['syc-s87', '진입부 높이 전환'], ['syc-s73', '화강석 대체 경계석'],
+                   ['syc-s58', '낮춤부 점자 안내'], ['syc-s71', '보도·녹지 경계']],
+    'retaining' => [['syc-s63', '보강토 옹벽 본체'], ['syc-s67', '식생형 블록 옹벽'], ['syc-s64', '옹벽 상단 마감']],
+    'parking'  => [['syc-s61', '잔디 주차 바닥'], ['syc-s54', '빗물 스미는 바닥'], ['syc-w3', '보행로 차량 막기'], ['syc-s18', '출입구 빗물 차단'],
+                   ['syc-s72', '주차장 가장자리'], ['syc-w2', '차량 진입 차단'], ['syc-s58', '볼라드 앞 점자 안내']],
+    'garden'   => [['syc-s71', '화단·녹지 테두리']],
+    'building-drain' => [['syc-s42', '건물 오수 모으기'], ['syc-s41', '마당 빗물받이'], ['syc-s36', '오수관 연결 받이'], ['syc-s45', '홈통 빗물 받기'],
+                   ['syc-s43', '다용도 빗물받이'], ['syc-s44', '가정용 빗물받이'], ['syc-s47', '빗물 모으는 집수정'], ['syc-s78', '빗물 땅에 스미게']],
+    'sewer'    => [['syc-s19', '도로 밑 배수관'], ['syc-s26', '관 연결 맨홀'], ['syc-s24', '빗물 모으는 집수정'], ['syc-s51', '맨홀 뚜껑'],
+                   ['syc-s76', '큰 관경 배수관'], ['syc-s21', '도로 밑 대형 수로'], ['syc-s20', '압력 받는 배수관'], ['syc-s28', '깊은 맨홀 조립']],
+    'subdrain' => [['syc-s8', '땅속으로 스미는 측구'], ['syc-s78', '땅속으로 스미는 집수정'], ['syc-s24', '지하 배수 모으기']],
+    'river'    => [['syc-s68', '하천 호안'], ['syc-s67', '식생형 비탈면 블록'], ['syc-s66', '비탈면 잔디 보호']],
+    'farm'     => [['syc-s12', '논밭 기본 수로'], ['syc-s10', '얕은 소형 수로'], ['syc-s11', '수로 본체'], ['syc-w1', '농로 밑 배수로'],
+                   ['syc-s13', '생태 수로'], ['syc-s19', '농로 밑 배수관']],
+    'utility'  => [['syc-s29', '전기·통신 맨홀'], ['syc-s30', '통신 맨홀'], ['syc-s31', '가로등 기초'], ['syc-s52', '전기·통신 맨홀 뚜껑'],
+                   ['syc-s53', '전기통신 맨홀 뚜껑(BS)'], ['syc-s85', '원형 전기통신 뚜껑']],
+];
 const WORK_TYPE_EXCLUDED_CATEGORY_IDS = [203, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229];
 const WORK_TYPE_STRUCTURE_CATEGORY_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 16];
 
@@ -330,10 +359,55 @@ function work_type_materials(array $type, array $info): array
     return $out;
 }
 
-/** 키로 작업 유형 1건 조회(없으면 null) */
-function work_type_find(string $key): ?array
+/**
+ * 화면에 쓸 작업 유형 목록: 고객 화면이 상용콘크리트로 전환돼 있으면(app/syc_catalog.php syc_catalog_mode) 대표 자재를
+ * WORK_TYPE_SYC_MATERIALS(반영된 categories 의 slug → id)로 바꾼다. 아니면 work_types() 그대로.
+ */
+function work_types_effective(): array
 {
-    foreach (work_types() as $t) {
+    $types = work_types();
+    if (!function_exists('syc_catalog_mode')) { require_once __DIR__ . '/syc_catalog.php'; }
+    if (syc_catalog_mode() !== 'syc' || !db()) { return $types; }
+    static $ids = null;
+    if ($ids === null) {
+        $ids = [];
+        try {
+            foreach (db()->query("SELECT id, slug, name FROM categories WHERE slug LIKE 'syc-%'")->fetchAll() as $r) { $ids[(string) $r['slug']] = [(int) $r['id'], (string) $r['name']]; }
+        } catch (\Throwable $e) {
+            error_log('work_types_effective: ' . $e->getMessage());
+        }
+    }
+    foreach ($types as $i => $t) {
+        $mats = [];
+        foreach (WORK_TYPE_SYC_MATERIALS[$t['key']] ?? [] as [$slug, $desc]) {
+            if (isset($ids[$slug])) { $mats[] = [$ids[$slug][0], $ids[$slug][1], $desc]; }
+        }
+        $types[$i]['materials'] = $mats;
+    }
+    return $types;
+}
+
+/** 상용콘크리트 대표 자재 설정 검사(순수 함수): 작업 키 존재·최대 개수·중복·slug 형식 */
+function work_types_syc_validate(array $types, array $map): array
+{
+    $errors = [];
+    $keys = array_column($types, 'key');
+    foreach ($map as $key => $mats) {
+        if (!in_array($key, $keys, true)) { $errors[] = "{$key}: 없는 작업 키"; }
+        if (count($mats) > WORK_TYPE_MAX_MATERIALS) { $errors[] = "{$key}: 대표 자재 " . count($mats) . '개'; }
+        $slugs = array_column($mats, 0);
+        if (count($slugs) !== count(array_unique($slugs))) { $errors[] = "{$key}: 중복"; }
+        foreach ($mats as $m) {
+            if (!preg_match('/^syc-[sw]\d+$/', (string) ($m[0] ?? '')) || trim((string) ($m[1] ?? '')) === '') { $errors[] = "{$key}: 잘못된 항목"; }
+        }
+    }
+    return $errors;
+}
+
+/** 키로 작업 유형 1건 조회(없으면 null). 순수 함수 — 화면은 work_types_effective() 를 넘겨 상용콘크리트 전환을 반영 */
+function work_type_find(string $key, ?array $types = null): ?array
+{
+    foreach ($types ?? work_types() as $t) {
         if ($key !== '' && $t['key'] === $key) {
             return $t;
         }

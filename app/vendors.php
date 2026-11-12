@@ -34,13 +34,15 @@ function vendors_available(): bool
  */
 function vendor_names_subquery(): string
 {
+    // 업체공급가(product_vendors)가 없으면 상품의 업체명(brand) — 상용콘크리트 반영 상품(app/syc_publish.php)은 업체가 상품 행에 있음.
+    // 케이토목 상품은 brand 가 비어 있어 기존 표시 그대로(운영 확인 2026-11-12: 업체공급가 없이 brand 만 있는 상품 0건)
     if (!vendors_available()) {
-        return 'NULL';
+        return "NULLIF(p.brand, '')";
     }
-    return "(SELECT GROUP_CONCAT(v.name ORDER BY pv.is_primary DESC, v.name SEPARATOR '|')
+    return "COALESCE((SELECT GROUP_CONCAT(v.name ORDER BY pv.is_primary DESC, v.name SEPARATOR '|')
              FROM product_vendors pv
              JOIN vendors v ON v.id = pv.vendor_id
-             WHERE pv.product_id = p.id AND v.is_active = 1)";
+             WHERE pv.product_id = p.id AND v.is_active = 1), NULLIF(p.brand, ''))";
 }
 
 /**
