@@ -422,7 +422,12 @@ render_header($pageTitle);
             if ($sp['weight']) $hasWeight = true;
         }
     }
-    $hasDesc = !$demoMode && $showDescCol && array_filter($products, fn($p) => trim((string) ($p['description'] ?? '')) !== '') !== [];
+    // 요약 줄이 있는 상품이 하나라도 있을 때만 칸 표시('[임시값]' 정리 메모만 있는 설명은 표시 안 함 — 사용자 결정 2026-11-12)
+    $descSum = [];
+    if (!$demoMode && $showDescCol) {
+        foreach ($products as $i => $p) { $descSum[$i] = product_desc_summary((string) ($p['description'] ?? ''))['lines']; }
+    }
+    $hasDesc = array_filter($descSum) !== [];
 
     // 규격 축 모드: 결과 카테고리가 모두 같은 이름표(category_spec_axes)를 쓰면 '규격' 한 칸 → 규격 묶음 아래 모델 코드(spec_code)·축별 칸.
     //  - 결과 전체에 값이 하나뿐인 축은 필터에 고정(선택된 채) 표시되므로 표 칸에서 뺀다(필터에 안 쓰는 축은 표에 남김)
@@ -553,7 +558,7 @@ render_header($pageTitle);
                         <?php if ($isInternal): ?><td class="pt-col-cost"><?= price_cost_cell($p) ?></td><?php endif; ?>
                         <td class="pt-col-price"><?= price_tag_list($p) ?></td>
                         <?php if ($hasWeight):  ?><td class="pt-col-weight"><?= e($sp['weight']) ?></td><?php endif; ?>
-                        <?php if ($hasDesc): $dsc = trim((string) ($p['description'] ?? '')); $ds = product_desc_summary($dsc); ?><td class="pt-col-desc"<?= $dsc !== '' ? ' title="' . e($dsc) . '"' : '' ?>><?php if ($ds['temp']): ?><span class="pt-desc-tmp" title="정리 중 임시로 채운 값이 있습니다(전체 내용은 상세 화면)">임시값</span><?php endif; ?><?= implode('<br>', array_map('e', $ds['lines'])) ?></td><?php endif; ?>
+                        <?php if ($hasDesc): $dsc = trim((string) ($p['description'] ?? '')); ?><td class="pt-col-desc"<?= $descSum[$i] ? ' title="' . e($dsc) . '"' : '' ?>><?= implode('<br>', array_map('e', $descSum[$i])) ?></td><?php endif; ?>
                     </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
