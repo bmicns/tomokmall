@@ -1049,11 +1049,12 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "  standard 는 그 제품 종류가 대상인 국가표준 번호·이름이다. 'KS F 4403(원심력 철근 콘크리트관) 표준 대상 종류'처럼만 말하고, 이 상품이 KS 인증을 받았다고 말하지 않는다(인증 여부는 상품명 표기·제조사 자료로만). 도구 결과 basics.standards 에 scope(사람이 표준 상세 화면에서 확인한 적용 범위)가 있으면 '이 표준은 ~을 대상으로 한다'처럼 그 문구만 쓴다.\n"
         . "  guide 는 화면에 보이지 않으므로 쉬운 말로 풀어 설명에 넣는다. 주의할 점은 고객 조건과 맞지 않는 것만 짚는다(예: 차량이 올라가는데 60mm 제품).\n"
         . "- 수량·금액: 권장 수량은 suggested_qty(단위 포함), 예상 자재비는 est_cost 를 그대로 쓴다(직접 계산·반올림·합계 금지, 예: '약 1,074,000원'). 계산식(qty_basis)은 고객이 계산 방법을 물을 때만 쓴다.\n"
-        . "  est_cost 가 없으면 수량·금액을 말하지 말고 '면적(또는 길이)을 알려 주시면 수량과 자재비를 계산해 드립니다'라고 한다. 판매가가 0원인 제품은 '가격 문의'라고 한다. ㎡ 단위 판매 제품은 ㎡ 로 주문하고 장수는 참고라고 덧붙인다.\n"
+        . "  est_cost 와 suggested_qty 가 모두 없으면 수량·금액을 말하지 말고 '면적(또는 길이)을 알려 주시면 수량을 계산해 드립니다'라고 한다. suggested_qty 만 있으면(가격 문의 상품) 수량만 말한다. 판매가가 0원인 제품은 '가격 문의'라고 한다. ㎡ 단위 판매 제품은 ㎡ 로 주문하고 장수는 참고라고 덧붙인다.\n"
         . "- 효과·성능을 덧붙이지 않는다(예: '강도 우수'·'튼튼'·'견고'·'균열 방지'·'오래 사용 보장'·'불투수형은 비가 많이 오는 곳에 적합'). 투수·불투수는 guide 문구 그대로만 말한다.\n"
         . "- guide 의 '참고 자료(판매 상품 아님)' 줄은 공공데이터·제조사 자료로 확인한 정보다. 판매 상품이나 가격처럼 말하지 않고 출처와 함께 참고로만 언급한다.\n"
         . "- 고객이 '어떤 게 더 저렴해?'처럼 가격 차이를 물으면 도구 결과 cost_summary 의 상품명·예상 금액·차이만 인용해 1~2문장으로 답한다(cost_summary 가 없으면 금액을 말하지 않는다).\n"
         . "- 도구 결과에 note 필드가 있으면 그 note 문장을 첫 문장 다음에 그대로 한 줄 전한다(교정·대안 안내).\n"
+        . "- 도구 결과에 price_inquiry 가 있으면 price_note 를 따른다: 표의 제품은 가격 문의(견적 요청) 상품이므로 금액·예상 자재비를 말하거나 '가장 저렴·경제적'으로 비교하지 않고, 수량과 함께 견적요청하기로 가격을 받을 수 있다고 안내한다. not_carried 가 있으면 그 품목은 판매하지 않는다고 분명히 말하고 표의 제품을 그 품목처럼 말하지 않는다.\n"
         . "- 도구 결과에 substitute 가 있으면 표의 제품은 고객이 찾은 품목(substitute.searched)이 아니라 같은 조건의 다른 제품(대체품)이다. 그 사실을 첫 문장 다음에 전하고, 표의 제품을 찾은 품목(예: '수로용')처럼 말하지 않는다.\n"
         . "- 추천 순서: 고객 조건(하중 등급·규격·용도)을 만족하는 제품 중 예상 자재비(없으면 단가)가 가장 낮은 제품을 먼저 권한다(표도 그 순서). 더 비싼 제품은 고객 조건에 그 등급·기능이 꼭 필요한 이유가 있을 때만 그 이유와 함께 권한다.\n"
         . "- 고객 조건보다 높은 등급(예: 사람만 다니는 주방·실내·인도에 차량용 중하중·안전중하중)을 '적합하다'·'적절하다'고 말하지 않는다. 도구가 높은 등급만 있다고 알려 주면(note·over_spec_options) 그대로 전하고, 고객이 원한다고 할 때만 그 제품을 찾는다.\n"
@@ -1948,6 +1949,23 @@ function rag_legal_implicit_ids(string $text, array $legalDocs): array
     return array_values(array_unique($byFig ?: $byName));
 }
 
+/**
+ * 가격 문의(0원) 표에서 금액 비교 문장 빼기 (순수 함수, 2026-11-12 — 상용콘크리트 전환 직후 전 상품 가격 0원).
+ * '가장 저렴·경제적·싼', '더 저렴한', '경제적인 선택' 문장만 뺀다(제품 설명·수량 문장은 그대로). 문장이 모두 빠지는 줄은 그 줄을 남기지 않는다.
+ */
+function rag_strip_price_claims(string $text): string
+{
+    $re = '/가장\s*(저렴|경제적|싸|싼)|더\s*(저렴|싸|싼)|경제적인\s*(선택|제품)|비용(을|이)?\s*(절감|줄이|아끼)/u';
+    $out = [];
+    foreach (explode("\n", $text) as $line) {
+        if (!preg_match($re, $line)) { $out[] = $line; continue; }
+        $parts = preg_split('/(?<=[.!?])\s+/u', $line) ?: [$line];
+        $kept = array_values(array_filter($parts, static fn($p) => !preg_match($re, (string) $p)));
+        if ($kept) { $out[] = rtrim(implode(' ', $kept)); }
+    }
+    return trim((string) preg_replace('/\n{3,}/u', "\n\n", implode("\n", $out)));
+}
+
 function rag_product_family(string $query): string
 {
     $q = str_replace(' ', '', $query);
@@ -2521,7 +2539,10 @@ function rag_process(array $messages, string $sid): array
     foreach ($events as $ev) { if (($ev['type'] ?? '') === 'material_sources') { $matMakers = array_merge($matMakers, array_column((array) ($ev['sources'] ?? []), 'maker')); } }
     if ($matMakers) { $responseText = rag_strip_source_phrases($responseText, $matMakers); }   // 제조사 출처는 화면 하단에만(2026-11-12)
     $responseText = rag_registered_note($responseText, $missingRegs);   // 없는 형태 말의 등록 규격을 빠뜨렸으면(운영 상담 #199)
-    $responseText = rag_dedupe_evaluation($responseText);               // '가장 경제적'을 제품 줄·마지막 문단에서 두 번 말하면 제품 줄 쪽을 뺌
+    $responseText = rag_dedupe_evaluation($responseText);
+    if ($turnCards && !array_filter($turnCards, static fn($c) => (int) ($c['price_member'] ?? $c['price_b2c'] ?? 0) > 0)) {
+        $responseText = rag_strip_price_claims($responseText);   // 표가 모두 가격 문의(0원)면 '가장 저렴·경제적' 같은 금액 비교 문장을 뺀다(2026-11-12 상용콘크리트)
+    }               // '가장 경제적'을 제품 줄·마지막 문단에서 두 번 말하면 제품 줄 쪽을 뺌
     $basicSrc = rag_basic_sources_used($responseText, $basicsSeen);
     if ($basicSrc['standards'] || $basicSrc['products'] || $basicSrc['procurement']) {
         $events[] = ['type' => 'basic_sources'] + $basicSrc;

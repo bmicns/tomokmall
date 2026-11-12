@@ -137,9 +137,21 @@ bash scripts/testdb/load-legal-docs.sh
 php scripts/testdb/prodlike-db.php
 ```
 
+**2026-11-12 운영 상품 전환(케이토목 → 상용콘크리트, B 방식) 뒤**: `prodlike-db.php` 의 `tomokmall_test` 는 **전환 전(케이토목) 상태**로 만든다
+(운영이 전환 때 숨긴 분류 id(`syc_catalog_hidden`, id 만 읽기 전용)를 다시 보이게, 반영된 상용콘크리트 분류(slug `syc-`)는 숨김 — 기존 테스트가 케이토목 상품 기준).
+운영과 같은 **전환 후** 상태는 아래 `prodlike-syc.php` 로 따로 만든다(운영 데이터를 내보내지 않고, 저장소의 같은 원본 `data/syccrt` + 같은 반영 코드 `app/syc_publish.php`).
+
+```bash
+php scripts/testdb/prodlike-syc.php
+```
+```bash
+DB_NAME=tomokmall_syc_test php tests/consult_syc_catalog.test.php
+```
+
 | DB | 용도 |
 |---|---|
-| `tomokmall_test` | 운영 구조 + 운영 카테고리·이름표 + 수집 상품 — 기본 테스트(`favorites_api`·`member_price_display` 도 이 구조에서 실행됨) |
+| `tomokmall_test` | 운영 구조 + 운영 카테고리·이름표 + 수집 상품(케이토목, 전환 전 상태) — 기본 테스트(`favorites_api`·`member_price_display` 도 이 구조에서 실행됨) |
+| `tomokmall_syc_test` | `tomokmall_test` 복사 + 상용콘크리트 원본 704행 반영·전환(운영 고객 화면과 같음, 전 상품 가격 0원) — `tests/consult_syc_catalog.test.php` |
 | `tomokmall_mock_test` | 운영 구조, 데이터 없음 — '빈 DB 전용' 목 데이터 테스트: `DB_NAME=tomokmall_mock_test php tests/stock_filter.test.php` |
 | `ktomok_test` | 수집 원본 구조·데이터 그대로 — 수집 원본 기대값 테스트: `DB_NAME=ktomok_test php tests/external_import.test.php`(운영에 없는 암거 상품 매칭을 기대) |
 

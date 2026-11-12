@@ -416,7 +416,7 @@ function ai_estimate_quantity(array $p, float $lengthM, ?float $widthMm, ?float 
     $unit = preg_match('/단위:\s*([^|]+)/u', $spec, $m) ? trim($m[1]) : '';
 
     $fmt = static fn(float $n): string => rtrim(rtrim(sprintf('%.2f', $n), '0'), '.');
-    $unitNorm = str_replace(' ', '', mb_strtolower($unit));
+    $unitNorm = str_replace([' ', '²'], ['', '2'], mb_strtolower($unit));   // 상용콘크리트 상품은 'm²'(위첨자 ²) — 2026-11-12
     $tileM2   = ai_tile_area_m2($reg);
 
     // 면적 단위 (㎡ / m2)
@@ -544,10 +544,14 @@ function tool_search_products(array $input): string
     $recheckRows = $recheckIds ? ai_rows_by_ids($recheckIds) : [];
     $recheck   = $recheckRows ? ai_recheck($recheckRows, $want, $traffic) : [];
     $rows      = $onlyIds ? $recheckRows : $find($effQuery, $fetch);
+    $matchCatIds = [];
     // 상품명에 품목 이름이 없는 카테고리(1련암거 — 상품명이 규격 코드뿐): 검색어가 카테고리 이름에 들어 있으면 그 상품을 후보로(2026-11-12)
     if (!$onlyIds) {
         $catRows = ai_category_name_rows($qText, $rows, $want, $specMm);
         if ($catRows) { $rows = array_merge($rows, $catRows); }
+        // 검색어가 분류 이름에만 있는 상품(상용콘크리트 2026-11-12: '투수블록' → 분류 '인조화강블록 투수/불투수', 'U형 수로관' → 'U형 플륨')
+        [$matchRows, $matchCatIds] = ai_category_match_rows($qText, $rows, $want, $specMm);
+        if ($matchRows) { $rows = array_merge($rows, $matchRows); }
     }
     if ($onlyIds) {
         $limit = max($limit, count($rows));   // 지정한 상품은 모두 표에(조건에 맞는 것만)
@@ -590,6 +594,15 @@ function tool_search_products(array $input): string
     // ⓪ 용도 배타 필터: 부속(집게·몰드 등) 제외 — 지정 상품(only_ids)은 이미 고객에게 보인 제품이라 그대로
     if (!$onlyIds) {
         $rows = ai_exclude_accessories($rows, $query);
+        // 덮개(그레이팅·뚜껑·커버)를 찾으면 덮개 상품만 — 이름에 '그레이팅'이 들어간 수로관 본체(상용콘크리트 '그레이팅 높이조절용 측구수로관')를
+        // 덮개처럼 추천하지 않는다. 덮개가 하나도 없으면 표 없이 '판매 중인 덮개 없음'(2026-11-12)
+        if (ai_is_cover_query($query)) {
+            $covers = array_values(array_filter($rows, 'ai_is_cover_row'));
+            if (!$covers && $rows) {
+                $coverNote = ai_cover_missing_note($query, $rows);
+            }
+            $rows = $covers;
+        }
         // 수로 덮개를 찾는데 맨홀·집수정 위 덮개가 섞이지 않게(쓰는 곳이 다름 — 2026-11-10 운영 상담 #195: 10m 수로에 집수정용 그레이팅 17조 추천)
         if (ai_is_channel_cover_query($query) || (($input['cover_use'] ?? '') === 'channel' && preg_match('/맨홀|집수정/u', $query) !== 1)) {
             $rows = array_values(array_filter($rows, static fn($r) => !preg_match('/맨홀|집수정/u', (string) ($r['name'] ?? '') . ' ' . (string) ($r['category_name'] ?? ''))));
@@ -656,6 +669,7 @@ function tool_search_products(array $input): string
     //      — 과잉 등급만 남기거나 '다른 제품 없음'으로 끝내지 않게(예: 보행자용 폭 500mm → EX메탈망·플라스틱 그레이팅)
     $broadened = false;
     $substituteNote = '';
+    $coverNote = $coverNote ?? '';
     $extraNotes = [];
     if (!$onlyIds && ($classEmptied || $exclEmptied) && $traffic !== '' && isset($want['w']) && preg_match('/그레이팅/u', $query)) {
         $alt = ai_same_class_gratings($query, $want['w'], $traffic, $fetch);
@@ -705,8 +719,14 @@ function tool_search_products(array $input): string
     };
     $dimUnknown = static fn(array $p): bool => ($p['_dim'] ?? '') === 'unknown' || ($p['_load'] ?? '') === 'unverified';   // 치수·하중을 확인하지 못한 제품은 확인된 제품 뒤
     // PHP 8 usort는 안정 정렬 → 이름 순위·금액이 같으면 기존 관련도 순서 유지. 치수 조건이 있으면 확인된 규격이 먼저(조건 확인이 가격보다 우선)
-    usort($distinct, static fn($a, $b) => ($dimUnknown($a) <=> $dimUnknown($b)) ?: ($nameHits((string) $b['name']) <=> $nameHits((string) $a['name'])) ?: ($costKey($a) <=> $costKey($b)));
+    $catHit = static fn(array $p): int => in_array((int) ($p['category_id'] ?? 0), $matchCatIds, true) ? 1 : 0;   // 검색어가 모두 분류 이름에 있는 상품 먼저(2026-11-12)
+    usort($distinct, static fn($a, $b) => ($dimUnknown($a) <=> $dimUnknown($b)) ?: ($catHit($b) <=> $catHit($a)) ?: ($nameHits((string) $b['name']) <=> $nameHits((string) $a['name'])) ?: ($costKey($a) <=> $costKey($b)));
 
+    // 검색어가 모두 분류 이름에 맞은 상품이 있으면, 그 상품과 상품명에 검색어가 모두 있는 상품만(나머지는 '블록' 같은 한 낱말로만 걸린 다른 품목 — 2026-11-12 '투수블록')
+    if ($matchCatIds && array_filter($distinct, $catHit)) {
+        $full = max(1, count($textTerms));
+        $distinct = array_values(array_filter($distinct, static fn($p) => $catHit($p) === 1 || $nameHits((string) $p['name']) >= $full));
+    }
     $products = array_slice($distinct, 0, $limit);
 
     // 고르는 기준(초보 고객용 쉬운 설명) — 상품 규격 + 사람이 확정한 외부 자료(제조사·KS 표기, 가격 제외). 외부 테이블이 없으면 상품 규격만
@@ -819,6 +839,10 @@ function tool_search_products(array $input): string
         if ($corrected !== null) { $out['corrected'] = $corrected; }
         return json_encode($withRecheck($out), JSON_UNESCAPED_UNICODE);
     }
+    // 덮개를 찾았는데 판매 중인 덮개가 없음(수로관 본체만 걸림) — 본체를 덮개처럼 보여 주지 않고 사실만(2026-11-12)
+    if (empty($cards) && $coverNote !== '') {
+        return json_encode($withRecheck(['products' => [], 'count' => 0, '_sse' => [], 'note' => $coverNote, 'not_carried' => true]), JSON_UNESCAPED_UNICODE);
+    }
     // 그래도 0건이면 손님을 위한 대안 안내(모델이 되묻지 말고 이 안내를 전달)
     if (empty($cards) && $specMm > 0 && !empty($input['spec_strict']) && ai_is_paving_query($qText)) {
         $out = ['products' => [], 'count' => 0] + ai_paving_no_match([$qText], $specMm, ai_paving_names_with_thickness($specMm));   // 포장 블록 두께 기준 미충족
@@ -837,7 +861,7 @@ function tool_search_products(array $input): string
             'count'    => 0,
             'note'     => ($specMm > 0 && !empty($input['spec_strict']))
                 ? "'{$qText}'은(는) 규격 {$specMm}mm 제품이 없습니다. 조건에 맞지 않는 다른 규격은 보여드리지 않았습니다."
-                : '해당 조건에 맞는 제품을 찾지 못했습니다. 용도(수로·배수·경계·차단 등)나 재질을 알려주시면 다시 찾아드리겠습니다.',
+                : ((($nc = ai_not_carried_note($qText)) !== '') ? $nc : '해당 조건에 맞는 제품을 찾지 못했습니다. 용도(수로·배수·경계·차단 등)나 재질을 알려주시면 다시 찾아드리겠습니다.'),
             '_sse'     => [],
         ];
         if ($corrected !== null) { $out['corrected'] = $corrected; }
@@ -898,6 +922,16 @@ function tool_search_products(array $input): string
         }
     }
     // 검색어의 제품 종류·형태(예: '날개형')가 표의 어느 제품에도 없으면 알린다 — 다른 제품을 그 제품처럼 말하지 않게(2026-11-09 운영 상담 '날개형은 안돼?')
+    // 표의 제품이 모두 가격 문의(판매가 0원 — 2026-11-12 상용콘크리트 전환 직후 전 상품)면 금액 비교를 하지 않게(GPT 용 지시, 고객에게 전하는 note 아님)
+    if (!array_filter($out['products'], static fn($c) => (int) ($c['price_member'] ?? 0) > 0)) {
+        $out['price_inquiry'] = true;
+        $out['price_note'] = '표의 제품은 모두 가격 문의(견적 요청) 상품이다. 금액·예상 자재비를 말하거나 \'가장 저렴·경제적\'으로 비교하지 말고, 권장 수량이 있으면 수량과 함께 견적요청하기로 가격을 받을 수 있다고 안내한다.';
+    }
+    // 검색어의 품목 이름이 카탈로그에 아예 없으면(예: '이중벽관'·'PE 배수관') 표의 제품이 그 품목이 아니라고 알린다(2026-11-12)
+    if (($nc = ai_not_carried_note($qText)) !== '') {
+        $extraNotes[] = $nc . ' 표의 제품은 이름이 비슷한 다른 제품입니다.';
+        $out['not_carried'] = true;
+    }
     // 대체품 표(broadened)도 확인한다 — 2026-11-10 운영 상담 #195 '날개형은 안돼??': 날개형 등록 규격(185~385mm) 안내 없이 다른 제품만 보임
     $missing = ai_missing_terms_registered(ai_missing_terms($query, $products));
     if ($missing) {
@@ -1482,6 +1516,112 @@ function ai_same_class_gratings(string $query, float $widthMm, string $traffic, 
     }));
 }
 
+/** 덮개(그레이팅·뚜껑·덮개·커버)를 찾는 검색어인지 (순수 함수) — 본체(수로관·플륨·집수정·맨홀 구체)를 함께 말하면 아님 */
+function ai_is_cover_query(string $query): bool
+{
+    $q = (string) preg_replace('/맨홀\s*(뚜껑|덮개|커버)/u', '뚜껑', $query);
+    return preg_match('/그레이팅|덮개|뚜껑|커버|cover/iu', $q) === 1 && preg_match('/수로관|플륨|집수정|구체|맨홀/u', $q) !== 1;
+}
+
+/** 덮개 상품인지 (순수 함수) — 이름·분류에 뚜껑·덮개·커버·주철(주철 덮개류), 또는 '그레이팅'이 있되 수로관 본체(…측구수로관·높이조절용)가 아닌 것 */
+function ai_is_cover_row(array $r): bool
+{
+    $n = (string) ($r['name'] ?? '');
+    if (preg_match('/뚜껑|덮개|커버|cover|주철/iu', $n . ' ' . (string) ($r['category_name'] ?? ''))) { return true; }
+    return preg_match('/그레이팅/u', $n) === 1 && preg_match('/수로관|플륨|높이\s*조절/u', $n) !== 1;
+}
+
+/** 판매 중인 덮개가 없을 때 안내 (순수 함수) — 이름에 '그레이팅'이 들어간 본체가 걸렸으면 그 이름을 밝혀 덮개가 아님을 알린다 */
+function ai_cover_missing_note(string $query, array $rows): string
+{
+    $bodies = array_values(array_unique(array_filter(array_map(static fn($r) => (string) ($r['name'] ?? ''), $rows), static fn($n) => preg_match('/그레이팅/u', $n) === 1)));
+    return "현재 판매 중인 '{$query}'(덮개) 제품이 없습니다."
+        . ($bodies ? ' 이름에 그레이팅이 들어간 ' . implode(', ', array_map(static fn($n) => "'{$n}'", array_slice($bodies, 0, 3))) . '은(는) 덮개가 아니라 수로관 본체입니다.' : '');
+}
+
+/**
+ * 검색어가 모두 분류 이름(상위 분류 포함)에 있는 분류의 상품 (DB) — [행, 분류 id]. 2026-11-12 상용콘크리트: 품목 이름이 분류에만 있는 경우
+ * ('투수블록' → '인조화강블록 투수/불투수', '보도블록' → 상위 분류 '보도블록' 아래 블록들, 'U형 수로관' → 'U형 플륨').
+ * 낱말마다 그 낱말(동의어·합성어 조각 포함)이 분류 이름에 있어야 한다 — 'U형'만 맞는 'U형 볼라드'는 아님.
+ */
+function ai_category_match_rows(string $query, array $rows, array $want, int $specMm): array
+{
+    $pdo = db();
+    $toks = array_values(array_filter(preg_split('/\s+/u', trim((string) preg_replace('/[^가-힣A-Za-z0-9\s]/u', ' ', $query))) ?: [], static fn($t) => mb_strlen($t) >= 2 && !preg_match('/^\d+$/', $t)));
+    if (!$pdo || !$toks) { return [[], []]; }
+    $extra = ['수로관' => ['플륨', '수로'], '플륨관' => ['플륨'], '블럭' => ['블록']];
+    $alts = static function (string $tok) use ($extra): array {   // 낱말 → 조각마다 [다른 표현들] (조각마다 하나라도 있으면 맞음)
+        $segs = function_exists('segment_compound') ? segment_compound($tok) : [$tok];
+        $out = [];
+        foreach ($segs ?: [$tok] as $seg) {
+            $e = function_exists('expand_search_token') ? expand_search_token($seg) : [$seg];
+            $out[] = array_values(array_unique(array_merge([$seg], $e, $extra[$seg] ?? [])));
+        }
+        return $out;
+    };
+    try {
+        $cats = $pdo->query("SELECT c.id, CONCAT(COALESCE(pc.name, ''), ' ', c.name) AS nm FROM categories c LEFT JOIN categories pc ON pc.id = c.parent_id WHERE c.is_active = 1")->fetchAll();
+    } catch (\Throwable $e) {
+        return [[], []];
+    }
+    $ids = [];
+    foreach ($cats as $c) {
+        $nm = mb_strtolower(str_replace(' ', '', (string) $c['nm']));
+        $all = true;
+        foreach ($toks as $t) {
+            foreach ($alts($t) as $choices) {
+                if (!array_filter($choices, static fn($x) => $x !== '' && mb_strpos($nm, mb_strtolower(str_replace(' ', '', (string) $x))) !== false)) { $all = false; break 2; }
+            }
+        }
+        if ($all) { $ids[] = (int) $c['id']; }
+    }
+    if (!$ids) { return [[], []]; }
+    $have = array_flip(array_map(static fn($r) => (int) ($r['id'] ?? 0), $rows));
+    $ph = implode(',', array_fill(0, count($ids), '?'));
+    try {
+        $st = $pdo->prepare("SELECT p.*, c.name AS category_name FROM products p JOIN categories c ON c.id = p.category_id WHERE p.is_active = 1 AND p.category_id IN ({$ph}) ORDER BY p.id LIMIT 120");
+        $st->execute($ids);
+        $found = $st->fetchAll();
+    } catch (\Throwable $e) {
+        return [[], []];
+    }
+    $out = [];
+    foreach ($found as $r) {
+        if (isset($have[(int) $r['id']])) { continue; }
+        if ($want && ai_dim_check($r, $want)['status'] === 'mismatch') { continue; }
+        if ($specMm > 0 && !ai_spec_has_mm((string) ($r['spec'] ?? ''), (float) $specMm)) { continue; }   // 미터 소수 읽기는 끔('1종'을 1m 로 보지 않게)
+        $out[] = $r;
+    }
+    return [$out, $ids];
+}
+
+/**
+ * 검색어의 품목 이름 중 카탈로그(판매 중인 상품 이름·분류 이름)에 아예 없는 것 안내 (DB) — '이중벽관'·'PE 배수관'의 '배수관'(2026-11-12 상용콘크리트).
+ * 품목 이름 낱말(…관·…블록·…석·맨홀·…받이·그레이팅·트렌치·볼라드·…철망·플륨·암거·집수정)만 본다. 합성어는 조각이 모두 있으면 있음('투수블록' → '인조화강블록 투수/불투수').
+ */
+function ai_not_carried_note(string $query): string
+{
+    static $hay = null;
+    $pdo = db();
+    if (!$pdo) { return ''; }
+    if ($hay === null) {
+        try {
+            $hay = mb_strtolower(str_replace(' ', '', implode(' ', $pdo->query("SELECT CONCAT(p.name, ' ', c.name) FROM products p JOIN categories c ON c.id = p.category_id WHERE p.is_active = 1 AND c.is_active = 1")->fetchAll(PDO::FETCH_COLUMN))));
+        } catch (\Throwable $e) {
+            $hay = '';
+        }
+    }
+    if ($hay === '') { return ''; }
+    $missing = [];
+    foreach (preg_split('/\s+/u', trim((string) preg_replace('/[^가-힣A-Za-z0-9\s]/u', ' ', $query))) ?: [] as $tok) {
+        if (mb_strlen($tok) < 2 || !preg_match('/(관|블록|블럭|석|맨홀|받이|그레이팅|트렌치|볼라드|철망|플륨|암거|집수정)$/u', $tok)) { continue; }
+        $segs = function_exists('segment_compound') ? (segment_compound($tok) ?: [$tok]) : [$tok];
+        $found = !array_filter($segs, static fn($x) => mb_strpos($hay, mb_strtolower((string) $x)) === false);
+        if (!$found) { $missing[] = $tok; }
+    }
+    return $missing ? implode(', ', array_map(static fn($t) => "'{$t}'", $missing)) . '은(는) 현재 판매 중인 제품이 없습니다.' : '';
+}
+
 /** 수로(배수로·측구·트렌치) 덮개를 찾는 검색어인지 (순수 함수) — 맨홀·집수정 위 덮개는 쓰는 곳이 달라 후보에서 뺀다 */
 function ai_is_channel_cover_query(string $query): bool
 {
@@ -1864,10 +2004,11 @@ function ai_exclude_accessories(array $rows, string $query): array
 {
     $isChannel = (bool) preg_match('/수로|배수로|측구|트렌치|농수로/u', $query);
     $isManhole = (bool) preg_match('/맨홀|집수정/u', $query);
-    $wantsPart = (bool) preg_match('/뚜껑|덮개|집게|몰드/u', $query);
+    $wantsPart = (bool) preg_match('/뚜껑|덮개|집게|몰드|소켓|조절링|인상링|연결구/u', $query);
     $exclude = [];
     if (!$wantsPart) {
-        $exclude[] = $isChannel ? '뚜껑|집게|몰드' : '집게|몰드'; // 덮개는 제외 안 함(그레이팅덮개 등 보존)
+        // 덮개는 제외 안 함(그레이팅덮개 등 보존). 소켓·조절링·인상링·연결구: 상용콘크리트 부속(트렌치 소켓·맨홀 높이 조절링 등, 2026-11-12)
+        $exclude[] = $isChannel ? '뚜껑|집게|몰드|소켓|조절링|인상링|연결구' : '집게|몰드|소켓|조절링|인상링|연결구';
     }
     if ($isChannel && !$isManhole) {
         $exclude[] = '맨홀|집수정';
@@ -1927,13 +2068,13 @@ function ai_unit_label(string $spec): string
 {
     if (preg_match('/중량\s*\/\s*단위:\s*[^|\/]*\/\s*([^|]+)/u', $spec, $m)) {   // '중량/단위: 2,640kg / 본'(1련암거) → 본
         $u = trim($m[1]);
-        return preg_match('/^m\s*2$/iu', $u) ? '㎡' : $u;
+        return preg_match('/^m\s*[2²]$/iu', $u) ? '㎡' : $u;
     }
     if (!preg_match('/단위:\s*([^|]+)/u', $spec, $m)) {
         return '';
     }
     $u = trim($m[1]);
-    return preg_match('/^m\s*2$/iu', $u) ? '㎡' : $u;
+    return preg_match('/^m\s*[2²]$/iu', $u) ? '㎡' : $u;   // 'm2'·'m²'(상용콘크리트) → ㎡
 }
 
 /**
