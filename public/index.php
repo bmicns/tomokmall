@@ -232,6 +232,33 @@ if ($query) {
         // 관 사진 왼쪽 끝이 잘린 단면이라 카드 밖으로 밀어 잘린 부분을 가린다(img_class, styles.css .gh-mat-img--bleed)
         ['name' => 'PE이중벽관', 'desc' => '땅속 배수용 관',                  'img' => '/assets/images/home-PE이중벽관.png', 'img_class' => 'gh-mat-img--bleed'],
     ];
+    // 상용콘크리트로 전환돼 있으면(app/syc_publish.php) 상용콘크리트에 있는 자재로 — 같은 카드 모양·이미지(사용자 요청 2026-11-12).
+    // 벽돌·돌망태·그레이팅·PE이중벽관은 상용콘크리트에 상품이 없어(검색 0건·관 없음) 경계석·맨홀·집수정·맨홀 뚜껑·측구수로관으로 바꿈(이미지는 기존 것을 내용에 맞게).
+    // cat = 반영된 카테고리 slug(그 카테고리 목록), q = 검색어(여러 품목에 걸친 자재). 카테고리가 없으면 이름 검색
+    if (syc_catalog_mode() === 'syc') {
+        $matItems = [
+            ['name' => '플륨관',   'q' => '플륨',        'desc' => "물을 흘려보내는\n콘크리트 수로", 'img' => '/assets/images/home-플륨관.png'],
+            ['name' => '수로관',   'q' => '수로관',      'desc' => "배수로를\n만드는 자재",          'img' => '/assets/images/home-수로관.png'],
+            ['name' => '옹벽블록', 'cat' => 'syc-g11',   'desc' => "흙을 지지하는\n블록",             'img' => '/assets/images/home-옹벽블록.png'],
+            ['name' => '보도블록', 'cat' => 'syc-g8',    'desc' => '바닥 · 조경 시공',                'img' => '/assets/images/home-블록.png'],
+            ['name' => '경계석',   'cat' => 'syc-g12',   'desc' => "차도·보도·녹지\n경계 마감",       'img' => '/assets/images/home-경계석.png'],
+            ['name' => '맨홀·집수정', 'cat' => 'syc-g5', 'desc' => "빗물을 모으고\n관을 잇는 구조물",  'img' => '/assets/images/home-집수정.png'],
+            ['name' => '맨홀 뚜껑', 'cat' => 'syc-g7',   'desc' => "맨홀·전기통신\n주철 덮개",         'img' => '/assets/images/home-맨홀.png'],
+            ['name' => '측구수로관', 'cat' => 'syc-g1',  'desc' => "그레이팅을 얹는\n길가 배수로",      'img' => '/assets/images/home-그레이팅.png'],
+        ];
+        try {
+            $slugs = array_values(array_filter(array_column($matItems, 'cat')));
+            $st = db()->prepare('SELECT slug, id FROM categories WHERE is_active = 1 AND slug IN (' . implode(',', array_fill(0, count($slugs), '?')) . ')');
+            $st->execute($slugs);
+            $catIdBySlug = $st->fetchAll(PDO::FETCH_KEY_PAIR);
+        } catch (\Throwable $e) {
+            $catIdBySlug = [];
+        }
+        foreach ($matItems as $i => $m) {
+            $matItems[$i]['href'] = isset($m['cat'], $catIdBySlug[$m['cat']]) ? '/products.php?category=' . (int) $catIdBySlug[$m['cat']]
+                                  : '/products.php?q=' . urlencode($m['q'] ?? $m['name']);
+        }
+    }
     ?>
     <div class="gh-wrap">
         <section class="gh-hero">
@@ -324,7 +351,7 @@ if ($query) {
             </div>
             <div class="gh-mat-grid">
                 <?php foreach ($matItems as $m): ?>
-                <a class="gh-mat-card" href="/products.php?q=<?= urlencode($m['name']) ?>">
+                <a class="gh-mat-card" href="<?= e($m['href'] ?? '/products.php?q=' . urlencode($m['name'])) ?>">
                     <img src="<?= e($m['img']) ?>" alt="<?= e($m['name']) ?>" loading="lazy"<?= !empty($m['img_class']) ? ' class="' . e($m['img_class']) . '"' : '' ?>>
                     <span class="gh-mat-text">
                         <span class="gh-mat-name"><?= e($m['name']) ?></span>
