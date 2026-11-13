@@ -3,11 +3,25 @@ declare(strict_types=1);
 require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/auth.php';
 require __DIR__ . '/../app/admin_layout.php';
+require_once __DIR__ . '/../app/ktomok_bulk.php';   // 업체(출처) 목록·일괄 등록 칸(app/product_sources.php·syc_bulk.php)
 
 require_admin();
 
+// 첫 번째 드롭다운 = 업체: 케이토목 → 상용콘크리트 → 업체 목록(직원 '품목별 업체정보')의 활성 업체(사용자 결정 2026-11-13)
+$sources = product_sources(db());
+// 일괄 등록 양식(CSV 머리글): 케이토목 = products 칸, 그 밖 = syc_products 칸(출처 칸은 고른 업체로 정해지므로 뺌)
+$tplLabels = ['category_slug' => '분류코드', 'name' => '상품명', 'brand' => '업체명', 'spec' => '규격', 'spec_code' => '모델 코드', 'spec_option' => '옵션',
+              'unit' => '단위', 'weight_kg' => '중량(kg)', 'description' => '설명', 'price_b2c' => '판매가(개인)', 'price_b2b' => '판매가(기업)',
+              'cost_price' => '매입가', 'stock_qty' => '재고', 'external_id' => '출처ID', 'source_url' => '출처 주소', 'image_url' => '이미지 주소',
+              'image_file' => '대표이미지 파일명', 'image_thumb_file' => '썸네일 파일명'];
+$tplHead = static fn(array $keys): array => array_map(static fn($k) => ($tplLabels[$k] ?? $k) . " [{$k}]", $keys);
+$tplCols = [
+    'products' => $tplHead(array_merge(['category_slug'], array_keys(ktomok_bulk_columns()))),
+    'syc'      => $tplHead(array_merge(['category_slug'], array_values(array_diff(array_keys(syc_bulk_columns()), ['external_source'])), ['image_file', 'image_thumb_file'])),
+];
+
 $leafCats = db()->query(
-    "SELECT c.id, c.name, p.name AS mid_name, gp.name AS root_name
+    "SELECT c.id, c.slug, c.name, p.name AS mid_name, gp.name AS root_name
      FROM categories c
      JOIN categories p  ON p.id  = c.parent_id
      JOIN categories gp ON gp.id = p.parent_id
@@ -96,28 +110,23 @@ render_admin_header('제품관리', 'products');
 .syc-sel{display:inline-flex;align-items:center;justify-content:center;min-width:36px;min-height:36px;cursor:pointer;vertical-align:middle}
 .syc-all-link{min-height:36px;padding:0 4px;border:0;background:none;color:#004EA1;font-size:13px;font-weight:600;text-decoration:underline;cursor:pointer;font-family:inherit}
 .syc-all-on #syc-sel-count{color:#004EA1;font-weight:700}
-.syc-pub{border:1px solid #d6e4f5;border-radius:8px;background:#f7faff;padding:14px 16px;margin:0 0 14px;display:flex;flex-direction:column;gap:8px}
-.syc-pub-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.syc-pub-h h2{margin:0;font-size:15px;font-weight:800}
-.syc-pub-mode{padding:2px 8px;border-radius:10px;font-size:12px;font-weight:700;background:#e8f0fe;color:#004EA1}
-.syc-pub-mode.is-syc{background:#e8f5e9;color:#1b5e20}
-.syc-pub-s{margin:0;font-size:12.5px;line-height:1.7;color:#444}
-.syc-pub-btns{display:flex;gap:8px;flex-wrap:wrap}
-.syc-pub-btns button{min-height:38px;padding:0 14px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid #004EA1;background:#fff;color:#004EA1}
-.syc-pub-btns button.is-main{background:#004EA1;color:#fff}
-.syc-pub-btns button.is-warn{border-color:#c62828;color:#c62828}
-.syc-pub-btns button:disabled{opacity:.5;cursor:wait}
 .syc-brand{display:block;font-size:11.5px;font-weight:500;color:#888;margin-top:2px}
+.src-label{font-size:12.5px;color:#666;align-self:center}
+.src-label b{color:#1a2035}
+.btn-sm:disabled,.syc-bulkbar button:disabled{opacity:.45;cursor:not-allowed}
+.bk-tpl{display:flex;gap:8px;flex-wrap:wrap}
+#filter-source{font-weight:700}
 @media (max-width:640px){.bk-b,.bk-h,.bk-f{padding-left:16px;padding-right:16px}.bk-hint{flex-basis:100%}}
 </style>
 
 <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:20px">
     <div class="page-heading" style="margin:0">제품관리</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span class="src-label">업체: <b id="src-name"></b></span>
         <button type="button" class="btn btn-outline" onclick="bkOpen()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>일괄 등록
         </button>
-        <button type="button" class="btn btn-primary" id="btn-create" onclick="openModal()">+ 제품 등록</button>
+        <button type="button" class="btn btn-primary" id="btn-create" onclick="createOpen()">+ 제품 등록</button>
     </div>
 </div>
 
@@ -129,9 +138,10 @@ render_admin_header('제품관리', 'products');
 
 <!-- 툴바 -->
 <div class="toolbar">
-    <select id="filter-source" onchange="sourceChanged()" aria-label="구분">
-        <option value="products">기존 제품</option>
-        <option value="syc">상용콘크리트</option>
+    <select id="filter-source" onchange="sourceChanged()" aria-label="업체">
+        <?php foreach ($sources as $src): ?>
+        <option value="<?= htmlspecialchars($src['code'], ENT_QUOTES) ?>" data-store="<?= $src['store'] ?>"><?= htmlspecialchars($src['name'], ENT_QUOTES) ?></option>
+        <?php endforeach; ?>
     </select>
     <select id="filter-status" onchange="load(1)" aria-label="상태">
         <option value="active">활성 제품</option>
@@ -147,7 +157,7 @@ render_admin_header('제품관리', 'products');
         <optgroup label="<?= htmlspecialchars($rootName, ENT_QUOTES) ?>">
             <?php foreach ($mids as $midName => $subs): ?>
             <?php foreach ($subs as $sub): ?>
-            <option value="<?= (int)$sub['id'] ?>"><?= htmlspecialchars($midName, ENT_QUOTES) ?> › <?= htmlspecialchars($sub['name'], ENT_QUOTES) ?></option>
+            <option value="<?= (int)$sub['id'] ?>" data-slug="<?= htmlspecialchars((string) $sub['slug'], ENT_QUOTES) ?>"><?= htmlspecialchars($midName, ENT_QUOTES) ?> › <?= htmlspecialchars($sub['name'], ENT_QUOTES) ?></option>
             <?php endforeach; ?>
             <?php endforeach; ?>
         </optgroup>
@@ -156,13 +166,8 @@ render_admin_header('제품관리', 'products');
     <input type="text" id="filter-q" placeholder="제품명 검색" oninput="debounce()">
 </div>
 
-<!-- 상용콘크리트: 여러 상품 한 번에 활성/비활성 -->
-<!-- 상용콘크리트 → 사이트 반영·전환(app/syc_publish.php, api/admin/syc-catalog.php) -->
-<section class="syc-pub bk-hide" id="syc-pub" aria-labelledby="syc-pub-t">
-    <div class="syc-pub-h"><h2 id="syc-pub-t">사이트 반영</h2><span id="syc-pub-mode" class="syc-pub-mode"></span></div>
-    <p class="syc-pub-s" id="syc-pub-s">불러오는 중…</p>
-    <div class="syc-pub-btns" id="syc-pub-btns"></div>
-</section>
+<!-- 상용콘크리트·업체 상품: 여러 상품 한 번에 활성/비활성(지금은 버튼만 보이고 기능 멈춤 — PRODUCT_ACTIVE_TOGGLE_ENABLED) -->
+<!-- 사이트 반영·전환 화면 상자는 뺐음(사용자 요청 2026-11-13). 기능 코드는 그대로 둠: app/syc_publish.php(반영·케이토목으로 되돌리기·전환), API public/api/admin/syc-catalog.php -->
 
 <div class="syc-bulkbar bk-hide" id="syc-bulkbar">
     <label><input type="checkbox" id="syc-chk-all" onchange="sycCheckAll(this.checked)">이 페이지 전체 선택</label>
@@ -197,12 +202,16 @@ render_admin_header('제품관리', 'products');
         </div>
         <div id="bk-form">
             <div class="bk-b">
-                <div class="bk-note">엑셀과 이미지를 나눠서 올리면 <strong>상용콘크리트</strong> 상품을 한 번에 등록합니다. 새 상품은 <strong>비활성</strong>으로 저장되며, 상품 목록에서 확인한 뒤 활성으로 바꿀 수 있습니다. 출처ID가 같은 상품은 엑셀 값으로 고칩니다(활성 상태는 그대로).</div>
+                <div class="bk-note" id="bk-note"></div>
+                <div class="bk-tpl">
+                    <button type="button" class="bk-norm-dl" onclick="bkTemplate()">엑셀 양식 내려받기(CSV)</button>
+                    <button type="button" class="bk-norm-dl" onclick="bkCatCodes()">분류코드 목록 내려받기(CSV)</button>
+                </div>
                 <div class="bk-fld">
                     <div class="bk-fld-h">엑셀 파일<em>필수</em></div>
                     <div id="bk-ex"></div>
                 </div>
-                <div class="bk-fld">
+                <div class="bk-fld" id="bk-zp-fld">
                     <div class="bk-fld-h">이미지 ZIP<small>선택 · 대표·썸네일 이미지</small></div>
                     <div id="bk-zp"></div>
                 </div>
@@ -298,8 +307,8 @@ render_admin_header('제품관리', 'products');
                 <input type="text" id="f-img" placeholder="https://...">
             </div>
             <div class="form-field" id="f-active-wrap" style="display:none">
-                <label>상태</label>
-                <select id="f-active">
+                <label>상태<?= PRODUCT_ACTIVE_TOGGLE_ENABLED ? '' : ' <small style="font-weight:400;color:#888">(변경은 추후 지원)</small>' ?></label>
+                <select id="f-active"<?= PRODUCT_ACTIVE_TOGGLE_ENABLED ? '' : ' disabled' ?>>
                     <option value="1">활성</option>
                     <option value="0">비활성</option>
                 </select>
@@ -313,24 +322,70 @@ render_admin_header('제품관리', 'products');
     </div>
 </div>
 
+<!-- 제품 1건 등록: 상용콘크리트·업체 목록 업체(syc_products, 비활성으로 저장) -->
+<div id="syc-modal" class="modal-overlay">
+    <div class="modal-box">
+        <button class="modal-close" onclick="sycCreateClose()" aria-label="닫기">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <h3 id="sc-title">제품 등록</h3>
+        <div class="bk-note" style="margin-bottom:12px">새 상품은 <strong>비활성</strong>으로 저장됩니다. 이미 있는 상품(제품명·규격·옵션이 같음)을 고칠 때와 치수·이미지는 <strong>일괄 등록</strong>으로 올려 주세요.</div>
+        <div class="form-field">
+            <label for="sc-cat">카테고리 *</label>
+            <select id="sc-cat"><option value="">선택하세요</option></select>
+        </div>
+        <div class="form-2col">
+            <div class="form-field"><label for="sc-name">제품명 *</label><input type="text" id="sc-name" maxlength="160"></div>
+            <div class="form-field"><label for="sc-brand">업체명</label><input type="text" id="sc-brand" maxlength="100"></div>
+        </div>
+        <div class="form-2col">
+            <div class="form-field"><label for="sc-spec">규격</label><input type="text" id="sc-spec" maxlength="180" placeholder="예) 300*300*2000"></div>
+            <div class="form-field"><label for="sc-code">모델 코드</label><input type="text" id="sc-code" maxlength="30"></div>
+        </div>
+        <div class="form-2col">
+            <div class="form-field"><label for="sc-opt">옵션</label><input type="text" id="sc-opt" maxlength="160"></div>
+            <div class="form-field"><label for="sc-unit">단위</label><input type="text" id="sc-unit" maxlength="20" placeholder="예) 본"></div>
+        </div>
+        <div class="form-2col">
+            <div class="form-field"><label for="sc-weight">중량(kg)</label><input type="number" id="sc-weight" min="0" step="0.01"></div>
+            <div class="form-field"><label for="sc-cost">매입가 (원)</label><input type="number" id="sc-cost" min="0" placeholder="0"></div>
+        </div>
+        <div class="form-2col">
+            <div class="form-field"><label for="sc-pb2c">판매가 개인 (원)</label><input type="number" id="sc-pb2c" min="0" placeholder="0"></div>
+            <div class="form-field"><label for="sc-pb2b">판매가 기업 (원)</label><input type="number" id="sc-pb2b" min="0" placeholder="0"></div>
+        </div>
+        <div class="form-field"><label for="sc-desc">설명</label><textarea id="sc-desc" rows="3" style="width:100%;border:1px solid #e8eaed;border-radius:6px;padding:8px;font-family:inherit"></textarea></div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="sycCreateClose()">취소</button>
+            <button class="btn btn-primary" onclick="sycCreateSave()">저장(비활성)</button>
+        </div>
+    </div>
+</div>
+
 <script>
 const API = '/api/admin/products.php';
+const ACTIVE_TOGGLE = <?= PRODUCT_ACTIVE_TOGGLE_ENABLED ? 'true' : 'false' ?>;   // 활성/비활성 바꾸기(지금 멈춤 — 추후 개발)
+const ACTIVE_OFF_MSG = <?= json_encode(PRODUCT_ACTIVE_TOGGLE_OFF_MSG, JSON_UNESCAPED_UNICODE) ?>;
+const TPL_COLS = <?= json_encode($tplCols, JSON_UNESCAPED_UNICODE) ?>;
 let curPage = 1, debTimer;
 
 function debounce() { clearTimeout(debTimer); debTimer = setTimeout(() => load(1), 380); }
 
 const SYC_API = '/api/admin/syc-products.php';
-function isSyc() { return document.getElementById('filter-source').value === 'syc'; }
+// 고른 업체: store = 'products'(케이토목, 고객용 상품 표) | 'syc'(상용콘크리트·업체 목록 업체, 원본 표 — 출처 코드로 구분)
+function srcOpt() { const s = document.getElementById('filter-source'); return s.options[s.selectedIndex]; }
+function srcCode() { return document.getElementById('filter-source').value; }
+function srcName() { return srcOpt()?.textContent.trim() || ''; }
+function isSyc() { return srcOpt()?.dataset.store === 'syc'; }
 
 let sycCatsLoaded = false;
 async function sourceChanged() {
     const syc = isSyc();
     document.getElementById('filter-cat').classList.toggle('bk-hide', syc);
     document.getElementById('filter-syc-cat').classList.toggle('bk-hide', !syc);
-    document.getElementById('btn-create').classList.toggle('bk-hide', syc);   // 상용콘크리트는 일괄 등록으로만 넣음
     document.getElementById('syc-bulkbar').classList.toggle('bk-hide', !syc);
-    document.getElementById('syc-pub').classList.toggle('bk-hide', !syc);
-    if (syc) sycPubLoad();
+    document.getElementById('src-name').textContent = srcName();
+    document.getElementById('bk-banner').hidden = true;
     if (syc && !sycCatsLoaded) {
         const d = await fetch(`${SYC_API}?action=categories`).then(r => r.json()).catch(() => ({ok:false}));
         if (d.ok) {
@@ -351,11 +406,11 @@ async function load(page) {
     const catId  = document.getElementById(syc ? 'filter-syc-cat' : 'filter-cat').value;
     const q      = document.getElementById('filter-q').value;
     document.getElementById('prod-tbody').innerHTML = '<tr><td colspan="9" class="empty-row">불러오는 중...</td></tr>';
-    const r = await fetch(`${syc ? SYC_API : API}?status=${status}&cat_id=${catId}&q=${encodeURIComponent(q)}&page=${page}`);
+    const r = await fetch(`${syc ? SYC_API : API}?${syc ? 'source=' + encodeURIComponent(srcCode()) + '&' : ''}status=${status}&cat_id=${catId}&q=${encodeURIComponent(q)}&page=${page}`);
     // 오류는 200 + ok:false + error 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
     const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok) { alert(d.error); return; }
-    if (syc) { sycTotal = d.total; sycFilter = {status, cat_id: catId, q}; sycAllMatching = false; renderSyc(d.products); sycSelCount(); } else render(d.products);
+    if (syc) { sycTotal = d.total; sycFilter = {source: srcCode(), status, cat_id: catId, q}; sycAllMatching = false; renderSyc(d.products); sycSelCount(); } else render(d.products);
     renderPaging(d.total, d.limit, page);
 }
 
@@ -376,7 +431,7 @@ function renderSyc(rows) {
             <td><span class="badge ${active?'badge-on':'badge-off'}">${active?'활성':'비활성'}</span></td>
             <td style="white-space:nowrap">
                 <label class="syc-sel"><input type="checkbox" class="syc-chk" value="${+p.id}" aria-label="${x(p.name)} ${x(p.spec)} 선택" onchange="sycSelCount()"></label>
-                <button class="btn-sm ${active?'btn-sm-del':'btn-sm-edit'}" onclick="sycToggle(${+p.id}, ${active?0:1})">${active?'비활성으로':'활성으로'}</button>
+                <button class="btn-sm ${active?'btn-sm-del':'btn-sm-edit'}" onclick="sycToggle(${+p.id}, ${active?0:1})"${ACTIVE_TOGGLE ? '' : ` disabled title="${x(ACTIVE_OFF_MSG)}"`}>${active?'비활성으로':'활성으로'}</button>
             </td>
         </tr>`;
     }).join('');
@@ -392,7 +447,7 @@ function sycSelCount() {
     const shown = sycAllMatching ? sycTotal : n;
     document.getElementById('syc-sel-count').textContent = sycAllMatching ? `검색 결과 전체 ${shown.toLocaleString()}개 선택됨` : `선택 ${n}개`;
     document.getElementById('syc-bulkbar').classList.toggle('syc-all-on', sycAllMatching);
-    document.getElementById('syc-bulk-on').disabled = document.getElementById('syc-bulk-off').disabled = shown === 0;
+    document.getElementById('syc-bulk-on').disabled = document.getElementById('syc-bulk-off').disabled = shown === 0 || !ACTIVE_TOGGLE;
     // 상태 드롭다운: 비활성 제품 → '선택 활성으로'만, 활성 제품 → '선택 비활성으로'만, 전체 → 둘 다
     const st = document.getElementById('filter-status').value;
     document.getElementById('syc-bulk-on').hidden  = st === 'active';
@@ -434,44 +489,6 @@ async function sycToggle(id, val) {
     load(curPage);
 }
 
-/* ── 사이트 반영·전환 ── 원본(상용콘크리트 표) → 고객 화면 상품 표. 반영 = 원본 값으로 덮어쓰기, 전환 = 케이토목 숨기기/되돌리기 */
-const SYC_CAT_API = '/api/admin/syc-catalog.php';
-const sycDt = v => v ? String(v).slice(0, 16) : '없음';
-async function sycPubLoad() {
-    const d = await fetch(SYC_CAT_API).then(r => r.json()).catch(() => ({ok:false, error:'상태를 불러오지 못했습니다.'}));
-    const s = document.getElementById('syc-pub-s'), btns = document.getElementById('syc-pub-btns'), mode = document.getElementById('syc-pub-mode');
-    if (!d.ok) { s.textContent = d.error; btns.innerHTML = ''; return; }
-    if (!d.ready) { s.textContent = d.message; btns.innerHTML = ''; mode.textContent = ''; return; }
-    const syc = d.state.mode === 'syc', p = d.plan;
-    mode.textContent = syc ? '고객 화면: 상용콘크리트' : '고객 화면: 케이토목';
-    mode.classList.toggle('is-syc', syc);
-    s.innerHTML = `원본 카테고리 ${p.categories.toLocaleString()}개 · 상품 ${p.products.toLocaleString()}개(활성 ${p.products_active.toLocaleString()})`
-        + (p.categories_new || p.products_new ? ` — 아직 반영 안 된 카테고리 ${p.categories_new.toLocaleString()} · 상품 ${p.products_new.toLocaleString()}` : '')
-        + (p.stale ? ` · 원본에서 빠져 숨길 상품 ${p.stale.toLocaleString()}` : '')
-        + `<br>마지막 반영 ${x(sycDt(d.state.published_at))} · 마지막 전환 ${x(sycDt(d.state.switched_at))}`
-        + (syc ? ` · 숨긴 케이토목 카테고리 ${d.hidden.category.toLocaleString()} · 상품 ${d.hidden.product.toLocaleString()}` : '<br>전환 전에는 반영해도 고객에게 보이지 않습니다(미리 넣어 둠).');
-    btns.innerHTML = `<button type="button" class="is-main" onclick="sycPubRun('publish')">사이트에 반영</button>`
-        + (syc ? `<button type="button" class="is-warn" onclick="sycPubRun('ktomok')">케이토목으로 되돌리기</button>`
-               : `<button type="button" onclick="sycPubRun('syc')">상용콘크리트로 전환</button>`);
-}
-async function sycPubRun(what) {
-    const msg = {
-        publish: '상용콘크리트 원본(카테고리·이름표·상품·가격)을 사이트 상품 표에 반영합니다. 계속할까요?',
-        syc: '고객 화면을 상용콘크리트로 전환합니다.\n케이토목 카테고리·상품은 지우지 않고 숨기며, 되돌리기로 그대로 다시 보이게 할 수 있습니다.\n계속할까요?',
-        ktomok: '고객 화면을 케이토목으로 되돌립니다(상용콘크리트 상품은 숨김). 계속할까요?'
-    }[what];
-    if (!confirm(msg)) return;
-    document.querySelectorAll('#syc-pub-btns button').forEach(b => b.disabled = true);
-    const body = what === 'publish' ? {action:'publish'} : {action:'switch', to: what};
-    const d = await fetch(SYC_CAT_API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}).then(r => r.json()).catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
-    if (!d.ok) { alert(d.error); sycPubLoad(); return; }
-    const r = d.result, pb = r.publish || r;
-    alert(what === 'publish' ? `반영했습니다: 카테고리 ${pb.categories} · 이름표 ${pb.axes} · 상품 ${pb.products}` + (pb.stale ? ` · 숨긴 상품 ${pb.stale}` : '')
-        : what === 'syc' ? `전환했습니다: 케이토목 카테고리 ${r.hidden_categories} · 상품 ${r.hidden_products} 숨김, 상용콘크리트 상품 ${pb.products} 반영`
-        : `되돌렸습니다: 케이토목 카테고리 ${r.restored_categories} · 상품 ${r.restored_products} 다시 보임`);
-    sycPubLoad();
-}
-
 /* ── 일괄 등록 ── 상태: empty → busy(올리는 중) → done(검증 완료) | err */
 const bk = {ex: {state:'empty'}, zp: {state:'empty'}};
 const BK_IC = {
@@ -481,8 +498,16 @@ const BK_IC = {
 const BK_LABEL = {ex: ['엑셀 파일(csv, xlsx)을 끌어다 놓거나', '엑셀 파일'], zp: ['이미지 ZIP 파일을 끌어다 놓거나', '이미지 ZIP']};
 function bkSize(n) { return n >= 1048576 ? (n/1048576).toFixed(1)+' MB' : Math.max(1, Math.round(n/1024))+' KB'; }
 
+// 일괄 등록 대상 = 지금 고른 업체(덮어쓰기도 그 업체 안에서만). 케이토목은 고객용 상품 표, 이미지 ZIP 없음(이미지 주소 칸)
+function bkApi() { return isSyc() ? SYC_API : API; }
 function bkOpen() {
     bk.ex = {state:'empty'}; bk.zp = {state:'empty'}; bk.norm = true;   // 자동 정리 기본 켬
+    bk.src = srcCode(); bk.srcName = srcName(); bk.syc = isSyc();
+    document.getElementById('bk-title').textContent = `${bk.srcName} 일괄 등록`;
+    document.getElementById('bk-zp-fld').classList.toggle('bk-hide', !bk.syc);
+    document.getElementById('bk-note').innerHTML = `엑셀${bk.syc ? '과 이미지를 나눠서 올리면' : '을 올리면'} <strong>${x(bk.srcName)}</strong> 상품을 한 번에 등록합니다. 새 상품은 <strong>비활성</strong>으로 저장됩니다.`
+        + ` 이미 있는 상품은 엑셀 값으로 고칩니다(활성 상태 그대로) — 같은 상품 = 출처ID, 출처ID가 없으면 제품명·규격${bk.syc ? '·옵션' : ''}이 같은 상품. <strong>다른 업체 상품은 바뀌지 않습니다.</strong>`
+        + (bk.syc ? '' : ' 이미지는 엑셀의 이미지 주소 칸으로 넣습니다.');
     ['bk-running','bk-done'].forEach(id => document.getElementById(id).classList.add('bk-hide'));
     document.getElementById('bk-form').classList.remove('bk-hide');
     bkRender();
@@ -524,7 +549,7 @@ function bkRender() {
     else if (!exOk) hint = '엑셀 파일을 올리면 등록할 수 있습니다.';
     else if (zpBusy) hint = '이미지 업로드가 끝나면 등록할 수 있습니다.';
     else if (bk.zp.state === 'err') hint = '이미지 ZIP 을 다시 올리거나 지워 주세요.';
-    else if (bk.zp.state === 'empty') hint = '이미지 없이 등록합니다. 이미지는 나중에 다시 올릴 수 있습니다.';
+    else if (bk.zp.state === 'empty' && bk.syc) hint = '이미지 없이 등록합니다. 이미지는 나중에 다시 올릴 수 있습니다.';
     document.getElementById('bk-hint').textContent = hint;
     const go = document.getElementById('bk-go');
     go.disabled = !ready;
@@ -568,9 +593,10 @@ function bkPicked(k, file) {
     const s = bk[k] = {state:'busy', name:file.name, size:file.size, pct:0};
     const fd = new FormData();
     fd.append('action', k === 'ex' ? 'stage_excel' : 'stage_zip');
+    fd.append('source', bk.src);
     fd.append('file', file);
     const xhr = s.xhr = new XMLHttpRequest();
-    xhr.open('POST', SYC_API);
+    xhr.open('POST', bk.syc ? SYC_API : API);
     xhr.upload.onprogress = e => { if (e.lengthComputable && bk[k] === s) { s.pct = Math.floor(e.loaded / e.total * 100); bkRender(); } };
     xhr.onload = () => {
         if (bk[k] !== s) return;
@@ -588,7 +614,7 @@ function bkPicked(k, file) {
 function bkClear(k) {
     bk[k].xhr?.abort();
     bk[k] = {state:'empty'};
-    fetch(SYC_API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'clear', slot: k === 'ex' ? 'excel' : 'zip'})}).catch(() => {});
+    if (bk.syc) fetch(SYC_API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'clear', slot: k === 'ex' ? 'excel' : 'zip'})}).catch(() => {});
     bkRender();
 }
 
@@ -606,7 +632,7 @@ async function bkRegister() {
         const p = await fetch(`${SYC_API}?action=progress&job=${job}`).then(r => r.json()).catch(() => null);
         if (p?.ok && p.progress && !p.progress.finished) setRun(p.progress.done);
     }, 800);
-    const r = await fetch(SYC_API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'commit', job, normalize: bk.norm !== false})});
+    const r = await fetch(bk.syc ? SYC_API : API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(bk.syc ? {action:'commit', job, normalize: bk.norm !== false} : {action:'bulk_commit', job})});
     clearInterval(timer);
     const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     document.getElementById('bk-running').classList.add('bk-hide');
@@ -619,12 +645,11 @@ async function bkRegister() {
     document.getElementById('bk-done-t').textContent = `${n.toLocaleString()}건을 등록했습니다`;
     const parts = [`새 상품 ${d.insert.toLocaleString()}건은 <strong style="color:#1a2035">비활성</strong>으로 저장됐습니다.`];
     if (d.update || d.same) parts.push(`이미 있던 상품 ${(d.update + d.same).toLocaleString()}건은 엑셀 값으로 고쳤습니다(활성 상태 그대로).`);
-    parts.push(d.with_zip
+    if (bk.syc) parts.push(d.with_zip
         ? `이미지 ${d.images.toLocaleString()}장 저장` + (d.images_missing ? ` · 대표 이미지 없음 ${d.images_missing.toLocaleString()}건` : '') + (d.thumbs_missing ? ` · 썸네일 없음 ${d.thumbs_missing.toLocaleString()}건(빈 이미지로 표시)` : '')
         : '이미지 ZIP 없이 등록했습니다(이미 있던 이미지는 그대로, 새 상품은 빈 이미지로 표시).');
     if (d.normalized_rows) parts.push(`자동 정리: 상품 ${d.normalized_rows.toLocaleString()}건의 품명·모델 코드·옵션·치수·분류를 사이트 표기로 고쳐 저장했습니다.`);
-    parts.push('제품관리에서 내용을 확인한 뒤 활성으로 바꿔 주세요.');
-    parts.push('고객 화면에 적용하려면 위 <strong style="color:#1a2035">사이트 반영</strong> 상자의 \'사이트에 반영\'을 눌러 주세요.');
+    parts.push(ACTIVE_TOGGLE ? '제품관리에서 내용을 확인한 뒤 활성으로 바꿔 주세요.' : '활성/비활성 변경은 추후 지원 예정입니다.');
     document.getElementById('bk-done-s').innerHTML = parts.join('<br>');
     document.getElementById('bk-done').classList.remove('bk-hide');
     bk.last = d;
@@ -644,9 +669,65 @@ function bkFinish() {
 }
 
 function bkShowInactive() {
-    document.getElementById('filter-source').value = 'syc';
+    if (bk.src) document.getElementById('filter-source').value = bk.src;   // 방금 등록한 업체
     document.getElementById('filter-status').value = 'inactive';
-    sourceChanged();
+    const banner = !document.getElementById('bk-banner').hidden;
+    sourceChanged().then(() => { if (banner) document.getElementById('bk-banner').hidden = false; });
+}
+
+// 양식·분류코드 CSV(엑셀에서 열 수 있게 BOM). 머리글 '한글 이름 [칸 이름]' — 칸 이름으로 읽음(app/syc_bulk.php syc_bulk_header_key)
+function bkCsv(name, lines) {
+    const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['\ufeff' + lines.map(r => r.map(q).join(',')).join('\r\n')], {type: 'text/csv;charset=utf-8'}));
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function bkTemplate() { bkCsv(`bulk-template-${bk.syc ? 'vendor' : 'ktomok'}.csv`, [TPL_COLS[bk.syc ? 'syc' : 'products']]); }
+async function bkCatCodes() {
+    let rows;
+    if (bk.syc) {
+        const d = await fetch(`${SYC_API}?action=categories`).then(r => r.json()).catch(() => ({ok:false}));
+        if (!d.ok) { alert('분류 목록을 불러오지 못했습니다.'); return; }
+        rows = d.categories.map(c => [c.slug, c.group_name, c.name]);
+    } else {
+        rows = [...document.querySelectorAll('#filter-cat option[data-slug]')].map(o => [o.dataset.slug, o.parentElement.label, o.textContent.trim()]);
+    }
+    bkCsv(`category-codes-${bk.syc ? 'vendor' : 'ktomok'}.csv`, [['분류코드 [category_slug]', '대분류', '카테고리']].concat(rows));
+}
+
+// 제품 등록: 케이토목 = 기존 등록 창(고객용 상품 표), 그 밖 = 원본 표 등록 창. 모두 비활성으로 저장
+function createOpen() { if (isSyc()) sycCreateOpen(); else openModal(); }
+let sycCatsAll = null;
+async function sycCreateOpen() {
+    if (!sycCatsAll) {
+        const d = await fetch(`${SYC_API}?action=categories`).then(r => r.json()).catch(() => ({ok:false}));
+        if (!d.ok) { alert('분류 목록을 불러오지 못했습니다.'); return; }
+        sycCatsAll = d.categories;
+        const groups = {};
+        d.categories.forEach(c => (groups[c.group_name] ??= []).push(c));
+        document.getElementById('sc-cat').innerHTML = '<option value="">선택하세요</option>' +
+            Object.entries(groups).map(([g, cs]) => `<optgroup label="${x(g)}">${cs.map(c => `<option value="${c.id}">${x(c.name)}</option>`).join('')}</optgroup>`).join('');
+    }
+    document.getElementById('sc-title').textContent = `${srcName()} 제품 등록`;
+    ['sc-cat','sc-name','sc-spec','sc-code','sc-opt','sc-unit','sc-weight','sc-cost','sc-pb2c','sc-pb2b','sc-desc'].forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('sc-brand').value = srcName();
+    document.getElementById('syc-modal').classList.add('open');
+}
+function sycCreateClose() { document.getElementById('syc-modal').classList.remove('open'); }
+async function sycCreateSave() {
+    const v = id => document.getElementById(id).value.trim();
+    const payload = {action:'create', source: srcCode(), category_id: +v('sc-cat'), name: v('sc-name'), brand: v('sc-brand'), spec: v('sc-spec'),
+        spec_code: v('sc-code'), spec_option: v('sc-opt'), unit: v('sc-unit'), weight_kg: v('sc-weight'), cost_price: v('sc-cost'),
+        price_b2c: v('sc-pb2c'), price_b2b: v('sc-pb2b'), description: v('sc-desc')};
+    if (!payload.category_id) { alert('카테고리를 선택해 주세요.'); return; }
+    if (!payload.name) { alert('제품명을 입력해 주세요.'); return; }
+    const r = await fetch(SYC_API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+    const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
+    if (!d.ok) { alert('저장 실패: ' + d.error); return; }
+    sycCreateClose();
+    document.getElementById('filter-status').value = 'inactive';
+    load(1);
 }
 
 function render(rows) {
@@ -666,7 +747,7 @@ function render(rows) {
             <td><span class="badge ${active?'badge-on':'badge-off'}">${active?'활성':'비활성'}</span></td>
             <td style="white-space:nowrap">
                 <button class="btn-sm btn-sm-edit" onclick='edit(${JSON.stringify(p)})'>수정</button>
-                <button class="btn-sm btn-sm-del" onclick="del(${p.id},'${x(p.name)}')" style="margin-left:4px">삭제</button>
+                <button class="btn-sm btn-sm-del" onclick="del(${p.id},'${x(p.name)}')" style="margin-left:4px"${ACTIVE_TOGGLE ? '' : ` disabled title="${x(ACTIVE_OFF_MSG)}"`}>삭제</button>
             </td>
         </tr>`;
     }).join('');
@@ -722,7 +803,7 @@ function buildSpec() {
 }
 
 function openModal(data) {
-    document.getElementById('modal-title').textContent = data ? '제품 수정' : '제품 등록';
+    document.getElementById('modal-title').textContent = data ? '제품 수정' : `${srcName()} 제품 등록(비활성으로 저장)`;
     document.getElementById('f-id').value    = data?.id ?? '';
     document.getElementById('f-cat').value   = data?.category_id ?? '';
     document.getElementById('f-name').value  = data?.name ?? '';
@@ -777,6 +858,7 @@ async function del(id, name) {
 }
 
 document.getElementById('prod-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
-load(1);
+document.getElementById('syc-modal').addEventListener('click', e => { if (e.target === e.currentTarget) sycCreateClose(); });
+sourceChanged();
 </script>
 <?php render_admin_footer(); ?>

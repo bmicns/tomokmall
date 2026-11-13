@@ -11,12 +11,15 @@ declare(strict_types=1);
  *         화면은 기존 '이미지 없음' 표시를 쓴다. 이미 있는 상품의 이미지는 새 파일이 없으면 그대로 둔다.
  * 금지: 기존 products·categories 변경, 엑셀에 없는 칸 추측, 이미지 아닌 파일 저장(확장자 + 실제 이미지 형식 확인).
  * 입력 형식: 1행 머리글 '한글 이름 [칸 이름]' 또는 '칸 이름'(data/syccrt/syc-products-bulk-test.xlsx '작성법' 시트).
+ *       업체(출처)별: 상용콘크리트 'syccrt' 와 업체 목록 업체 'vendor-<id>' 가 같은 표를 쓰고, 덮어쓰기는 같은 업체 안에서만
+ *       (출처ID가 있으면 출처ID, 없으면 제품명+규격+옵션 — 사용자 결정 2026-11-13). 엑셀의 출처 칸이 다른 업체면 그 행은 오류.
  * 사용: public/api/admin/syc-products.php · 설계 docs/02-design/syc-products.md
  */
 
 require_once __DIR__ . '/external_products.php';   // ext_iter_xlsx · ext_iter_csv (라이브러리 없는 xlsx·csv 읽기)
 require_once __DIR__ . '/syc_normalize_rules.php';  // 자동 정리 규칙(데이터)
 require_once __DIR__ . '/syc_normalize.php';        // 자동 정리 엔진(순수 함수)
+require_once __DIR__ . '/product_sources.php';      // 업체(출처) 코드·같은 제품 열쇠
 
 const SYC_BULK_MAX_ROWS        = 5000;
 const SYC_BULK_MAX_EXCEL_BYTES = 20 * 1024 * 1024;
@@ -56,20 +59,23 @@ function syc_bulk_columns(): array
 /** 엑셀에서 읽기만 하는 칸(저장 칸이 아님): 분류코드·분류명(참고)·이미지 파일명 2칸 */
 const SYC_BULK_META_KEYS = ['category_slug', 'category_name', 'image_file', 'image_thumb_file'];
 
-/** 머리글 한 칸 → 칸 이름. '대표이미지(상세용) [image_file]' 처럼 끝의 [이름] 우선, 없으면 칸 이름 그대로. 모르면 '' */
-function syc_bulk_header_key(string $h): string
+/**
+ * 머리글 한 칸 → 칸 이름. '대표이미지(상세용) [image_file]' 처럼 끝의 [이름] 우선, 없으면 칸 이름 그대로. 모르면 ''
+ * $cols·$meta 를 주면 그 칸 규칙으로(케이토목 일괄 등록 app/ktomok_bulk.php), 없으면 syc_products 칸
+ */
+function syc_bulk_header_key(string $h, ?array $cols = null, array $meta = SYC_BULK_META_KEYS): string
 {
     $h = trim($h);
     $k = preg_match('/\[([a-z0-9_]+)\]\s*$/', $h, $m) ? $m[1] : strtolower($h);
-    return (isset(syc_bulk_columns()[$k]) || in_array($k, SYC_BULK_META_KEYS, true)) ? $k : '';
+    return (isset(($cols ?? syc_bulk_columns())[$k]) || in_array($k, $meta, true)) ? $k : '';
 }
 
 /** 머리글 행 → [열 번호 => 칸 이름] (모르는 열 제외). 같은 칸이 두 번 나오면 오류 */
-function syc_bulk_header_map(array $head): array
+function syc_bulk_header_map(array $head, ?array $cols = null, array $meta = SYC_BULK_META_KEYS): array
 {
     $map = [];
     foreach ($head as $i => $h) {
-        $k = syc_bulk_header_key((string) $h);
+        $k = syc_bulk_header_key((string) $h, $cols, $meta);
         if ($k === '') { continue; }
         if (in_array($k, $map, true)) { throw new InvalidArgumentException("머리글 [{$k}] 이 두 번 있습니다."); }
         $map[$i] = $k;
@@ -84,9 +90,9 @@ function syc_bulk_header_map(array $head): array
  * 셀 값 하나를 칸 규칙에 맞게 변환. 빈 칸 → null(가격·재고는 0).
  * @return array{0:mixed,1:?string} [값, 오류 문구]
  */
-function syc_bulk_cell(string $key, mixed $raw): array
+function syc_bulk_cell(string $key, mixed $raw, ?array $rule = null): array
 {
-    [$type, $lim] = syc_bulk_columns()[$key];
+    [$type, $lim] = $rule ?? syc_bulk_columns()[$key];
     $v = trim((string) ($raw ?? ''));
     if ($v === '') {
         return [in_array($key, ['price_b2c', 'price_b2b', 'cost_price', 'stock_qty'], true) ? 0 : null, null];
@@ -123,7 +129,7 @@ function syc_bulk_image_name(mixed $raw): array
  * @param array<int,string> $map 머리글 지도, @param array<string,int> $catIds 분류코드 → syc_categories.id
  * @return array{row:?array, errors:list<string>, empty:bool}
  */
-function syc_bulk_parse_row(array $raw, array $map, array $catIds): array
+function syc_bulk_parse_row(array $raw, array $map, array $catIds, string $source = PRODUCT_SOURCE_SYC): array
 {
     $cells = [];
     foreach ($map as $i => $k) { $cells[$k] = $raw[$i] ?? ''; }
@@ -150,9 +156,11 @@ function syc_bulk_parse_row(array $raw, array $map, array $catIds): array
         if ($e !== null) { $err[] = "[{$k}] {$e}"; }
         $row['_' . $k] = $v;          // ZIP 안 파일명(저장 경로는 등록 때 정함)
     }
-    if (($row['external_id'] ?? null) !== null && ($row['external_source'] ?? null) === null) {
-        $row['external_source'] = 'syccrt';      // 출처ID 만 있으면 기본 출처
+    // 출처 = 고른 업체. 엑셀에 다른 업체 출처가 적혀 있으면 오류(다른 업체 상품을 덮어쓰지 않게)
+    if (($row['external_source'] ?? null) !== null && $row['external_source'] !== $source) {
+        $err[] = "[external_source] 고른 업체와 다른 출처입니다('{$row['external_source']}')";
     }
+    $row['external_source'] = $source;
     return ['row' => $err ? null : $row, 'errors' => $err, 'empty' => false];
 }
 
@@ -172,7 +180,7 @@ function syc_bulk_iter_raw(string $file, string $ext): Generator
  * @return array{rows:list<array>, errors:list<string>, error_count:int, data_rows:int, present:list<string>, normalize:?array}
  *         present = 엑셀에 있는 저장 칸(정리로 값이 생긴 칸 포함), normalize = 정리 요약(syc_normalize_summary) 또는 null
  */
-function syc_bulk_read_excel(string $file, string $ext, array $catIds, bool $normalize = false, ?array $active = null): array
+function syc_bulk_read_excel(string $file, string $ext, array $catIds, bool $normalize = false, ?array $active = null, string $source = PRODUCT_SOURCE_SYC): array
 {
     $map = null;
     $rows = [];
@@ -183,7 +191,7 @@ function syc_bulk_read_excel(string $file, string $ext, array $catIds, bool $nor
     foreach (syc_bulk_iter_raw($file, $ext) as $raw) {
         $line++;
         if ($map === null) { $map = syc_bulk_header_map($raw); continue; }
-        $r = syc_bulk_parse_row($raw, $map, $catIds);
+        $r = syc_bulk_parse_row($raw, $map, $catIds, $source);
         if ($r['empty']) { continue; }
         if (count($rows) + $errCount >= SYC_BULK_MAX_ROWS) {
             throw new InvalidArgumentException('한 번에 ' . number_format(SYC_BULK_MAX_ROWS) . '행까지 올릴 수 있습니다.');
@@ -215,6 +223,20 @@ function syc_bulk_read_excel(string $file, string $ext, array $catIds, bool $nor
         }
         $rows = $res['rows'];
     }
+    // 출처ID 없는 행: 정리 뒤 제품명+규격+옵션이 같은 행이 엑셀 안에 두 번 있으면 오류(어느 값으로 덮어쓸지 모름)
+    $keys = [];
+    foreach ($rows as $i => $r) {
+        if (($r['external_id'] ?? null) !== null) { continue; }
+        $k = product_match_key($r['name'], $r['spec'], $r['spec_option']);
+        if (isset($keys[$k])) {
+            $errCount++;
+            if (count($errors) < 20) { $errors[] = "제품명·규격·옵션이 같은 행이 두 번 있습니다('{$r['name']}' {$r['spec']})"; }
+            unset($rows[$i]);
+            continue;
+        }
+        $keys[$k] = true;
+    }
+    $rows = array_values($rows);
     return ['rows' => $rows, 'errors' => $errors, 'error_count' => $errCount, 'data_rows' => count($rows) + $errCount,
             'present' => $present, 'normalize' => $summary];
 }
@@ -288,6 +310,30 @@ function syc_bulk_save_row(PDO $pdo, array $row, ?string $img, ?string $thumb, a
     $st = $pdo->prepare($sql);
     $st->execute($vals);
     return match ($st->rowCount()) { 1 => 'insert', 2 => 'update', default => 'same' };
+}
+
+/**
+ * 출처ID 없는 행의 '같은 제품' 찾기: 같은 업체(출처) 안에서 제품명+규격+옵션이 같은 상품 → 그 출처ID로 덮어쓰게 한다.
+ * 없으면 열쇠로 만든 출처ID(새 상품). 같은 상품이 여럿이면 어느 것을 덮어쓸지 모르므로 InvalidArgumentException.
+ * 출처ID가 비어 있는 옛 행이 하나 맞으면 그 행에 만든 출처ID를 붙인 뒤 덮어쓴다. @return 출처ID
+ */
+function syc_bulk_resolve_external_id(PDO $pdo, array $row): string
+{
+    if (($row['external_id'] ?? null) !== null) { return (string) $row['external_id']; }
+    $key = product_match_key($row['name'], $row['spec'], $row['spec_option']);
+    $auto = product_auto_external_id($key);
+    $st = $pdo->prepare('SELECT id, external_id FROM syc_products WHERE external_source = ? AND name = ? AND spec <=> ? AND spec_option <=> ? LIMIT 3');
+    $st->execute([$row['external_source'], $row['name'], $row['spec'], $row['spec_option']]);
+    $hit = $st->fetchAll();
+    if (count($hit) > 1) {
+        throw new InvalidArgumentException("같은 업체에 제품명·규격·옵션이 같은 상품이 여러 개라 덮어쓸 상품을 정할 수 없습니다('{$row['name']}' {$row['spec']}). 엑셀에 출처ID를 넣어 주세요.");
+    }
+    if (!$hit) { return $auto; }
+    if ($hit[0]['external_id'] === null) {
+        $pdo->prepare('UPDATE syc_products SET external_id = ? WHERE id = ?')->execute([$auto, (int) $hit[0]['id']]);
+        return $auto;
+    }
+    return (string) $hit[0]['external_id'];
 }
 
 /** 분류코드 → syc_categories.id (품목 단계만 — 대분류에는 상품을 넣지 않음) */
