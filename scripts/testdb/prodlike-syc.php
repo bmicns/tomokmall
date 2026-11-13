@@ -42,9 +42,6 @@ foreach ($migs as $m) {
 }
 [$rc, $out] = $mysql("{$root}/data/syccrt/import.sql", true);
 if ($rc !== 0) { fwrite(STDERR, 'import.sql: ' . implode(' / ', $out) . "\n"); exit(4); }
-// 상용콘크리트용 상담 가이드(grating_syc·pe_pipe_syc, 2026-11-13) — 운영에 반영 전이어도 테스트 DB 에는 넣어 둔다
-[$rc, $out] = $mysql("{$root}/database/20261113_consult_guide_syc.sql", true);
-if ($rc !== 0) { fwrite(STDERR, '20261113_consult_guide_syc.sql: ' . implode(' / ', $out) . "\n"); exit(4); }
 
 echo "3) 반영·전환(app/syc_publish.php — 운영 관리자 '상용콘크리트로 전환'과 같은 코드)\n";
 putenv('DB_HOST=127.0.0.1'); putenv("DB_NAME={$db}"); putenv('DB_USER=root'); putenv("DB_PASS={$pass}");

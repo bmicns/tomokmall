@@ -897,7 +897,7 @@ function rag_extract_legal_citations(string $text, array $legalDocs): array
 /**
  * DB에서 카테고리별 상담 가이드 로드 (Stage 2)
  */
-function rag_load_consult_guide(string $categoryKey, bool $isSyc = false): string
+function rag_load_consult_guide(string $categoryKey): string
 {
     if ($categoryKey === '') return '';
     try {
@@ -905,35 +905,12 @@ function rag_load_consult_guide(string $categoryKey, bool $isSyc = false): strin
             'SELECT guide_text FROM category_consult_guide
              WHERE category_key = :key AND is_active = 1 LIMIT 1'
         );
-        // 2026-11-13: 고객 화면이 상용콘크리트면 '{key}_syc' 가이드(database/20261113_consult_guide_syc.sql)를 먼저, 없으면 기존 가이드
-        foreach ($isSyc ? [$categoryKey . '_syc', $categoryKey] : [$categoryKey] as $key) {
-            $stmt->execute(['key' => $key]);
-            $row = $stmt->fetch();
-            if (!empty($row['guide_text'])) return (string) $row['guide_text'];
-        }
-        return '';
+        $stmt->execute(['key' => $categoryKey]);
+        $row = $stmt->fetch();
+        return $row['guide_text'] ?? '';
     } catch (\Throwable $e) {
         return '';
     }
-}
-
-/** 고객 화면 상품군이 상용콘크리트인지(app/syc_catalog.php syc_catalog_mode — 표가 없으면 케이토목 = 기존 프롬프트 그대로) */
-function rag_catalog_is_syc(): bool
-{
-    if (!function_exists('syc_catalog_mode')) { require_once __DIR__ . '/syc_catalog.php'; }
-    return syc_catalog_mode() === 'syc';
-}
-
-/**
- * 상용콘크리트 상품군의 그레이팅 규칙(2026-11-13) — 케이토목 '하중 3단계(그레이팅수로용·중하중·안전중하중)' 대신.
- * 상용콘크리트에는 그레이팅 단품이 아직 없고(분류만), 수로관·집수정 상세 치수에 맞는 그레이팅 폭·길이·높이만 있다. 하중 등급 자료는 없다.
- */
-function rag_grating_syc_prompt(): string
-{
-    return "  ★그레이팅(덮개) 단품은 사이트에 아직 등록되지 않았다. 하중 등급(보행자용·차량용)별 상품 구분도 없으니 등급 이름(중하중·안전중하중 등)이나 하중 수치(T-25 등)를 말하지 않는다.\n"
-        . "    차량이 다니는 곳이면 '하중 등급은 견적 요청 때 함께 확인해 드립니다'라고 안내한다. search_products 에 traffic 은 그대로 넘긴다(보행자 전용 pedestrian / 승용차·SUV car / 트럭·버스·지게차 등 대형차 truck).\n"
-        . "    덮개 검색 결과가 없으면 도구 note(미등록 안내 + 그레이팅 규격이 표기된 수로관·집수정)를 그대로 전하고 견적요청하기로 문의하도록 안내한다.\n"
-        . "  검색어(query) 예: '그레이팅 수로용', '그레이팅 맨홀 집수정'. 수로 본체가 필요하면 '측구 수로관'·'U형 플륨'·'원심력수로관' 등으로 본체를 찾는다.\n";
 }
 
 /**
@@ -1005,8 +982,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
 {
     // Stage 2: 카테고리 자동 감지 + DB 가이드 로드
     $categoryKey = rag_detect_category($messages);
-    $isSyc       = rag_catalog_is_syc();
-    $guideText   = rag_load_consult_guide($categoryKey, $isSyc);
+    $guideText   = rag_load_consult_guide($categoryKey);
 
     // RAG 문서 검색 — 마지막 사용자 메시지 기준
     $lastUserMsg = '';
@@ -1036,9 +1012,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "- 제품·자재를 권할 때는 그 제품을 고르는 근거를 문장 앞에 먼저 밝힌다('…이므로 …을 권합니다'). 근거는 제품 쪽 사실이어야 한다:\n"
         . "  토목몰 하중 등급 구분(상품명 — 등급 표기 없음=보행자용, 중하중=승용차, 안전중하중=트럭·버스), 제품 분류의 용도(예: '수로용'은 배수로 위 덮개, '맨홀(집수정)용'은 집수정 위 덮개), 도구 결과의 등록 규격·category_desc·guide, 제조사 자료(material_info), 공식 기준 [L번호], 저희 권장 기준 중 실제로 있는 것만 쓴다.\n"
         . "  고객이 이미 말한 조건을 되풀이하거나 누구나 아는 상식(예: '주방은 차량이 다니지 않는 보행자 구역이므로')은 근거로 쓰지 않는다(전문성이 없어 보여 신뢰를 떨어뜨림). 근거를 지어내지 않고, 근거 없이 '~을 고려하시면 좋습니다'·'~이 적합합니다'로만 말하지 않는다.\n"
-        . ($isSyc
-            ? "  예: '측구수로관은 상품 상세의 세부 치수에 맞는 그레이팅 폭·길이가 표기되어 있어, 덮개를 그 규격으로 맞춰 견적 요청할 수 있는 제품입니다.'\n"
-            : "  예: '그레이팅수로용은 배수로 위에 덮는 격자 덮개로, 상품명에 중하중·안전중하중 표기가 없는 보행자용 하중 등급이라 사람만 다니는 곳에 맞는 제품입니다.'\n")
+        . "  예: '그레이팅수로용은 배수로 위에 덮는 격자 덮개로, 상품명에 중하중·안전중하중 표기가 없는 보행자용 하중 등급이라 사람만 다니는 곳에 맞는 제품입니다.'\n"
         . "- 선택지를 비교한 뒤 면적·길이가 확인되면 search_products의 queries로 종류별 제품을 한 표에 모아 보여준다.\n"
         . "  도구가 제품별 권장 수량(suggested_qty)과 예상 자재비(est_cost, " . (price_basis_label() !== '' ? price_basis_label() . ' 기준·' : '') . "운반·시공비 별도)를 계산해 준다. 그 비교는 답변 글에서 아래 [검색 결과 답변 형식]대로 한다.\n"
         // 로그인 회원: 표·도구 금액이 할인 적용 금액 — 그 금액 그대로 말하되 '회원가'·'판매가' 같은 이름은 붙이지 않게(비회원 프롬프트는 기존 그대로)
@@ -1098,10 +1072,9 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "    설치 장소로 알 수 있으면 다시 묻지 않는다: 식당 주방·화장실·실내·베란다·인도·공원 → 보행자 전용, 주차장·도로 → 차량. 이 판단은 검색 조건(traffic)에만 쓰고, 답에 '주방은 보행자 전용 구역이므로'처럼 말하지 않는다.\n"
         . "  필수 ③ 덮을 배수로의 폭(mm)과 설치 길이(수로 연장, m) — 그레이팅은 길이로 까는 자재라 면적(㎡)을 묻지 않는다(집수정·맨홀 위 덮개는 규격(가로×세로 mm)과 수량)\n"
         . "  ★용도어 정밀화: 수로·배수로·측구 위 덮개면 반드시 '수로용', 집수정·맨홀 뚜껑이면 '맨홀'을 검색어에 포함(섞임 방지).\n"
-        . ($isSyc ? rag_grating_syc_prompt() :
-          "  ★하중 등급(카탈로그 3단계, 과잉 등급 금지): 보행자 전용→'그레이팅수로용', 승용차·SUV 통행→'중하중', 트럭·버스 등 대형차→'안전중하중'.\n"
+        . "  ★하중 등급(카탈로그 3단계, 과잉 등급 금지): 보행자 전용→'그레이팅수로용', 승용차·SUV 통행→'중하중', 트럭·버스 등 대형차→'안전중하중'.\n"
         . "    search_products 에 traffic 을 함께 넘긴다(보행자 전용 pedestrian / 승용차·SUV car / 트럭·버스·지게차 등 대형차 truck). 조건과 다른 하중 등급은 표에서 빠진다.\n"
-        . "  검색어(query) 예: '그레이팅 수로용 중하중', '그레이팅 맨홀 집수정 중하중', '그레이팅 수로용'\n")
+        . "  검색어(query) 예: '그레이팅 수로용 중하중', '그레이팅 맨홀 집수정 중하중', '그레이팅 수로용'\n"
         . "\n"
         . "[PE배수관 / 우수관 / 하수관]\n"
         . "  필수 ① 설치 장소 (농경지/도로측구/건물주변/기타)\n"
@@ -1146,7 +1119,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "- ★이미 확인한 정보(폭·연장·하중·설치장소 등)는 다른 품목을 추천할 때 다시 묻지 말고 그대로 재사용한다.\n"
         . "【세트 추천 (여러 품목이 함께 필요한 요청)】\n"
         . "- '수로 설치/제작', '덮개 포함', '수로관+그레이팅' 처럼 한 공사에 여러 품목이 필요하면, 한 턴에서 search_products를 품목별로 여러 번 호출해 함께 제시한다.\n"
-        . "  예) 폭500·50m 차량통행 수로 → ①본체: query '측구 수로관', width_mm 500, length_m 50 (약 25본)  ②덮개: query '" . ($isSyc ? '그레이팅 수로용' : '그레이팅 수로용 중하중') . "', width_mm 500, length_m 50 (약 50개).\n"
+        . "  예) 폭500·50m 차량통행 수로 → ①본체: query '측구 수로관', width_mm 500, length_m 50 (약 25본)  ②덮개: query '그레이팅 수로용 중하중', width_mm 500, length_m 50 (약 50개).\n"
         . "- 본체(2m/본)와 덮개(1m/개)는 단위가 달라 수량이 다르게 나오는 게 정상이다. 둘 다 카드로 보여준 뒤 [검색 결과 답변 형식]대로 본체·덮개를 각각 설명한다(단위가 달라 수량이 다르다고 짚어 준다).\n"
         . "【2단계: 검색】\n"
         . "- 모든 필수 항목 확인 완료 → search_products 호출. 되묻지 말고 그 턴에서 바로 호출한다.\n"
@@ -1156,7 +1129,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "  '폭 500mm 길이 10m'처럼 m 단위 길이는 대개 설치 총 길이(length_m)다. 제품 1개 길이로 말한 것이 분명할 때만 product_length_mm.\n"
         . "  고객이 조건 하나만 바꾸면('폭은 400으로 바꾸고 길이는 그대로') 바꾼 값만 새로 넣고, 바꾸지 않은 조건(폭·제품 길이·설치 길이·통행)은 앞 검색 값 그대로 다시 넘긴다.\n"
         . "  길이가 제품 1개 길이인지 설치 총 길이인지, 숫자가 폭인지 다른 치수인지 말에 없으면 추측해 넣지 말고 확인 질문을 한다('500짜리 수로관' → spec_mm 500 으로 찾고 어느 치수인지 묻는다).\n"
-        . "  → 예: '폭50cm 100m 수로 그레이팅' = query:'" . ($isSyc ? '그레이팅 수로용' : '그레이팅 수로용 중하중') . "', width_mm:500, length_m:100.\n"
+        . "  → 예: '폭50cm 100m 수로 그레이팅' = query:'그레이팅 수로용 중하중', width_mm:500, length_m:100.\n"
         . "  → 예: '보도블록 200㎡' = query:'보도블록', area_m2:200.  '경계석 300m' = query:'경계석', length_m:300.\n"
         . "  → length_m/area_m2를 주면 제품별 소요 수량이 카드에 자동 계산·표시된다. 수량(개수)은 query에 넣지 말 것.\n"
         . "- 결과가 없으면(products 빈 배열): 도구가 돌려준 note 문장을 그대로 손님에게 전한다. 절대 그냥 되묻고 끝내지 말 것.\n"

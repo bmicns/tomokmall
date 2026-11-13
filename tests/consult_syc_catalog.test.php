@@ -9,7 +9,6 @@ declare(strict_types=1);
  *  ③ 분류 이름에만 있는 품목: '투수블록' → 인조화강블록 투수/불투수, 'U형 수로관' → U형 플륨, '보도블록' → 보도블록 분류의 블록들
  *  ④ 판매하지 않는 품목(이중벽관·PE 배수관) 안내, ⑤ 부속(소켓)은 본품 대신 나오지 않음
  *  ⑥ 전 상품 가격 문의 → price_inquiry(금액 비교 금지) · 서버가 '가장 저렴' 문장을 뺌
- *  ⑦ 상담 가이드(grating_syc·pe_pipe_syc)·그레이팅 프롬프트가 상용콘크리트 기준(하중 3단계·T-25 없음)
  * 실행: DB_HOST=127.0.0.1 DB_NAME=tomokmall_syc_test DB_USER=… DB_PASS=… php tests/consult_syc_catalog.test.php
  */
 error_reporting(E_ALL & ~E_WARNING & ~E_DEPRECATED & ~E_NOTICE);
@@ -83,16 +82,6 @@ $r = $s(['query' => '경계석', 'length_m' => 20]);
 ok('price_inquiry + price_note(금액 비교 금지) · 예상 자재비 없음 · 수량은 계산', !empty($r['price_inquiry']) && str_contains((string) ($r['price_note'] ?? ''), "'가장 저렴·경제적'으로 비교하지") && !array_filter($r['products'] ?? [], static fn($p) => ($p['est_cost'] ?? null) !== null) && (int) ($r['products'][0]['suggested_qty'] ?? 0) === 20);
 ok("가격 문의 표: '가장 저렴·경제적' 문장만 뺌(설명·수량은 둠)", rag_strip_price_claims("화강 경계석 제품입니다.\n\n- 화강 도로 경계석: 도로용입니다. 권장 수량은 20개입니다. 이 제품이 가장 경제적인 선택입니다.\n\n가장 저렴한 제품은 화강 도로 경계석입니다. 원하시는 제품을 선택해 주세요.")
     === "화강 경계석 제품입니다.\n\n- 화강 도로 경계석: 도로용입니다. 권장 수량은 20개입니다.\n\n원하시는 제품을 선택해 주세요.");
-
-echo "[⑦ 상담 가이드·프롬프트 — 상용콘크리트 기준(2026-11-13)]\n";
-$pr = rag_build_prompt([['role' => 'user', 'content' => '주차장 배수로 그레이팅 폭 300 길이 20m']]);
-ok('상용콘크리트 모드 판정', rag_catalog_is_syc());
-ok("그레이팅 질문: 가이드 = grating_syc(덮개 단품 미등록·그레이팅 규격 표기 수로관·하중 자료 없음)", $pr['categoryKey'] === 'grating' && str_contains($pr['system'], '상용콘크리트 상품 기준') && str_contains($pr['system'], '그레이팅 폭·길이·높이가 표기'));
-ok("프롬프트: 케이토목 하중 3단계·'그레이팅 수로용 중하중' 검색어 예시 없음, 등급 이름·T-25 금지 규칙 있음",
-    !str_contains($pr['system'], '카탈로그 3단계') && !str_contains($pr['system'], "'그레이팅 수로용 중하중'") && !str_contains($pr['system'], '중하중·안전중하중 표기가 없는 보행자용') && str_contains($pr['system'], '하중 수치(T-25 등)를 말하지 않는다'));
-$pr = rag_build_prompt([['role' => 'user', 'content' => 'PE 배수관 150mm 30m 필요해요']]);
-ok('배수관 질문: 가이드 = pe_pipe_syc(PE·PVC 미등록, 흄관·V·R관·파형강관 안내)', $pr['categoryKey'] === 'pe_pipe' && str_contains($pr['system'], '흄관(원심력관)·V·R관(진동관)과 파형강관') && !str_contains($pr['system'], '농경지 지하 배수: 유공관 추천'));
-ok('가이드 행이 없으면 기존 가이드로(케이토목 행 유지)', str_contains(rag_load_consult_guide('manhole', true), '맨홀·집수정 추가 가이드') && str_contains(rag_load_consult_guide('grating', false), '중하중그레이팅 시리즈'));
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);
