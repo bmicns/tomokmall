@@ -1116,36 +1116,46 @@ function unit_display_label(string $unit): string
 }
 
 /**
- * 목록 표 '상세설명' 칸(관리자·직원 전용)용 설명 요약. DB 값은 그대로, 화면 표시만 줄인다.
- *  - ' / ' 로 나뉜 조각마다 한 줄. '[임시값]…' 조각(데이터 정리 메모)은 줄에서 빼고 temp=true 만(목록에는 표시 안 함)
- *  - 괄호 보충 설명((mm)·(원문, 단위 미표기) 등)은 빼고, 줄마다 $max 자를 넘으면 ' · '·', ' 경계에서 잘라 '…'
- *  - 최대 $maxLines 줄, 남은 조각이 있으면 마지막 줄 끝에 '…'
+ * 목록 표 '상세설명' 칸(관리자·직원 전용)용 불렛 줄. DB 값은 그대로, 화면 표시만 나눈다(말줄임 없음 — 사용자 요청 2026-11-13).
+ *  - 줄바꿈·' / '·문장 끝('. ')마다 항목을 나눈다. '[임시값]…' 항목(데이터 정리 메모)은 줄에서 빼고 temp=true 만(목록에는 표시 안 함)
+ *  - 괄호 보충 설명((mm)·(원문, 단위 미표기) 등)은 뺀다
+ *  - 한 줄이 칸 폭($max: 한글 2·그 밖 1로 센 너비)을 넘으면 ', ' → '·' 경계에서 나눠 여러 줄로(내용은 모두 남김)
  * 예) '[임시값] 소켓부 … / 균열하중 2종 1700 · 파괴하중 2종 2600(원문, 단위 미표기)'
  *     → ['lines' => ['균열하중 2종 1700 · 파괴하중 2종 2600'], 'temp' => true]
  * @return array{lines: list<string>, temp: bool}
  */
-function product_desc_summary(string $desc, int $max = 36, int $maxLines = 2): array
+function product_desc_summary(string $desc, int $max = 50): array
 {
-    $lines = []; $temp = false; $more = false;
+    $lines = []; $temp = false;
+    $width = static fn(string $s): int => mb_strlen($s) + (int) preg_match_all('/[\x{1100}-\x{11FF}\x{3130}-\x{318F}\x{AC00}-\x{D7A3}\x{4E00}-\x{9FFF}]/u', $s);
+    // 조각들을 $sep 로 이어 붙이되 한 줄 너비가 $max 를 넘지 않게 묶는다
+    $pack = static function (array $parts, string $sep) use ($width, $max): array {
+        $out = []; $cur = '';
+        foreach ($parts as $p) {
+            if ($cur === '') { $cur = $p; continue; }
+            if ($width($cur . $sep . $p) <= $max) { $cur .= $sep . $p; continue; }
+            $out[] = $cur; $cur = $p;
+        }
+        if ($cur !== '') { $out[] = $cur; }
+        return $out;
+    };
     $segs = preg_split('/\s*(?:\R|\s\/\s)\s*/u', trim($desc)) ?: [];
     foreach ($segs as $seg) {
         $seg = trim($seg);
         if ($seg === '') { continue; }
         if (str_starts_with($seg, '[임시값]')) { $temp = true; continue; }
-        if (count($lines) >= $maxLines) { $more = true; continue; }
-        $s = (string) preg_replace('/\s*\([^()]*\)/u', '', $seg);   // 괄호 보충 설명 빼기
-        $s = trim((string) preg_replace('/\s+/u', ' ', $s), " \t.,;");
-        if ($s === '') { continue; }
-        if (mb_strlen($s) > $max) {
-            $cut = mb_substr($s, 0, $max);
-            $pos = max((int) mb_strrpos($cut, ' · '), (int) mb_strrpos($cut, ', '), (int) mb_strrpos($cut, '·'));
-            $s = rtrim(mb_substr($s, 0, $pos >= (int) ($max / 2) ? $pos : $max), " ·,") . '…';
+        $seg = (string) preg_replace('/\s*\([^()]*\)/u', '', $seg);   // 괄호 보충 설명 빼기
+        foreach (preg_split('/(?<=[^\d\s])\.\s+/u', $seg) ?: [] as $sent) {   // 문장 끝('몸체. 유출구…'), 소수점(4.0)은 그대로
+            $s = trim((string) preg_replace('/\s+/u', ' ', $sent), " \t.,;");
+            if ($s === '') { continue; }
+            if ($width($s) <= $max) { $lines[] = $s; continue; }
+            $commas = array_map('trim', explode(', ', $s));
+            foreach ($pack($commas, ', ') as $chunk) {
+                if ($width($chunk) <= $max) { $lines[] = $chunk; continue; }
+                $dots = array_values(array_filter(array_map('trim', preg_split('/\s*·\s*/u', $chunk) ?: []), 'strlen'));
+                foreach ($pack($dots, ' · ') as $piece) { $lines[] = $piece; }   // 그래도 길면 그대로(화면에서 줄바꿈)
+            }
         }
-        $lines[] = $s;
-    }
-    if ($more && $lines) {
-        $k = count($lines) - 1;
-        if (!str_ends_with($lines[$k], '…')) { $lines[$k] .= ' …'; }
     }
     return ['lines' => $lines, 'temp' => $temp];
 }

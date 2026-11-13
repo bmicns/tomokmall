@@ -65,14 +65,18 @@ eq('단위 라벨 없음',      ai_unit_label('220*110*60T'), '');
 eq('표시 단위 m 2 → ㎡',  unit_display_label('m 2'), '㎡');
 eq('표시 단위 m2·M2·m² → ㎡', [unit_display_label('m2'), unit_display_label('M2'), unit_display_label('m²'), unit_display_label(' ㎡ ')], ['㎡', '㎡', '㎡', '㎡']);
 eq('표시 단위 M(미터)·본·개·빈 값 그대로', [unit_display_label('M'), unit_display_label('본'), unit_display_label('개'), unit_display_label('')], ['M', '본', '개', '']);
-// 목록 '상세설명' 칸 요약(관리자·직원 전용) — 임시값 메모는 표시만, 괄호 보충 설명 빼기, 길면 경계에서 자르기
-eq('설명 요약: 임시값 메모 + 제품 정보', product_desc_summary('[임시값] 균열2종 원문 "4800" → 1800(앞뒤 행) / 균열하중 2종 1800 · 파괴하중 2종 2700(원문, 단위 미표기)'),
+// 목록 '상세설명' 칸 불렛 줄(관리자·직원 전용) — 임시값 메모는 빼기, 괄호 보충 설명 빼기, 말줄임 없이 항목마다 한 줄, 긴 항목은 경계에서 나눔
+eq('설명 줄: 임시값 메모 + 제품 정보', product_desc_summary('[임시값] 균열2종 원문 "4800" → 1800(앞뒤 행) / 균열하중 2종 1800 · 파괴하중 2종 2700(원문, 단위 미표기)'),
     ['lines' => ['균열하중 2종 1800 · 파괴하중 2종 2700'], 'temp' => true]);
-eq('설명 요약: 임시값 메모뿐이면 줄 없음', product_desc_summary('[임시값] 길이 원문 없음 → 2500(기존 DB …)'), ['lines' => [], 'temp' => true]);
-eq('설명 요약: 긴 항목은 · 경계에서 자름', product_desc_summary('소켓부 치수(mm): aS 311이상 · cS 284이상 · dS 27이상 · eS 30이상 · hS 210이상 · lS 50이상'),
-    ['lines' => ['소켓부 치수: aS 311이상 · cS 284이상…'], 'temp' => false]);
-eq('설명 요약: 최대 2줄, 넘치면 …', product_desc_summary("수량 50개/m²\n뚜껑 일체형 / 스텐304 기둥 Ø114(도면)"), ['lines' => ['수량 50개/m²', '뚜껑 일체형 …'], 'temp' => false]);
-eq('설명 요약: 빈 값·kg/m 같은 빗금은 나누지 않음', [product_desc_summary(''), product_desc_summary('단위중량 83.2kg/m')['lines']], [['lines' => [], 'temp' => false], ['단위중량 83.2kg/m']]);
+eq('설명 줄: 임시값 메모뿐이면 줄 없음', product_desc_summary('[임시값] 길이 원문 없음 → 2500(기존 DB …)'), ['lines' => [], 'temp' => true]);
+eq('설명 줄: 긴 항목은 · 경계에서 나눠 모두 표시', product_desc_summary('소켓부 치수(mm): aS 311이상 · cS 284이상 · dS 27이상 · eS 30이상 · hS 210이상 · lS 50이상'),
+    ['lines' => ['소켓부 치수: aS 311이상 · cS 284이상 · dS 27이상', 'eS 30이상 · hS 210이상 · lS 50이상'], 'temp' => false]);
+eq('설명 줄: 긴 항목은 쉼표 경계 먼저', product_desc_summary('세로철근 D6×50개, 가로철근 D6×26개, 보강근 D16 가로 12개·세로 12개')['lines'],
+    ['세로철근 D6×50개, 가로철근 D6×26개', '보강근 D16 가로 12개·세로 12개']);
+eq('설명 줄: 문장 끝에서 나누고 소수점은 그대로', product_desc_summary('구성: 겉뚜껑, 속뚜껑, 몸체. 유출구 150Φ는 PVC 본드타입 / 세로철근 Ø4.0×10개')['lines'],
+    ['구성: 겉뚜껑, 속뚜껑, 몸체', '유출구 150Φ는 PVC 본드타입', '세로철근 Ø4.0×10개']);
+eq('설명 줄: 줄 수 제한 없음(말줄임 없음)', product_desc_summary("수량 50개/m²\n뚜껑 일체형 / 스텐304 기둥 Ø114(도면)"), ['lines' => ['수량 50개/m²', '뚜껑 일체형', '스텐304 기둥 Ø114'], 'temp' => false]);
+eq('설명 줄: 빈 값·kg/m 같은 빗금은 나누지 않음', [product_desc_summary(''), product_desc_summary('단위중량 83.2kg/m')['lines']], [['lines' => [], 'temp' => false], ['단위중량 83.2kg/m']]);
 eq('표시 단위 m 2 이외 m 표기는 그대로', [unit_display_label('m'), unit_display_label('m3'), unit_display_label('m 2 이상')], ['m', 'm3', 'm 2 이상']);
 
 echo "[AI 검색 대표 규격·부속 제외 — 실제 수집 상품(data/ktomok/products.json)]\n";

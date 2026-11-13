@@ -1515,9 +1515,17 @@ a.pt-name-text:hover { color: var(--color-primary); }
   line-height: 16px;
   color: #555;
 }
-/* 목록 '상세설명' 칸(관리자·직원 전용, 설명 요약): 칸 폭 고정·줄바꿈 */
-.product-table :is(th, td).pt-col-desc { width: 190px; min-width: 150px; }
-.product-table td.pt-col-desc { text-align: left; overflow-wrap: anywhere; }
+/* 목록 '상세설명' 칸(관리자·직원 전용): 모든 품목에서 같은 폭, 항목마다 한 줄 불렛(말줄임 없음 — 사용자 요청 2026-11-13).
+   칸이 있는 목록은 화면 폭을 넓히고 표 최소 폭을 칸 폭만큼 늘려 다른 칸 비율을 칸 추가 전과 같게 유지 */
+.product-table :is(th, td).pt-col-desc { width: 20%; min-width: 300px; }
+.product-table td.pt-col-desc { text-align: left; font-size: 12px; line-height: 1.6; }
+.pt-desc-list { list-style: none; margin: 0; padding: 0; }
+.pt-desc-list li { position: relative; padding-left: 11px; }
+.pt-desc-list li::before { content: "•"; position: absolute; left: 0; color: var(--color-text-disabled); }
+.product-table.pt-has-desc { min-width: 1330px; }
+body:has(.product-table.pt-has-desc) :is(main, .header-inner, .footer-inner) { max-width: 2000px; }   /* 머리·바닥 줄도 같은 폭(왼쪽 끝 맞춤) */
+/* 매입가는 줄바꿈하지 않음(8자리도 한 줄 — 판매가 3종 .pt-price-sub 는 원래 nowrap) */
+.pt-price-cost { white-space: nowrap; }
 
 /* 색상 도트 */
 .pt-color-dots {
@@ -1860,7 +1868,9 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   }
   .pt-col-cost::before   { content: "매입가 "; color: var(--color-text-disabled); font-weight: 400; }
   .product-table td.pt-col-desc { width: auto; min-width: 0; margin-top: 4px; font-size: 12px; line-height: 1.5; }
-  .pt-col-desc::before   { content: "설명 "; color: var(--color-text-disabled); }
+  .product-table td.pt-col-desc:empty { display: none; }
+  .pt-col-desc::before   { content: "설명"; display: block; color: var(--color-text-disabled); }
+  .product-table.pt-has-desc { min-width: 0; }
   .pt-col-price { margin-top: 6px; }
   .pt-col-price::before { content: "판매가 "; color: var(--color-text-disabled); font-size: 12px; }
   .pt-col-price .pt-price-val { font-size: 15px; }
