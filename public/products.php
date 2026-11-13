@@ -492,7 +492,7 @@ render_header($pageTitle);
                     <?php if ($isInternal && !$demoMode): ?><th class="pt-col-cost"<?= $axRs ?>>매입가<span>내부용</span></th><?php endif; ?>
                     <th class="pt-col-price"<?= $axRs ?>>판매가<span>부가세별도</span></th>
                     <?php if ($demoMode || $hasWeight):  ?><th class="pt-col-weight"<?= $axRs ?>>중량<span>kg/m²</span></th><?php endif; ?>
-                    <?php if ($hasDesc):                 ?><th class="pt-col-desc"<?= $axRs ?>>상세설명<span>관리자·직원</span></th><?php endif; ?>
+                    <?php if ($hasDesc):                 ?><th class="pt-col-desc"<?= $axRs ?>>상세설명<span>상담 참고용</span></th><?php endif; ?>
                 </tr>
                 <?php if ($axisMode): ?>
                 <tr class="pt-head-ax">
