@@ -422,12 +422,13 @@ render_header($pageTitle);
             if ($sp['weight']) $hasWeight = true;
         }
     }
-    // 요약 줄이 있는 상품이 하나라도 있을 때만 칸 표시('[임시값]' 정리 메모만 있는 설명은 표시 안 함 — 사용자 결정 2026-11-12)
+    // 관리자·직원에게는 모든 품목에서 같은 폭으로 칸 표시(설명이 없으면 빈칸 — 설명은 나중에 채움, 사용자 요청 2026-11-13).
+    // '[임시값]' 정리 메모는 표시 안 함(사용자 결정 2026-11-12). 칸이 있으면 목록 화면 폭을 넓혀 다른 칸 비율 유지(.pt-has-desc)
     $descSum = [];
     if (!$demoMode && $showDescCol) {
         foreach ($products as $i => $p) { $descSum[$i] = product_desc_summary((string) ($p['description'] ?? ''))['lines']; }
     }
-    $hasDesc = array_filter($descSum) !== [];
+    $hasDesc = !$demoMode && $showDescCol;
 
     // 규격 축 모드: 결과 카테고리가 모두 같은 이름표(category_spec_axes)를 쓰면 '규격' 한 칸 → 규격 묶음 아래 모델 코드(spec_code)·축별 칸.
     //  - 결과 전체에 값이 하나뿐인 축은 필터에 고정(선택된 채) 표시되므로 표 칸에서 뺀다(필터에 안 쓰는 축은 표에 남김)
@@ -476,7 +477,7 @@ render_header($pageTitle);
         </div>
     <?php else: ?>
     <div class="product-table-wrap">
-        <table class="product-table">
+        <table class="product-table<?= $hasDesc ? ' pt-has-desc' : '' ?>">
             <thead>
                 <tr>
                     <?php if ($favEnabled): ?><th class="pt-col-check"<?= $axRs ?>><label class="pt-chk"><input type="checkbox" class="pt-fav-all" aria-label="현재 페이지 상품 전체 선택" autocomplete="off"></label></th><?php endif; ?>
@@ -558,7 +559,7 @@ render_header($pageTitle);
                         <?php if ($isInternal): ?><td class="pt-col-cost"><?= price_cost_cell($p) ?></td><?php endif; ?>
                         <td class="pt-col-price"><?= price_tag_list($p) ?></td>
                         <?php if ($hasWeight):  ?><td class="pt-col-weight"><?= e($sp['weight']) ?></td><?php endif; ?>
-                        <?php if ($hasDesc): $dsc = trim((string) ($p['description'] ?? '')); ?><td class="pt-col-desc"<?= $descSum[$i] ? ' title="' . e($dsc) . '"' : '' ?>><?= implode('<br>', array_map('e', $descSum[$i])) ?></td><?php endif; ?>
+                        <?php if ($hasDesc): ?><td class="pt-col-desc"><?php if ($descSum[$i] ?? []): ?><ul class="pt-desc-list"><?php foreach ($descSum[$i] as $dl): ?><li><?= e($dl) ?></li><?php endforeach; ?></ul><?php endif; ?></td><?php endif; ?>
                     </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
