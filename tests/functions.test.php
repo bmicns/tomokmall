@@ -651,6 +651,12 @@ eq('조립식원형맨홀 D600*1000H*150T_하부구체_KS → 옵션 하부구�
 eq('다칼라블랜딩블록 1200*1000*60_컬러(보도) → 가로·세로·두께 + 옵션', spec_axes_parse('1200*1000*60_컬러(보도)', $AX([['w', '가로', 'W'], ['l', '세로', 'L'], ['t', '두께', 'T']])),
     ['spec_code' => null, 'dims' => ['w' => 1200.0, 'l' => 1000.0, 't' => 60.0], 'option' => '컬러(보도)']);
 eq('옵션 표시: 밑줄 → 슬래시', [spec_option_display('하부구체_KS'), spec_option_display('컬러(보도)'), spec_option_display('곡선_타공_KS'), spec_option_display(''), spec_option_display('_국산')], ['하부구체/KS', '컬러(보도)', '곡선/타공/KS', '', '국산']);
+// 목록 표 규격·규격외정보 두 칸(사용자 결정 2026-11-13)
+eq('규격 두 칸: 끝 괄호 형식 → 규격외', product_list_spec_split('200*180*2000*95T (A형)', 'A형', null), ['spec' => '200*180*2000*95T', 'info' => 'A형']);
+eq('규격 두 칸: 괄호 안 치수 목록은 규격에 그대로', product_list_spec_split('600*600 (320*320*2000*60T)', null, null), ['spec' => '600*600 (320*320*2000*60T)', 'info' => '']);
+eq('규격 두 칸: 모델 코드 + 옵션(표시 형식), 옵션에 있는 괄호 글자는 한 번', product_list_spec_split('D150*750 (앙카식)', 'B형', 'HK_앙카식'), ['spec' => 'D150*750', 'info' => 'B형 / HK/앙카식']);
+eq('규격 두 칸: 케이토목 원문·정보 없음', product_list_spec_split('1.5*1.5*2.0_160T*140T', null, null), ['spec' => '1.5*1.5*2.0_160T*140T', 'info' => '']);
+eq('규격 두 칸: 괄호뿐인 규격은 그대로', product_list_spec_split('(주문제작)', null, ''), ['spec' => '(주문제작)', 'info' => '']);
 eq('흄관(B형) D600*2500*50T → 내경·길이·두께', spec_axes_parse('D600*2500*50T', $AX([['d_i', '내경', 'D'], ['l', '길이', 'L'], ['t', '두께', 'T']])),
     ['spec_code' => null, 'dims' => ['d_i' => 600.0, 'l' => 2500.0, 't' => 50.0], 'option' => null]);
 eq('H 접미·뒤 옵션: D600*1000H*150T_하부구체_KS', spec_axes_parse('D600*1000H*150T_하부구체_KS', $axRdMh),

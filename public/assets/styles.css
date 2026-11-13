@@ -1390,6 +1390,10 @@ a.pt-name-text:hover { color: var(--color-primary); }
 .pt-col-unit    { width: 52px; }
 .pt-col-spec    { width: 130px; text-align: left; }
 .pt-col-specinfo { width: 150px; }
+/* 목록 '규격'(치수)·'규격외정보'(모델 코드·옵션) 두 칸 — 칸별 축 대신(사용자 결정 2026-11-13). 값 가운데, 긴 값은 줄바꿈 */
+.product-table td:is(.pt-col-spec, .pt-col-specinfo) { text-align: center; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.product-table :is(th, td).pt-col-spec { width: 180px; }
+.product-table :is(th, td).pt-col-specinfo { width: 170px; word-break: keep-all; }
 .pt-col-color   { width: 90px; }
 .pt-col-cost    { width: 80px; }
 .pt-col-price   { width: 110px; }
@@ -1861,6 +1865,7 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .pt-col-vendor::before { content: "업체 "; color: var(--color-text-disabled); }
   .pt-col-unit::before   { content: "단위 "; color: var(--color-text-disabled); }
   .pt-col-spec::before   { content: "규격 "; color: var(--color-text-disabled); }
+  .pt-col-specinfo::before { content: "규격외 "; color: var(--color-text-disabled); }
   .pt-col-weight::before { content: "중량 "; color: var(--color-text-disabled); }
   .pt-col-load::before   { content: "상차 "; color: var(--color-text-disabled); }
   .pt-col-cost {
@@ -2246,6 +2251,8 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
      기존 .pt-col-* inline-block 지정이 .product-table td{display:block}보다 우선순위가 낮아 적용되지 않던 것 */
   .product-table td:is(.pt-col-vendor, .pt-col-unit, .pt-col-spec, .pt-col-weight, .pt-col-load, .pt-col-cost) { display: inline-block; margin-right: 12px; line-height: 1.6; }
   .product-table td.pt-col-spec { display: block; margin-right: 0; overflow-wrap: anywhere; }
+  .product-table td.pt-col-specinfo { display: block; width: auto; margin-right: 0; padding: 2px 0; font-size: 12px; line-height: 1.6; color: var(--color-text-secondary); text-align: left; }
+  .product-table td:is(.pt-col-spec, .pt-col-specinfo) { text-align: left; }
   .product-table td.pt-col-price { margin-top: 4px; }
 }
 @media (max-width: 640px) {
@@ -2256,5 +2263,5 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 }
 @media (max-width: 640px) {
   /* 상품 카드: 값이 없는 칸(예: 중량 미등록 상품)은 '중량' 이름표만 남지 않게 숨김 */
-  .product-table td:is(.pt-col-unit, .pt-col-spec, .pt-col-weight, .pt-col-load):empty { display: none; }
+  .product-table td:is(.pt-col-unit, .pt-col-spec, .pt-col-specinfo, .pt-col-weight, .pt-col-load):empty { display: none; }
 }

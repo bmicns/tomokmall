@@ -430,26 +430,17 @@ render_header($pageTitle);
     }
     $hasDesc = !$demoMode && $showDescCol;
 
-    // 규격 축 모드: 결과 카테고리가 모두 같은 이름표(category_spec_axes)를 쓰면 '규격' 한 칸 → 규격 묶음 아래 모델 코드(spec_code)·축별 칸.
-    //  - 결과 전체에 값이 하나뿐인 축은 필터에 고정(선택된 채) 표시되므로 표 칸에서 뺀다(필터에 안 쓰는 축은 표에 남김)
-    //  - 축 값은 채운 기준 원문이 지금 규격과 같은 행만(spec_axes_row_fresh). 아니면 그 행은 규격 원문을 묶음 전체 칸에 표시
-    $axisDefs = (!$demoMode && !empty($facets['axes']['defs'])) ? $facets['axes']['defs'] : [];
-    $axisCols = []; $axisFresh = []; $axisHasCode = $axisHasOpt = false;
-    if ($axisDefs) {
-        foreach ($axisDefs as $a) {
-            $vcount = count($facets['axes']['all'][$a['axis_key']] ?? []);
-            if ($vcount === 0 || ($vcount === 1 && !empty($a['use_filter']))) { continue; }
-            $axisCols[] = $a;
-        }
+    // 목록 표 규격 = '규격'(치수)·'규격외정보'(모델 코드·옵션 등 치수 아닌 것) 두 칸으로 통일(사용자 결정 2026-11-13, S17).
+    // 칸별 축(폭 W·높이 H…)은 왼쪽 필터와 상세 화면(세부 치수)에만 — 목록에서는 쓰지 않음. 모델 코드·옵션은 축 값이 지금 규격 기준일 때만
+    $specSplit = []; $hasInfo = false;
+    if (!$demoMode) {
         foreach ($products as $i => $p) {
-            $axisFresh[$i] = spec_axes_row_fresh($p);
-            if ($axisFresh[$i] && (string) ($p['spec_code'] ?? '') !== '')   { $axisHasCode = true; }
-            if ($axisFresh[$i] && (string) ($p['spec_option'] ?? '') !== '') { $axisHasOpt  = true; }
+            $fresh = spec_axes_row_fresh($p);
+            $specSplit[$i] = product_list_spec_split($parsedSpecs[$i]['spec'], $fresh ? ($p['spec_code'] ?? null) : null, $fresh ? ($p['spec_option'] ?? null) : null);
+            if ($specSplit[$i]['info'] !== '') { $hasInfo = true; }
         }
     }
-    $axisSpan = count($axisCols) + ($axisHasCode ? 1 : 0) + ($axisHasOpt ? 1 : 0);
-    $axisMode = $axisSpan > 0;
-    $axRs     = $axisMode ? ' rowspan="2"' : '';   // 두 줄 머리글: 규격 묶음 밖 칸은 두 줄 차지
+    $axRs = '';
 
     if (empty($tableRows)):
     ?>
@@ -485,23 +476,14 @@ render_header($pageTitle);
                     <th class="pt-col-name"<?= $axRs ?>>품명<span>직생제외</span></th>
                     <th class="pt-col-vendor"<?= $axRs ?>>업체</th>
                     <?php if ($demoMode || $hasUnit):    ?><th class="pt-col-unit"<?= $axRs ?>>단위</th><?php endif; ?>
-                    <?php if ($axisMode):                ?><th class="pt-col-specgrp" colspan="<?= $axisSpan ?>">규격</th>
-                    <?php elseif ($demoMode || $hasSpec): ?><th class="pt-col-spec">규격<span>가로*세로*두께</span></th><?php endif; ?>
-                    <?php if ($demoMode):                ?><th class="pt-col-specinfo">규격외정보</th><?php endif; ?>
+                    <?php if ($demoMode || $hasSpec):    ?><th class="pt-col-spec">규격<span><?= $demoMode ? '가로*세로*두께' : '치수' ?></span></th><?php endif; ?>
+                    <?php if ($demoMode || $hasInfo):    ?><th class="pt-col-specinfo">규격외정보</th><?php endif; ?>
                     <?php if ($demoMode):                ?><th class="pt-col-color">색상</th><?php endif; ?>
                     <?php if ($isInternal && !$demoMode): ?><th class="pt-col-cost"<?= $axRs ?>>매입가<span>내부용</span></th><?php endif; ?>
                     <th class="pt-col-price"<?= $axRs ?>>판매가<span>부가세별도</span></th>
                     <?php if ($demoMode || $hasWeight):  ?><th class="pt-col-weight"<?= $axRs ?>>중량<span>kg/m²</span></th><?php endif; ?>
                     <?php if ($hasDesc):                 ?><th class="pt-col-desc"<?= $axRs ?>>상세설명<span>상담 참고용</span></th><?php endif; ?>
                 </tr>
-                <?php if ($axisMode): ?>
-                <tr class="pt-head-ax">
-                    <?php if ($axisHasCode): ?><th class="pt-col-ax">모델 코드</th><?php endif; ?>
-                    <?php // 표 머리글은 이름+약자만(단위는 필터에만 — m 축도 '폭 W', 사용자 결정 2026-11-06) ?>
-                    <?php foreach ($axisCols as $a): ?><th class="pt-col-ax"><?= e(spec_axis_title($a)) ?></th><?php endforeach; ?>
-                    <?php if ($axisHasOpt): ?><th class="pt-col-ax pt-col-axopt">옵션</th><?php endif; ?>
-                </tr>
-                <?php endif; ?>
             </thead>
             <tbody>
                 <?php if ($demoMode): ?>
@@ -550,12 +532,8 @@ render_header($pageTitle);
                         <td class="pt-col-name"><a class="pt-name-text" href="/product.php?id=<?= (int)$p['id'] ?>" onclick="event.stopPropagation()"><?= $hlTerms ? highlight_terms($p['name'], $hlTerms) : e($p['name']) ?></a></td>
                         <td class="pt-col-vendor"><?php $vn = render_vendor_names($p['vendor_names'] ?? null); echo $vn !== '' ? $vn : '<span class="pt-vendor-none">-</span>'; ?></td>
                         <?php if ($hasUnit):    ?><td class="pt-col-unit"><?= e($sp['unit']) ?></td><?php endif; ?>
-                        <?php if ($axisMode && $axisFresh[$i]): ?>
-                            <?php if ($axisHasCode): $tc = spec_code_type(isset($p['spec_code']) ? (string) $p['spec_code'] : null); $hitCode = ($tc !== null && in_array($tc, $filters['ax_type'], true)) || in_array((string) ($p['spec_code'] ?? ''), $filters['ax_code'], true); ?><td class="pt-col-ax pt-col-axcode<?= $hitCode ? ' is-hit' : '' ?>" data-label="모델 코드"><?= e((string) ($p['spec_code'] ?? '')) ?></td><?php endif; ?>
-                            <?php foreach ($axisCols as $a): $ak = $a['axis_key']; $av = spec_axes_row_value($p, $ak); ?><td class="pt-col-ax<?= ($av !== null && in_array($av, $filters['ax'][$ak] ?? [], true)) ? ' is-hit' : '' ?>" data-label="<?= e(spec_axis_title($a)) ?>"><?= $av !== null ? e(spec_axis_value_display($a, $av)) : '' ?></td><?php endforeach; ?>
-                            <?php if ($axisHasOpt): ?><td class="pt-col-ax pt-col-axopt" data-label="옵션"><?= e(spec_option_display((string) ($p['spec_option'] ?? ''))) ?></td><?php endif; ?>
-                        <?php elseif ($axisMode): ?><td class="pt-col-spec" colspan="<?= $axisSpan ?>"><?= $hlTerms ? highlight_terms($sp['spec'], $hlTerms) : e($sp['spec']) ?></td>
-                        <?php elseif ($hasSpec):    ?><td class="pt-col-spec"><?= $hlTerms ? highlight_terms($sp['spec'], $hlTerms) : e($sp['spec']) ?></td><?php endif; ?>
+                        <?php if ($hasSpec): ?><td class="pt-col-spec"><?= $hlTerms ? highlight_terms($specSplit[$i]['spec'], $hlTerms) : e($specSplit[$i]['spec']) ?></td><?php endif; ?>
+                        <?php if ($hasInfo): ?><td class="pt-col-specinfo"><?= $hlTerms ? highlight_terms($specSplit[$i]['info'], $hlTerms) : e($specSplit[$i]['info']) ?></td><?php endif; ?>
                         <?php if ($isInternal): ?><td class="pt-col-cost"><?= price_cost_cell($p) ?></td><?php endif; ?>
                         <td class="pt-col-price"><?= price_tag_list($p) ?></td>
                         <?php if ($hasWeight):  ?><td class="pt-col-weight"><?= e($sp['weight']) ?></td><?php endif; ?>
