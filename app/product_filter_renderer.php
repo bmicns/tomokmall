@@ -8,7 +8,7 @@ declare(strict_types=1);
  *  현재 결과 집합에 실제 존재하는 옵션만 개수와 함께 노출한다.
  *  0건 옵션·단일값 수렴(비선택·옵션1개·전체차지) 그룹은 숨긴다 → 결과와 무관한 필터 노출 방지.
  *  재고(instock) 섹션은 항상 표시. 모든 체크박스는 '필터 적용' 버튼으로만 반영된다(즉시 제출 없음).
- *  규격: 결과 카테고리가 같은 규격 이름표(category_spec_axes)를 쓰면 원문 목록 대신 축별 값 버튼(product_filter_axis_groups).
+ *  규격: '규격(치수)' 한 그룹 — 목록 '규격' 칸과 같은 값(사용자 결정 2026-11-13 S17). 축별 값 버튼(product_filter_axis_groups)은 지금 쓰지 않음.
  */
 
 const FLT_MAT_LABELS = [11 => '철근콘크리트', 12 => '콘크리트', 13 => '스틸', 14 => '석재', 15 => 'PE/PVC', 16 => '기타'];
@@ -50,16 +50,15 @@ function product_filters_visible(array $facets, array $active): array
     // 규격: 동적 옵션(카테고리에 실제 존재하는 규격 값). 자연정렬된 키 순서 사용.
     $specCounts = $facets['spec'] ?? [];
     $specOpts   = $pick($specCounts, $active['spec'] ?? [], array_keys($specCounts));
-    // 옵션 과다 방지: 최대 40개(선택된 것은 우선 유지)
-    if (count($specOpts) > 40) {
+    // 옵션 과다 방지: 최대 300개(선택된 것은 우선 유지) — 칸 안에서 스크롤
+    if (count($specOpts) > 300) {
         $sel  = array_values(array_filter($specOpts, static fn($o) => $o['active']));
-        $rest = array_slice(array_values(array_filter($specOpts, static fn($o) => !$o['active'])), 0, 40 - count($sel));
+        $rest = array_slice(array_values(array_filter($specOpts, static fn($o) => !$o['active'])), 0, 300 - count($sel));
         $specOpts = array_merge($sel, $rest);
     }
 
-    // 규격 축 모드(카테고리 이름표 category_spec_axes): 규격 원문 목록 대신 축(형식·폭 W·높이 H…)별 값 버튼
-    $axGroups = product_filter_axis_groups($facets['axes'] ?? [], $active);
-    if ($axGroups) { $specOpts = []; }
+    // 규격 필터는 축별로 나누지 않고 '규격(치수)' 한 그룹(사용자 결정 2026-11-13 S17) — 축별 그룹(product_filter_axis_groups)은 쓰지 않음
+    $axGroups = [];
 
     return [
         'mat'       => $matOpts,
@@ -211,7 +210,7 @@ function render_product_filters(array $a, ?string $q, ?int $categoryId, string $
         <?php endif; ?>
 
         <?php if ($v['spec']): ?>
-        <div class="fgrp"><b>규격 <small>(가로×세로×두께 등)</small></b>
+        <div class="fgrp"><b>규격 <small>(치수)</small></b>
           <div class="fgrp-scroll spec-scroll">
           <?php foreach ($v['spec'] as $o) {
               $lbl = str_replace(['*', 'X', 'x'], '×', (string) $o['val']); // 표시용: 곱셈기호 통일

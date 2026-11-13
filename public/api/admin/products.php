@@ -17,6 +17,7 @@ require_admin();
  * POST JSON delete / bulk_toggle          활성/비활성 바꾸기 — 지금 멈춤(PRODUCT_ACTIVE_TOGGLE_ENABLED, 추후 개발)
  */
 const KTOMOK_ROWS_WHERE = "(p.external_source IS NULL OR p.external_source <> 'syccrt')";
+const KTOMOK_WEBROOT = __DIR__ . '/../..';   // 이미지 경로(/…)를 찾는 웹루트(public)
 
 /**
  * 저장 뒤 규격 축 새 칸(spec_code·dim_*)을 지금 규격 원문 기준으로 다시 계산(app/spec_axes.php).
@@ -104,8 +105,10 @@ try {
         }
         $_SESSION['ktomok_bulk'] = ['path' => $path, 'ext' => $ext];
         $name = mb_substr((string) $f['name'], 0, 120);
+        $iw = syc_bulk_image_warnings($r['rows'], KTOMOK_WEBROOT);   // 서버에서 못 찾은 이미지(등록은 되고 그 이미지만 빈칸)
         echo json_encode(['ok' => true, 'name' => $name, 'rows' => count($r['rows']), 'data_rows' => $r['data_rows'],
-                          'error_count' => $r['error_count'], 'errors' => $r['errors'], 'normalize' => null], JSON_UNESCAPED_UNICODE);
+                          'error_count' => $r['error_count'], 'errors' => $r['errors'], 'normalize' => null,
+                          'image_warnings' => $iw['warnings'], 'image_warning_count' => $iw['count']], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -202,13 +205,20 @@ try {
                 $r = ktomok_bulk_read_excel((string) $ex['path'], (string) $ex['ext'], ktomok_bulk_category_ids($pdo));
                 if ($r['error_count'] > 0) { throw new \InvalidArgumentException('엑셀에 오류가 있는 행이 있어 등록하지 않았습니다. 고친 뒤 다시 올려 주세요.'); }
                 $total = count($r['rows']);
-                $count = ['insert' => 0, 'update' => 0, 'same' => 0];
-                $ids = [];
+                $count = ['insert' => 0, 'update' => 0, 'same' => 0, 'images' => 0, 'images_missing' => 0];
+                $ids = []; $found = [];
                 file_put_contents($progress, json_encode(['done' => 0, 'total' => $total, 'finished' => false]));
                 $pdo->beginTransaction();
                 try {
                     foreach ($r['rows'] as $i => $row) {
-                        [$res, $pid] = ktomok_bulk_save_row($pdo, $row, $r['present']);
+                        $imgs = [];
+                        foreach (KTOMOK_BULK_IMAGE_COLUMNS as $k => $col) {
+                            $img = $row['_img'][$k] ?? null;
+                            if ($img === null) { continue; }
+                            $hit = $found[$img[1]] ??= (syc_bulk_image_resolve($img, KTOMOK_WEBROOT) ?? false);
+                            if ($hit === false) { $count['images_missing']++; } else { $imgs[$col] = $hit; $count['images']++; }
+                        }
+                        [$res, $pid] = ktomok_bulk_save_row($pdo, $row, $r['present'], $imgs);
                         $count[$res]++;
                         $ids[] = $pid;
                         if (($i + 1) % 25 === 0) { file_put_contents($progress, json_encode(['done' => $i + 1, 'total' => $total, 'finished' => false])); }
@@ -225,7 +235,7 @@ try {
                 if (is_file((string) $ex['path'])) { unlink((string) $ex['path']); }
             }
             foreach ($ids as $pid) { admin_product_sync_spec_axes($pid); }   // 규격 축 칸 다시 계산(실패해도 저장은 끝남)
-            $result = ['done' => $total, 'total' => $total, 'finished' => true, 'with_zip' => false, 'images' => 0, 'images_missing' => 0, 'thumbs_missing' => 0, 'normalized_rows' => 0] + $count;
+            $result = ['done' => $total, 'total' => $total, 'finished' => true, 'normalized_rows' => 0] + $count;
             file_put_contents($progress, json_encode($result));
             echo json_encode(['ok' => true] + $result, JSON_UNESCAPED_UNICODE);
             break;

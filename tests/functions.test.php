@@ -842,16 +842,16 @@ $h = $rf([], false);
 ok('그 밖의 목록·기업회원: 지금처럼 항상 펼침, 제목 "필터로 좁히기", 위 초기화 링크 유지', str_contains($h, 'class="fltbox" open>') && !str_contains($h, 'flt-sum-state') && str_contains($h, '<span class="flt-sum-title">필터로 좁히기</span>') && str_contains($h, '<div class="flt-top"><b>필터로 좁히기</b><a href="/products.php?category=24">초기화</a></div>') && !str_contains($h, 'flt-actions') && !str_contains($h, 'data-applied'));
 $hx = (static function (): string { ob_start(); render_product_filters([], null, 24, '', ['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 10,
     'axes' => ['defs' => [['seq' => 1, 'axis_key' => 'w', 'label' => '폭', 'symbol' => 'W', 'unit' => 'mm', 'use_filter' => true]], 'all' => ['w' => ['200', '300']], 'vals' => ['w' => ['200' => 4, '300' => 6]], 'type_all' => [], 'type' => []]]); return (string) ob_get_clean(); })();
-ok('규격 값 버튼에 개수 표시 없음(값만)', str_contains($hx, '<span class="fchip-box">200</span>') && !str_contains($hx, '<small>4</small>'));
+ok('규격 필터는 축별 그룹 없이 한 그룹(사용자 결정 2026-11-13 S17): 이름표가 있어도 축 버튼 없음', !str_contains($hx, 'fgrp-axes') && !str_contains($hx, 'fchip-box'));
 ok('값 조합 데이터가 없으면 즉시 계산 안 함(적용 후 서버 계산만)', !str_contains($hx, 'flt-combos') && !str_contains($hx, 'data-live'));
 $axLive = ['defs' => [['seq' => 1, 'axis_key' => 'w', 'label' => '폭', 'symbol' => 'W', 'unit' => 'mm', 'use_filter' => true], ['seq' => 2, 'axis_key' => 'l', 'label' => '길이', 'symbol' => 'L', 'unit' => 'mm', 'use_filter' => true]],
     'all' => ['w' => ['200', '300'], 'l' => ['2000']], 'vals' => ['w' => ['200' => 4, '300' => 6], 'l' => ['2000' => 10]], 'type_all' => [], 'type' => [],
     'combos' => ['keys' => ['w', 'l', 'type'], 'rows' => [['200', '2000', '', 1], ['300', '2000', '', 0]]]];
 $hl = (static function (array $ax): string { ob_start(); render_product_filters([], null, 24, '', ['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 10, 'axes' => $ax], false, [], true); return (string) ob_get_clean(); })($axLive);
-ok('접는 필터: 값 조합(JSON)·data-live 를 넣어 누르는 즉시 0건 값 비활성', str_contains($hl, 'data-live="1"') && str_contains($hl, '<script type="application/json" class="flt-combos">{"keys":["w","l","type"],"rows":[["200","2000","",1],["300","2000","",0]]}</script>'));
-ok('값이 하나뿐인 축 버튼은 data-fixed(즉시 계산에서 제외)', str_contains($hl, 'value="2000" checked disabled data-fixed="1"') && !str_contains($hl, 'value="200" data-fixed'));
+ok('축 그룹이 없으니 값 조합(JSON)·즉시 비활성도 없음(접는 필터)', !str_contains($hl, 'data-live') && !str_contains($hl, 'flt-combos'));
+ok('축 고정 버튼(data-fixed)도 없음', !str_contains($hl, 'data-fixed="1"'));
 $hc = (static function (array $ax): string { ob_start(); render_product_filters([], null, 24, '', ['mat' => [], 'shape' => [], 'load' => [], 'spec' => [], 'total' => 10, 'axes' => $ax]); return (string) ob_get_clean(); })($axLive);
-ok('기업회원·그 밖의 목록(접지 않는 필터)도 누르는 즉시 비활성, 초기화는 위 링크 그대로', str_contains($hc, 'data-live="1"') && str_contains($hc, 'class="flt-combos"') && str_contains($hc, '<div class="flt-top"><b>필터로 좁히기</b><a href="/products.php?category=24">초기화</a></div>') && !str_contains($hc, 'flt-actions') && !str_contains($hc, 'flt-reset'));
+ok('기업회원·그 밖의 목록(접지 않는 필터)도 축 그룹·즉시 비활성 없음, 초기화는 위 링크 그대로', !str_contains($hc, 'data-live') && str_contains($hc, '<div class="flt-top"><b>필터로 좁히기</b>'));
 $hs = (static function (): string { ob_start(); render_product_filters([], null, 24, '', ['mat' => [], 'shape' => [], 'load' => [], 'spec' => ['300*300' => 3, '400*400' => 2], 'total' => 5, 'axes' => []]); return (string) ob_get_clean(); })();
 ok('규격 원문 목록(이름표 없는 카테고리): 값 옆 개수 없음', str_contains($hs, '<span class="fopt-lbl">300×300</span></label>') && !str_contains($hs, 'class="fcnt"'));
 
@@ -1222,8 +1222,8 @@ foreach (syc_bulk_columns() as $k => [$t, $lim]) {
     if ($t === 'dec' && ((int) ($c[4] ?? 0) - (int) ($c[5] ?? 0) !== $lim[0] || (int) ($c[5] ?? 0) !== $lim[1])) { $bad[] = $k; }
 }
 eq('글자 수·소수 자리 = 마이그레이션', $bad, []);
-eq('머리글: [칸 이름]·칸 이름·모르는 칸', array_map('syc_bulk_header_key', ['상품명 [name]', 'dim_w', '폭·가로 W [dim_w]', '분류명(참고) [category_name]', '아무거나', '대표이미지(상세용, ZIP 안 파일명) [image_file]', '[id]']),
-    ['name', 'dim_w', 'dim_w', 'category_name', '', 'image_file', '']);
+eq('머리글: [칸 이름]·칸 이름·모르는 칸', array_map('syc_bulk_header_key', ['상품명 [name]', 'dim_w', '폭·가로 W [dim_w]', '분류명(참고) [category_name]', '아무거나', '대표이미지(상세용, ZIP 안 파일명) [image_file]', '[id]', '썸네일 이미지 url 경로 [image_thumb_url]']),
+    ['name', 'dim_w', 'dim_w', 'category_name', '', '', '', 'image_thumb_url']);   // ZIP 파일명 칸은 더 읽지 않음(2026-11-13)
 $thrown = static function (callable $f): string { try { $f(); return ''; } catch (InvalidArgumentException $e) { return $e->getMessage(); } };
 ok('필수 머리글 [category_slug] 없으면 오류', str_contains($thrown(fn() => syc_bulk_header_map(['상품명 [name]'])), 'category_slug'));
 ok('같은 칸 두 번이면 오류', str_contains($thrown(fn() => syc_bulk_header_map(['[name]', '[category_slug]', 'name'])), '두 번'));
@@ -1253,7 +1253,9 @@ eq('자동 출처ID: 같은 열쇠 → 같은 ID, auto- + 24자', [product_auto_
 eq('업체 출처 코드', product_source_vendor_code(12), 'vendor-12');
 eq('활성/비활성 변경 기능 멈춤(사용자 결정 2026-11-13)', PRODUCT_ACTIVE_TOGGLE_ENABLED, false);
 require_once __DIR__ . '/../app/ktomok_bulk.php';
-eq('케이토목 규격 줄 나누기', ktomok_spec_parts('규격: 1.5*1.5*2.0_160T*140T | 중량: 3,640kg | 단위: 본'), ['spec' => '1.5*1.5*2.0_160T*140T', 'weight' => '3,640kg', 'unit' => '본', 'rest' => []]);
+eq('케이토목 규격 줄 나누기', ktomok_spec_parts('규격: 1.5*1.5*2.0_160T*140T | 중량: 3,640kg | 단위: 본'), ['spec' => '1.5*1.5*2.0_160T*140T', 'weight' => '3,640kg', 'unit' => '본', 'rest' => [], 'plain' => false]);
+eq('케이토목 규격 줄: 나눴다 다시 합치면 그대로(이름표 있는 줄·없는 옛 줄)', [ktomok_spec_compose(ktomok_spec_parts('규격: 1.5*1.5*2.0_160T*140T | 중량: 3,640kg | 단위: 본')), ktomok_spec_compose(ktomok_spec_parts('900 x 1800 x 50mm'))],
+    ['규격: 1.5*1.5*2.0_160T*140T | 중량: 3,640kg | 단위: 본', '900 x 1800 x 50mm']);
 eq('케이토목 규격 줄: 이름표 없으면 통째로 규격', ktomok_spec_parts('300*300')['spec'], '300*300');
 eq('케이토목 규격 줄 합치기(빈 조각 뺌)', ktomok_spec_compose(['spec' => '300*300', 'weight' => null, 'unit' => '개', 'rest' => ['상차수량: 32']]), '규격: 300*300 | 단위: 개 | 상차수량: 32');
 eq('케이토목 중량 글자', [ktomok_weight_text(3640.0), ktomok_weight_text(12.5), ktomok_weight_text(null)], ['3,640kg', '12.5kg', null]);
@@ -1269,7 +1271,7 @@ eq('케이토목 엑셀: 같은 제품명·규격 두 번 → 오류, 상용콘�
 preg_match_all("/'(syc-[sw]\d+)'/", (string) file_get_contents(__DIR__ . '/../database/20261110_syc_categories.sql') . (string) file_get_contents(__DIR__ . '/../database/20261111_syc_categories_split.sql'), $sm);
 $cats = array_flip(array_values(array_unique($sm[1])));
 $rx = syc_bulk_read_excel(__DIR__ . '/../data/syccrt/syc-products-bulk-test.xlsx', 'xlsx', $cats);
-eq('테스트 엑셀: 704행·오류 0·대표/썸네일 파일명', [count($rx['rows']), $rx['error_count'], $rx['rows'][0]['_image_file'], $rx['rows'][0]['_image_thumb_file'], $rx['rows'][0]['dim_w']], [704, 0, 'syc-s1-01.jpg', 'syc-s1-01_thumb.jpg', 200.0]);
+eq('테스트 엑셀: 704행·오류 0·옛 ZIP 파일명 칸은 무시(이미지 경로 3칸 빈칸)', [count($rx['rows']), $rx['error_count'], array_filter($rx['rows'][0]['_img']), $rx['rows'][0]['dim_w']], [704, 0, [], 200.0]);
 $csv = tempnam(sys_get_temp_dir(), 'sycb') . '.csv';
 file_put_contents($csv, "\xEF\xBB\xBF상품명 [name],분류코드 [category_slug],출처ID [external_id],폭 [dim_w]\n가,syc-s1,a1,100\n나,syc-s1,a1,100\n다,없는코드,a3,1x\n\n");
 $rc = syc_bulk_read_excel($csv, 'csv', $cats);
@@ -1392,12 +1394,31 @@ foreach ($rawR['rows'] as $row) {
 }
 $rawPlain = syc_bulk_read_excel(__DIR__ . '/../data/syccrt/syc-products-bulk-test-raw.xlsx', 'xlsx', $normCats, false);
 foreach ($rawPlain['rows'] as $k => $row) {
-    foreach (['price_b2c', 'price_b2b', 'cost_price', 'stock_qty', 'external_source', 'external_id', '_image_file', '_image_thumb_file', 'spec_dims_src', 'weight_kg', 'unit', 'brand'] as $f) {
+    foreach (['price_b2c', 'price_b2b', 'cost_price', 'stock_qty', 'external_source', 'external_id', '_img', 'spec_dims_src', 'weight_kg', 'unit', 'brand'] as $f) {
         if (($rawR['rows'][$k][$f] ?? null) !== ($row[$f] ?? null)) { $guard++; }
     }
 }
 $again = syc_bulk_read_excel(__DIR__ . '/../data/syccrt/syc-products-bulk-test.xlsx', 'xlsx', $normCats, true);
 eq('자동 정리 실제 데이터: 옛 표기 704행 → 지금 데이터와 차이 0(규격 끝 예전 코드 포함)·가격·출처·이미지·규격 원본(spec_dims_src) 그대로·정리된 엑셀 다시 넣으면 바뀜 0', [count($rawR['rows']), $gd, $guard, $again['normalize']['changes'], $rawR['normalize']['warning_count']], [704, 0, 0, 0, 0]);
+// 업로드용 엑셀(2026-11-13): 원본(옛 표기)에서 ZIP 파일명 칸을 빼고 이미지 경로 3칸(빈칸)을 더한 것 — 읽은 결과가 원본과 같아야 함
+$upR = syc_bulk_read_excel(__DIR__ . '/../data/syccrt/syc-products-upload.xlsx', 'xlsx', $normCats, true);
+$upDiff = 0;
+foreach ($upR['rows'] as $k => $row) {
+    foreach (array_merge(array_keys(syc_bulk_columns()), ['category_id', '_category_slug', 'spec_dims_src']) as $f) { if (($rawR['rows'][$k][$f] ?? null) !== ($row[$f] ?? null)) { $upDiff++; } }
+    if (array_filter($row['_img'])) { $upDiff++; }
+}
+eq('업로드용 엑셀: 704행·오류 0·원본과 칸 값 같음·이미지 경로 3칸 빈칸', [count($upR['rows']), $upR['error_count'], $upDiff], [704, 0, 0]);
+eq('이미지 경로 칸: 서버 경로·외부 주소·빈칸 / 상대 경로·..·확장자 오류', [syc_bulk_image_path('/uploads/a.jpg')[0], syc_bulk_image_path('https://ktomok.com/x.jpg')[0], syc_bulk_image_path(' ')[0],
+    syc_bulk_image_path('uploads/a.jpg')[1] !== null, syc_bulk_image_path('/uploads/../app/.env.png')[1] !== null, syc_bulk_image_path('/uploads/a.php')[1] !== null],
+    [['local', '/uploads/a.jpg'], ['ext', 'https://ktomok.com/x.jpg'], null, true, true, true]);
+$imgRoot = sys_get_temp_dir() . '/tomok_img_' . bin2hex(random_bytes(4));
+mkdir($imgRoot . '/u', 0700, true);
+copy(__DIR__ . '/../public/assets/images/products-prod.png', $imgRoot . '/u/ok.png');
+file_put_contents($imgRoot . '/u/fake.jpg', 'not image');
+eq('이미지 경로 찾기: 있는 이미지만 경로, 없는 파일·이미지 아님 → null, 외부 주소는 그대로', [
+    syc_bulk_image_resolve(['local', '/u/ok.png'], $imgRoot), syc_bulk_image_resolve(['local', '/u/none.png'], $imgRoot),
+    syc_bulk_image_resolve(['local', '/u/fake.jpg'], $imgRoot), syc_bulk_image_resolve(['ext', 'https://a.b/c.jpg'], $imgRoot)], ['/u/ok.png', null, null, 'https://a.b/c.jpg']);
+array_map('unlink', glob($imgRoot . '/u/*')); rmdir($imgRoot . '/u'); rmdir($imgRoot);
 // ── 사이트 반영·전환(app/syc_publish.php, B 방식 2026-11-12) ──
 require_once __DIR__ . '/../app/syc_publish.php';
 require_once __DIR__ . '/../app/work_types.php';

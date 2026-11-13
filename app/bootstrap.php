@@ -599,7 +599,7 @@ function product_facets(?int $categoryId, ?string $query, array $active = []): a
         $name = (string) ($p['name'] ?? '');
         $spec = (string) ($p['spec'] ?? '');
         $root = category_root_of((int) ($p['category_id'] ?? 0));
-        $sv   = parse_spec_field($spec)['spec'];
+        $sv   = product_list_spec_split(parse_spec_field($spec)['spec'], null, null)['spec'];   // 목록 '규격'(치수) 칸과 같은 값(S17)
 
         $mMat   = !$selMat  || ($root !== null && in_array($root, $selMat, true));
         $mSpec  = !$selSpec || ($sv !== '' && in_array($sv, $selSpec, true));
@@ -694,10 +694,12 @@ function product_filter_sql(array $f, array &$params): string
         foreach (array_values((array) $f['spec']) as $i => $v) {
             $v = trim((string) $v);
             if ($v === '') { continue; }
-            $k1 = ":fsp{$i}a"; $k2 = ":fsp{$i}b";
-            $or[] = "(p.spec LIKE {$k1} OR p.spec LIKE {$k2})";
+            // 값 = 목록 '규격'(치수) 칸과 같은 기준(사용자 결정 2026-11-13 S17) — 원문 끝 괄호 코드 '(A형)' 가 붙은 상품도 같은 치수로 찾음
+            $k1 = ":fsp{$i}a"; $k2 = ":fsp{$i}b"; $k3 = ":fsp{$i}c";
+            $or[] = "(p.spec LIKE {$k1} OR p.spec LIKE {$k2} OR p.spec LIKE {$k3})";
             $params[$k1] = '%규격: ' . $v . ' |%';
             $params[$k2] = '%규격: ' . $v;
+            $params[$k3] = '%규격: ' . $v . ' (%';
         }
         if ($or) { $c[] = '(' . implode(' OR ', $or) . ')'; }
     }

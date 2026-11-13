@@ -12,12 +12,13 @@ $sources = product_sources(db());
 // 일괄 등록 양식(CSV 머리글): 케이토목 = products 칸, 그 밖 = syc_products 칸(출처 칸은 고른 업체로 정해지므로 뺌)
 $tplLabels = ['category_slug' => '분류코드', 'name' => '상품명', 'brand' => '업체명', 'spec' => '규격', 'spec_code' => '모델 코드', 'spec_option' => '옵션',
               'unit' => '단위', 'weight_kg' => '중량(kg)', 'description' => '설명', 'price_b2c' => '판매가(개인)', 'price_b2b' => '판매가(기업)',
-              'cost_price' => '매입가', 'stock_qty' => '재고', 'external_id' => '출처ID', 'source_url' => '출처 주소', 'image_url' => '이미지 주소',
-              'image_file' => '대표이미지 파일명', 'image_thumb_file' => '썸네일 파일명'];
+              'cost_price' => '매입가', 'stock_qty' => '재고', 'external_id' => '출처ID', 'source_url' => '출처 주소',
+              'image_thumb_url' => '썸네일 이미지 url 경로', 'image_detail_url' => '상세 이미지 url 경로', 'image_spec_url' => '규격 이미지 url 경로'];
+$tplImg  = ['image_thumb_url', 'image_detail_url', 'image_spec_url'];   // 이미지: ZIP 대신 서버에 올려 둔 파일 경로(2026-11-13)
 $tplHead = static fn(array $keys): array => array_map(static fn($k) => ($tplLabels[$k] ?? $k) . " [{$k}]", $keys);
 $tplCols = [
-    'products' => $tplHead(array_merge(['category_slug'], array_keys(ktomok_bulk_columns()))),
-    'syc'      => $tplHead(array_merge(['category_slug'], array_values(array_diff(array_keys(syc_bulk_columns()), ['external_source'])), ['image_file', 'image_thumb_file'])),
+    'products' => $tplHead(array_merge(['category_slug'], array_keys(ktomok_bulk_columns()), $tplImg)),
+    'syc'      => $tplHead(array_merge(['category_slug'], array_values(array_diff(array_keys(syc_bulk_columns()), ['external_source'])), $tplImg)),
 ];
 
 $leafCats = db()->query(
@@ -193,7 +194,7 @@ render_admin_header('제품관리', 'products');
 </div>
 <div class="pagination" id="pagination"></div>
 
-<!-- 일괄 등록 모달: 엑셀(필수) + 이미지 ZIP(선택) → 상용콘크리트 상품(syc_products) -->
+<!-- 일괄 등록 모달: 엑셀 → 고른 업체 상품. 이미지는 ZIP 없이 엑셀의 이미지 경로 3칸(서버에 올려 둔 파일) — 2026-11-13 -->
 <div id="bk-modal" class="modal-overlay">
     <div class="modal-box bk-box" role="dialog" aria-modal="true" aria-labelledby="bk-title">
         <div class="bk-h">
@@ -210,10 +211,6 @@ render_admin_header('제품관리', 'products');
                 <div class="bk-fld">
                     <div class="bk-fld-h">엑셀 파일<em>필수</em></div>
                     <div id="bk-ex"></div>
-                </div>
-                <div class="bk-fld" id="bk-zp-fld">
-                    <div class="bk-fld-h">이미지 ZIP<small>선택 · 대표·썸네일 이미지</small></div>
-                    <div id="bk-zp"></div>
                 </div>
             </div>
             <div class="bk-f">
@@ -240,7 +237,6 @@ render_admin_header('제품관리', 'products');
     </div>
 </div>
 <input type="file" id="bk-ex-input" accept=".xlsx,.csv" class="bk-hide" onchange="bkPicked('ex', this.files[0]); this.value=''">
-<input type="file" id="bk-zp-input" accept=".zip" class="bk-hide" onchange="bkPicked('zp', this.files[0]); this.value=''">
 
 <!-- 등록/수정 모달 -->
 <div id="prod-modal" class="modal-overlay">
@@ -490,24 +486,22 @@ async function sycToggle(id, val) {
 }
 
 /* ── 일괄 등록 ── 상태: empty → busy(올리는 중) → done(검증 완료) | err */
-const bk = {ex: {state:'empty'}, zp: {state:'empty'}};
+const bk = {ex: {state:'empty'}};
 const BK_IC = {
-    ex: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>',
-    zp: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M21 8v13H3V8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>'
+    ex: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>'
 };
-const BK_LABEL = {ex: ['엑셀 파일(csv, xlsx)을 끌어다 놓거나', '엑셀 파일'], zp: ['이미지 ZIP 파일을 끌어다 놓거나', '이미지 ZIP']};
+const BK_LABEL = {ex: ['엑셀 파일(csv, xlsx)을 끌어다 놓거나', '엑셀 파일']};
 function bkSize(n) { return n >= 1048576 ? (n/1048576).toFixed(1)+' MB' : Math.max(1, Math.round(n/1024))+' KB'; }
 
 // 일괄 등록 대상 = 지금 고른 업체(덮어쓰기도 그 업체 안에서만). 케이토목은 고객용 상품 표, 이미지 ZIP 없음(이미지 주소 칸)
 function bkApi() { return isSyc() ? SYC_API : API; }
 function bkOpen() {
-    bk.ex = {state:'empty'}; bk.zp = {state:'empty'}; bk.norm = true;   // 자동 정리 기본 켬
+    bk.ex = {state:'empty'}; bk.norm = true;   // 자동 정리 기본 켬
     bk.src = srcCode(); bk.srcName = srcName(); bk.syc = isSyc();
     document.getElementById('bk-title').textContent = `${bk.srcName} 일괄 등록`;
-    document.getElementById('bk-zp-fld').classList.toggle('bk-hide', !bk.syc);
-    document.getElementById('bk-note').innerHTML = `엑셀${bk.syc ? '과 이미지를 나눠서 올리면' : '을 올리면'} <strong>${x(bk.srcName)}</strong> 상품을 한 번에 등록합니다. 새 상품은 <strong>비활성</strong>으로 저장됩니다.`
+    document.getElementById('bk-note').innerHTML = `엑셀을 올리면 <strong>${x(bk.srcName)}</strong> 상품을 한 번에 등록합니다. 새 상품은 <strong>비활성</strong>으로 저장됩니다.`
         + ` 이미 있는 상품은 엑셀 값으로 고칩니다(활성 상태 그대로) — 같은 상품 = 출처ID, 출처ID가 없으면 제품명·규격${bk.syc ? '·옵션' : ''}이 같은 상품. <strong>다른 업체 상품은 바뀌지 않습니다.</strong>`
-        + (bk.syc ? '' : ' 이미지는 엑셀의 이미지 주소 칸으로 넣습니다.');
+        + `<br>이미지: 엑셀의 <strong>썸네일·상세·규격 이미지 url 경로</strong> 칸에 서버에 올려 둔 파일 경로(/로 시작) 또는 외부 주소를 적습니다. 서버에서 못 찾은 이미지는 빈칸으로 두고(기존 이미지는 그대로) 알려 드립니다.`;
     ['bk-running','bk-done'].forEach(id => document.getElementById(id).classList.add('bk-hide'));
     document.getElementById('bk-form').classList.remove('bk-hide');
     bkRender();
@@ -515,12 +509,12 @@ function bkOpen() {
 }
 function bkClose() {
     if (!document.getElementById('bk-running').classList.contains('bk-hide')) { document.getElementById('bk-modal').classList.remove('open'); return; }
-    ['ex','zp'].forEach(k => { bk[k].xhr?.abort(); });
+    bk.ex.xhr?.abort();
     document.getElementById('bk-modal').classList.remove('open');
 }
 
 function bkRender() {
-    ['ex','zp'].forEach(k => {
+    ['ex'].forEach(k => {
         const s = bk[k], el = document.getElementById('bk-' + k);
         if (s.state === 'empty') {
             el.innerHTML = `<button type="button" class="bk-drop" data-k="${k}" onclick="document.getElementById('bk-${k}-input').click()">
@@ -541,15 +535,13 @@ function bkRender() {
             + `<button type="button" class="bk-fx" aria-label="${BK_LABEL[k][1]} ${busy?'업로드 취소':'파일 삭제'}" onclick="bkClear('${k}')">×</button></div>`
             + (busy ? `<div class="bk-bar" role="progressbar" aria-label="${BK_LABEL[k][1]} 업로드 진행률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${s.pct}"><div style="width:${s.pct}%"></div></div>` : '')
             + (s.errors?.length ? `<ul class="bk-errs">${s.errors.map(e => `<li>${x(e)}</li>`).join('')}${s.errorCount > s.errors.length ? `<li>…외 ${s.errorCount - s.errors.length}행</li>` : ''}</ul>` : '')
+            + (s.imgWarn?.length ? `<ul class="bk-norm-warn"><li><b>서버에서 못 찾은 이미지 ${Number(s.imgWarnCount).toLocaleString()}건</b> — 등록은 되고 그 이미지만 빈칸(기존 이미지는 그대로)</li>${s.imgWarn.map(w => `<li>${x(w)}</li>`).join('')}${s.imgWarnCount > s.imgWarn.length ? `<li>…외 ${s.imgWarnCount - s.imgWarn.length}건</li>` : ''}</ul>` : '')
             + (k === 'ex' && s.state === 'done' ? bkNormHtml(s.normalize) : '');
     });
-    const exOk = bk.ex.state === 'done', zpBusy = bk.zp.state === 'busy', ready = exOk && !zpBusy && bk.zp.state !== 'err';
+    const exOk = bk.ex.state === 'done', ready = exOk;
     let hint = '';
     if (bk.ex.state === 'err') hint = '엑셀 오류를 고친 뒤 다시 올려 주세요.';
     else if (!exOk) hint = '엑셀 파일을 올리면 등록할 수 있습니다.';
-    else if (zpBusy) hint = '이미지 업로드가 끝나면 등록할 수 있습니다.';
-    else if (bk.zp.state === 'err') hint = '이미지 ZIP 을 다시 올리거나 지워 주세요.';
-    else if (bk.zp.state === 'empty' && bk.syc) hint = '이미지 없이 등록합니다. 이미지는 나중에 다시 올릴 수 있습니다.';
     document.getElementById('bk-hint').textContent = hint;
     const go = document.getElementById('bk-go');
     go.disabled = !ready;
@@ -603,7 +595,7 @@ function bkPicked(k, file) {
         let d; try { d = JSON.parse(xhr.responseText); } catch (e) { d = {ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}; }
         if (!d.ok) Object.assign(s, {state:'err', error:d.error});
         else if (k === 'ex' && d.error_count > 0) Object.assign(s, {state:'err', error:`오류 ${d.error_count}행`, errors:d.errors, errorCount:d.error_count});
-        else Object.assign(s, {state:'done', rows:d.rows, images:d.images, normalize:d.normalize || null});
+        else Object.assign(s, {state:'done', rows:d.rows, normalize:d.normalize || null, imgWarn:d.image_warnings || [], imgWarnCount:d.image_warning_count || 0});
         bkRender();
     };
     xhr.onerror = () => { if (bk[k] === s) { Object.assign(s, {state:'err', error:'업로드에 실패했습니다.'}); bkRender(); } };
@@ -645,9 +637,7 @@ async function bkRegister() {
     document.getElementById('bk-done-t').textContent = `${n.toLocaleString()}건을 등록했습니다`;
     const parts = [`새 상품 ${d.insert.toLocaleString()}건은 <strong style="color:#1a2035">비활성</strong>으로 저장됐습니다.`];
     if (d.update || d.same) parts.push(`이미 있던 상품 ${(d.update + d.same).toLocaleString()}건은 엑셀 값으로 고쳤습니다(활성 상태 그대로).`);
-    if (bk.syc) parts.push(d.with_zip
-        ? `이미지 ${d.images.toLocaleString()}장 저장` + (d.images_missing ? ` · 대표 이미지 없음 ${d.images_missing.toLocaleString()}건` : '') + (d.thumbs_missing ? ` · 썸네일 없음 ${d.thumbs_missing.toLocaleString()}건(빈 이미지로 표시)` : '')
-        : '이미지 ZIP 없이 등록했습니다(이미 있던 이미지는 그대로, 새 상품은 빈 이미지로 표시).');
+    if (d.images || d.images_missing) parts.push(`이미지 경로 ${Number(d.images).toLocaleString()}건 연결` + (d.images_missing ? ` · 서버에서 못 찾은 이미지 ${Number(d.images_missing).toLocaleString()}건은 빈칸(기존 이미지 그대로)` : ''));
     if (d.normalized_rows) parts.push(`자동 정리: 상품 ${d.normalized_rows.toLocaleString()}건의 품명·모델 코드·옵션·치수·분류를 사이트 표기로 고쳐 저장했습니다.`);
     parts.push(ACTIVE_TOGGLE ? '제품관리에서 내용을 확인한 뒤 활성으로 바꿔 주세요.' : '활성/비활성 변경은 추후 지원 예정입니다.');
     document.getElementById('bk-done-s').innerHTML = parts.join('<br>');

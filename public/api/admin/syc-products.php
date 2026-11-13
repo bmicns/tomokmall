@@ -8,8 +8,8 @@ declare(strict_types=1);
  * GET  ?action=categories                분류 선택용 카테고리(대분류 › 품목)
  * GET  ?action=progress&job=…            등록 진행률(등록 요청이 처리되는 동안 화면이 읽음)
  * POST multipart action=stage_excel, source  엑셀(xlsx·csv) 올리기 → 검증 결과(행 수·오류) + 자동 정리 미리보기(normalize). 파일은 웹 밖 임시 폴더에 보관
- * POST multipart action=stage_zip        이미지 ZIP 올리기 → 이미지 수
- * POST JSON {action:'commit', job, normalize} 올린 엑셀(+ZIP)로 등록: 새 상품 비활성, 같은 업체 안에서 같은 상품은 덮어쓰기(활성 상태 유지)
+ *      이미지: ZIP 업로드 없음(2026-11-13) — 엑셀 '썸네일·상세·규격 이미지 url 경로' 칸, 서버 경로는 웹루트에서 파일 확인(못 찾으면 그 이미지만 빈칸 + 경고)
+ * POST JSON {action:'commit', job, normalize} 올린 엑셀로 등록: 새 상품 비활성, 같은 업체 안에서 같은 상품은 덮어쓰기(활성 상태 유지)
  *                                        — 같은 상품 = 출처ID, 출처ID가 없으면 제품명+규격+옵션(사용자 결정 2026-11-13)
  *                                        normalize(기본 true) = 자동 정리(app/syc_normalize.php) 적용 — 올릴 때 미리보기와 같은 결과
  * POST JSON {action:'create', source, …칸}  제품 1건 등록(비활성). 같은 제품명+규격+옵션이 이미 있으면 거절(고칠 때는 일괄 등록)
@@ -27,7 +27,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 require_admin();
 
-const SYC_IMG_WEB_PREFIX = '/uploads/syc';
+const SYC_WEBROOT = __DIR__ . '/../..';   // 이미지 경로(/…)를 찾는 웹루트(public)
 
 function syc_api_out(array $d): never
 {
@@ -130,26 +130,10 @@ try {
             throw $e;
         }
         $_SESSION['syc_bulk']['excel'] = ['path' => $path, 'ext' => $ext, 'name' => $name, 'rows' => count($r['rows']), 'error_count' => $r['error_count'], 'source' => $src['code']];
+        $iw = syc_bulk_image_warnings($r['rows'], SYC_WEBROOT);   // 서버에서 못 찾은 이미지(등록은 되고 그 이미지만 빈칸)
         syc_api_out(['ok' => true, 'name' => $name, 'rows' => count($r['rows']), 'data_rows' => $r['data_rows'],
-                     'error_count' => $r['error_count'], 'errors' => $r['errors'], 'normalize' => $r['normalize']]);
-    }
-
-    if ($action === 'stage_zip') {
-        syc_api_drop_stage('zip');
-        [$path, $name] = syc_api_take_upload(['zip'], SYC_BULK_MAX_ZIP_BYTES);
-        $zip = new ZipArchive();
-        if ($zip->open($path, ZipArchive::RDONLY) !== true) { unlink($path); throw new InvalidArgumentException('ZIP 파일을 열 수 없습니다.'); }
-        try {
-            $n = count(syc_bulk_zip_index($zip));
-        } catch (Throwable $e) {
-            $zip->close();
-            unlink($path);
-            throw $e;
-        }
-        $zip->close();
-        if ($n === 0) { unlink($path); throw new InvalidArgumentException('ZIP 안에 이미지(jpg·png·webp·gif)가 없습니다.'); }
-        $_SESSION['syc_bulk']['zip'] = ['path' => $path, 'name' => $name, 'images' => $n];
-        syc_api_out(['ok' => true, 'name' => $name, 'images' => $n]);
+                     'error_count' => $r['error_count'], 'errors' => $r['errors'], 'normalize' => $r['normalize'],
+                     'image_warnings' => $iw['warnings'], 'image_warning_count' => $iw['count']]);
     }
 
     $body = json_decode((string) file_get_contents('php://input'), true) ?? [];
@@ -157,16 +141,14 @@ try {
 
     if ($action === 'clear') {
         $slot = (string) ($body['slot'] ?? '');
-        if (!in_array($slot, ['excel', 'zip'], true)) { throw new InvalidArgumentException('잘못된 요청'); }
+        if ($slot !== 'excel') { throw new InvalidArgumentException('잘못된 요청'); }
         syc_api_drop_stage($slot);
         syc_api_out(['ok' => true]);
     }
 
     if ($action === 'commit') {
         $ex = $_SESSION['syc_bulk']['excel'] ?? null;
-        $zp = $_SESSION['syc_bulk']['zip'] ?? null;
         if (!is_array($ex) || !is_file((string) $ex['path'])) { throw new InvalidArgumentException('엑셀 파일을 먼저 올려 주세요.'); }
-        if ($zp !== null && (!is_array($zp) || !is_file((string) $zp['path']))) { throw new InvalidArgumentException('이미지 ZIP 을 다시 올려 주세요.'); }
         $src = product_source_syc_or_fail($pdo, (string) ($ex['source'] ?? ''));     // 엑셀을 올릴 때 고른 업체
         $progress = syc_api_progress_file((string) ($body['job'] ?? ''));
         unset($_SESSION['syc_bulk']);
@@ -174,7 +156,6 @@ try {
         ignore_user_abort(true);               // 창을 닫아도 등록은 끝까지
         set_time_limit(300);
 
-        $zip = null;
         try {
             $norm = ($body['normalize'] ?? true) !== false;      // 자동 정리(기본 켬). 창에서 끄면 엑셀 그대로
             $r = syc_bulk_read_excel((string) $ex['path'], (string) $ex['ext'], syc_bulk_category_ids($pdo), $norm, syc_bulk_category_active($pdo), $src['code']);
@@ -184,37 +165,22 @@ try {
             foreach ($r['rows'] as &$br) { $br['brand'] ??= $src['name']; }
             unset($br);
             $total = count($r['rows']);
-            $idx = [];
-            if ($zp !== null) {
-                $zip = new ZipArchive();
-                if ($zip->open((string) $zp['path'], ZipArchive::RDONLY) !== true) { throw new InvalidArgumentException('ZIP 파일을 열 수 없습니다.'); }
-                $idx = syc_bulk_zip_index($zip);
-            }
-            $imgDir = dirname(__DIR__, 2) . '/uploads/syc';
-            if ($zip && !is_dir($imgDir) && !mkdir($imgDir, 0755, true) && !is_dir($imgDir)) { throw new RuntimeException('이미지 폴더를 만들지 못했습니다.'); }
-
-            $count = ['insert' => 0, 'update' => 0, 'same' => 0, 'images' => 0, 'images_missing' => 0, 'thumbs_missing' => 0];
+            $count = ['insert' => 0, 'update' => 0, 'same' => 0, 'images' => 0, 'images_missing' => 0];
+            $found = [];   // 경로 => 찾은 값(같은 파일을 여러 번 확인하지 않게)
             file_put_contents($progress, json_encode(['done' => 0, 'total' => $total, 'finished' => false]));
             $pdo->beginTransaction();
             try {
                 foreach ($r['rows'] as $i => $row) {
-                    $paths = [];
-                    foreach (['image_file', 'image_thumb_file'] as $k) {
-                        $want = $row['_' . $k];
-                        $paths[$k] = null;
-                        if (!$zip) { continue; }                    // ZIP 없이 등록: 이미지 칸은 그대로(새 상품은 빈 이미지)
-                        if ($want === null) {
-                            if ($k === 'image_thumb_file') { $count['thumbs_missing']++; }
-                            continue;
-                        }
-                        $at = $idx[mb_strtolower($want)] ?? null;
-                        $paths[$k] = ($zip && $at !== null) ? syc_bulk_store_image($zip, $at, $imgDir, SYC_IMG_WEB_PREFIX) : null;
-                        if ($paths[$k] !== null) { $count['images']++; }
-                        elseif ($k === 'image_file') { $count['images_missing']++; }
-                        else { $count['thumbs_missing']++; }
+                    // 이미지 경로 3칸 → syc_products 칸. 빈칸·못 찾은 이미지는 null(기존 값 유지)
+                    $imgs = [];
+                    foreach (SYC_BULK_IMAGE_COLUMNS as $k => $col) {
+                        $img = $row['_img'][$k] ?? null;
+                        if ($img === null) { continue; }
+                        $imgs[$col] = $found[$img[1]] ??= (syc_bulk_image_resolve($img, SYC_WEBROOT) ?? false);
+                        if ($imgs[$col] === false) { $imgs[$col] = null; $count['images_missing']++; } else { $count['images']++; }
                     }
                     $row['external_id'] = syc_bulk_resolve_external_id($pdo, $row);   // 같은 업체 안 같은 상품(출처ID → 제품명+규격+옵션)
-                    $count[syc_bulk_save_row($pdo, $row, $paths['image_file'], $paths['image_thumb_file'], $r['present'])]++;
+                    $count[syc_bulk_save_row($pdo, $row, $imgs, $r['present'])]++;
                     if (($i + 1) % 25 === 0) { file_put_contents($progress, json_encode(['done' => $i + 1, 'total' => $total, 'finished' => false])); }
                 }
                 $pdo->commit();
@@ -226,10 +192,9 @@ try {
             file_put_contents($progress, json_encode(['finished' => true, 'failed' => true]));
             throw $e;
         } finally {
-            $zip?->close();
-            foreach ([$ex, $zp] as $s) { if (is_array($s) && is_file((string) $s['path'])) { unlink((string) $s['path']); } }   // 성공·실패 모두 임시 파일 삭제
+            if (is_file((string) $ex['path'])) { unlink((string) $ex['path']); }   // 성공·실패 모두 임시 파일 삭제
         }
-        $result = ['done' => $total, 'total' => $total, 'finished' => true, 'with_zip' => $zip !== null,
+        $result = ['done' => $total, 'total' => $total, 'finished' => true,
                    'normalized_rows' => $norm ? (int) ($r['normalize']['changed_rows'] ?? 0) : 0] + $count;
         file_put_contents($progress, json_encode($result));
         syc_api_out(['ok' => true] + $result);

@@ -523,8 +523,9 @@ render_header($pageTitle);
                     <tr class="pt-prod-row" onclick="if (!(window.ptFavRowClick && ptFavRowClick(event, this))) location.href='/product.php?id=<?= (int)$p['id'] ?>'" style="cursor:pointer">
                         <?php if ($favEnabled): ?><td class="pt-col-check"><label class="pt-chk"><input type="checkbox" class="pt-fav-chk" value="<?= (int)$p['id'] ?>" aria-label="<?= e($p['name']) ?> 선택" autocomplete="off"></label></td><?php endif; ?>
                         <td class="pt-col-photo">
-                            <?php if (!empty($p['image_url'])): ?>
-                                <img src="<?= e($p['image_url']) ?>" alt="<?= e($p['name']) ?>">
+                            <?php $thumb = ($p['image_thumb_url'] ?? '') ?: ($p['image_url'] ?? ''); // 썸네일 있으면 썸네일, 없으면 상세 이미지(2026-11-13) ?>
+                            <?php if ($thumb !== ''): ?>
+                                <img src="<?= e($thumb) ?>" alt="<?= e($p['name']) ?>">
                             <?php else: ?>
                                 <span class="pt-placeholder"><?= e(mb_substr($p['name'], 0, 2)) ?></span>
                             <?php endif; ?>

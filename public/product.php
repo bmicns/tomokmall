@@ -177,6 +177,11 @@ render_header($p['name']);
 .pd-dim-grid div{display:flex;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--color-border);font-size:13px;min-width:0}
 .pd-dim-grid b{font-weight:600;color:var(--color-text-primary);overflow-wrap:anywhere}
 .pd-dim-grid span{color:var(--color-text-secondary);white-space:nowrap}
+/* 규격 이미지(도면 등 — products.image_spec_url, 사용자 결정 2026-11-13): 있을 때만 */
+.pd-spec-img{margin-top:28px}
+.pd-spec-img h2{font-size:16px;font-weight:700;margin:0 0 10px;color:var(--color-text-primary)}
+.pd-spec-img figure{margin:0;border-top:2px solid var(--color-text-primary);padding:16px 0;text-align:center}
+.pd-spec-img img{max-width:100%;max-height:640px;height:auto;object-fit:contain}
 /* 다른 규격 그리드 */
 .pd-others-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
 .pd-other-card{border:1px solid var(--color-border);border-radius:0;overflow:hidden;cursor:pointer;text-decoration:none;display:block;transition:border-color 0.15s}
@@ -441,6 +446,13 @@ render_header($p['name']);
         <div class="pd-dim-grid"><?php foreach ($dimList as [$k, $v]): ?><div><b><?= e($k) ?></b><span><?= e($v) ?></span></div><?php endforeach; ?></div>
     </section>
     <?php endforeach; ?>
+
+    <?php if (!empty($p['image_spec_url'])): ?>
+    <section class="pd-spec-img" aria-label="규격 이미지">
+        <h2>규격 이미지</h2>
+        <figure><img src="<?= e($p['image_spec_url']) ?>" alt="<?= e($p['name']) ?> 규격 이미지" loading="lazy"></figure>
+    </section>
+    <?php endif; ?>
 
     <!-- 하단 탭 -->
     <div class="pd-tabs-wrap">
