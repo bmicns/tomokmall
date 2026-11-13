@@ -3,6 +3,7 @@ declare(strict_types=1);
 require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/auth.php';
 require __DIR__ . '/../app/admin_layout.php';
+require_once __DIR__ . '/../app/product_sources.php';   // 활성/비활성 변경 멈춤 표시(PRODUCT_ACTIVE_TOGGLE_ENABLED)
 
 require_admin();
 
@@ -157,8 +158,8 @@ render_admin_header('제품 상세', 'products');
                     <input type="text" id="f-img" value="<?= $h($product['image_url'] ?? '') ?>" oninput="previewImg(this.value)">
                 </div>
                 <div class="form-field">
-                    <label>상태</label>
-                    <select id="f-active">
+                    <label>상태<?= PRODUCT_ACTIVE_TOGGLE_ENABLED ? '' : ' <small style="font-weight:400;color:#888">(변경은 추후 지원)</small>' ?></label>
+                    <select id="f-active"<?= PRODUCT_ACTIVE_TOGGLE_ENABLED ? '' : ' disabled title="' . $h(PRODUCT_ACTIVE_TOGGLE_OFF_MSG) . '"' ?>>
                         <option value="1"<?= $product['is_active'] ? ' selected' : '' ?>>활성</option>
                         <option value="0"<?= !$product['is_active'] ? ' selected' : '' ?>>비활성</option>
                     </select>
@@ -169,7 +170,7 @@ render_admin_header('제품 상세', 'products');
                 <button class="btn btn-primary" onclick="save()">저장</button>
                 <span class="msg-ok" id="msg-ok">✓ 저장됐습니다</span>
                 <span class="msg-err" id="msg-err"></span>
-                <button class="btn btn-secondary" onclick="del()" style="margin-left:auto;color:#c62828">삭제</button>
+                <button class="btn btn-secondary" onclick="del()" style="margin-left:auto;color:#c62828"<?= PRODUCT_ACTIVE_TOGGLE_ENABLED ? '' : ' disabled title="' . $h(PRODUCT_ACTIVE_TOGGLE_OFF_MSG) . '"' ?>>삭제</button>
             </div>
         </div>
     </div>

@@ -46,7 +46,8 @@
 | 직원 업체 공급가 | `public/api/staff/vendors.php` (staff) | `supply_price` |
 | 직원 견적 조정 | `public/api/staff/estimates.php` (staff) | `adjusted_price`·`shipping_fee`·`discount_amt` |
 | 주문·결제 저장 | `public/api/order.php` | 주문·결제 금액(새 행) |
-| 상용콘크리트 일괄 등록 | `app/syc_bulk.php`, `public/api/admin/syc-products.php` (admin) | `syc_products` 가격 칸(덮어쓸 때도 엑셀 값) |
+| 상용콘크리트·업체 일괄 등록·제품 등록 | `app/syc_bulk.php`, `public/api/admin/syc-products.php` (admin) | `syc_products` 가격 칸(덮어쓸 때도 엑셀 값, 업체별 — 11-13) |
+| 케이토목 일괄 등록 | `app/ktomok_bulk.php`, `public/api/admin/products.php` (admin) | `products` 가격 3칸·`category_id`(엑셀 값, 11-13) |
 | 상용콘크리트 사이트 반영·전환 | `app/syc_publish.php`, `public/api/admin/syc-catalog.php` (admin) | `products` 가격·`category_id`, `categories` 마진율·`parent_id`(원본 그대로 복사) |
 
 - 위 기능의 가격 저장 경로를 시험할 때는 별도 `_test` DB 나 `[TEST]` 행에서만 하고, 끝나면 재적재한다(운영 복제 DB 의 가격은 운영 지문 대조 기준).

@@ -1,17 +1,21 @@
 <?php
 declare(strict_types=1);
 /**
- * 관리자 — 상용콘크리트 상품(syc_products) 목록·일괄 등록 API (화면: /admin-products.php 구분 '상용콘크리트')
+ * 관리자 — 상용콘크리트·업체 목록 업체 상품(syc_products) 목록·일괄 등록·제품 등록 API (화면: /admin-products.php 업체 드롭다운)
+ * 업체(source) = 'syccrt'(상용콘크리트) 또는 'vendor-<업체 id>'(app/product_sources.php). 모든 요청은 고른 업체 상품만 보고 바꾼다.
  *
- * GET  ?status=&cat_id=&q=&page=        목록(20개씩)
+ * GET  ?source=&status=&cat_id=&q=&page=  목록(20개씩)
  * GET  ?action=categories                분류 선택용 카테고리(대분류 › 품목)
  * GET  ?action=progress&job=…            등록 진행률(등록 요청이 처리되는 동안 화면이 읽음)
- * POST multipart action=stage_excel      엑셀(xlsx·csv) 올리기 → 검증 결과(행 수·오류) + 자동 정리 미리보기(normalize). 파일은 웹 밖 임시 폴더에 보관
+ * POST multipart action=stage_excel, source  엑셀(xlsx·csv) 올리기 → 검증 결과(행 수·오류) + 자동 정리 미리보기(normalize). 파일은 웹 밖 임시 폴더에 보관
  * POST multipart action=stage_zip        이미지 ZIP 올리기 → 이미지 수
- * POST JSON {action:'commit', job, normalize} 올린 엑셀(+ZIP)로 등록: 새 상품 비활성, 같은 출처ID 는 덮어쓰기(활성 상태 유지).
+ * POST JSON {action:'commit', job, normalize} 올린 엑셀(+ZIP)로 등록: 새 상품 비활성, 같은 업체 안에서 같은 상품은 덮어쓰기(활성 상태 유지)
+ *                                        — 같은 상품 = 출처ID, 출처ID가 없으면 제품명+규격+옵션(사용자 결정 2026-11-13)
  *                                        normalize(기본 true) = 자동 정리(app/syc_normalize.php) 적용 — 올릴 때 미리보기와 같은 결과
+ * POST JSON {action:'create', source, …칸}  제품 1건 등록(비활성). 같은 제품명+규격+옵션이 이미 있으면 거절(고칠 때는 일괄 등록)
  * POST JSON {action:'set_active', ids, is_active} / {action:'delete', id}(비활성화)
- * POST JSON {action:'set_active_filter', filter:{status,cat_id,q}, expect, is_active}  검색 결과 전체(모든 페이지) 활성/비활성
+ * POST JSON {action:'set_active_filter', filter:{source,status,cat_id,q}, expect, is_active}  검색 결과 전체(모든 페이지) 활성/비활성
+ *      ↑ 활성/비활성 바꾸기 3개는 지금 멈춤(PRODUCT_ACTIVE_TOGGLE_ENABLED — 사용자 결정 2026-11-13, 추후 개발)
  * 권한: 관리자만. 오류는 HTTP 200 + ok:false(닷홈이 4xx 본문을 바꿈 — 기존 api/admin/products.php 와 같음)
  * 로직: app/syc_bulk.php
  */
@@ -63,13 +67,13 @@ function syc_api_drop_stage(string $slot): void
 }
 
 /** 목록 조건(상태·카테고리·검색어) → [WHERE 문, 바인딩 값]. 목록 조회와 '검색 결과 전체' 활성/비활성이 같은 조건을 쓴다 */
-function syc_api_list_where(array $f): array
+function syc_api_list_where(array $f, string $source): array
 {
     $catId  = (int) ($f['cat_id'] ?? 0);
     $q      = trim((string) ($f['q'] ?? ''));
     $status = (string) ($f['status'] ?? 'active');
-    $where  = [];
-    $params = [];
+    $where  = ['p.external_source = :src'];
+    $params = ['src' => $source];
     if ($status === 'active') { $where[] = 'p.is_active = 1'; }
     elseif ($status === 'inactive') { $where[] = 'p.is_active = 0'; }
     if ($catId) { $where[] = 'p.category_id = :cat_id'; $params['cat_id'] = $catId; }
@@ -88,7 +92,7 @@ try {
 
     if ($method === 'GET') {
         if ($action === 'categories') {
-            $rows = $pdo->query('SELECT c.id, c.name, g.name AS group_name FROM syc_categories c JOIN syc_categories g ON g.id = c.parent_id
+            $rows = $pdo->query('SELECT c.id, c.slug, c.name, g.name AS group_name FROM syc_categories c JOIN syc_categories g ON g.id = c.parent_id
                                  WHERE c.is_active = 1 ORDER BY g.sort_order, c.sort_order, c.id')->fetchAll();
             syc_api_out(['ok' => true, 'categories' => $rows]);
         }
@@ -97,9 +101,10 @@ try {
             $p = is_file($file) ? json_decode((string) file_get_contents($file), true) : null;
             syc_api_out(['ok' => true, 'progress' => is_array($p) ? $p : null]);
         }
+        $src    = product_source_syc_or_fail($pdo, (string) ($_GET['source'] ?? ''));
         $page   = max(1, (int) ($_GET['page'] ?? 1));
         $limit  = 20;
-        [$w, $params] = syc_api_list_where($_GET);
+        [$w, $params] = syc_api_list_where($_GET, $src['code']);
         $cnt = $pdo->prepare("SELECT COUNT(*) FROM syc_products p WHERE {$w}");
         $cnt->execute($params);
         $offset = ($page - 1) * $limit;
@@ -115,15 +120,16 @@ try {
 
     if ($action === 'stage_excel') {
         syc_api_drop_stage('excel');
+        $src = product_source_syc_or_fail($pdo, (string) ($_POST['source'] ?? ''));
         [$path, $name, $ext] = syc_api_take_upload(['xlsx', 'csv'], SYC_BULK_MAX_EXCEL_BYTES);
         try {
             // 자동 정리 미리보기: 등록 때와 같은 함수·규칙(app/syc_normalize.php) — 화면에 바뀌는 곳을 보여 주고 등록 때 다시 적용
-            $r = syc_bulk_read_excel($path, $ext, syc_bulk_category_ids($pdo), true, syc_bulk_category_active($pdo));
+            $r = syc_bulk_read_excel($path, $ext, syc_bulk_category_ids($pdo), true, syc_bulk_category_active($pdo), $src['code']);
         } catch (Throwable $e) {
             unlink($path);
             throw $e;
         }
-        $_SESSION['syc_bulk']['excel'] = ['path' => $path, 'ext' => $ext, 'name' => $name, 'rows' => count($r['rows']), 'error_count' => $r['error_count']];
+        $_SESSION['syc_bulk']['excel'] = ['path' => $path, 'ext' => $ext, 'name' => $name, 'rows' => count($r['rows']), 'error_count' => $r['error_count'], 'source' => $src['code']];
         syc_api_out(['ok' => true, 'name' => $name, 'rows' => count($r['rows']), 'data_rows' => $r['data_rows'],
                      'error_count' => $r['error_count'], 'errors' => $r['errors'], 'normalize' => $r['normalize']]);
     }
@@ -161,6 +167,7 @@ try {
         $zp = $_SESSION['syc_bulk']['zip'] ?? null;
         if (!is_array($ex) || !is_file((string) $ex['path'])) { throw new InvalidArgumentException('엑셀 파일을 먼저 올려 주세요.'); }
         if ($zp !== null && (!is_array($zp) || !is_file((string) $zp['path']))) { throw new InvalidArgumentException('이미지 ZIP 을 다시 올려 주세요.'); }
+        $src = product_source_syc_or_fail($pdo, (string) ($ex['source'] ?? ''));     // 엑셀을 올릴 때 고른 업체
         $progress = syc_api_progress_file((string) ($body['job'] ?? ''));
         unset($_SESSION['syc_bulk']);
         session_write_close();                 // 진행률 조회 요청이 세션 잠금에 막히지 않게
@@ -170,8 +177,12 @@ try {
         $zip = null;
         try {
             $norm = ($body['normalize'] ?? true) !== false;      // 자동 정리(기본 켬). 창에서 끄면 엑셀 그대로
-            $r = syc_bulk_read_excel((string) $ex['path'], (string) $ex['ext'], syc_bulk_category_ids($pdo), $norm, syc_bulk_category_active($pdo));
+            $r = syc_bulk_read_excel((string) $ex['path'], (string) $ex['ext'], syc_bulk_category_ids($pdo), $norm, syc_bulk_category_active($pdo), $src['code']);
             if ($r['error_count'] > 0) { throw new InvalidArgumentException('엑셀에 오류가 있는 행이 있어 등록하지 않았습니다. 고친 뒤 다시 올려 주세요.'); }
+            // 업체명 = brand(S9): 엑셀에 업체명이 비어 있으면 고른 업체 이름
+            if (!in_array('brand', $r['present'], true)) { $r['present'][] = 'brand'; }
+            foreach ($r['rows'] as &$br) { $br['brand'] ??= $src['name']; }
+            unset($br);
             $total = count($r['rows']);
             $idx = [];
             if ($zp !== null) {
@@ -202,6 +213,7 @@ try {
                         elseif ($k === 'image_file') { $count['images_missing']++; }
                         else { $count['thumbs_missing']++; }
                     }
+                    $row['external_id'] = syc_bulk_resolve_external_id($pdo, $row);   // 같은 업체 안 같은 상품(출처ID → 제품명+규격+옵션)
                     $count[syc_bulk_save_row($pdo, $row, $paths['image_file'], $paths['image_thumb_file'], $r['present'])]++;
                     if (($i + 1) % 25 === 0) { file_put_contents($progress, json_encode(['done' => $i + 1, 'total' => $total, 'finished' => false])); }
                 }
@@ -223,6 +235,36 @@ try {
         syc_api_out(['ok' => true] + $result);
     }
 
+    // 제품 1건 등록(비활성). 칸 규칙은 일괄 등록과 같음(syc_bulk_columns). 자동 정리는 하지 않음(품목 단위 규칙이라 일괄 등록에서만)
+    if ($action === 'create') {
+        $src = product_source_syc_or_fail($pdo, (string) ($body['source'] ?? ''));
+        $cols = syc_bulk_columns();
+        $row = [];
+        foreach (['name', 'brand', 'spec', 'spec_code', 'spec_option', 'unit', 'weight_kg', 'description', 'price_b2c', 'price_b2b', 'cost_price'] as $k) {
+            [$v, $e] = syc_bulk_cell($k, $body[$k] ?? '', $cols[$k]);
+            if ($e !== null) { throw new InvalidArgumentException("[{$k}] {$e}"); }
+            $row[$k] = $v;
+        }
+        if ($row['name'] === null) { throw new InvalidArgumentException('제품명을 입력해 주세요.'); }
+        $catId = (int) ($body['category_id'] ?? 0);
+        if (!in_array($catId, syc_bulk_category_ids($pdo), true)) { throw new InvalidArgumentException('카테고리를 선택해 주세요.'); }
+        $row['brand'] ??= $src['name'];
+        $row['external_source'] = $src['code'];
+        $row['external_id'] = null;
+        $key = product_match_key($row['name'], $row['spec'], $row['spec_option']);
+        $dup = $pdo->prepare('SELECT COUNT(*) FROM syc_products WHERE external_source = ? AND name = ? AND spec <=> ? AND spec_option <=> ?');
+        $dup->execute([$src['code'], $row['name'], $row['spec'], $row['spec_option']]);
+        if ((int) $dup->fetchColumn() > 0) { throw new InvalidArgumentException('같은 업체에 제품명·규격·옵션이 같은 상품이 이미 있습니다. 고칠 때는 일괄 등록으로 올려 주세요.'); }
+        $ins = ['category_id' => $catId, 'spec_dims_src' => $row['spec'], 'external_id' => product_auto_external_id($key), 'is_active' => 0] + $row;
+        $pdo->prepare('INSERT INTO syc_products (' . implode(', ', array_keys($ins)) . ') VALUES (' . implode(', ', array_fill(0, count($ins), '?')) . ')')
+            ->execute(array_values($ins));
+        syc_api_out(['ok' => true, 'id' => (int) $pdo->lastInsertId()]);
+    }
+
+    if (!PRODUCT_ACTIVE_TOGGLE_ENABLED && in_array($action, ['set_active', 'set_active_filter', 'delete'], true)) {
+        throw new InvalidArgumentException(PRODUCT_ACTIVE_TOGGLE_OFF_MSG);
+    }
+
     if ($action === 'set_active') {
         $ids = array_values(array_filter(array_map('intval', (array) ($body['ids'] ?? [])), static fn($v) => $v > 0));
         if (!$ids || count($ids) > 500) { throw new InvalidArgumentException('대상 상품이 없습니다.'); }
@@ -238,7 +280,7 @@ try {
         $filter = is_array($body['filter'] ?? null) ? $body['filter'] : [];
         $expect = (int) ($body['expect'] ?? -1);
         $val = (int) ($body['is_active'] ?? 0) === 1 ? 1 : 0;
-        [$w, $params] = syc_api_list_where($filter);
+        [$w, $params] = syc_api_list_where($filter, product_source_syc_or_fail($pdo, (string) ($filter['source'] ?? ''))['code']);
         $pdo->beginTransaction();
         $cnt = $pdo->prepare("SELECT COUNT(*) FROM syc_products p WHERE {$w}");
         $cnt->execute($params);

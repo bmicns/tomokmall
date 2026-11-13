@@ -1233,6 +1233,32 @@ eq('행 변환: 분류 id·출처 기본 syccrt·규격 원문 칸·썸네일 �
 $pr = syc_bulk_parse_row(['syc-x9', '', 'abc', '', ''], $map, ['syc-s1' => 7]);
 eq('행 오류 3개(숫자·상품명·분류코드) → 저장 행 없음', [count($pr['errors']), $pr['row']], [3, null]);
 eq('빈 행은 건너뜀', syc_bulk_parse_row(['', ' ', '', '', ''], $map, [])['empty'], true);
+// 업체별 제품관리(2026-11-13): 출처 = 고른 업체, 다른 업체 출처가 적힌 행은 오류, 같은 제품 열쇠 = 제품명+규격+옵션
+$pr = syc_bulk_parse_row(['syc-s1', '측구', '200', 'x-1', ''], $map, ['syc-s1' => 7], 'vendor-5');
+eq('업체 행: 출처 = 고른 업체(vendor-5)', [$pr['row']['external_source'], $pr['errors']], ['vendor-5', []]);
+$mapSrc = [0 => 'category_slug', 1 => 'name', 2 => 'external_source', 3 => 'external_id'];
+$pr = syc_bulk_parse_row(['syc-s1', '측구', 'syccrt', 'x-1'], $mapSrc, ['syc-s1' => 7], 'vendor-5');
+eq('업체 행: 엑셀 출처가 다른 업체(syccrt)면 오류 → 저장 안 함(다른 업체 상품 덮어쓰기 방지)', [$pr['row'], count($pr['errors'])], [null, 1]);
+$pr = syc_bulk_parse_row(['syc-s1', '측구', 'syccrt', 'x-1'], $mapSrc, ['syc-s1' => 7], 'syccrt');
+eq('상용콘크리트 행: 엑셀 출처 syccrt 그대로 통과', [$pr['row']['external_source'], $pr['errors']], ['syccrt', []]);
+eq('같은 제품 열쇠: 공백 정리·옵션 null = 빈칸', [product_match_key(' 환경수로관 ', '3000*3150  *1500', null) === product_match_key('환경수로관', '3000*3150 *1500', ''),
+    product_match_key('환경수로관', '3000*3150*1500', null) === product_match_key('환경수로관', '2500*2650*1500', null)], [true, false]);
+eq('자동 출처ID: 같은 열쇠 → 같은 ID, auto- + 24자', [product_auto_external_id('a') === product_auto_external_id('a'), strlen(product_auto_external_id('a')), str_starts_with(product_auto_external_id('a'), 'auto-')], [true, 29, true]);
+eq('업체 출처 코드', product_source_vendor_code(12), 'vendor-12');
+eq('활성/비활성 변경 기능 멈춤(사용자 결정 2026-11-13)', PRODUCT_ACTIVE_TOGGLE_ENABLED, false);
+require_once __DIR__ . '/../app/ktomok_bulk.php';
+eq('케이토목 규격 줄 나누기', ktomok_spec_parts('규격: 1.5*1.5*2.0_160T*140T | 중량: 3,640kg | 단위: 본'), ['spec' => '1.5*1.5*2.0_160T*140T', 'weight' => '3,640kg', 'unit' => '본', 'rest' => []]);
+eq('케이토목 규격 줄: 이름표 없으면 통째로 규격', ktomok_spec_parts('300*300')['spec'], '300*300');
+eq('케이토목 규격 줄 합치기(빈 조각 뺌)', ktomok_spec_compose(['spec' => '300*300', 'weight' => null, 'unit' => '개', 'rest' => ['상차수량: 32']]), '규격: 300*300 | 단위: 개 | 상차수량: 32');
+eq('케이토목 중량 글자', [ktomok_weight_text(3640.0), ktomok_weight_text(12.5), ktomok_weight_text(null)], ['3,640kg', '12.5kg', null]);
+$kmap = syc_bulk_header_map(['분류코드 [category_slug]', '상품명 [name]', '규격 [spec]', '매입가 [cost_price]', '모델 코드 [spec_code]'], ktomok_bulk_columns(), KTOMOK_BULK_META_KEYS);
+eq('케이토목 양식 머리글: 케이토목 칸만(모델 코드는 상용콘크리트 칸이라 무시)', array_values($kmap), ['category_slug', 'name', 'spec', 'cost_price']);
+$kcsv = tempnam(sys_get_temp_dir(), 'kt') . '.csv';
+file_put_contents($kcsv, "\xEF\xBB\xBF분류코드 [category_slug],상품명 [name],규격 [spec],중량(kg) [weight_kg],매입가 [cost_price]\nmid11--20,측구수로관,300*300,120,1000\nmid11--20,측구수로관,300*300,130,\nmid11--20,측구수로관,400*400,,\nsyc-s1,측구수로관,500*500,,\n");
+$kr = ktomok_bulk_read_excel($kcsv, 'csv', ['mid11--20' => 257]);
+unlink($kcsv);
+eq('케이토목 엑셀: 같은 제품명·규격 두 번 → 오류, 상용콘크리트 분류코드 → 오류, 정상 2행', [count($kr['rows']), $kr['error_count'], $kr['present'], $kr['rows'][0]['category_id'], $kr['rows'][1]['cost_price']],
+    [2, 2, ['name', 'spec', 'weight_kg', 'cost_price'], 257, 0]);
 // 실제 테스트 엑셀(data/syccrt) 704행 — 분류코드는 카테고리 마이그레이션(+ 2026-11-11 나누기)의 품목 slug
 preg_match_all("/'(syc-[sw]\d+)'/", (string) file_get_contents(__DIR__ . '/../database/20261110_syc_categories.sql') . (string) file_get_contents(__DIR__ . '/../database/20261111_syc_categories_split.sql'), $sm);
 $cats = array_flip(array_values(array_unique($sm[1])));
