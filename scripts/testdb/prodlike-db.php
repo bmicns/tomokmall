@@ -75,10 +75,23 @@ $cats   = $prod('SELECT id, parent_id, name, description, slug, sort_order, is_a
 $axes   = $prod('SELECT category_id, seq, axis_key, label, symbol, show_symbol, unit, use_filter, parse_fmt, fixed_value, fixed_text, is_active FROM category_spec_axes ORDER BY category_id, seq');
 $guides = $prod('SELECT category_key, title, guide_text, is_active, sort_order FROM category_consult_guide');
 $counts = $prod('SELECT c.id, COUNT(p.id) AS n FROM categories c LEFT JOIN products p ON p.category_id = c.id GROUP BY c.id');
+// 운영이 상용콘크리트로 전환된 뒤(2026-11-12)에도 이 DB 는 '전환 전'(케이토목) 상태로 만든다 — 기존 테스트가 케이토목 상품 기준.
+// 전환 때 숨긴 케이토목 분류 id(syc_catalog_hidden, id 만)는 다시 보이게, 반영된 상용콘크리트 분류(slug 'syc-')는 숨김.
+// 상용콘크리트 상태 DB 는 scripts/testdb/prodlike-syc.php(tomokmall_syc_test)
+try {
+    $hiddenCats = array_flip(array_map(static fn($r) => (int) $r['ref_id'], $prod("SELECT ref_id FROM syc_catalog_hidden WHERE entity = 'category'")));
+} catch (\Throwable $e) {
+    $hiddenCats = [];
+}
+foreach ($cats as $i => $c) {
+    if (str_starts_with((string) $c['slug'], 'syc-')) { $cats[$i]['is_active'] = 0; }
+    elseif (isset($hiddenCats[(int) $c['id']])) { $cats[$i]['is_active'] = 1; }
+}
 $withProducts = [];
 foreach ($counts as $c) { $withProducts[(int) $c['id']] = (int) $c['n']; }
 $byName = [];
-foreach ($cats as $c) { $byName[(string) $c['name']][] = (int) $c['id']; }
+$sycIds = [];
+foreach ($cats as $c) { $byName[(string) $c['name']][] = (int) $c['id']; if (str_starts_with((string) $c['slug'], 'syc-')) { $sycIds[(int) $c['id']] = 1; } }
 
 $sql = ["SET FOREIGN_KEY_CHECKS = 0;", 'SET NAMES utf8mb4;'];
 foreach ($cats as $c) {
@@ -96,7 +109,8 @@ foreach ($guides as $g) {
 // 수집 상품 카테고리 이름 → 운영 카테고리 id. 같은 이름이 둘이면(상위·하위) 운영에서 상품이 있는 쪽
 $sql[] = 'CREATE TEMPORARY TABLE catmap (src_name VARCHAR(100) COLLATE utf8mb4_unicode_ci PRIMARY KEY, prod_id INT UNSIGNED);';
 foreach ($byName as $n => $ids) {
-    usort($ids, static fn($a, $b) => ($withProducts[$b] ?? 0) <=> ($withProducts[$a] ?? 0));
+    // 같은 이름의 상용콘크리트 반영 분류(slug 'syc-', 2026-11-12 전환 뒤 운영에서 상품이 더 많음)보다 케이토목 분류를 먼저
+    usort($ids, static fn($a, $b) => (int) ($sycIds[$a] ?? 0) <=> (int) ($sycIds[$b] ?? 0) ?: ($withProducts[$b] ?? 0) <=> ($withProducts[$a] ?? 0));
     $sql[] = 'INSERT INTO catmap VALUES (' . $lit($n) . ', ' . $ids[0] . ');';
 }
 $sql[] = "INSERT INTO products (id, category_id, name, spec, description, price_b2c, price_b2b, stock_qty, external_source, external_id, source_url, image_url, is_active, created_at)
