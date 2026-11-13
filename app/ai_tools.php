@@ -1531,12 +1531,20 @@ function ai_is_cover_row(array $r): bool
     return preg_match('/그레이팅/u', $n) === 1 && preg_match('/수로관|플륨|높이\s*조절/u', $n) !== 1;
 }
 
-/** 판매 중인 덮개가 없을 때 안내 (순수 함수) — 이름에 '그레이팅'이 들어간 본체가 걸렸으면 그 이름을 밝혀 덮개가 아님을 알린다 */
+/**
+ * 덮개 단품이 사이트에 없을 때 안내 (순수 함수, 2026-11-13 사용자 결정: '취급 안 함'이 아니라 '아직 등록 안 됨' + 견적 요청).
+ * 상용콘크리트 카탈로그에는 그레이팅 분류가 있으나 규격표가 없어 상품을 아직 만들지 않았다(syc-products.md). 검색에 걸린 수로관 중
+ * 상세 치수에 그레이팅 규격 옵션이 있는 제품은 알려 준다(가격 포함 여부는 모름 — 옵션으로만).
+ */
 function ai_cover_missing_note(string $query, array $rows): string
 {
+    $note = "'{$query}'(덮개) 단품은 사이트에 아직 등록되지 않았습니다. 견적요청하기로 문의해 주시면 확인해 드립니다.";
+    $opt = array_values(array_unique(array_map(static fn($r) => (string) ($r['name'] ?? ''), array_filter($rows, static fn($r) => str_contains((string) ($r['spec_detail'] ?? ''), '그레이팅')))));
+    if ($opt) {
+        return $note . ' ' . implode(', ', array_map(static fn($n) => "'{$n}'", array_slice($opt, 0, 3))) . ' 등은 그레이팅 규격이 옵션으로 표기된 제품입니다(상품 상세의 세부 치수 참고).';
+    }
     $bodies = array_values(array_unique(array_filter(array_map(static fn($r) => (string) ($r['name'] ?? ''), $rows), static fn($n) => preg_match('/그레이팅/u', $n) === 1)));
-    return "현재 판매 중인 '{$query}'(덮개) 제품이 없습니다."
-        . ($bodies ? ' 이름에 그레이팅이 들어간 ' . implode(', ', array_map(static fn($n) => "'{$n}'", array_slice($bodies, 0, 3))) . '은(는) 덮개가 아니라 수로관 본체입니다.' : '');
+    return $note . ($bodies ? ' 이름에 그레이팅이 들어간 ' . implode(', ', array_map(static fn($n) => "'{$n}'", array_slice($bodies, 0, 3))) . '은(는) 덮개가 아니라 수로관 본체입니다.' : '');
 }
 
 /**
@@ -1619,7 +1627,8 @@ function ai_not_carried_note(string $query): string
         $found = !array_filter($segs, static fn($x) => mb_strpos($hay, mb_strtolower((string) $x)) === false);
         if (!$found) { $missing[] = $tok; }
     }
-    return $missing ? implode(', ', array_map(static fn($t) => "'{$t}'", $missing)) . '은(는) 현재 판매 중인 제품이 없습니다.' : '';
+    // 2026-11-13 사용자 결정: '판매하지 않음'이 아니라 '사이트에 아직 등록 안 됨' + 견적 요청(상용콘크리트 카탈로그에는 있으나 규격표가 없어 상품 미등록)
+    return $missing ? implode(', ', array_map(static fn($t) => "'{$t}'", $missing)) . '은(는) 사이트에 아직 등록된 제품이 없습니다. 견적요청하기로 문의해 주시면 확인해 드립니다.' : '';
 }
 
 /** 수로(배수로·측구·트렌치) 덮개를 찾는 검색어인지 (순수 함수) — 맨홀·집수정 위 덮개는 쓰는 곳이 달라 후보에서 뺀다 */

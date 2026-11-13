@@ -37,10 +37,10 @@ function ok(string $name, bool $cond, string $info = ''): void {
 $s = static fn(array $in): array => json_decode(tool_search_products($in), true) ?: [];
 $names = static fn(array $r): array => array_column($r['products'] ?? [], 'name');
 
-echo "[① 덮개(그레이팅) — 판매 중인 덮개 없음, 수로관 본체를 덮개처럼 추천하지 않음]\n";
+echo "[① 덮개(그레이팅) — 단품은 아직 미등록·견적 요청, 수로관 본체를 덮개처럼 추천하지 않음]\n";
 $r = $s(['query' => '그레이팅 수로용', 'width_mm' => 500, 'length_m' => 10, 'traffic' => 'pedestrian']);
 ok('표 없음 + not_carried', ($r['products'] ?? []) === [] && !empty($r['not_carried']), json_encode($names($r), JSON_UNESCAPED_UNICODE));
-ok("안내: 판매 중인 덮개 없음 + '그레이팅 높이조절용 측구수로관'은 수로관 본체", str_contains((string) ($r['note'] ?? ''), "현재 판매 중인 '그레이팅 수로용'(덮개) 제품이 없습니다") && str_contains((string) ($r['note'] ?? ''), '수로관 본체'), (string) ($r['note'] ?? ''));
+ok("안내: 덮개 단품은 아직 미등록 + 견적 요청 + 그레이팅 옵션이 있는 수로관 안내(취급 안 함이라고 하지 않음, 2026-11-13)", str_contains((string) ($r['note'] ?? ''), "'그레이팅 수로용'(덮개) 단품은 사이트에 아직 등록되지 않았습니다. 견적요청하기로 문의해 주시면 확인해 드립니다.") && str_contains((string) ($r['note'] ?? ''), '그레이팅 규격이 옵션으로 표기된 제품') && !str_contains((string) ($r['note'] ?? ''), '판매 중인'), (string) ($r['note'] ?? ''));
 $r = $s(['query' => '측구 수로관', 'width_mm' => 300, 'length_m' => 20]);
 ok('본체를 찾으면(측구 수로관) 본체 표 — 폭 300 측구수로관, 20m → 10본', in_array('측구수로관', $names($r), true) && (int) (array_values(array_filter($r['products'], static fn($p) => $p['name'] === '측구수로관'))[0]['suggested_qty'] ?? 0) === 10);
 $r = $s(['query' => '맨홀 뚜껑', 'traffic' => 'car']);
@@ -65,9 +65,9 @@ ok("'암거' 폭 1000 → 암거 1련(내공폭 B 1000)", in_array('암거 1련'
 
 echo "[④ 판매하지 않는 품목]\n";
 $r = $s(['query' => '이중벽관', 'spec_mm' => 300, 'length_m' => 30]);
-ok("'이중벽관' → 표 없음 + 판매 중인 제품 없음", ($r['products'] ?? []) === [] && str_contains((string) ($r['note'] ?? ''), "'이중벽관'은(는) 현재 판매 중인 제품이 없습니다"), (string) ($r['note'] ?? ''));
+ok("'이중벽관' → 표 없음 + 사이트에 아직 등록된 제품 없음 + 견적 요청", ($r['products'] ?? []) === [] && str_contains((string) ($r['note'] ?? ''), "'이중벽관'은(는) 사이트에 아직 등록된 제품이 없습니다. 견적요청하기로 문의해 주시면 확인해 드립니다."), (string) ($r['note'] ?? ''));
 $r = $s(['query' => 'PE 배수관', 'spec_mm' => 150, 'length_m' => 30]);
-ok("'PE 배수관' → '배수관' 판매 제품 없음 + 표는 다른 제품이라고 안내(not_carried)", !empty($r['not_carried']) && str_contains((string) ($r['note'] ?? ''), "'배수관'은(는) 현재 판매 중인 제품이 없습니다") && str_contains((string) ($r['note'] ?? ''), '이름이 비슷한 다른 제품'), (string) ($r['note'] ?? ''));
+ok("'PE 배수관' → '배수관' 아직 미등록 + 견적 요청 + 표는 다른 제품이라고 안내(not_carried)", !empty($r['not_carried']) && str_contains((string) ($r['note'] ?? ''), "'배수관'은(는) 사이트에 아직 등록된 제품이 없습니다") && str_contains((string) ($r['note'] ?? ''), '이름이 비슷한 다른 제품'), (string) ($r['note'] ?? ''));
 $r = $s(['query' => '흄관', 'spec_mm' => 300, 'length_m' => 50]);
 ok('판매 중인 품목(흄관)에는 그 안내 없음', empty($r['not_carried']) && in_array('흄관(원심력관)', $names($r), true));
 
