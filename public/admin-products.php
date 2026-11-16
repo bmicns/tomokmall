@@ -175,10 +175,10 @@ render_admin_header('제품관리', 'products');
     <input type="text" id="filter-q" placeholder="제품명 검색" oninput="debounce()">
 </div>
 
-<!-- 상용콘크리트·업체 상품: 여러 상품 한 번에 활성/비활성 — 바꾸면 고객 화면(공통 분류)에 바로 반영(활성 = 보임, 2026-11-16) -->
+<!-- 모든 업체(케이토목·상용콘크리트·업체 목록): 여러 상품 한 번에 활성/비활성 — 바꾸면 고객 화면(공통 분류)에 바로 반영(활성 = 보임, 2026-11-16) -->
 <!-- 사이트 반영·전환 화면 상자는 뺐음(사용자 요청 2026-11-13). 기능 코드는 그대로 둠: app/syc_publish.php(반영·케이토목으로 되돌리기·전환), API public/api/admin/syc-catalog.php -->
 
-<div class="syc-bulkbar bk-hide" id="syc-bulkbar">
+<div class="syc-bulkbar" id="syc-bulkbar">
     <label><input type="checkbox" id="syc-chk-all" onchange="sycCheckAll(this.checked)">이 페이지 전체 선택</label>
     <span id="syc-sel-count" aria-live="polite">선택 0개</span>
     <button type="button" class="syc-all-link" id="syc-all-btn" onclick="sycSelectAllMatching(!sycAllMatching)" hidden></button>
@@ -393,7 +393,6 @@ async function sourceChanged() {
     const syc = isSyc();
     document.getElementById('filter-cat').classList.toggle('bk-hide', syc);
     document.getElementById('filter-syc-cat').classList.toggle('bk-hide', !syc);
-    document.getElementById('syc-bulkbar').classList.toggle('bk-hide', !syc);
     document.getElementById('src-name').textContent = srcName();
     document.getElementById('bk-banner').hidden = true;
     if (syc && !sycCatsLoaded) {
@@ -420,7 +419,10 @@ async function load(page) {
     // 오류는 200 + ok:false + error 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
     const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok) { alert(d.error); return; }
-    if (syc) { sycTotal = d.total; sycFilter = {source: srcCode(), status, cat_id: catId, q}; sycAllMatching = false; renderSyc(d.products); sycSelCount(); } else render(d.products);
+    sycTotal = d.total; sycAllMatching = false;
+    sycFilter = syc ? {source: srcCode(), status, cat_id: catId, q} : {status, cat_id: catId, q};
+    if (syc) renderSyc(d.products); else render(d.products);
+    sycSelCount();
     renderPaging(d.total, d.limit, page);
 }
 
@@ -448,7 +450,8 @@ function renderSyc(rows) {
     }).join('');
 }
 
-// 선택: 이 페이지 체크 + '검색 결과 전체 N개 선택'(모든 페이지, 지금 목록 조건 그대로 — 서버가 같은 조건으로 바꿈)
+// 선택(모든 업체): 이 페이지 체크 + '검색 결과 전체 N개 선택'(모든 페이지, 지금 목록 조건 그대로 — 서버가 같은 조건으로 바꿈)
+// 케이토목 → API(bulk_toggle·set_active_filter), 상용콘크리트·업체 → SYC_API(set_active·set_active_filter)
 let sycTotal = 0, sycFilter = null, sycAllMatching = false;
 function sycSelCount() {
     const all = document.querySelectorAll('.syc-chk');
@@ -480,7 +483,7 @@ async function sycBulk(val) {
     const word = val ? '활성' : '비활성';
     if (sycAllMatching) {
         if (!confirm(`검색 결과 전체 ${sycTotal.toLocaleString()}개(모든 페이지)를 ${word}으로 바꿀까요?`)) return;
-        const r = await fetch(SYC_API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'set_active_filter', filter:sycFilter, expect:sycTotal, is_active:val})});
+        const r = await fetch(isSyc() ? SYC_API : API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'set_active_filter', filter:sycFilter, expect:sycTotal, is_active:val})});
         const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
         if (!d.ok) { alert(d.error); load(curPage); return; }
         pubWarn(d);
@@ -495,7 +498,8 @@ async function sycBulk(val) {
 
 async function sycToggle(id, val) {
     const ids = Array.isArray(id) ? id : [id];
-    const r = await fetch(SYC_API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'set_active', ids, is_active:val})});
+    const syc = isSyc();
+    const r = await fetch(syc ? SYC_API : API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action: syc ? 'set_active' : 'bulk_toggle', ids, is_active:val})});
     const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok) { alert(d.error); return; }
     pubWarn(d);
@@ -757,8 +761,9 @@ function render(rows) {
             <td style="font-size:12px">${x(sp.load || '-')}</td>
             <td><span class="badge ${active?'badge-on':'badge-off'}">${active?'활성':'비활성'}</span></td>
             <td style="white-space:nowrap">
+                <label class="syc-sel"><input type="checkbox" class="syc-chk" value="${+p.id}" aria-label="${x(p.name)} ${x(sp.spec || p.spec)} 선택" onchange="sycSelCount()"></label>
                 <button class="btn-sm btn-sm-edit" onclick='edit(${JSON.stringify(p)})'>수정</button>
-                <button class="btn-sm btn-sm-del" onclick="del(${p.id},'${x(p.name)}')" style="margin-left:4px"${ACTIVE_TOGGLE ? '' : ` disabled title="${x(ACTIVE_OFF_MSG)}"`}>삭제</button>
+                <button class="btn-sm ${active?'btn-sm-del':'btn-sm-edit'}" onclick="sycToggle(${+p.id}, ${active?0:1})" style="margin-left:4px"${ACTIVE_TOGGLE ? '' : ` disabled title="${x(ACTIVE_OFF_MSG)}"`}>${active?'비활성으로':'활성으로'}</button>
             </td>
         </tr>`;
     }).join('');

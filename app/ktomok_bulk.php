@@ -139,12 +139,12 @@ function ktomok_bulk_category_ids(PDO $pdo): array
  */
 function ktomok_bulk_find(PDO $pdo, array $row): ?array
 {
-    if (($row['external_id'] ?? null) !== null) {   // 케이토목 행(출처 ktomok·dacity·없음) 안에서 출처ID
-        $st = $pdo->prepare("SELECT id, spec FROM products WHERE (external_source IS NULL OR external_source <> 'syccrt') AND external_id = ? LIMIT 2");
+    if (($row['external_id'] ?? null) !== null) {   // 케이토목 행(출처 ktomok·dacity·없음 — 상용콘크리트·업체 반영본 제외) 안에서 출처ID
+        $st = $pdo->prepare("SELECT id, spec FROM products WHERE (external_source IS NULL OR (external_source <> 'syccrt' AND external_source NOT LIKE 'vendor-%')) AND external_id = ? LIMIT 2");
         $st->execute([$row['external_id']]);
         $hit = $st->fetchAll();
     } else {
-        $st = $pdo->prepare("SELECT id, spec FROM products WHERE (external_source IS NULL OR external_source <> 'syccrt') AND name = ?");
+        $st = $pdo->prepare("SELECT id, spec FROM products WHERE (external_source IS NULL OR (external_source <> 'syccrt' AND external_source NOT LIKE 'vendor-%')) AND name = ?");
         $st->execute([$row['name']]);
         $want = product_match_key('', $row['spec'] ?? '', null);
         $hit = array_values(array_filter($st->fetchAll(), static fn($e) => product_match_key('', ktomok_spec_parts($e['spec'])['spec'] ?? '', null) === $want));
