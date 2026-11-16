@@ -4,10 +4,12 @@
 -- 내용(categories 한 표, 가격 칸 쓰지 않음):
 --   1) 새 품명 19개(std-001~019, 매핑 대조표 확정 2026-11-12) — 마진율 칸을 넣지 않아 0 = 상위 분류 값(20%/10%) 상속 → 가격 계산 같음.
 --      **숨긴 채(is_active 0) 넣음** — 첫 공통 분류 반영(syc_publish_std_apply) 때 숨겨 둔 케이토목 분류와 함께 한 번에 보이게 함(그 전 메뉴 변화 없음)
---   2) 71 '인조화강블록(투수)' → '인조화강블록'(투수·불투수 합침, 투수/불투수는 규격외정보 — 72 의 상품은 관리자 화면에서 71 로 옮김)
+--   2) 71 '인조화강블록(투수)' → '인조화강블록'(투수·불투수 합침, 투수/불투수는 규격외정보)
+--   3) 72 '인조화강블록(불투수)' 는 계속 숨김: 전환 때 숨긴 목록(syc_catalog_hidden)에서 빼 첫 공통 분류 반영 때 다시 보이지 않게(분류 행·상품은 그대로)
 -- 순서: 20261116_catalog_mode_std.sql(DDL) → 이 파일 → 코드 배포 → 관리자가 상용콘크리트 엑셀을 다시 일괄 등록(자동 반영 → 공통 분류 모드)
 -- 되돌리기: DELETE FROM categories WHERE slug LIKE 'std-0%' AND NOT EXISTS (SELECT 1 FROM products p WHERE p.category_id = categories.id);
 --          UPDATE categories SET name = '인조화강블록(투수)' WHERE id = 71;
+--          INSERT IGNORE INTO syc_catalog_hidden (entity, ref_id) VALUES ('category', 72);
 
 INSERT INTO categories (parent_id, name, slug, sort_order, is_active)
 SELECT x.parent_id, x.name, x.slug, x.sort_order, 0 FROM (
@@ -34,3 +36,4 @@ SELECT x.parent_id, x.name, x.slug, x.sort_order, 0 FROM (
 
 UPDATE categories SET name = '인조화강블록' WHERE id = 71 AND name = '인조화강블록(투수)';
 
+DELETE FROM syc_catalog_hidden WHERE entity = 'category' AND ref_id = 72;

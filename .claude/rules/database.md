@@ -42,7 +42,7 @@
 | 기능 | 파일(권한) | 바꾸는 가격 값 |
 |---|---|---|
 | 관리자 상품 관리 | `public/api/admin/products.php` (admin) | `price_b2b`·`price_b2c`·`cost_price`·`category_id` |
-| 관리자 카테고리 | `public/api/admin/categories.php` (admin) | 마진율·`parent_id`(대분류 → 다른 대분류 아래 옮기기, 11-16) |
+| 관리자 카테고리 | `public/api/admin/categories.php` (admin) | 마진율·`parent_id` |
 | 직원 업체 공급가 | `public/api/staff/vendors.php` (staff) | `supply_price` |
 | 직원 견적 조정 | `public/api/staff/estimates.php` (staff) | `adjusted_price`·`shipping_fee`·`discount_amt` |
 | 주문·결제 저장 | `public/api/order.php` | 주문·결제 금액(새 행) |

@@ -9,7 +9,7 @@ declare(strict_types=1);
  *
  * 한 줄 = [업체 분류코드(syc_categories.slug), 조건 종류, 조건 값, 공통 분류(categories.id 또는 새 품명 slug 'std-…'), 신뢰도]
  *   조건 종류: 'code'(모델 코드가 같음) · 'option'(옵션에 글자 포함) · 'name'(상품명에 글자 포함) · 'all'(나머지 전부) — 이 순서로 먼저 맞는 줄
- * 새 품명 'std-001'~ 는 database/20261116_std_categories.sql 로 만든다(마진율 칸 없이 상위 20%/10% 상속 — 가격 계산 같음).
+ * 새 품명 'std-001'~ 는 database/20261116_std_categories.sql 로 만든다(마진율 칸 없이 상위 20%/10% 상속 — 가격 계산 같음). 케이토목 72 상품 → 71 은 database/20261116_std_price_inputs_phpmyadmin.sql(사용자 phpMyAdmin).
  */
 
 const CATALOG_STD_MAP = [
