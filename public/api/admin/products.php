@@ -14,9 +14,12 @@ require_admin();
  * POST JSON create / update               제품 1건 등록(비활성, 출처 ktomok) / 수정(활성 상태는 바꾸지 않음)
  * POST multipart action=stage_excel       케이토목 엑셀 올리기 → 검증 결과(app/ktomok_bulk.php)
  * POST JSON {action:'bulk_commit', job}   올린 엑셀로 등록: 새 상품 비활성, 같은 상품(출처ID → 제품명+규격)은 엑셀 칸만 덮어쓰기
- * POST JSON delete / bulk_toggle          활성/비활성 바꾸기 — 지금 멈춤(PRODUCT_ACTIVE_TOGGLE_ENABLED, 추후 개발)
+ * POST JSON delete / bulk_toggle {ids, is_active}   활성/비활성 바꾸기(케이토목 행만) — 활성 = 고객 화면에 보임(2026-11-16)
+ * POST JSON {action:'set_active_filter', filter:{status,cat_id,q}, expect, is_active}  검색 결과 전체(모든 페이지) 활성/비활성
+ *      ↑ PRODUCT_ACTIVE_TOGGLE_ENABLED 가 false 면 멈춤
  */
-const KTOMOK_ROWS_WHERE = "(p.external_source IS NULL OR p.external_source <> 'syccrt')";
+// 케이토목 행 = 상용콘크리트(syccrt)·업체(vendor-<id>) 반영본이 아닌 행 — 반영본은 원본(syc_products)에서 고친다
+const KTOMOK_ROWS_WHERE = "(p.external_source IS NULL OR (p.external_source <> 'syccrt' AND p.external_source NOT LIKE 'vendor-%'))";
 const KTOMOK_WEBROOT = __DIR__ . '/../..';   // 이미지 경로(/…)를 찾는 웹루트(public)
 
 /**
@@ -32,38 +35,36 @@ function admin_product_sync_spec_axes(int $id): void
     }
 }
 
+/**
+ * 목록 조건(케이토목 행만): 화면 목록과 '검색 결과 전체' 활성/비활성이 같은 조건을 쓴다.
+ * @return array{0:string,1:array<string,mixed>} [WHERE 문, 매개변수]
+ */
+function admin_products_list_where(array $f): array
+{
+    $catId  = (int) ($f['cat_id'] ?? 0);
+    $q      = trim((string) ($f['q'] ?? ''));
+    $status = (string) ($f['status'] ?? 'active');
+    $where  = [KTOMOK_ROWS_WHERE];
+    $params = [];
+    if ($status === 'active') { $where[] = 'p.is_active = 1'; }
+    elseif ($status === 'inactive') { $where[] = 'p.is_active = 0'; }   // 'all' → is_active 조건 없음
+    if ($catId) { $where[] = 'p.category_id = :cat_id'; $params['cat_id'] = $catId; }
+    if ($q !== '') {
+        $where[]     = '(p.name LIKE :q OR p.spec LIKE :q2 OR p.brand LIKE :q3)';
+        $params['q'] = $params['q2'] = $params['q3'] = "%{$q}%";
+    }
+    return [implode(' AND ', $where), $params];
+}
+
 $method = $_SERVER['REQUEST_METHOD'];
 
 try {
     // GET: 제품 목록
     if ($method === 'GET') {
-        $catId  = (int)($_GET['cat_id'] ?? 0);
-        $q      = trim($_GET['q'] ?? '');
         $page   = max(1, (int)($_GET['page'] ?? 1));
-        $status = $_GET['status'] ?? 'active';
         $limit  = 20;
         $offset = ($page - 1) * $limit;
-
-        $where  = [KTOMOK_ROWS_WHERE];
-        $params = [];
-
-        if ($status === 'active') {
-            $where[] = 'p.is_active = 1';
-        } elseif ($status === 'inactive') {
-            $where[] = 'p.is_active = 0';
-        }
-        // 'all' → is_active 조건 없음
-
-        if ($catId) {
-            $where[]          = 'p.category_id = :cat_id';
-            $params['cat_id'] = $catId;
-        }
-        if ($q !== '') {
-            $where[]     = '(p.name LIKE :q OR p.spec LIKE :q2 OR p.brand LIKE :q3)';
-            $params['q'] = $params['q2'] = $params['q3'] = "%{$q}%";
-        }
-
-        $whereStr = $where ? implode(' AND ', $where) : '1=1';
+        [$whereStr, $params] = admin_products_list_where($_GET);
 
         $cntSt = db()->prepare("SELECT COUNT(*) AS c FROM products p WHERE {$whereStr}");
         $cntSt->execute($params);
@@ -115,7 +116,7 @@ try {
     // POST: create / update / delete / bulk_toggle / bulk_commit
     $body   = json_decode(file_get_contents('php://input'), true) ?? [];
     $action = $body['action'] ?? '';
-    if (!PRODUCT_ACTIVE_TOGGLE_ENABLED && in_array($action, ['delete', 'bulk_toggle'], true)) {
+    if (!PRODUCT_ACTIVE_TOGGLE_ENABLED && in_array($action, ['delete', 'bulk_toggle', 'set_active_filter'], true)) {
         throw new \InvalidArgumentException(PRODUCT_ACTIVE_TOGGLE_OFF_MSG);
     }
 
@@ -182,14 +183,36 @@ try {
             echo json_encode(['ok' => true]);
             break;
 
-        case 'bulk_toggle':
-            $ids = array_map('intval', $body['ids'] ?? []);
-            $val = (int)($body['is_active'] ?? 0);
-            if (!$ids) throw new \InvalidArgumentException('ids 필수');
+        case 'bulk_toggle':   // 고른 상품(이 페이지) — 케이토목 행만 바꿈(반영본은 원본에서 바꿔야 다음 반영 때 되돌아가지 않음)
+            $ids = array_values(array_filter(array_map('intval', (array) ($body['ids'] ?? [])), static fn($v) => $v > 0));
+            if (!$ids || count($ids) > 500) throw new \InvalidArgumentException('대상 상품이 없습니다.');
+            $val = (int)($body['is_active'] ?? 0) === 1 ? 1 : 0;
             $placeholders = implode(',', array_fill(0, count($ids), '?'));
-            db()->prepare("UPDATE products SET is_active={$val} WHERE id IN ({$placeholders})")
-                ->execute($ids);
-            echo json_encode(['ok' => true]);
+            $up = db()->prepare("UPDATE products p SET p.is_active = ? WHERE p.id IN ({$placeholders}) AND " . KTOMOK_ROWS_WHERE);
+            $up->execute(array_merge([$val], $ids));
+            echo json_encode(['ok' => true, 'changed' => $up->rowCount()]);
+            break;
+
+        // 검색 결과 전체(여러 페이지) 활성/비활성: 화면의 목록 조건 그대로. 화면이 본 개수(expect)와 지금 개수가 다르면
+        // 그사이 목록이 바뀐 것이므로 바꾸지 않고 다시 확인하게 한다(api/admin/syc-products.php 와 같은 방식)
+        case 'set_active_filter':
+            $filter = is_array($body['filter'] ?? null) ? $body['filter'] : [];
+            $expect = (int)($body['expect'] ?? -1);
+            $val    = (int)($body['is_active'] ?? 0) === 1 ? 1 : 0;
+            [$w, $params] = admin_products_list_where($filter);
+            $pdo = db();
+            $pdo->beginTransaction();
+            $cnt = $pdo->prepare("SELECT COUNT(*) FROM products p WHERE {$w}");
+            $cnt->execute($params);
+            $now = (int) $cnt->fetchColumn();
+            if ($now === 0 || $now !== $expect) {
+                $pdo->rollBack();
+                throw new \InvalidArgumentException($now === 0 ? '대상 상품이 없습니다.' : "그사이 목록이 바뀌었습니다(지금 {$now}개). 목록을 다시 확인해 주세요.");
+            }
+            $up = $pdo->prepare("UPDATE products p SET p.is_active = :val WHERE {$w}");
+            $up->execute(['val' => $val] + $params);
+            $pdo->commit();
+            echo json_encode(['ok' => true, 'count' => $now, 'changed' => $up->rowCount()]);
             break;
 
         case 'bulk_commit':
