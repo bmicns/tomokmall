@@ -21,13 +21,20 @@ $tplCols = [
     'syc'      => $tplHead(array_merge(['category_slug'], array_values(array_diff(array_keys(syc_bulk_columns()), ['external_source'])), $tplImg)),
 ];
 
+// 상품을 붙일 분류: 대·중·품명 3단계의 품명 + 대분류 바로 아래 품명(하위 없음 — 기타·1련암거·2련암거 등). 재질 대분류 6개(2026-11-16)
+$catRootIn = implode(',', CATALOG_ROOT_IDS);
 $leafCats = db()->query(
-    "SELECT c.id, c.slug, c.name, p.name AS mid_name, gp.name AS root_name
+    "SELECT c.id, c.slug, c.name, p.name AS mid_name, gp.name AS root_name, gp.sort_order AS s1, p.sort_order AS s2, c.sort_order AS s3
      FROM categories c
      JOIN categories p  ON p.id  = c.parent_id
      JOIN categories gp ON gp.id = p.parent_id
-     WHERE c.is_active = 1 AND p.parent_id IN (11,12,13,14,15)
-     ORDER BY gp.sort_order, p.sort_order, c.sort_order, c.id"
+     WHERE c.is_active = 1 AND p.parent_id IN ({$catRootIn})
+     UNION ALL
+     SELECT c.id, c.slug, c.name, '(바로 아래)' AS mid_name, p.name AS root_name, p.sort_order AS s1, -1 AS s2, c.sort_order AS s3
+     FROM categories c
+     JOIN categories p ON p.id = c.parent_id
+     WHERE c.is_active = 1 AND c.parent_id IN ({$catRootIn}) AND NOT EXISTS (SELECT 1 FROM categories k WHERE k.parent_id = c.id)
+     ORDER BY s1, s2, s3, id"
 )->fetchAll();
 $catGroups = [];
 foreach ($leafCats as $c) {
@@ -167,7 +174,7 @@ render_admin_header('제품관리', 'products');
     <input type="text" id="filter-q" placeholder="제품명 검색" oninput="debounce()">
 </div>
 
-<!-- 상용콘크리트·업체 상품: 여러 상품 한 번에 활성/비활성(지금은 버튼만 보이고 기능 멈춤 — PRODUCT_ACTIVE_TOGGLE_ENABLED) -->
+<!-- 상용콘크리트·업체 상품: 여러 상품 한 번에 활성/비활성 — 바꾸면 고객 화면(공통 분류)에 바로 반영(활성 = 보임, 2026-11-16) -->
 <!-- 사이트 반영·전환 화면 상자는 뺐음(사용자 요청 2026-11-13). 기능 코드는 그대로 둠: app/syc_publish.php(반영·케이토목으로 되돌리기·전환), API public/api/admin/syc-catalog.php -->
 
 <div class="syc-bulkbar bk-hide" id="syc-bulkbar">
@@ -364,7 +371,9 @@ render_admin_header('제품관리', 'products');
 
 <script>
 const API = '/api/admin/products.php';
-const ACTIVE_TOGGLE = <?= PRODUCT_ACTIVE_TOGGLE_ENABLED ? 'true' : 'false' ?>;   // 활성/비활성 바꾸기(지금 멈춤 — 추후 개발)
+const ACTIVE_TOGGLE = <?= PRODUCT_ACTIVE_TOGGLE_ENABLED ? 'true' : 'false' ?>;   // 활성/비활성 바꾸기(2026-11-16 다시 켬 — 활성 = 고객 화면에 보임)
+// 원본을 바꾼 뒤 고객 화면 반영이 실패하면(공통 분류 DB 반영 전 등) 알림 — 원본 저장은 끝난 상태
+function pubWarn(d) { if (d && d.publish_error) alert('고객 화면 반영 안 됨: ' + d.publish_error); }
 const ACTIVE_OFF_MSG = <?= json_encode(PRODUCT_ACTIVE_TOGGLE_OFF_MSG, JSON_UNESCAPED_UNICODE) ?>;
 const TPL_COLS = <?= json_encode($tplCols, JSON_UNESCAPED_UNICODE) ?>;
 let curPage = 1, debTimer;
@@ -473,6 +482,7 @@ async function sycBulk(val) {
         const r = await fetch(SYC_API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'set_active_filter', filter:sycFilter, expect:sycTotal, is_active:val})});
         const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
         if (!d.ok) { alert(d.error); load(curPage); return; }
+        pubWarn(d);
         load(1);
         return;
     }
@@ -487,6 +497,7 @@ async function sycToggle(id, val) {
     const r = await fetch(SYC_API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'set_active', ids, is_active:val})});
     const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok) { alert(d.error); return; }
+    pubWarn(d);
     load(curPage);
 }
 
@@ -644,7 +655,9 @@ async function bkRegister() {
     if (d.update || d.same) parts.push(`이미 있던 상품 ${(d.update + d.same).toLocaleString()}건은 엑셀 값으로 고쳤습니다(활성 상태 그대로).`);
     if (d.images || d.images_missing) parts.push(`이미지 경로 ${Number(d.images).toLocaleString()}건 연결` + (d.images_missing ? ` · 서버에서 못 찾은 이미지 ${Number(d.images_missing).toLocaleString()}건은 빈칸(기존 이미지 그대로)` : ''));
     if (d.normalized_rows) parts.push(`자동 정리: 상품 ${d.normalized_rows.toLocaleString()}건의 품명·모델 코드·옵션·치수·분류를 사이트 표기로 고쳐 저장했습니다.`);
-    parts.push(ACTIVE_TOGGLE ? '제품관리에서 내용을 확인한 뒤 활성으로 바꿔 주세요.' : '활성/비활성 변경은 추후 지원 예정입니다.');
+    parts.push(ACTIVE_TOGGLE ? '제품관리에서 내용을 확인한 뒤 활성으로 바꾸면 고객 화면에 보입니다.' : '활성/비활성 변경은 추후 지원 예정입니다.');
+    if (d.publish) parts.push(`고객 화면 반영: 상품 ${Number(d.publish.products).toLocaleString()}건` + (d.publish.unmapped ? ` · 공통 분류 매핑 없음 ${d.publish.unmapped}건(반영 안 됨)` : ''));
+    if (d.publish_error) parts.push(`<b style="color:#c62828">고객 화면 반영 안 됨:</b> ${x(d.publish_error)}`);
     document.getElementById('bk-done-s').innerHTML = parts.join('<br>');
     document.getElementById('bk-done').classList.remove('bk-hide');
     bk.last = d;
@@ -720,6 +733,7 @@ async function sycCreateSave() {
     const r = await fetch(SYC_API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
     const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok) { alert('저장 실패: ' + d.error); return; }
+    pubWarn(d);
     sycCreateClose();
     document.getElementById('filter-status').value = 'inactive';
     load(1);

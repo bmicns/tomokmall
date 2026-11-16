@@ -18,7 +18,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/cart.php';   // display_unit_price — 단골품목 화면 표시 가격(판매가·기업회원가)
 
 /** GNB 대분류 id (layout.php GNB·estimate-quick.php 와 동일) */
-const CORP_HOME_ROOT_IDS = [11, 12, 13, 14, 15];
+const CORP_HOME_ROOT_IDS = CATALOG_ROOT_IDS;   // 재질 대분류 6개(app/bootstrap.php, 2026-11-16 '기타' 추가)
 
 /** 매입으로 보는 견적 상태: 완료(APPROVED)·납품완료(DELIVERED) */
 const CORP_HOME_PURCHASED_STATUSES = ['APPROVED', 'DELIVERED'];

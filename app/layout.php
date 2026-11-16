@@ -22,11 +22,11 @@ function render_header(string $title, string $mode = 'normal'): void
                  FROM categories c
                  WHERE c.is_active = 1
                    AND (
-                     (c.parent_id IS NULL AND c.id IN (11,12,13,14,15))
-                     OR c.parent_id IN (11,12,13,14,15)
+                     (c.parent_id IS NULL AND c.id IN (' . implode(',', CATALOG_ROOT_IDS) . '))
+                     OR c.parent_id IN (' . implode(',', CATALOG_ROOT_IDS) . ')
                      OR c.parent_id IN (
                          SELECT id FROM categories
-                         WHERE parent_id IN (11,12,13,14,15) AND is_active = 1
+                         WHERE parent_id IN (' . implode(',', CATALOG_ROOT_IDS) . ') AND is_active = 1
                      )
                    )
                  ORDER BY c.parent_id IS NULL DESC, c.parent_id, c.sort_order, c.id'

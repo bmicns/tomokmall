@@ -18,9 +18,16 @@ declare(strict_types=1);
  * 가격: 원본의 판매가·매입가·마진율을 그대로 옮긴다(사용자 결정 2026-11-12 '마진율은 기존 그대로'). 계산식(app/pricing.php)은 그대로.
  * 금지: 케이토목 행의 값 변경(활성 여부 외), 반영본 직접 수정, 원본에 없는 값 만들기.
  * 사용: public/api/admin/syc-catalog.php(미리보기·반영·전환) ← 제품관리 화면. DB: database/20261112_catalog_switch.sql
+ *
+ * ── 2026-11-16 공통 분류 반영(A안, 사용자 결정) — syc_publish_std_apply / syc_publish_std_run ──
+ *   상용콘크리트·업체 목록 업체 상품(syc_products 모든 출처)을 공통 분류(케이토목 재질 6개 대분류 체계, app/catalog_map.php)에 넣어
+ *   products 에 반영. 활성 여부 = 원본 그대로(활성 = 고객 화면에 보임). 케이토목 상품은 products 에 그대로(건드리지 않음).
+ *   반영본 분류 'syc-…' 는 더 쓰지 않음(상품이 없어지면 메뉴에서 자동으로 빠짐). 모드 = 'std' 로 기록.
+ *   일괄 등록·제품 등록·활성/비활성 변경 뒤 자동 실행(public/api/admin/syc-products.php). 이 모드에서는 예전 반영·전환을 막는다.
  */
 
 require_once __DIR__ . '/syc_catalog.php';   // SYC_AXIS_KEYS · syc_axis_column · syc_axis_row_value
+require_once __DIR__ . '/catalog_map.php';   // CATALOG_STD_MAP — 업체 분류 → 공통 분류(2026-11-16)
 
 /** 상용콘크리트 대분류 slug → 기존 재질 대분류 categories.id */
 const SYC_PUBLISH_GROUP_ROOT = [
@@ -187,6 +194,7 @@ function syc_publish_apply(PDO $pdo, string $mode): array
 /** 반영 실행(트랜잭션). 지금 출처 그대로 */
 function syc_publish_run(PDO $pdo, ?int $userId = null): array
 {
+    if (syc_catalog_mode(true) === 'std') { throw new InvalidArgumentException('공통 분류 반영으로 바뀌어 예전 반영은 쓰지 않습니다.'); }
     $pdo->beginTransaction();
     try {
         $r = syc_publish_apply($pdo, syc_catalog_mode(true));
@@ -206,8 +214,9 @@ function syc_publish_run(PDO $pdo, ?int $userId = null): array
  */
 function syc_catalog_switch(PDO $pdo, string $to, ?int $userId = null): array
 {
-    if (!in_array($to, SYC_CATALOG_MODES, true)) { throw new InvalidArgumentException('잘못된 전환'); }
+    if (!in_array($to, SYC_CATALOG_MODES, true) || $to === 'std') { throw new InvalidArgumentException('잘못된 전환'); }
     $from = syc_catalog_mode(true);
+    if ($from === 'std') { throw new InvalidArgumentException('공통 분류 반영으로 바뀌어 전환은 쓰지 않습니다(상품별 활성/비활성으로 노출).'); }
     if ($from === $to) { throw new InvalidArgumentException('이미 ' . ($to === 'syc' ? '상용콘크리트' : '케이토목') . ' 상품을 보여 주고 있습니다.'); }
     $out = ['mode' => $to, 'hidden_categories' => 0, 'hidden_products' => 0, 'restored_categories' => 0, 'restored_products' => 0, 'publish' => null];
     $pdo->beginTransaction();
@@ -240,3 +249,117 @@ function syc_catalog_switch(PDO $pdo, string $to, ?int $userId = null): array
     syc_catalog_mode(true);
     return $out;
 }
+
+/**
+ * 업체 상품 1행 → 공통 분류 id. 매핑 줄을 조건 종류 순서(모델 코드 → 옵션 → 상품명 → 전부)로 보고 처음 맞는 줄. 순수 함수
+ * @param array<string,int> $stdIds 새 품명 slug('std-…') => categories.id, @param ?array $map 매핑(기본 CATALOG_STD_MAP)
+ */
+function catalog_std_category(string $vendorSlug, array $row, array $stdIds, ?array $map = null): ?int
+{
+    $order = ['code' => 0, 'option' => 1, 'name' => 2, 'all' => 3];
+    $cand = array_values(array_filter($map ?? CATALOG_STD_MAP, static fn($m) => $m[0] === $vendorSlug));
+    usort($cand, static fn($a, $b) => ($order[$a[1]] ?? 9) <=> ($order[$b[1]] ?? 9));
+    foreach ($cand as [$_, $type, $val, $std]) {
+        $hit = match ($type) {
+            'code'   => trim((string) ($row['spec_code'] ?? '')) === $val,
+            'option' => $val !== '' && str_contains((string) ($row['spec_option'] ?? ''), $val),
+            'name'   => $val !== '' && str_contains((string) ($row['name'] ?? ''), $val),
+            'all'    => true,
+            default  => false,
+        };
+        if (!$hit) { continue; }
+        return is_int($std) ? $std : ($stdIds[$std] ?? null);
+    }
+    return null;
+}
+
+/**
+ * 상세 화면 치수(목록 칸 = 주요 치수 main:true, 그 밖 = 세부 치수): 원본 이름표 순서, 값 있는 칸만. 공통 분류의 이름표와 관계없이
+ * 업체 칸 이름 그대로 보여 주도록 products.spec_detail 에 함께 담는다(상세 화면 public/product.php). 순수 함수
+ * @return list<array{label:string,symbol:string,value:string,unit:string,main:bool}>
+ */
+function syc_publish_dims(array $p, array $axes): array
+{
+    $out = [];
+    foreach ($axes as $a) {
+        $v = syc_axis_row_value($p, $a['axis_key']);
+        if ($v === null) { continue; }
+        $out[] = ['label' => $a['label'], 'symbol' => $a['symbol'], 'value' => $v,
+                  'unit' => in_array($a['axis_key'], SYC_AXIS_TEXT, true) || $a['unit'] === 'no' ? '' : $a['unit'],
+                  'main' => (bool) $a['in_list'] && in_array($a['axis_key'], SYC_PUBLISH_LIST_KEYS, true)];
+    }
+    return $out;
+}
+
+/**
+ * 공통 분류 반영: syc_products(모든 출처) → products. 트랜잭션은 호출측(syc_publish_std_run).
+ * @return array{products:int, unmapped:int, stale:int}
+ */
+function syc_publish_std_apply(PDO $pdo): array
+{
+    $stdIds = [];
+    foreach ($pdo->query("SELECT id, slug FROM categories WHERE slug LIKE 'std-%'") as $r) { $stdIds[(string) $r['slug']] = (int) $r['id']; }
+    $need = array_unique(array_filter(array_map(static fn($m) => is_string($m[3]) ? $m[3] : null, CATALOG_STD_MAP)));
+    $missing = array_values(array_diff($need, array_keys($stdIds)));
+    if ($missing) { throw new RuntimeException('공통 분류 새 품명이 아직 DB 에 없습니다: ' . implode(', ', $missing) . ' (database/20261116_std_categories.sql)'); }
+    $sycSlug = array_column($pdo->query('SELECT id, slug FROM syc_categories')->fetchAll(), 'slug', 'id');
+
+    $pcols = syc_publish_product_columns($pdo);
+    $dimCols = array_values(array_filter(array_map('syc_axis_column', SYC_AXIS_KEYS), static fn($c) => $c !== null && in_array($c, $pcols, true)));
+    $cols = array_merge(['category_id', 'name', 'brand', 'spec', 'spec_code'], $dimCols,
+                        ['spec_option', 'spec_dims_src', 'spec_detail', 'unit', 'weight_kg', 'description', 'price_b2c', 'price_b2b', 'cost_price', 'stock_qty',
+                         'external_source', 'external_id', 'source_url', 'image_url', 'is_active']);
+    $imgExtra = array_values(array_intersect(['image_thumb_url', 'image_spec_url'], $pcols));
+    $sycCols  = array_column($pdo->query('SHOW COLUMNS FROM syc_products')->fetchAll(), 'Field');
+    $cols = array_merge($cols, $imgExtra);
+    $upd = implode(', ', array_map(static fn($c) => "{$c} = n.{$c}", array_diff($cols, ['external_source', 'external_id'])));
+    $pins = $pdo->prepare('INSERT INTO products (' . implode(', ', $cols) . ') VALUES (' . implode(', ', array_fill(0, count($cols), '?')) . ') AS n ON DUPLICATE KEY UPDATE ' . $upd);
+    $axesBySyc = syc_axes_rows();
+    $n = 0; $unmapped = 0;
+    foreach ($pdo->query('SELECT * FROM syc_products ORDER BY id') as $p) {
+        $sid = (int) $p['category_id'];
+        $cid = catalog_std_category((string) ($sycSlug[$sid] ?? ''), $p, $stdIds);
+        if ($cid === null) { $unmapped++; continue; }      // 매핑 없는 분류(새 분류를 만든 경우) — 반영하지 않고 알림
+        $dims = syc_publish_dims($p, $axesBySyc[$sid] ?? []);
+        $vals = [$cid, $p['name'], $p['brand'], syc_publish_spec_text($p), $p['spec_code']];
+        foreach ($dimCols as $dc) { $vals[] = $p[$dc] ?? null; }
+        array_push($vals, $p['spec_option'], $p['spec'], $dims ? json_encode($dims, JSON_UNESCAPED_UNICODE) : null, $p['unit'], $p['weight_kg'], $p['description'],
+                   (int) $p['price_b2c'], (int) $p['price_b2b'], (int) $p['cost_price'], (int) $p['stock_qty'],
+                   $p['external_source'], $p['external_id'], $p['source_url'], $p['image_file'] ?: $p['image_thumb_file'], (int) $p['is_active']);
+        foreach ($imgExtra as $c) {
+            $vals[] = $c === 'image_thumb_url' ? ($p['image_thumb_file'] ?? null) : (in_array('image_spec_file', $sycCols, true) ? ($p['image_spec_file'] ?? null) : null);
+        }
+        $pins->execute($vals);
+        $n++;
+    }
+    // 원본에서 빠진 업체 상품은 숨김(지우지 않음 — 견적·주문 기록이 가리킬 수 있음). 케이토목 행은 건드리지 않음
+    $stale = $pdo->exec("UPDATE products p SET p.is_active = 0
+                          WHERE (p.external_source = 'syccrt' OR p.external_source LIKE 'vendor-%') AND p.is_active = 1
+                            AND NOT EXISTS (SELECT 1 FROM syc_products s WHERE s.external_source = p.external_source AND s.external_id = p.external_id)");
+    // 처음 공통 분류로 바꿀 때 한 번: 새 품명(std-…, 숨긴 채 들어옴)과 전환(2026-11-12) 때 숨긴 케이토목 분류를 보이게 —
+    // 상품 활성 여부는 그대로(케이토목 상품은 비활성이면 안 보임). 이후 반영에서는 관리자가 바꾼 분류 활성 여부를 건드리지 않음
+    $opened = 0;
+    if (syc_catalog_mode(true) !== 'std') {
+        $opened += $pdo->exec("UPDATE categories SET is_active = 1 WHERE is_active = 0 AND slug LIKE 'std-%'");
+        $opened += $pdo->exec("UPDATE categories SET is_active = 1 WHERE is_active = 0 AND id IN (SELECT ref_id FROM syc_catalog_hidden WHERE entity = 'category')");
+    }
+    $pdo->exec("INSERT INTO syc_catalog_state (id, mode, published_at) VALUES (1, 'std', NOW()) AS n ON DUPLICATE KEY UPDATE mode = n.mode, published_at = n.published_at");
+    return ['products' => $n, 'unmapped' => $unmapped, 'stale' => (int) $stale, 'categories_opened' => $opened];
+}
+
+/** 공통 분류 반영 실행(트랜잭션). 실패하면 되돌리고 예외 */
+function syc_publish_std_run(PDO $pdo, ?int $userId = null): array
+{
+    $pdo->beginTransaction();
+    try {
+        $r = syc_publish_std_apply($pdo);
+        if ($userId !== null) { $pdo->prepare('UPDATE syc_catalog_state SET updated_by = ? WHERE id = 1')->execute([$userId]); }
+        $pdo->commit();
+    } catch (\Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
+    syc_catalog_mode(true);
+    return $r;
+}
+

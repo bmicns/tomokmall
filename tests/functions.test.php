@@ -1251,7 +1251,6 @@ eq('같은 제품 열쇠: 공백 정리·옵션 null = 빈칸', [product_match_k
     product_match_key('환경수로관', '3000*3150*1500', null) === product_match_key('환경수로관', '2500*2650*1500', null)], [true, false]);
 eq('자동 출처ID: 같은 열쇠 → 같은 ID, auto- + 24자', [product_auto_external_id('a') === product_auto_external_id('a'), strlen(product_auto_external_id('a')), str_starts_with(product_auto_external_id('a'), 'auto-')], [true, 29, true]);
 eq('업체 출처 코드', product_source_vendor_code(12), 'vendor-12');
-eq('활성/비활성 변경 기능 멈춤(사용자 결정 2026-11-13)', PRODUCT_ACTIVE_TOGGLE_ENABLED, false);
 require_once __DIR__ . '/../app/ktomok_bulk.php';
 eq('케이토목 규격 줄 나누기', ktomok_spec_parts('규격: 1.5*1.5*2.0_160T*140T | 중량: 3,640kg | 단위: 본'), ['spec' => '1.5*1.5*2.0_160T*140T', 'weight' => '3,640kg', 'unit' => '본', 'rest' => [], 'plain' => false]);
 eq('케이토목 규격 줄: 나눴다 다시 합치면 그대로(이름표 있는 줄·없는 옛 줄)', [ktomok_spec_compose(ktomok_spec_parts('규격: 1.5*1.5*2.0_160T*140T | 중량: 3,640kg | 단위: 본')), ktomok_spec_compose(ktomok_spec_parts('900 x 1800 x 50mm'))],
@@ -1422,6 +1421,23 @@ array_map('unlink', glob($imgRoot . '/u/*')); rmdir($imgRoot . '/u'); rmdir($img
 // ── 사이트 반영·전환(app/syc_publish.php, B 방식 2026-11-12) ──
 require_once __DIR__ . '/../app/syc_publish.php';
 require_once __DIR__ . '/../app/work_types.php';
+// 공통 분류 반영(2026-11-16 A안): 업체 분류 → 공통 분류 매핑, 상세 치수 주요/세부, 재질 대분류 6개
+eq('공통 분류 매핑: 모델 코드 줄이 전부 줄보다 먼저(측구수로관 A형 → 33, Z형 → 36)', [catalog_std_category('syc-s1', ['spec_code' => 'A형'], []), catalog_std_category('syc-s1', ['spec_code' => 'Z형'], [])], [33, 36]);
+eq('공통 분류 매핑: 옵션 줄(원심력수로관 무개 → 48, 유개 → 49)', [catalog_std_category('syc-s79', ['spec_option' => '무개'], []), catalog_std_category('syc-s79', ['spec_option' => '유개'], [])], [48, 49]);
+eq('공통 분류 매핑: 새 품명 slug 는 id 로(std-006 2련암거), 매핑 없는 분류는 null', [catalog_std_category('syc-s22', [], ['std-006' => 9001]), catalog_std_category('syc-zz', [], [])], [9001, null]);
+eq('2026-11-16 확인 반영: 사각수로관 → 중분류 258, 인조화강블록 → 71(투수·불투수 합침), I형 호안 → 저류용 95, 수공 사각뚜껑 → 108, 보강토 → 줄무늬 83, 흄관 → B형 50',
+    array_map(static fn($s) => catalog_std_category($s, ['spec_code' => 'A형', 'spec_option' => '투수/불투수'], []), ['syc-s16', 'syc-s54', 'syc-s55', 'syc-s68', 'syc-s52', 'syc-s63', 'syc-s19']), [258, 71, 71, 95, 108, 83, 50]);
+preg_match_all("/'(std-\d+)'/", (string) file_get_contents(__DIR__ . '/../database/20261116_std_categories.sql'), $stdM);
+$stdFake = array_combine(array_values(array_unique($stdM[1])), range(90001, 90000 + count(array_unique($stdM[1]))));
+$pjRows = json_decode((string) file_get_contents(__DIR__ . '/../data/syccrt/products.json'), true)['rows'] ?? [];
+$unm = array_values(array_filter($pjRows, static fn($r) => catalog_std_category($r['category_slug'], $r, $stdFake) === null));
+eq('공통 분류 매핑: 상용콘크리트 704개 모두 공통 분류에 들어감(새 품명 slug 는 마이그레이션에 있음)', [count($pjRows), count($unm), count($stdFake)], [704, 0, 19]);
+$pdm = syc_publish_dims(['dim_w' => 300.0, 'dim_w1' => 600.0, 'dim_l' => null], [
+    ['axis_key' => 'w', 'label' => '폭', 'symbol' => 'W', 'unit' => 'mm', 'in_list' => true], ['axis_key' => 'w1', 'label' => '세부', 'symbol' => 'w1', 'unit' => 'mm', 'in_list' => false],
+    ['axis_key' => 'l', 'label' => '길이', 'symbol' => 'L', 'unit' => 'mm', 'in_list' => true]]);
+eq('상세 치수: 목록 칸 = 주요(main), 그 밖 = 세부, 값 없는 칸 빼기', array_map(static fn($d) => [$d['label'], $d['value'], $d['main']], $pdm), [['폭', '300', true], ['세부', '600', false]]);
+eq('재질 대분류 6개(기타 포함)·빠른 견적 같은 목록', [CATALOG_ROOT_IDS, CORP_HOME_ROOT_IDS === CATALOG_ROOT_IDS], [[11, 12, 13, 14, 15, 16], true]);
+eq('활성/비활성 변경 기능 켬(2026-11-16)', PRODUCT_ACTIVE_TOGGLE_ENABLED, true);
 eq('반영 spec: 기존 상품과 같은 규격·중량(천 단위 쉼표)·단위 형식, 빈 값은 뺌', [
     syc_publish_spec_text(['spec' => '1.5*1.5*2.0_160T*140T', 'weight_kg' => 3640.0, 'unit' => '본']),
     syc_publish_spec_text(['spec' => '200*200', 'weight_kg' => 12.5, 'unit' => null]), syc_publish_spec_text(['spec' => '', 'weight_kg' => null, 'unit' => '개'])],

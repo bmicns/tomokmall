@@ -22,12 +22,28 @@ declare(strict_types=1);
 require __DIR__ . '/../../../app/bootstrap.php';
 require __DIR__ . '/../../../app/auth.php';
 require __DIR__ . '/../../../app/syc_bulk.php';
+require __DIR__ . '/../../../app/syc_publish.php';   // 바뀐 뒤 고객 화면(공통 분류)에 바로 반영 — syc_publish_std_run
 
 header('Content-Type: application/json; charset=utf-8');
 
 require_admin();
 
 const SYC_WEBROOT = __DIR__ . '/../..';   // 이미지 경로(/…)를 찾는 웹루트(public)
+
+/**
+ * 원본이 바뀐 뒤 고객 화면에 반영(공통 분류, 사용자 결정 2026-11-16). 실패해도 원본 저장은 이미 끝났으므로 응답에 알림만 붙인다.
+ * @return array{publish?:array, publish_error?:string}
+ */
+function syc_api_publish(PDO $pdo): array
+{
+    try {
+        return ['publish' => syc_publish_std_run($pdo, (int) (current_user()['id'] ?? 0) ?: null)];
+    } catch (Throwable $e) {
+        error_log('[api/admin/syc-products] 고객 화면 반영 실패: ' . get_class($e) . ': ' . $e->getMessage());
+        return ['publish_error' => $e instanceof RuntimeException && str_contains($e->getMessage(), '공통 분류')
+            ? $e->getMessage() : '고객 화면 반영에 실패했습니다. 원본은 저장됐습니다 — 잠시 후 다시 시도해 주세요.'];
+    }
+}
 
 function syc_api_out(array $d): never
 {
@@ -196,6 +212,7 @@ try {
         }
         $result = ['done' => $total, 'total' => $total, 'finished' => true,
                    'normalized_rows' => $norm ? (int) ($r['normalize']['changed_rows'] ?? 0) : 0] + $count;
+        $result += syc_api_publish($pdo);
         file_put_contents($progress, json_encode($result));
         syc_api_out(['ok' => true] + $result);
     }
@@ -223,7 +240,8 @@ try {
         $ins = ['category_id' => $catId, 'spec_dims_src' => $row['spec'], 'external_id' => product_auto_external_id($key), 'is_active' => 0] + $row;
         $pdo->prepare('INSERT INTO syc_products (' . implode(', ', array_keys($ins)) . ') VALUES (' . implode(', ', array_fill(0, count($ins), '?')) . ')')
             ->execute(array_values($ins));
-        syc_api_out(['ok' => true, 'id' => (int) $pdo->lastInsertId()]);
+        $newId = (int) $pdo->lastInsertId();
+        syc_api_out(['ok' => true, 'id' => $newId] + syc_api_publish($pdo));
     }
 
     if (!PRODUCT_ACTIVE_TOGGLE_ENABLED && in_array($action, ['set_active', 'set_active_filter', 'delete'], true)) {
@@ -236,7 +254,7 @@ try {
         $val = (int) ($body['is_active'] ?? 0) === 1 ? 1 : 0;
         $ph = implode(',', array_fill(0, count($ids), '?'));
         $pdo->prepare("UPDATE syc_products SET is_active = ? WHERE id IN ({$ph})")->execute(array_merge([$val], $ids));
-        syc_api_out(['ok' => true]);
+        syc_api_out(['ok' => true] + syc_api_publish($pdo));
     }
 
     // 검색 결과 전체(여러 페이지) 활성/비활성: 화면의 목록 조건 그대로. 화면이 본 개수(expect)와 지금 개수가 다르면
@@ -257,14 +275,14 @@ try {
         $up = $pdo->prepare("UPDATE syc_products p SET p.is_active = :val WHERE {$w}");
         $up->execute(['val' => $val] + $params);
         $pdo->commit();
-        syc_api_out(['ok' => true, 'count' => $now, 'changed' => $up->rowCount()]);
+        syc_api_out(['ok' => true, 'count' => $now, 'changed' => $up->rowCount()] + syc_api_publish($pdo));
     }
 
     if ($action === 'delete') {
         $id = (int) ($body['id'] ?? 0);
         if ($id <= 0) { throw new InvalidArgumentException('id 필수'); }
         $pdo->prepare('UPDATE syc_products SET is_active = 0 WHERE id = ?')->execute([$id]);
-        syc_api_out(['ok' => true]);
+        syc_api_out(['ok' => true] + syc_api_publish($pdo));
     }
 
     syc_api_out(['ok' => false, 'error' => '알 수 없는 action']);

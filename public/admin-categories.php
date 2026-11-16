@@ -120,6 +120,7 @@ function rootDiscBox(rootId) {
     </div>`;
 }
 
+
 function renderTree(mids, rootId) {
     const area = document.getElementById('tree-area');
     if (!mids.length) {

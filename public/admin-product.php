@@ -22,13 +22,20 @@ $product->execute([$id]);
 $product = $product->fetch();
 if (!$product) { header('Location: /admin-products.php'); exit; }
 
+// 상품을 붙일 분류: 대·중·품명 3단계의 품명 + 대분류 바로 아래 품명(하위 없음 — 기타·1련암거·2련암거 등). 재질 대분류 6개(2026-11-16)
+$catRootIn = implode(',', CATALOG_ROOT_IDS);
 $leafCats = db()->query(
-    "SELECT c.id, c.name, p.name AS mid_name, gp.name AS root_name
+    "SELECT c.id, c.name, p.name AS mid_name, gp.name AS root_name, gp.sort_order AS s1, p.sort_order AS s2, c.sort_order AS s3
      FROM categories c
      JOIN categories p  ON p.id  = c.parent_id
      JOIN categories gp ON gp.id = p.parent_id
-     WHERE c.is_active = 1 AND p.parent_id IN (11,12,13,14,15)
-     ORDER BY gp.sort_order, p.sort_order, c.sort_order, c.id"
+     WHERE c.is_active = 1 AND p.parent_id IN ({$catRootIn})
+     UNION ALL
+     SELECT c.id, c.name, '(바로 아래)' AS mid_name, p.name AS root_name, p.sort_order AS s1, -1 AS s2, c.sort_order AS s3
+     FROM categories c
+     JOIN categories p ON p.id = c.parent_id
+     WHERE c.is_active = 1 AND c.parent_id IN ({$catRootIn}) AND NOT EXISTS (SELECT 1 FROM categories k WHERE k.parent_id = c.id)
+     ORDER BY s1, s2, s3, id"
 )->fetchAll();
 $catGroups = [];
 foreach ($leafCats as $c) {
