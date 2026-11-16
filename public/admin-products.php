@@ -33,7 +33,8 @@ $leafCats = db()->query(
      SELECT c.id, c.slug, c.name, '(바로 아래)' AS mid_name, p.name AS root_name, p.sort_order AS s1, -1 AS s2, c.sort_order AS s3
      FROM categories c
      JOIN categories p ON p.id = c.parent_id
-     WHERE c.is_active = 1 AND c.parent_id IN ({$catRootIn}) AND NOT EXISTS (SELECT 1 FROM categories k WHERE k.parent_id = c.id)
+     WHERE c.is_active = 1 AND c.parent_id IN ({$catRootIn})
+       AND (NOT EXISTS (SELECT 1 FROM categories k WHERE k.parent_id = c.id) OR EXISTS (SELECT 1 FROM products x WHERE x.category_id = c.id))
      ORDER BY s1, s2, s3, id"
 )->fetchAll();
 $catGroups = [];
