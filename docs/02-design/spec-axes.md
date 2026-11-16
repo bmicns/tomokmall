@@ -94,6 +94,8 @@ INSERT INTO category_spec_axes (category_id, seq, axis_key, label, symbol, unit)
 
 ## 4. 화면 (`public/products.php`, `app/product_filter_renderer.php`, `app/bootstrap.php`)
 
+> **2026-11-13 변경(S17)**: 목록 **표**는 축별 칸 대신 '규격'·'규격외정보' 두 칸으로 바뀌었다(`docs/02-design/syc-products.md` 12장). 아래 '표' 관련 설명은 이력이며, 필터·상세 화면 설명은 지금도 유효하다.
+
 - **축 모드 조건**: 목록 결과의 카테고리가 **모두 같은 이름표**를 쓸 때만. 이름표가 없거나 섞이면(중분류·검색 등) 지금 화면 그대로.
 - **필터**(별도 '규격' 제목 없음): `모델 코드`(작은 글씨 '끝자리 표기', B형·C형 — 코드가 있을 때만) → 이름표 순 축별 값 버튼.
   형식이 `lead_code`·`mesh`·`slash`·`hash` 인 카테고리(디자인블록 K2·와이어메쉬 BS·화강경계 G377)는 모델 코드를 끝 글자가 아니라 **코드 그대로** 버튼으로(URL `ax_code[]=K2`).

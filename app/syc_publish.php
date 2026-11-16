@@ -89,13 +89,13 @@ function syc_publish_plan(PDO $pdo): array
 {
     $cats = (int) $pdo->query('SELECT COUNT(*) FROM syc_categories')->fetchColumn();
     $catsNew = (int) $pdo->query('SELECT COUNT(*) FROM syc_categories s WHERE NOT EXISTS (SELECT 1 FROM categories c WHERE c.slug = s.slug)')->fetchColumn();
-    $prods = (int) $pdo->query('SELECT COUNT(*) FROM syc_products')->fetchColumn();
-    $prodsNew = (int) $pdo->query('SELECT COUNT(*) FROM syc_products s WHERE NOT EXISTS (SELECT 1 FROM products p WHERE p.external_source = s.external_source AND p.external_id = s.external_id)')->fetchColumn();
+    $prods = (int) $pdo->query("SELECT COUNT(*) FROM syc_products WHERE external_source = 'syccrt'")->fetchColumn();   // 상용콘크리트 원본만(S16)
+    $prodsNew = (int) $pdo->query("SELECT COUNT(*) FROM syc_products s WHERE s.external_source = 'syccrt' AND NOT EXISTS (SELECT 1 FROM products p WHERE p.external_source = s.external_source AND p.external_id = s.external_id)")->fetchColumn();
     $stale = (int) $pdo->query("SELECT COUNT(*) FROM products p JOIN categories c ON c.id = p.category_id
                                  WHERE c.slug LIKE 'syc-%' AND p.is_active = 1
                                    AND NOT EXISTS (SELECT 1 FROM syc_products s WHERE s.external_source = p.external_source AND s.external_id = p.external_id)")->fetchColumn();
     return ['mode' => syc_catalog_mode(true), 'categories' => $cats, 'categories_new' => $catsNew, 'products' => $prods, 'products_new' => $prodsNew,
-            'products_active' => (int) $pdo->query('SELECT COUNT(*) FROM syc_products WHERE is_active = 1')->fetchColumn(), 'stale' => $stale];
+            'products_active' => (int) $pdo->query("SELECT COUNT(*) FROM syc_products WHERE is_active = 1 AND external_source = 'syccrt'")->fetchColumn(), 'stale' => $stale];
 }
 
 /**
@@ -151,11 +151,16 @@ function syc_publish_apply(PDO $pdo, string $mode): array
     $cols = array_merge(['category_id', 'name', 'brand', 'spec', 'spec_code'], $dimCols,
                         ['spec_option', 'spec_dims_src', 'spec_detail', 'unit', 'weight_kg', 'description', 'price_b2c', 'price_b2b', 'cost_price', 'stock_qty',
                          'external_source', 'external_id', 'source_url', 'image_url', 'is_active']);
+    // 썸네일·규격 이미지 칸(database/20261113_product_image_paths.sql) — 칸이 있을 때만
+    $imgExtra = array_values(array_intersect(['image_thumb_url', 'image_spec_url'], $pcols));
+    $sycCols  = array_column($pdo->query('SHOW COLUMNS FROM syc_products')->fetchAll(), 'Field');
+    $cols = array_merge($cols, $imgExtra);
     $upd = implode(', ', array_map(static fn($c) => "{$c} = n.{$c}", array_diff($cols, ['external_source', 'external_id'])));
     $pins = $pdo->prepare('INSERT INTO products (' . implode(', ', $cols) . ') VALUES (' . implode(', ', array_fill(0, count($cols), '?')) . ') AS n ON DUPLICATE KEY UPDATE ' . $upd);
     $axesBySyc = syc_axes_rows();
     $n = 0;
-    foreach ($pdo->query('SELECT * FROM syc_products ORDER BY id') as $p) {
+    // 상용콘크리트 원본만(업체 목록 업체 상품 'vendor-<id>' 는 고객 화면에 반영하지 않음 — 사용자 결정 2026-11-13 S16)
+    foreach ($pdo->query("SELECT * FROM syc_products WHERE external_source = 'syccrt' ORDER BY id") as $p) {
         $sid = (int) $p['category_id'];
         $cid = $catId[$slugById[$sid] ?? ''] ?? null;
         if ($cid === null) { continue; }
@@ -165,6 +170,9 @@ function syc_publish_apply(PDO $pdo, string $mode): array
         array_push($vals, $p['spec_option'], $p['spec'], $detail ? json_encode($detail, JSON_UNESCAPED_UNICODE) : null, $p['unit'], $p['weight_kg'], $p['description'],
                    (int) $p['price_b2c'], (int) $p['price_b2b'], (int) $p['cost_price'], (int) $p['stock_qty'],
                    $p['external_source'], $p['external_id'], $p['source_url'], $p['image_file'] ?: $p['image_thumb_file'], $live ? (int) $p['is_active'] : 0);
+        foreach ($imgExtra as $c) {
+            $vals[] = $c === 'image_thumb_url' ? ($p['image_thumb_file'] ?? null) : (in_array('image_spec_file', $sycCols, true) ? ($p['image_spec_file'] ?? null) : null);
+        }
         $pins->execute($vals);
         $n++;
     }

@@ -3,12 +3,13 @@ declare(strict_types=1);
 /**
  * 상용콘크리트 상품 일괄 등록(엑셀 + 이미지 ZIP) — syc_products
  *
- * 책임: 엑셀(xlsx·csv) 행을 syc_products 칸 규칙으로 검증·변환하고, 이미지 ZIP 의 대표·썸네일 파일을 찾아 서버에 저장한 뒤
+ * 책임: 엑셀(xlsx·csv) 행을 syc_products 칸 규칙으로 검증·변환하고, 엑셀의 이미지 경로 3칸(썸네일·상세·규격)을 서버 파일로 확인한 뒤
  *       (external_source, external_id) 기준으로 새로 넣거나 덮어쓴다(사용자 결정 2026-11-11).
  *       - 새 상품은 비활성(is_active 기본 0)으로 들어가고, 이미 있는 상품은 활성 상태를 바꾸지 않는다.
  *       - 가격 칸(price_b2c·price_b2b·cost_price)은 엑셀 값 그대로 저장(빈 칸 0) — 사용자 결정 2026-11-11.
- *       - 이미지: 엑셀에 적힌 파일이 ZIP 에 있을 때만 저장·갱신한다. 썸네일이 없으면 비워 두고(NULL)
- *         화면은 기존 '이미지 없음' 표시를 쓴다. 이미 있는 상품의 이미지는 새 파일이 없으면 그대로 둔다.
+ *       - 이미지(사용자 결정 2026-11-13 — ZIP 업로드 대신): 엑셀 '썸네일·상세·규격 이미지 url 경로' 칸. 웹루트 기준 경로(/…)는
+ *         서버에 그 파일이 있고 이미지일 때만 저장(없으면 그 이미지만 빈칸 + 경고), 외부 주소(http·https)는 그대로 저장.
+ *         빈칸·못 찾은 이미지는 기존 값을 그대로 둔다(덮어쓸 때 이미지가 지워지지 않게). 썸네일이 없으면 화면은 '이미지 없음' 표시.
  * 금지: 기존 products·categories 변경, 엑셀에 없는 칸 추측, 이미지 아닌 파일 저장(확장자 + 실제 이미지 형식 확인).
  * 입력 형식: 1행 머리글 '한글 이름 [칸 이름]' 또는 '칸 이름'(data/syccrt/syc-products-bulk-test.xlsx '작성법' 시트).
  *       업체(출처)별: 상용콘크리트 'syccrt' 와 업체 목록 업체 'vendor-<id>' 가 같은 표를 쓰고, 덮어쓰기는 같은 업체 안에서만
@@ -56,8 +57,60 @@ function syc_bulk_columns(): array
     ];
 }
 
-/** 엑셀에서 읽기만 하는 칸(저장 칸이 아님): 분류코드·분류명(참고)·이미지 파일명 2칸 */
-const SYC_BULK_META_KEYS = ['category_slug', 'category_name', 'image_file', 'image_thumb_file'];
+/** 엑셀에서 읽기만 하는 칸(저장 칸이 아님): 분류코드·분류명(참고)·이미지 경로 3칸(저장 칸은 업체 표마다 다름 — 아래 대응표) */
+const SYC_BULK_META_KEYS = ['category_slug', 'category_name', 'image_thumb_url', 'image_detail_url', 'image_spec_url'];
+
+/** 엑셀 이미지 경로 3칸 → syc_products 칸(케이토목 products 는 app/ktomok_bulk.php KTOMOK_BULK_IMAGE_COLUMNS) */
+const SYC_BULK_IMAGE_COLUMNS = ['image_thumb_url' => 'image_thumb_file', 'image_detail_url' => 'image_file', 'image_spec_url' => 'image_spec_file'];
+const SYC_BULK_IMAGE_LABELS  = ['image_thumb_url' => '썸네일 이미지', 'image_detail_url' => '상세 이미지', 'image_spec_url' => '규격 이미지'];
+
+/**
+ * 이미지 경로 칸 값 검사(파일은 아직 안 봄): 빈칸 → [null, null], 외부 주소 → [['ext', 주소], null],
+ * 웹루트 기준 경로 → [['local', '/경로'], null]. 그 밖(상대 경로·'..'·이미지 아닌 확장자)은 [null, 오류 문구]. 순수 함수
+ */
+function syc_bulk_image_path(mixed $raw): array
+{
+    $v = trim((string) ($raw ?? ''));
+    if ($v === '') { return [null, null]; }
+    if (mb_strlen($v) > 255) { return [null, '이미지 경로가 255자를 넘습니다']; }
+    if (preg_match('#^https?://[^\s"\'<>]+$#i', $v)) { return [['ext', $v], null]; }
+    if (!preg_match('#^/[^\s"\'<>\\:*?|]+\.(jpe?g|png|webp|gif)$#iu', $v) || preg_match('#(^|/)\.\.?(/|$)#', $v) || str_contains($v, '//')) {
+        return [null, "이미지 경로가 올바르지 않습니다('{$v}' — /로 시작하는 서버 경로(jpg·png·webp·gif) 또는 http(s) 주소)"];
+    }
+    return [['local', $v], null];
+}
+
+/**
+ * 이미지 경로 → 저장할 값. 외부 주소는 그대로, 서버 경로는 웹루트 안에 그 파일이 있고 실제 이미지일 때만 그 경로. 아니면 null(못 찾음)
+ * @param array{0:string,1:string} $img syc_bulk_image_path 결과, @param string $webroot 웹루트(public) 절대 경로
+ */
+function syc_bulk_image_resolve(array $img, string $webroot): ?string
+{
+    [$kind, $v] = $img;
+    if ($kind === 'ext') { return $v; }
+    $root = realpath($webroot);
+    $file = realpath($webroot . $v);
+    if ($root === false || $file === false || !str_starts_with($file, $root . DIRECTORY_SEPARATOR) || !is_file($file)) { return null; }
+    if (filesize($file) > SYC_BULK_MAX_IMAGE_BYTES || @getimagesize($file) === false) { return null; }   // 이미지가 아니면 못 찾은 것으로
+    return $v;
+}
+
+/** 엑셀 행들의 서버 경로 이미지 중 못 찾은 것 → 경고 문구(앞 20개)와 개수. 등록 전 미리보기와 등록 때 같은 기준 */
+function syc_bulk_image_warnings(array $rows, string $webroot): array
+{
+    $out = []; $n = 0; $seen = [];
+    foreach ($rows as $r) {
+        foreach (SYC_BULK_IMAGE_LABELS as $k => $label) {
+            $img = $r['_img'][$k] ?? null;
+            if ($img === null || $img[0] !== 'local') { continue; }
+            $hit = $seen[$img[1]] ??= syc_bulk_image_resolve($img, $webroot) !== null;
+            if ($hit) { continue; }
+            $n++;
+            if (count($out) < 20) { $out[] = "{$r['name']} {$label}: {$img[1]} — 서버에 파일이 없거나 이미지가 아닙니다(빈칸으로 둠)"; }
+        }
+    }
+    return ['warnings' => $out, 'count' => $n];
+}
 
 /**
  * 머리글 한 칸 → 칸 이름. '대표이미지(상세용) [image_file]' 처럼 끝의 [이름] 우선, 없으면 칸 이름 그대로. 모르면 ''
@@ -151,10 +204,11 @@ function syc_bulk_parse_row(array $raw, array $map, array $catIds, string $sourc
     $row['category_id'] = $catIds[$slug] ?? null;
     $row['_category_slug'] = $slug;      // 자동 정리가 분류를 바꿀 수 있어 slug 도 둔다(정리 뒤 category_id 다시 정함)
     $row['spec_dims_src'] = $row['spec'];
-    foreach (['image_file', 'image_thumb_file'] as $k) {
-        [$v, $e] = syc_bulk_image_name($cells[$k] ?? '');
+    $row['_img'] = [];
+    foreach (array_keys(SYC_BULK_IMAGE_COLUMNS) as $k) {
+        [$v, $e] = syc_bulk_image_path($cells[$k] ?? '');
         if ($e !== null) { $err[] = "[{$k}] {$e}"; }
-        $row['_' . $k] = $v;          // ZIP 안 파일명(저장 경로는 등록 때 정함)
+        $row['_img'][$k] = $v;        // ['local'|'ext', 경로] 또는 null(빈칸) — 서버 파일 확인은 등록 때
     }
     // 출처 = 고른 업체. 엑셀에 다른 업체 출처가 적혀 있으면 오류(다른 업체 상품을 덮어쓰지 않게)
     if (($row['external_source'] ?? null) !== null && $row['external_source'] !== $source) {
@@ -287,25 +341,27 @@ function syc_bulk_store_image(ZipArchive $zip, string $path, string $dir, string
 /**
  * 한 행 저장: (external_source, external_id) 가 같으면 덮어쓰기(활성 상태는 그대로), 아니면 새로(비활성).
  * 덮어쓸 때는 엑셀에 있는 칸($present)만 바꾸고, 엑셀에 없는 칸은 기존 값을 둔다(일부 칸만 담은 엑셀로 지워지지 않게).
- * 이미지 칸은 새 경로가 있을 때만 바꾼다. @return 'insert'|'update'|'same'
+ * 이미지 칸은 새 경로가 있을 때만 바꾼다. @param array<string,?string> $imgs syc_products 이미지 칸 => 경로(null = 그대로)
+ * @return 'insert'|'update'|'same'
  */
-function syc_bulk_save_row(PDO $pdo, array $row, ?string $img, ?string $thumb, array $present): string
+function syc_bulk_save_row(PDO $pdo, array $row, array $imgs, array $present): string
 {
     static $sqls = [];
-    $cols = array_merge(['category_id'], array_keys(syc_bulk_columns()), ['spec_dims_src', 'image_file', 'image_thumb_file']);
+    $imgCols = array_values(SYC_BULK_IMAGE_COLUMNS);
+    $cols = array_merge(['category_id'], array_keys(syc_bulk_columns()), ['spec_dims_src'], $imgCols);
     $sig = implode(',', $present);
     if (!isset($sqls[$sig])) {
         $upd = ['category_id = new.category_id'];
         foreach ($present as $c) { $upd[] = "{$c} = new.{$c}"; }
         if (in_array('spec', $present, true)) { $upd[] = 'spec_dims_src = new.spec_dims_src'; }
-        foreach (['image_file', 'image_thumb_file'] as $c) { $upd[] = "{$c} = COALESCE(new.{$c}, syc_products.{$c})"; }
+        foreach ($imgCols as $c) { $upd[] = "{$c} = COALESCE(new.{$c}, syc_products.{$c})"; }
         $sqls[$sig] = 'INSERT INTO syc_products (' . implode(', ', $cols) . ') VALUES (' . implode(', ', array_fill(0, count($cols), '?')) . ')'
                     . ' AS new ON DUPLICATE KEY UPDATE ' . implode(', ', $upd);
     }
     $sql = $sqls[$sig];
     $vals = [];
     foreach ($cols as $c) {
-        $vals[] = match ($c) { 'image_file' => $img, 'image_thumb_file' => $thumb, default => $row[$c] };
+        $vals[] = in_array($c, $imgCols, true) ? ($imgs[$c] ?? null) : $row[$c];
     }
     $st = $pdo->prepare($sql);
     $st->execute($vals);

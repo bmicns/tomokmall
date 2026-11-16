@@ -367,6 +367,31 @@ function spec_option_display(string $opt): string
     return implode('/', $out);
 }
 
+/**
+ * 목록 표 '규격'·'규격외정보' 두 칸(사용자 결정 2026-11-13 — 칸별 축 대신 두 칸으로 통일, 필터·상세 화면의 세부 칸은 그대로).
+ *  - 규격 = 규격 원문의 치수. 끝 괄호의 치수 아닌 글자('(A형)'·'(앙카식)'·'(유개)')는 규격외정보로 옮김. 괄호 안이 치수 목록이면 그대로
+ *  - 규격외정보 = 모델 코드 + (옮긴 괄호 글자) + 옵션(표시 형식), 같은 글자는 한 번, ' / ' 로 이음
+ * @param ?string $code·$option 축 값이 지금 규격 기준일 때만(spec_axes_row_fresh) 넘긴다. 순수 함수
+ * @return array{spec:string, info:string}
+ */
+function product_list_spec_split(string $specRaw, ?string $code, ?string $option): array
+{
+    $spec = trim($specRaw);
+    $info = [];
+    $add = static function (string $v) use (&$info): void { $v = trim($v); if ($v !== '' && !in_array($v, $info, true)) { $info[] = $v; } };
+    $opt = spec_option_display((string) $option);
+    $add((string) $code);
+    if (preg_match('/^(.*?)\s*\(([^()]+)\)\s*$/u', $spec, $m) && trim($m[1]) !== '') {
+        $x = trim($m[2]);
+        if (substr_count($x, '*') < 2 && !preg_match('/^[\d.*]+T?$/u', $x)) {
+            $spec = trim($m[1]);
+            if (!str_contains($opt, $x)) { $add($x); }      // 옵션에 이미 있는 글자('앙카식')는 한 번만
+        }
+    }
+    $add($opt);
+    return ['spec' => $spec, 'info' => implode(' / ', $info)];
+}
+
 /** 단위 표시 '(mm)' / '(m)' / '(t/m)' / 번호는 없음 — 필터 그룹 이름 옆(아트보드: 폭 W(mm)). 표 머리글에는 단위를 쓰지 않는다 */
 function spec_axis_unit_label(array $axis): string
 {
