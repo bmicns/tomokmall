@@ -3,7 +3,8 @@ declare(strict_types=1);
 require __DIR__ . '/../../../app/bootstrap.php';
 require __DIR__ . '/../../../app/auth.php';
 require __DIR__ . '/../../../app/ktomok_bulk.php';   // 케이토목 일괄 등록 + 업체(출처) 규칙(app/product_sources.php)
-require_once __DIR__ . '/../../../app/syc_publish.php';   // '모든 업체'에서 상용콘크리트·업체 상품을 바꾼 뒤 고객 화면 반영 — syc_publish_std_run
+require_once __DIR__ . '/../../../app/syc_publish.php';
+require_once __DIR__ . '/../../../app/product_images.php';   // 수정 창 이미지 3칸(썸네일·상세·규격) 경로 확인   // '모든 업체'에서 상용콘크리트·업체 상품을 바꾼 뒤 고객 화면 반영 — syc_publish_std_run
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -14,7 +15,8 @@ require_admin();
  * GET  ?status=&cat_id=&q=&page=          목록(케이토목만 — 출처 syccrt 반영본 제외, 사용자 결정 2026-11-13)
  * GET  ?source=all&…                      '모든 업체'(2026-11-16): 고객용 상품 표 전체(케이토목 + 상용콘크리트·업체 반영본), 행마다 업체 이름(src_name)·저장 위치(store)
  *      → 활성/비활성(bulk_toggle·set_active_filter 에 source:'all')은 케이토목 행은 여기서, 반영본은 원본(syc_products)을 바꾼 뒤 고객 화면 반영
- * POST JSON create / update               제품 1건 등록(비활성, 출처 ktomok) / 수정(활성 상태는 바꾸지 않음)
+ * POST JSON create / update               제품 1건 등록(비활성, 출처 ktomok) / 수정(케이토목 행만) — 이미지 3칸 image_thumb_url·image_url(상세)·image_spec_url:
+ *                                         빈칸 = 비우기, 서버 경로는 파일 확인(파일 올리기는 api/admin/product-image.php)
  * POST multipart action=stage_excel       케이토목 엑셀 올리기 → 검증 결과(app/ktomok_bulk.php)
  * POST JSON {action:'bulk_commit', job}   올린 엑셀로 등록: 새 상품 비활성, 같은 상품(출처ID → 제품명+규격)은 엑셀 칸만 덮어쓰기
  * POST JSON delete / bulk_toggle {ids, is_active}   활성/비활성 바꾸기(케이토목 행만) — 활성 = 고객 화면에 보임(2026-11-16)
@@ -59,6 +61,19 @@ function admin_products_list_where(array $f): array
         $params['q'] = $params['q2'] = $params['q3'] = "%{$q}%";
     }
     return [implode(' AND ', $where), $params];
+}
+
+/**
+ * 수정 창 이미지 3칸 → [칸 => 경로|null]. 요청에 없는 칸은 넣지 않는다(그 칸은 그대로 둠).
+ * @return array<string,?string>
+ */
+function admin_products_image_inputs(array $body): array
+{
+    $out = [];
+    foreach (['image_thumb_url' => '썸네일 이미지', 'image_url' => '상세 이미지', 'image_spec_url' => '규격 이미지'] as $col => $label) {
+        if (array_key_exists($col, $body)) { $out[$col] = product_image_path_input($body[$col], KTOMOK_WEBROOT, $label); }
+    }
+    return $out;
 }
 
 /** '모든 업체' 보기인가(source = 'all') */
@@ -116,7 +131,7 @@ try {
 
         // 업체 이름: 케이토목 행 → '케이토목', syccrt → '상용콘크리트', vendor-<id> → 업체 목록 이름(store = 원본 위치)
         $sql = "SELECT p.id, p.name, p.brand, p.spec, p.price_b2b, p.price_b2c, p.cost_price,
-                       p.image_url, p.is_active, p.category_id,
+                       p.image_url, p.image_thumb_url, p.image_spec_url, p.is_active, p.category_id, p.external_id,
                        c.name AS cat_name,
                        p.external_source,
                        CASE WHEN " . PUBLISHED_ROWS_WHERE . " THEN 'syc' ELSE 'products' END AS store
@@ -137,6 +152,8 @@ try {
         foreach ($products as &$pr) {
             $es = (string) ($pr['external_source'] ?? '');
             $pr['src_name'] = $es === PRODUCT_SOURCE_SYC ? '상용콘크리트' : ($pr['store'] === 'syc' ? ($vendorNames[$es] ?? $es) : '케이토목');
+            $pr['src_code'] = $pr['store'] === 'syc' ? $es : PRODUCT_SOURCE_KTOMOK;   // 반영본 수정 = 원본(syc_products)을 출처 + 출처ID 로 찾아 엶
+            if ($pr['store'] !== 'syc') { unset($pr['external_id']); }
             unset($pr['external_source']);
         }
         unset($pr);
@@ -187,9 +204,10 @@ try {
             if (!$catId) throw new \InvalidArgumentException('카테고리 필수');
 
             // 새 상품은 비활성·출처 케이토목(사용자 결정 2026-11-13 — 등록 기본값 비활성)
+            $imgs = admin_products_image_inputs($body) + ['image_thumb_url' => null, 'image_url' => null, 'image_spec_url' => null];
             $st = db()->prepare(
-                "INSERT INTO products (category_id, name, brand, spec, price_b2b, price_b2c, cost_price, image_url, external_source, is_active)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ktomok', 0)"
+                "INSERT INTO products (category_id, name, brand, spec, price_b2b, price_b2c, cost_price, image_url, image_thumb_url, image_spec_url, external_source, is_active)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ktomok', 0)"
             );
             $st->execute([
                 $catId,
@@ -199,7 +217,7 @@ try {
                 (int)($body['price_b2b'] ?? 0),
                 (int)($body['price_b2c'] ?? 0),
                 max(0, (int)($body['cost_price'] ?? 0)),
-                trim($body['image_url'] ?? '') ?: null,
+                $imgs['image_url'], $imgs['image_thumb_url'], $imgs['image_spec_url'],
             ]);
             $newId = (int)db()->lastInsertId();
             admin_product_sync_spec_axes($newId);
@@ -212,12 +230,14 @@ try {
             $name = trim($body['name'] ?? '');
             if (!$name) throw new \InvalidArgumentException('제품명 필수');
 
-            // 활성 상태는 바꾸지 않음(활성/비활성 변경 기능 멈춤 — PRODUCT_ACTIVE_TOGGLE_ENABLED 가 true 일 때만 반영)
+            // 활성 상태는 PRODUCT_ACTIVE_TOGGLE_ENABLED 가 true 일 때만 반영. 케이토목 행만(반영본은 원본 수정 — api/admin/syc-products.php update)
             $activeSql = PRODUCT_ACTIVE_TOGGLE_ENABLED ? ', is_active=?' : '';
+            $imgs = admin_products_image_inputs($body);
+            $imgSql = implode('', array_map(static fn($c) => ", {$c}=?", array_keys($imgs)));
             $st = db()->prepare(
-                "UPDATE products SET category_id=?, name=?, brand=?, spec=?,
-                 price_b2b=?, price_b2c=?, cost_price=?, image_url=?{$activeSql}
-                 WHERE id=?"
+                "UPDATE products p SET category_id=?, name=?, brand=?, spec=?,
+                 price_b2b=?, price_b2c=?, cost_price=?{$imgSql}{$activeSql}
+                 WHERE p.id=? AND " . KTOMOK_ROWS_WHERE
             );
             $st->execute([
                 (int)($body['category_id'] ?? 0),
@@ -227,7 +247,7 @@ try {
                 (int)($body['price_b2b'] ?? 0),
                 (int)($body['price_b2c'] ?? 0),
                 max(0, (int)($body['cost_price'] ?? 0)),
-                trim($body['image_url'] ?? '') ?: null,
+                ...array_values($imgs),
                 ...(PRODUCT_ACTIVE_TOGGLE_ENABLED ? [(int)($body['is_active'] ?? 1)] : []),
                 $id,
             ]);

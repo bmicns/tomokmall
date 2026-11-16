@@ -1,0 +1,8 @@
+# 업로드 폴더(사용자가 올린 이미지 등): 스크립트 실행·목록 보기 막기 — 2026-11-16
+# 원격 관리 API 는 이 폴더에 쓰지 않으므로 이 파일은 FileZilla 로 /html/uploads/.htaccess 에 올린다.
+# (상품 이미지는 app/product_images.php 가 내용 해시 이름 + 이미지 확장자로만 저장 — 이 파일은 그 밖의 경로를 대비한 추가 방어)
+Options -Indexes
+
+<FilesMatch "\.(?i:php[0-9]?|phtml|phar|pht|cgi|pl|py|sh|shtml|htaccess)$">
+    Require all denied
+</FilesMatch>
