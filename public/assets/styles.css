@@ -506,6 +506,7 @@ body:is(.mode-home, .mode-normal) .header-nav { justify-self: end; margin-left: 
   transition: color 0.12s;
 }
 .mega-col-title-link:hover { color: var(--color-primary); }
+.mega-col-title-group, .mega-col-title-group:hover { color: var(--color-text-primary); cursor: default; }   /* 묶음 제목(기타 등, 링크 아님) */
 .mega-col-title-cont { visibility: hidden; }
 .mega-col-divider { border: none; border-top: 1px solid var(--color-border); margin: 10px 0; }
 .mega-col-items {

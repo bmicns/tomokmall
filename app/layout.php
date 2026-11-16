@@ -3,6 +3,45 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/auth.php';
 
+/**
+ * 메가 메뉴 화면 묶음(사용자 요청 2026-11-16): 하위 분류가 없는 중분류가 많은 대분류는 이름 없는 세로 목록 대신
+ * '묶음 제목 → 중분류' 칸으로 보인다. **화면 표시만** — DB 분류(categories.parent_id, 가격 계산 입력)는 바꾸지 않는다(P0-4).
+ * [대분류 id => [묶음 제목 => [중분류 slug…(보일 순서)]]] — slug 로 적는다(새 품명 std-0xx 는 환경마다 id 가 다름).
+ * 여기 없는 중분류(새로 생긴 것 등)는 마지막 '그 밖의 자재' 묶음에 붙는다.
+ */
+const MEGA_MENU_GROUPS = [
+    16 => [   // 기타
+        '건축 부자재' => ['tile-supplies', 'tile', 'insulation', 'waterproof', 'structure'],   // 타일 부자재·타일·단열재·방수재·철근/시멘트
+        '설비·전기'   => ['plumbing', 'electric', 'window-sealant'],                          // 배관/설비·전기/조명·창호/실란트
+        '배수 부속'   => ['ktomok-7110', 'ktomok-7210', 'ktomok-7730', 'ktomok-7619', 'ktomok-7120', 'ktomok-7310'],
+                         // 그레이팅덮개·플라스틱그레이팅·낙엽방지덮개·분기구밀봉캡·PE망·몰탈용고무시트
+        '도로 안전'   => ['ktomok-7750', 'ktomok-7740', 'ktomok-7520', 'std-019'],            // 과속방지턱·카스토퍼·우레탄볼라드·탄성볼라드
+    ],
+];
+const MEGA_MENU_GROUP_REST = '그 밖의 자재';
+
+/**
+ * 묶음 대분류의 중분류를 묶음 칸으로: 각 칸 = ['mid' => ['id'=>null,'name'=>묶음 제목], 'subs' => 그 묶음의 중분류 행들, 'group' => true].
+ * 하위 분류(subs)가 있는 중분류는 그 칸 안에서 중분류 자체만 링크로 보인다(메뉴 단계는 2단계까지). 순수 함수
+ * @param list<array{mid:array,subs:array}> $mids
+ * @return list<list<array>> colGroups
+ */
+function mega_menu_grouped_cols(array $mids, array $groups): array
+{
+    $bySlug = [];
+    foreach ($mids as $m) { $bySlug[(string) ($m['mid']['slug'] ?? '#' . $m['mid']['id'])] = $m['mid']; }
+    $cols = [];
+    foreach ($groups as $title => $slugs) {
+        $items = [];
+        foreach ($slugs as $slug) {
+            if (isset($bySlug[$slug])) { $items[] = $bySlug[$slug]; unset($bySlug[$slug]); }
+        }
+        if ($items) { $cols[] = [['mid' => ['id' => null, 'name' => $title], 'subs' => $items, 'group' => true]]; }
+    }
+    if ($bySlug) { $cols[] = [['mid' => ['id' => null, 'name' => MEGA_MENU_GROUP_REST], 'subs' => array_values($bySlug), 'group' => true]]; }
+    return $cols;
+}
+
 function render_header(string $title, string $mode = 'normal'): void
 {
     global $config;
@@ -14,7 +53,7 @@ function render_header(string $title, string $mode = 'normal'): void
     if (db()) {
         try {
             $rows = db()->query(
-                'SELECT c.id, c.name, c.parent_id,
+                'SELECT c.id, c.name, c.slug, c.parent_id,
                     (SELECT p.image_url FROM products p
                      WHERE p.category_id = c.id AND p.is_active = 1
                        AND p.image_url IS NOT NULL AND p.image_url <> \'\'
@@ -68,6 +107,8 @@ function render_header(string $title, string $mode = 'normal'): void
             <div class="mega-panel">
                 <div class="mega-panel-inner">
                     <?php
+                    // 묶음 대분류(기타 등 — MEGA_MENU_GROUPS)는 묶음 칸으로, 그 밖은 아래 기존 배치
+                    $menuGroups = MEGA_MENU_GROUPS[(int) $root['id']] ?? null;
                     // 고강성(276)+HDPE(277), THP(279)+기타(281) 추출 → PE배수 뒤에 배치
                     $hsGroup = []; $thpGroup = []; $remainMids = [];
                     foreach ($mids as $m) {
@@ -99,13 +140,18 @@ function render_header(string $title, string $mode = 'normal'): void
                     // PE배수 뒤에 고강성+HDPE, THP+기타 순서로 추가
                     if ($hsGroup)  $colGroups[] = $hsGroup;
                     if ($thpGroup) $colGroups[] = $thpGroup;
+                    if ($menuGroups !== null) { $colGroups = mega_menu_grouped_cols($mids, $menuGroups); }
                     ?>
                     <?php foreach ($colGroups as $group): ?>
                     <div class="mega-col">
                         <?php foreach ($group as $gi => $midEntry): ?>
                         <?php if ($gi > 0): ?><hr class="mega-col-divider"><?php endif; ?>
                         <?php // 이어지는 칸(그레이팅 2번째 절반)의 제목: 데스크톱은 자리만 차지(visibility:hidden), 모바일 세로 목록은 숨김(display:none) — styles.css .mega-col-title-cont ?>
+                        <?php if (!empty($midEntry['group'])): // 묶음 제목(분류 아님 — 링크 없음) ?>
+                        <span class="mega-col-title-link mega-col-title-group"><?= e($midEntry['mid']['name']) ?></span>
+                        <?php else: ?>
                         <a href="/products.php?category=<?= $midEntry['mid']['id'] ?>" class="mega-col-title-link<?= !empty($midEntry['hide_title']) ? ' mega-col-title-cont' : '' ?>"><?= e($midEntry['mid']['name']) ?></a>
+                        <?php endif; ?>
                         <div class="mega-col-items">
                             <?php foreach ($midEntry['subs'] as $sub): ?>
                             <a href="/products.php?category=<?= $sub['id'] ?>" class="mega-3item">
