@@ -151,6 +151,11 @@ render_admin_header('제품관리', 'products');
 /* 업체 칸이 생겨도 가격(매입가·B2B·B2C)·상태 배지는 한 줄 — 칸 순서: 이미지·제품명·업체·카테고리·규격·매입가·B2B·B2C */
 .prod-table-wrap td:nth-child(6),.prod-table-wrap td:nth-child(7),.prod-table-wrap td:nth-child(8),.prod-table-wrap td .badge{white-space:nowrap}
 .btn:disabled{opacity:.45;cursor:not-allowed}
+/* 수정·등록 창 세부 치수 칸 */
+.sc-dims-box{margin-bottom:14px}
+.sc-dims{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 10px}
+.sc-dims .form-field{margin:0}
+.sc-dims label small{font-weight:400;color:#888}
 /* 수정 창 이미지 칸(썸네일·상세·규격) */
 .img-slots{display:grid;gap:10px;margin-bottom:14px}
 .img-slots-h{font-size:13px;font-weight:600;color:#1a2035;margin-bottom:2px}
@@ -385,11 +390,11 @@ render_admin_header('제품관리', 'products');
         </button>
         <h3 id="sc-title">제품 등록</h3>
         <input type="hidden" id="sc-id">
-        <div class="bk-note" style="margin-bottom:12px" id="sc-note-new">새 상품은 <strong>비활성</strong>으로 저장됩니다. 세부 치수 칸(폭·높이 등)은 <strong>일괄 등록</strong>으로 올려 주세요.</div>
-        <div class="bk-note" style="margin-bottom:12px" id="sc-note-edit" hidden>저장하면 고객 화면에 바로 반영됩니다. 세부 치수 칸(폭·높이 등)은 <strong>일괄 등록</strong>으로 고쳐 주세요 — 규격을 바꾸면 상세 화면의 세부 치수는 다시 올릴 때까지 보이지 않습니다.</div>
+        <div class="bk-note" style="margin-bottom:12px" id="sc-note-new">새 상품은 <strong>비활성</strong>으로 저장됩니다.</div>
+        <div class="bk-note" style="margin-bottom:12px" id="sc-note-edit" hidden>저장하면 고객 화면에 바로 반영됩니다.</div>
         <div class="form-field">
             <label for="sc-cat">카테고리 *</label>
-            <select id="sc-cat"><option value="">선택하세요</option></select>
+            <select id="sc-cat" onchange="scDimsRender()"><option value="">선택하세요</option></select>
         </div>
         <div class="form-2col">
             <div class="form-field"><label for="sc-name">제품명 *</label><input type="text" id="sc-name" maxlength="160"></div>
@@ -402,6 +407,12 @@ render_admin_header('제품관리', 'products');
         <div class="form-2col">
             <div class="form-field"><label for="sc-opt">옵션</label><input type="text" id="sc-opt" maxlength="160"></div>
             <div class="form-field"><label for="sc-unit">단위</label><input type="text" id="sc-unit" maxlength="20" placeholder="예) 본"></div>
+        </div>
+        <!-- 세부 치수: 고른 분류의 칸(이름표 — 일괄 등록 엑셀의 치수 칸과 같음). 분류를 바꾸면 칸이 바뀌고 같은 칸 값은 그대로 -->
+        <div class="sc-dims-box">
+            <div class="img-slots-h">세부 치수</div>
+            <div class="img-slots-note" id="sc-dims-note">분류를 고르면 그 분류의 치수 칸이 나옵니다. 상세 화면 '세부 치수'와 목록 '규격(치수)' 필터에 쓰입니다.</div>
+            <div class="sc-dims" id="sc-dims"></div>
         </div>
         <div class="form-2col">
             <div class="form-field"><label for="sc-weight">중량(kg)</label><input type="number" id="sc-weight" min="0" step="0.01"></div>
@@ -780,11 +791,35 @@ async function bkCatCodes() {
 function createOpen() { if (isSyc()) sycCreateOpen(); else openModal(); }
 let sycCatsAll = null;
 let sycEdit = null;   // 수정 중인 상품 {source, name} — null 이면 새 상품 등록
+let sycAxes = {}, scDimVals = {};   // 분류별 세부 치수 칸 {분류 id: [{key,label,symbol,unit}]} · 창에 적은 치수 값 {축 키: 값}
+function scAxisCol(k) { return k === 'wire_no' ? 'spec_wire_no' : 'dim_' + k; }
+function scNum(v) { if (v === null || v === undefined || v === '') return ''; const n = Number(v); return Number.isFinite(n) && String(v).trim() !== '' && !/[^0-9.\-]/.test(String(v)) ? String(n) : String(v); }
+// 고른 분류의 치수 칸 그리기 — 분류를 바꿔도 같은 축 키 값은 그대로(scDimVals)
+function scDimsRender() {
+    const axes = sycAxes[document.getElementById('sc-cat').value] || [];
+    const box = document.getElementById('sc-dims');
+    document.getElementById('sc-dims-note').textContent = !document.getElementById('sc-cat').value
+        ? '분류를 고르면 그 분류의 치수 칸이 나옵니다.'
+        : (axes.length ? "상세 화면 '세부 치수'와 목록 '규격(치수)' 필터에 쓰입니다. 빈칸은 값 없음." : '이 분류는 세부 치수 칸이 없습니다(규격 원문만 보임).');
+    box.innerHTML = axes.map(a => {
+        const id = 'sc-dim-' + a.key;
+        const unit = a.unit && a.unit !== 'no' ? a.unit : '';
+        const text = a.key === 'd_inlet' || a.key === 'd_outlet';
+        return `<div class="form-field"><label for="${id}">${x(a.label)}${a.symbol ? ' ' + x(a.symbol) : ''}${unit ? ` <small>(${x(unit)})</small>` : ''}</label>`
+             + `<input type="${text ? 'text' : 'number'}" id="${id}" data-key="${x(a.key)}" ${text ? 'maxlength="20"' : 'step="0.1" min="0"'} value="${x(scDimVals[a.key] ?? '')}" oninput="scDimVals[this.dataset.key]=this.value"></div>`;
+    }).join('');
+}
+function scDimsPayload() {
+    const out = {};
+    document.querySelectorAll('#sc-dims input[data-key]').forEach(i => { out[i.dataset.key] = i.value.trim(); });
+    return out;
+}
 async function sycCatsReady() {
     if (sycCatsAll) return true;
     const d = await fetch(`${SYC_API}?action=categories`).then(r => r.json()).catch(() => ({ok:false}));
     if (!d.ok) { alert('분류 목록을 불러오지 못했습니다.'); return false; }
     sycCatsAll = d.categories;
+    sycAxes = d.axes || {};
     const groups = {};
     d.categories.forEach(c => (groups[c.group_name] ??= []).push(c));
     document.getElementById('sc-cat').innerHTML = '<option value="">선택하세요</option>' +
@@ -809,6 +844,8 @@ async function sycCreateOpen() {
     document.getElementById('sc-id').value = '';
     [...Object.keys(SC_FIELDS), ...Object.keys(SC_IMGS)].forEach(id => { document.getElementById(id).value = ''; });
     document.getElementById('sc-brand').value = srcName();
+    scDimVals = {};
+    scDimsRender();
     sycModalShow(false, `${srcName()} 제품 등록`);
 }
 // 수정: 업체 화면은 원본 id, '모든 업체' 화면은 출처 + 출처ID 로 원본을 찾아 엶
@@ -823,6 +860,9 @@ async function sycEditOpen(source, srcLabel, ref) {
     Object.entries(SC_FIELDS).forEach(([id, k]) => { document.getElementById(id).value = p[k] ?? ''; });
     Object.entries(SC_IMGS).forEach(([id, k]) => { document.getElementById(id).value = p[k] ?? ''; });
     document.getElementById('sc-active').value = String(+p.is_active === 1 ? 1 : 0);
+    scDimVals = {};
+    Object.values(sycAxes).flat().forEach(a => { const v = p[scAxisCol(a.key)]; if (v !== null && v !== undefined) scDimVals[a.key] = scNum(v); });
+    scDimsRender();
     sycModalShow(true, `${srcLabel} 제품 수정`);
 }
 function sycCreateClose() { document.getElementById('syc-modal').classList.remove('open'); }
@@ -833,6 +873,7 @@ async function sycCreateSave() {
     Object.entries(SC_FIELDS).forEach(([id, k]) => { payload[k] = v(id); });
     Object.entries(SC_IMGS).forEach(([id, k]) => { payload[k] = v(id); });
     payload.category_id = +payload.category_id;
+    payload.dims = scDimsPayload();   // 고른 분류의 치수 칸만
     if (edit) { payload.id = +v('sc-id'); if (ACTIVE_TOGGLE) payload.is_active = +v('sc-active'); }
     if (!payload.category_id) { alert('카테고리를 선택해 주세요.'); return; }
     if (!payload.name) { alert('제품명을 입력해 주세요.'); return; }
