@@ -118,13 +118,17 @@ function ktomok_bulk_read_excel(string $file, string $ext, array $catIds): array
     return ['rows' => $rows, 'errors' => $errors, 'error_count' => $errCount, 'data_rows' => count($rows) + $errCount, 'present' => $present];
 }
 
-/** 케이토목 분류코드 → categories.id: 상용콘크리트(syc-)가 아니고 하위 분류가 없는 카테고리(상품이 붙는 단계) */
+/**
+ * 케이토목 분류코드 → categories.id: 상용콘크리트(syc-)가 아니고, 하위 분류가 없거나(상품이 붙는 단계)
+ * 이미 상품이 바로 붙어 있는 카테고리(하위 분류도 있는 중분류 — 잔디블록·파형강관 등, 2026-11-16 일괄 등록 오류 44행)
+ */
 function ktomok_bulk_category_ids(PDO $pdo): array
 {
     $out = [];
     $sql = "SELECT c.id, c.slug FROM categories c
             WHERE c.parent_id IS NOT NULL AND c.slug IS NOT NULL AND c.slug <> '' AND c.slug NOT LIKE 'syc-%'
-              AND NOT EXISTS (SELECT 1 FROM categories k WHERE k.parent_id = c.id)";
+              AND (NOT EXISTS (SELECT 1 FROM categories k WHERE k.parent_id = c.id)
+                   OR EXISTS (SELECT 1 FROM products x WHERE x.category_id = c.id))";
     foreach ($pdo->query($sql) as $r) { $out[(string) $r['slug']] = (int) $r['id']; }
     return $out;
 }
