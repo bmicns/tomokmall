@@ -216,7 +216,7 @@ render_header($pageTitle);
         $catName = $pageTitle;
         $catDesc = $category['description'] ?? '';
         // 소분류면 부모(중분류) 설명 사용
-        if (!$catDesc && !empty($category['parent_id']) && !in_array((int)$category['parent_id'], [11,12,13,14,15]) && db()) {
+        if (!$catDesc && !empty($category['parent_id']) && !in_array((int)$category['parent_id'], CATALOG_ROOT_IDS, true) && db()) {
             try {
                 $ps = db()->prepare('SELECT description FROM categories WHERE id = ?');
                 $ps->execute([(int)$category['parent_id']]);

@@ -60,7 +60,16 @@ if ($p['mid_id'] && db()) {
 // 상용콘크리트 상품(반영본 — app/syc_publish.php): 상세에 치수를 더 보여 줌(사용자 결정 2026-11-12, 다른 화면은 기존 디자인 그대로)
 //   주요 치수 = 카테고리 이름표(category_spec_axes) 칸 값, 세부 치수 = products.spec_detail(목록에 없는 도면·부속 치수)
 $dimMain = $dimDetail = [];
-if (str_starts_with((string) ($p['cat_slug'] ?? ''), 'syc-')) {
+// 공통 분류 반영(2026-11-16, app/syc_publish.php syc_publish_dims): 상용콘크리트·업체 상품은 spec_detail 에 업체 칸 이름 그대로 주요(main)·세부를 함께 담음
+$pdDims = (array) json_decode((string) ($p['spec_detail'] ?? ''), true);
+$pdStd  = !str_starts_with((string) ($p['cat_slug'] ?? ''), 'syc-') && $pdDims && array_key_exists('main', (array) ($pdDims[0] ?? []));
+if ($pdStd) {
+    foreach ($pdDims as $d) {
+        if (!is_array($d) || !isset($d['label'], $d['value'])) { continue; }
+        $row = [trim((string) $d['label'] . ' ' . (string) ($d['symbol'] ?? '')), (string) $d['value'] . (($d['unit'] ?? '') !== '' ? ' ' . $d['unit'] : '')];
+        if (!empty($d['main'])) { $dimMain[] = $row; } else { $dimDetail[] = $row; }
+    }
+} elseif (str_starts_with((string) ($p['cat_slug'] ?? ''), 'syc-')) {
     foreach (spec_axes_ready() ? spec_axes_for_category((int) $p['cat_id']) : [] as $a) {
         $v = spec_axes_row_value($p, (string) $a['axis_key']);
         if ($v === null) { continue; }

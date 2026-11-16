@@ -38,9 +38,12 @@ function syc_axis_column(string $key): ?string
     return $key === 'wire_no' ? 'spec_wire_no' : 'dim_' . $key;
 }
 
-const SYC_CATALOG_MODES = ['ktomok', 'syc'];
+const SYC_CATALOG_MODES = ['ktomok', 'syc', 'std'];
 
-/** 지금 고객 화면 상품 출처: 'ktomok'(기본 — 표·행이 없을 때 포함) | 'syc'. 요청당 1회 */
+/**
+ * 지금 고객 화면 상품 출처: 'ktomok'(기본 — 표·행이 없을 때 포함) | 'syc'(상용콘크리트 전환, 2026-11-12) |
+ * 'std'(공통 분류 — 모든 업체 상품을 케이토목 분류 체계에 함께, 상품별 활성으로 노출, 2026-11-16 app/syc_publish.php syc_publish_std_apply). 요청당 1회
+ */
 function syc_catalog_mode(bool $fresh = false): string
 {
     static $mode = null;
@@ -61,7 +64,7 @@ function syc_preview_on(): bool
 {
     $u = current_user();
     if ($u === null || $u['role'] !== 'admin') { return false; }
-    if (syc_catalog_mode() === 'syc') { return false; }   // 전환 뒤: 고객 화면이 이미 상용콘크리트(app/syc_publish.php) — 미리보기 이동 없음
+    if (syc_catalog_mode() !== 'ktomok') { return false; }   // 전환·공통 분류 뒤: 고객 화면에 이미 상용콘크리트가 있음 — 미리보기 이동 없음
     return ($_SESSION[SYC_SOURCE_SESSION_KEY] ?? SYC_SOURCE_SYC) !== SYC_SOURCE_KTOMOK;
 }
 

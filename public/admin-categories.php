@@ -117,7 +117,30 @@ function rootDiscBox(rootId) {
         <span class="disc-tag">개인</span><input class="disc-in" type="number" min="0" max="255" value="${rd}" onchange="updDiscount(${rootId},this.value,'discount_customer',true)"> %
         <span class="disc-tag">기업</span><input class="disc-in" type="number" min="0" max="255" value="${rc}" onchange="updDiscount(${rootId},this.value,'discount_corporate',true)"> %
         <span class="disc-hint">하위 항목에 상속됩니다. 중·소분류에 개별 설정 시 그 값이 우선합니다.</span>
+    </div>` + rootMoveBox(rootId);
+}
+
+// 대분류를 다른 대분류 아래 중분류로 옮기기(사용자 결정 2026-11-16 — 옛 대분류 8개 → '기타'). 하위가 2단계면 서버가 거절(3단계 초과)
+function rootMoveBox(rootId) {
+    const opts = Object.values(rootMap).filter(r => r.id !== rootId).map(r => `<option value="${r.id}">${x(r.name)}</option>`).join('');
+    if (!opts) return '';
+    return `<div class="disc-root-box" style="margin-top:-6px">
+        <b>이 대분류를 옮기기</b>
+        <label for="mv-to-${rootId}" style="font-size:12px;color:#555">다른 대분류 아래 중분류로</label>
+        <select id="mv-to-${rootId}" style="height:32px;border:1px solid #d5d9e0;border-radius:6px;padding:0 8px;font-size:13px"><option value="">대분류 선택</option>${opts}</select>
+        <button class="btn-xs btn-xs-edit" style="height:32px" onclick="moveRoot(${rootId})">옮기기</button>
+        <span class="disc-hint">마진율은 그대로입니다(자기 값이 없으면 새 대분류 값을 따름).</span>
     </div>`;
+}
+async function moveRoot(rootId) {
+    const to = +document.getElementById('mv-to-' + rootId).value;
+    if (!to) { alert('옮길 대분류를 골라 주세요.'); return; }
+    if (!confirm(`'${rootMap[rootId].name}' 을(를) '${rootMap[to].name}' 아래 중분류로 옮길까요?`)) return;
+    const r = await fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'move', id: rootId, parent_id: to})});
+    const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
+    if (!d.ok) { alert('옮기기 실패: ' + d.error); return; }
+    await loadRoots();
+    selectRoot(to);
 }
 
 function renderTree(mids, rootId) {

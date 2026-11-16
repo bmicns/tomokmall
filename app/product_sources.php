@@ -16,10 +16,10 @@ const PRODUCT_SOURCE_KTOMOK = 'ktomok';
 const PRODUCT_SOURCE_SYC    = 'syccrt';
 
 /**
- * 활성/비활성 바꾸기(목록·편집 창·일괄 버튼) — 화면은 보이되 기능은 멈춤(사용자 결정 2026-11-13, 추후 개발).
- * true 로 바꾸면 기존 기능이 그대로 돌아온다.
+ * 활성/비활성 바꾸기(목록·편집 창·일괄 버튼). 2026-11-13 멈춤 → 2026-11-16 다시 켬(사용자 결정: 활성 = 고객 화면에 보임, 비활성 = 안 보임).
+ * 상용콘크리트·업체 상품은 바꾼 뒤 고객 화면(공통 분류)에 바로 반영(public/api/admin/syc-products.php). false 로 하면 다시 멈춤.
  */
-const PRODUCT_ACTIVE_TOGGLE_ENABLED = false;
+const PRODUCT_ACTIVE_TOGGLE_ENABLED = true;
 const PRODUCT_ACTIVE_TOGGLE_OFF_MSG = '활성/비활성 변경은 추후 지원 예정입니다.';
 
 /** 업체 목록 업체의 출처 코드 */

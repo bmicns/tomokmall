@@ -92,6 +92,23 @@ try {
             echo json_encode(['ok' => true]);
             break;
 
+        // 상위 분류 바꾸기(사용자 결정 2026-11-16 — 옛 대분류 8개를 '기타' 아래 중분류로). 대상 상위는 대분류만, 3단계(대·중·품명)를 넘지 않게.
+        // 마진율은 그대로(자기 값이 없으면 새 상위 값 상속 — app/pricing.php category_discount_map). 관리자 기존 가격 관리 기능(parent_id)
+        case 'move':
+            $id = (int)($body['id'] ?? 0);
+            $to = (int)($body['parent_id'] ?? 0);
+            if (!$id || !$to || $id === $to) throw new \InvalidArgumentException('옮길 분류와 상위 대분류를 골라 주세요.');
+            $dst = db()->prepare('SELECT id, parent_id FROM categories WHERE id = ?');
+            $dst->execute([$to]);
+            $dstRow = $dst->fetch();
+            if (!$dstRow || $dstRow['parent_id'] !== null) throw new \InvalidArgumentException('상위는 대분류만 고를 수 있습니다.');
+            $deep = db()->prepare('SELECT COUNT(*) FROM categories c JOIN categories k ON k.parent_id = c.id WHERE c.parent_id = ?');
+            $deep->execute([$id]);
+            if ((int)$deep->fetchColumn() > 0) throw new \InvalidArgumentException('하위가 2단계 있는 분류는 대분류 아래로 옮길 수 없습니다(3단계 초과).');
+            db()->prepare('UPDATE categories SET parent_id = ? WHERE id = ?')->execute([$to, $id]);
+            echo json_encode(['ok' => true]);
+            break;
+
         case 'toggle':
             $id = (int)($body['id'] ?? 0);
             if (!$id) throw new \InvalidArgumentException('id 필수');

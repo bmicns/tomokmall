@@ -179,13 +179,16 @@ function fetch_categories(): array
 
 /**
  * 화면에서 숨길 빈 카테고리: 상용콘크리트 반영 카테고리(slug 'syc-…') 중 자신·하위 품목에 활성 상품이 하나도 없는 것.
+ * 공통 분류 모드('std', 2026-11-16)에서는 'syc-…' 반영 분류를 모두 숨기고, 공통(케이토목 체계) 분류에 같은 규칙을 적용한다.
  * DB 의 카테고리 행·활성 여부는 그대로 두고(사용자 결정 2026-11-12) 메뉴·빠른 견적·검색 추천에서만 뺀다 —
  * 실제 데이터로 상품이 들어오면 자동으로 다시 보인다. 케이토목 카테고리는 대상 아님(기존 화면 그대로).
  * 예외: CATEGORY_EMPTY_SHOW_ROOT_IDS 대분류 아래는 상품이 없어도 보인다(사용자 결정 2026-11-12 — PE/PVC 먼저,
  *       이어서 맨홀 안전 사다리·그레이팅 등 카탈로그 품목도 보이게 해 상용콘크리트 대분류 4개 모두). 대분류를 빼면 다시 숨김.
  * @return array<int,true> [category_id => true] (요청당 1회)
  */
-const CATEGORY_EMPTY_SHOW_ROOT_IDS = [11, 12, 13, 15];   // 철근콘크리트·콘크리트·스틸·PE/PVC제품: 상품 없는 카탈로그 품목도 메뉴에 보임
+const CATEGORY_EMPTY_SHOW_ROOT_IDS = [11, 12, 13, 15];
+/** 재질 대분류 6개(사용자 결정 2026-11-16 — 철근콘크리트·콘크리트·스틸·석재·PE/PVC·기타). 메뉴·빠른 견적·관리자 분류 선택이 같은 목록을 쓴다 */
+const CATALOG_ROOT_IDS = [11, 12, 13, 14, 15, 16];   // 철근콘크리트·콘크리트·스틸·PE/PVC제품: 상품 없는 카탈로그 품목도 메뉴에 보임
 
 function category_empty_hidden_ids(): array
 {
@@ -195,9 +198,16 @@ function category_empty_hidden_ids(): array
     if (!db()) { return $ids; }
     try {
         $keep = implode(',', array_map('intval', CATEGORY_EMPTY_SHOW_ROOT_IDS)) ?: '0';
+        if (!function_exists('syc_catalog_mode')) { require_once __DIR__ . '/syc_catalog.php'; }
+        if (syc_catalog_mode() === 'std') {
+            // 공통 분류(2026-11-16): 반영본 'syc-…' 분류는 더 쓰지 않음(상품이 공통 분류로 옮겨짐) → 모두 숨김.
+            // 공통 분류는 아래 규칙 그대로(CATEGORY_EMPTY_SHOW_ROOT_IDS 대분류 아래는 상품이 없어도 보임, 석재·기타 아래 빈 분류는 숨김)
+            foreach (db()->query("SELECT id FROM categories WHERE is_active = 1 AND slug LIKE 'syc-%'")->fetchAll() as $r) { $ids[(int) $r['id']] = true; }
+        }
+        $scope = syc_catalog_mode() === 'std' ? "c.parent_id IS NOT NULL AND (c.slug IS NULL OR c.slug NOT LIKE 'syc-%')" : "c.slug LIKE 'syc-%'";
         foreach (db()->query("SELECT c.id FROM categories c
                                 LEFT JOIN categories pa ON pa.id = c.parent_id
-                               WHERE c.is_active = 1 AND c.slug LIKE 'syc-%'
+                               WHERE c.is_active = 1 AND {$scope}
                                  AND NOT (c.parent_id IN ({$keep}) OR pa.parent_id IN ({$keep}))
                                  AND NOT EXISTS (SELECT 1 FROM products p JOIN categories pc ON pc.id = p.category_id
                                                   WHERE p.is_active = 1 AND (pc.id = c.id OR pc.parent_id = c.id))")->fetchAll() as $r) {

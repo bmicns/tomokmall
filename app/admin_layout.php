@@ -141,7 +141,7 @@ function render_admin_header(string $title, string $activeMenu = ''): void
             // 고객 화면을 상용콘크리트로 전환한 뒤(app/syc_publish.php)에는 미리보기가 필요 없어 버튼을 숨긴다
             require_once __DIR__ . '/syc_catalog.php';
             $sycOn = ($_SESSION['site_source'] ?? 'syc') !== 'ktomok';   // 관리자 기본 = 상용콘크리트 보기 ?>
-            <?php if (syc_catalog_mode() !== 'syc'): ?>
+            <?php if (syc_catalog_mode() === 'ktomok'): ?>
             <div class="adm-src" role="group" aria-label="사이트 보기">
                 <span class="adm-src-l">사이트 보기</span>
                 <form method="post" action="/api/admin/site-source.php"><input type="hidden" name="source" value="ktomok"><input type="hidden" name="return" value="/index.php"><button type="submit" class="adm-src-b<?= $sycOn ? '' : ' on' ?>" aria-pressed="<?= $sycOn ? 'false' : 'true' ?>" formtarget="_blank">케이토목으로 보기</button></form>
