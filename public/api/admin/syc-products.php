@@ -108,7 +108,7 @@ try {
         $cnt = $pdo->prepare("SELECT COUNT(*) FROM syc_products p WHERE {$w}");
         $cnt->execute($params);
         $offset = ($page - 1) * $limit;
-        $st = $pdo->prepare("SELECT p.id, p.name, p.brand, p.spec, p.spec_code, p.unit, p.weight_kg, p.price_b2b, p.price_b2c,
+        $st = $pdo->prepare("SELECT p.id, p.name, p.brand, p.spec, p.spec_code, p.unit, p.weight_kg, p.price_b2b, p.price_b2c, p.cost_price,
                                     p.image_file, p.image_thumb_file, p.is_active, p.external_id, c.name AS cat_name
                              FROM syc_products p JOIN syc_categories c ON c.id = p.category_id
                              WHERE {$w} ORDER BY p.id DESC LIMIT {$limit} OFFSET {$offset}");

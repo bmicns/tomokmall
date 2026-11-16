@@ -69,7 +69,7 @@ try {
         $cntSt->execute($params);
         $total = (int)($cntSt->fetch()['c'] ?? 0);
 
-        $sql = "SELECT p.id, p.name, p.brand, p.spec, p.price_b2b, p.price_b2c,
+        $sql = "SELECT p.id, p.name, p.brand, p.spec, p.price_b2b, p.price_b2c, p.cost_price,
                        p.image_url, p.is_active, p.category_id,
                        c.name AS cat_name
                 FROM products p

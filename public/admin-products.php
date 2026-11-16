@@ -184,11 +184,11 @@ render_admin_header('제품관리', 'products');
         <thead>
             <tr>
                 <th>이미지</th><th>제품명</th><th>카테고리</th><th>규격</th>
-                <th>B2B단가</th><th>B2C단가</th><th>상차수량</th><th>상태</th><th>관리</th>
+                <th>매입가</th><th>B2B단가</th><th>B2C단가</th><th>상차수량</th><th>상태</th><th>관리</th>
             </tr>
         </thead>
         <tbody id="prod-tbody">
-            <tr><td colspan="9" class="empty-row">불러오는 중...</td></tr>
+            <tr><td colspan="10" class="empty-row">불러오는 중...</td></tr>
         </tbody>
     </table>
 </div>
@@ -286,6 +286,10 @@ render_admin_header('제품관리', 'products');
             </div>
         </div>
 
+        <div class="form-field">
+            <label for="f-cost">매입가 (원)</label>
+            <input type="number" id="f-cost" placeholder="0" min="0">
+        </div>
         <div class="form-2col">
             <div class="form-field">
                 <label>단가 B2B (원)</label>
@@ -401,7 +405,7 @@ async function load(page) {
     const status = document.getElementById('filter-status').value;
     const catId  = document.getElementById(syc ? 'filter-syc-cat' : 'filter-cat').value;
     const q      = document.getElementById('filter-q').value;
-    document.getElementById('prod-tbody').innerHTML = '<tr><td colspan="9" class="empty-row">불러오는 중...</td></tr>';
+    document.getElementById('prod-tbody').innerHTML = '<tr><td colspan="10" class="empty-row">불러오는 중...</td></tr>';
     const r = await fetch(`${syc ? SYC_API : API}?${syc ? 'source=' + encodeURIComponent(srcCode()) + '&' : ''}status=${status}&cat_id=${catId}&q=${encodeURIComponent(q)}&page=${page}`);
     // 오류는 200 + ok:false + error 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
     const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
@@ -413,7 +417,7 @@ async function load(page) {
 // 상용콘크리트 목록: 썸네일이 없으면 기존 빈 이미지 표시(.prod-no-img) 그대로
 function renderSyc(rows) {
     const tb = document.getElementById('prod-tbody');
-    if (!rows.length) { tb.innerHTML = '<tr><td colspan="9" class="empty-row">제품이 없습니다.</td></tr>'; return; }
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="10" class="empty-row">제품이 없습니다.</td></tr>'; return; }
     tb.innerHTML = rows.map(p => {
         const active = p.is_active == 1;
         return `<tr>
@@ -421,6 +425,7 @@ function renderSyc(rows) {
             <td style="font-weight:600;color:#1a2035">${x(p.name)}${p.brand ? `<span class="syc-brand">${x(p.brand)}</span>` : ''}</td>
             <td style="font-size:12px;color:#888">${x(p.cat_name)}</td>
             <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${x(p.spec)}">${x(p.spec || '-')}</td>
+            <td style="font-size:13px;color:#004EA1">${+p.cost_price ? Number(p.cost_price).toLocaleString()+'원' : '-'}</td>
             <td style="font-size:13px">${+p.price_b2b ? Number(p.price_b2b).toLocaleString()+'원' : '-'}</td>
             <td style="font-size:13px">${+p.price_b2c ? Number(p.price_b2c).toLocaleString()+'원' : '-'}</td>
             <td style="font-size:12px">-</td>
@@ -722,7 +727,7 @@ async function sycCreateSave() {
 
 function render(rows) {
     const tb = document.getElementById('prod-tbody');
-    if (!rows.length) { tb.innerHTML = '<tr><td colspan="9" class="empty-row">제품이 없습니다.</td></tr>'; return; }
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="10" class="empty-row">제품이 없습니다.</td></tr>'; return; }
     tb.innerHTML = rows.map(p => {
         const sp = parseSpec(p.spec || '');
         const active = p.is_active == 1;
@@ -731,6 +736,7 @@ function render(rows) {
             <td><a href="/admin-product.php?id=${p.id}" style="color:#004EA1;font-weight:600;text-decoration:none">${x(p.name)}</a></td>
             <td style="font-size:12px;color:#888">${x(p.cat_name)}</td>
             <td style="font-size:12px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x(sp.spec || p.spec || '-')}</td>
+            <td style="font-size:13px;color:#004EA1">${+p.cost_price ? Number(p.cost_price).toLocaleString()+'원' : '-'}</td>
             <td style="font-size:13px">${p.price_b2b ? Number(p.price_b2b).toLocaleString()+'원' : '-'}</td>
             <td style="font-size:13px">${p.price_b2c ? Number(p.price_b2c).toLocaleString()+'원' : '-'}</td>
             <td style="font-size:12px">${x(sp.load || '-')}</td>
@@ -800,6 +806,7 @@ function openModal(data) {
     document.getElementById('f-brand').value = data?.brand ?? '';
     document.getElementById('f-pb2b').value  = data?.price_b2b ?? '';
     document.getElementById('f-pb2c').value  = data?.price_b2c ?? '';
+    document.getElementById('f-cost').value  = data?.cost_price ?? '';   // 매입가: 비워 저장하면 0 이 되므로 기존 값을 채워 둠
     document.getElementById('f-img').value   = data?.image_url ?? '';
     document.getElementById('f-active').value = data?.is_active ?? '1';
     document.getElementById('f-active-wrap').style.display = data ? 'block' : 'none';
@@ -827,6 +834,7 @@ async function save() {
         spec:        buildSpec(),
         price_b2b:   +document.getElementById('f-pb2b').value,
         price_b2c:   +document.getElementById('f-pb2c').value,
+        cost_price:  +document.getElementById('f-cost').value,
         image_url:   document.getElementById('f-img').value.trim(),
         is_active:   +document.getElementById('f-active').value,
     };
