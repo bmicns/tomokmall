@@ -3,6 +3,7 @@ declare(strict_types=1);
 require __DIR__ . '/../../../app/bootstrap.php';
 require __DIR__ . '/../../../app/auth.php';
 require __DIR__ . '/../../../app/ktomok_bulk.php';   // 케이토목 일괄 등록 + 업체(출처) 규칙(app/product_sources.php)
+require_once __DIR__ . '/../../../app/syc_publish.php';   // '모든 업체'에서 상용콘크리트·업체 상품을 바꾼 뒤 고객 화면 반영 — syc_publish_std_run
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -11,6 +12,8 @@ require_admin();
 /*
  * 관리자 — 케이토목 상품(products 의 상용콘크리트 반영본이 아닌 행) 목록·등록·수정 API. 화면: /admin-products.php 업체 '케이토목'
  * GET  ?status=&cat_id=&q=&page=          목록(케이토목만 — 출처 syccrt 반영본 제외, 사용자 결정 2026-11-13)
+ * GET  ?source=all&…                      '모든 업체'(2026-11-16): 고객용 상품 표 전체(케이토목 + 상용콘크리트·업체 반영본), 행마다 업체 이름(src_name)·저장 위치(store)
+ *      → 활성/비활성(bulk_toggle·set_active_filter 에 source:'all')은 케이토목 행은 여기서, 반영본은 원본(syc_products)을 바꾼 뒤 고객 화면 반영
  * POST JSON create / update               제품 1건 등록(비활성, 출처 ktomok) / 수정(활성 상태는 바꾸지 않음)
  * POST multipart action=stage_excel       케이토목 엑셀 올리기 → 검증 결과(app/ktomok_bulk.php)
  * POST JSON {action:'bulk_commit', job}   올린 엑셀로 등록: 새 상품 비활성, 같은 상품(출처ID → 제품명+규격)은 엑셀 칸만 덮어쓰기
@@ -21,6 +24,8 @@ require_admin();
 // 케이토목 행 = 상용콘크리트(syccrt)·업체(vendor-<id>) 반영본이 아닌 행 — 반영본은 원본(syc_products)에서 고친다
 const KTOMOK_ROWS_WHERE = "(p.external_source IS NULL OR (p.external_source <> 'syccrt' AND p.external_source NOT LIKE 'vendor-%'))";
 const KTOMOK_WEBROOT = __DIR__ . '/../..';   // 이미지 경로(/…)를 찾는 웹루트(public)
+// 상용콘크리트·업체 반영본(원본 = syc_products, 같은 출처 + 출처ID)
+const PUBLISHED_ROWS_WHERE = "(p.external_source = 'syccrt' OR p.external_source LIKE 'vendor-%')";
 
 /**
  * 저장 뒤 규격 축 새 칸(spec_code·dim_*)을 지금 규격 원문 기준으로 다시 계산(app/spec_axes.php).
@@ -44,7 +49,7 @@ function admin_products_list_where(array $f): array
     $catId  = (int) ($f['cat_id'] ?? 0);
     $q      = trim((string) ($f['q'] ?? ''));
     $status = (string) ($f['status'] ?? 'active');
-    $where  = [KTOMOK_ROWS_WHERE];
+    $where  = [admin_products_is_all($f) ? '1=1' : KTOMOK_ROWS_WHERE];
     $params = [];
     if ($status === 'active') { $where[] = 'p.is_active = 1'; }
     elseif ($status === 'inactive') { $where[] = 'p.is_active = 0'; }   // 'all' → is_active 조건 없음
@@ -54,6 +59,45 @@ function admin_products_list_where(array $f): array
         $params['q'] = $params['q2'] = $params['q3'] = "%{$q}%";
     }
     return [implode(' AND ', $where), $params];
+}
+
+/** '모든 업체' 보기인가(source = 'all') */
+function admin_products_is_all(array $f): bool
+{
+    return ($f['source'] ?? '') === 'all';
+}
+
+/**
+ * '모든 업체'에서 반영본(상용콘크리트·업체)을 바꾼 뒤 고객 화면 반영. 실패해도 원본 저장은 끝났으므로 알림만(api/admin/syc-products.php 와 같음)
+ * @return array{publish?:array, publish_error?:string}
+ */
+function admin_products_publish(PDO $pdo): array
+{
+    try {
+        return ['publish' => syc_publish_std_run($pdo, (int) (current_user()['id'] ?? 0) ?: null)];
+    } catch (\Throwable $e) {
+        error_log('[api/admin/products] 고객 화면 반영 실패: ' . get_class($e) . ': ' . $e->getMessage());
+        return ['publish_error' => '고객 화면 반영에 실패했습니다. 원본은 저장됐습니다 — 잠시 후 다시 시도해 주세요.'];
+    }
+}
+
+/**
+ * 활성/비활성 바꾸기: $where(products p 조건)에 맞는 행 중 케이토목 행은 products 를, ($all 일 때) 반영본은 원본 syc_products 를 바꾼다.
+ * 반영본을 products 에서만 바꾸면 다음 고객 화면 반영 때 원본 값으로 되돌아가므로 원본을 바꾼다. @return [바뀐 행 수, 원본을 바꿨는지]
+ */
+function admin_products_set_active(PDO $pdo, string $where, array $params, int $val, bool $all): array
+{
+    $up = $pdo->prepare("UPDATE products p SET p.is_active = :val WHERE ({$where}) AND " . KTOMOK_ROWS_WHERE);
+    $up->execute(['val' => $val] + $params);
+    $changed = $up->rowCount();
+    $src = 0;
+    if ($all) {
+        $us = $pdo->prepare("UPDATE syc_products s JOIN products p ON p.external_source = s.external_source AND p.external_id = s.external_id
+                             SET s.is_active = :val WHERE ({$where}) AND " . PUBLISHED_ROWS_WHERE);
+        $us->execute(['val' => $val] + $params);
+        $src = $us->rowCount();
+    }
+    return [$changed + $src, $src > 0];
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
@@ -70,9 +114,12 @@ try {
         $cntSt->execute($params);
         $total = (int)($cntSt->fetch()['c'] ?? 0);
 
+        // 업체 이름: 케이토목 행 → '케이토목', syccrt → '상용콘크리트', vendor-<id> → 업체 목록 이름(store = 원본 위치)
         $sql = "SELECT p.id, p.name, p.brand, p.spec, p.price_b2b, p.price_b2c, p.cost_price,
                        p.image_url, p.is_active, p.category_id,
-                       c.name AS cat_name
+                       c.name AS cat_name,
+                       p.external_source,
+                       CASE WHEN " . PUBLISHED_ROWS_WHERE . " THEN 'syc' ELSE 'products' END AS store
                 FROM products p
                 JOIN categories c ON c.id = p.category_id
                 WHERE {$whereStr}
@@ -81,6 +128,18 @@ try {
         $st = db()->prepare($sql);
         $st->execute($params);
         $products = $st->fetchAll();
+        $vendorNames = [];   // vendor-<id> → 업체 목록 이름(표가 없으면 출처 코드 그대로)
+        try {
+            foreach (db()->query('SELECT id, name FROM vendors') as $v) { $vendorNames[product_source_vendor_code((int) $v['id'])] = (string) $v['name']; }
+        } catch (\PDOException $e) {
+            error_log('[api/admin/products] vendors 표를 읽지 못함: ' . $e->getCode());
+        }
+        foreach ($products as &$pr) {
+            $es = (string) ($pr['external_source'] ?? '');
+            $pr['src_name'] = $es === PRODUCT_SOURCE_SYC ? '상용콘크리트' : ($pr['store'] === 'syc' ? ($vendorNames[$es] ?? $es) : '케이토목');
+            unset($pr['external_source']);
+        }
+        unset($pr);
 
         echo json_encode(['ok' => true, 'products' => $products, 'total' => $total, 'page' => $page, 'limit' => $limit]);
         exit;
@@ -187,10 +246,12 @@ try {
             $ids = array_values(array_filter(array_map('intval', (array) ($body['ids'] ?? [])), static fn($v) => $v > 0));
             if (!$ids || count($ids) > 500) throw new \InvalidArgumentException('대상 상품이 없습니다.');
             $val = (int)($body['is_active'] ?? 0) === 1 ? 1 : 0;
-            $placeholders = implode(',', array_fill(0, count($ids), '?'));
-            $up = db()->prepare("UPDATE products p SET p.is_active = ? WHERE p.id IN ({$placeholders}) AND " . KTOMOK_ROWS_WHERE);
-            $up->execute(array_merge([$val], $ids));
-            echo json_encode(['ok' => true, 'changed' => $up->rowCount()]);
+            $pdo = db();
+            $all = admin_products_is_all($body);
+            $ph  = [];
+            foreach ($ids as $i => $id) { $ph['id' . $i] = $id; }
+            [$changed, $srcChanged] = admin_products_set_active($pdo, 'p.id IN (:' . implode(', :', array_keys($ph)) . ')', $ph, $val, $all);
+            echo json_encode(['ok' => true, 'changed' => $changed] + ($srcChanged ? admin_products_publish($pdo) : []), JSON_UNESCAPED_UNICODE);
             break;
 
         // 검색 결과 전체(여러 페이지) 활성/비활성: 화면의 목록 조건 그대로. 화면이 본 개수(expect)와 지금 개수가 다르면
@@ -209,10 +270,9 @@ try {
                 $pdo->rollBack();
                 throw new \InvalidArgumentException($now === 0 ? '대상 상품이 없습니다.' : "그사이 목록이 바뀌었습니다(지금 {$now}개). 목록을 다시 확인해 주세요.");
             }
-            $up = $pdo->prepare("UPDATE products p SET p.is_active = :val WHERE {$w}");
-            $up->execute(['val' => $val] + $params);
+            [$changed, $srcChanged] = admin_products_set_active($pdo, $w, $params, $val, admin_products_is_all($filter));
             $pdo->commit();
-            echo json_encode(['ok' => true, 'count' => $now, 'changed' => $up->rowCount()]);
+            echo json_encode(['ok' => true, 'count' => $now, 'changed' => $changed] + ($srcChanged ? admin_products_publish($pdo) : []), JSON_UNESCAPED_UNICODE);
             break;
 
         case 'bulk_commit':

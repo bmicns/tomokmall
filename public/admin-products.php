@@ -7,7 +7,8 @@ require_once __DIR__ . '/../app/ktomok_bulk.php';   // 업체(출처) 목록·�
 
 require_admin();
 
-// 첫 번째 드롭다운 = 업체: 케이토목 → 상용콘크리트 → 업체 목록(직원 '품목별 업체정보')의 활성 업체(사용자 결정 2026-11-13)
+// 첫 번째 드롭다운 = 업체: (모든 업체) → 케이토목 → 상용콘크리트 → 업체 목록(직원 '품목별 업체정보')의 활성 업체(사용자 결정 2026-11-13·16)
+// '모든 업체'(기본)는 고객용 상품 표 전체(공통 분류)를 업체 칸과 함께 보여 줌 — 일괄 등록·제품 등록은 업체를 고른 뒤
 $sources = product_sources(db());
 // 일괄 등록 양식(CSV 머리글): 케이토목 = products 칸, 그 밖 = syc_products 칸(출처 칸은 고른 업체로 정해지므로 뺌)
 $tplLabels = ['category_slug' => '분류코드', 'name' => '상품명', 'brand' => '업체명', 'spec' => '규격', 'spec_code' => '모델 코드', 'spec_option' => '옵션',
@@ -125,6 +126,9 @@ render_admin_header('제품관리', 'products');
 .btn-sm:disabled,.syc-bulkbar button:disabled{opacity:.45;cursor:not-allowed}
 .bk-tpl{display:flex;gap:8px;flex-wrap:wrap}
 #filter-source{font-weight:700}
+/* 업체 칸이 생겨도 가격(매입가·B2B·B2C)·상태 배지는 한 줄 — 칸 순서: 이미지·제품명·업체·카테고리·규격·매입가·B2B·B2C */
+.prod-table-wrap td:nth-child(6),.prod-table-wrap td:nth-child(7),.prod-table-wrap td:nth-child(8),.prod-table-wrap td .badge{white-space:nowrap}
+.btn:disabled{opacity:.45;cursor:not-allowed}   /* 모든 업체: 일괄 등록·제품 등록은 업체를 고른 뒤 */
 @media (max-width:640px){.bk-b,.bk-h,.bk-f{padding-left:16px;padding-right:16px}.bk-hint{flex-basis:100%}}
 </style>
 
@@ -132,7 +136,7 @@ render_admin_header('제품관리', 'products');
     <div class="page-heading" style="margin:0">제품관리</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
         <span class="src-label">업체: <b id="src-name"></b></span>
-        <button type="button" class="btn btn-outline" onclick="bkOpen()">
+        <button type="button" class="btn btn-outline" id="btn-bulk" onclick="bkOpen()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>일괄 등록
         </button>
         <button type="button" class="btn btn-primary" id="btn-create" onclick="createOpen()">+ 제품 등록</button>
@@ -148,6 +152,7 @@ render_admin_header('제품관리', 'products');
 <!-- 툴바 -->
 <div class="toolbar">
     <select id="filter-source" onchange="sourceChanged()" aria-label="업체">
+        <option value="all" data-store="all" selected>모든 업체</option>
         <?php foreach ($sources as $src): ?>
         <option value="<?= htmlspecialchars($src['code'], ENT_QUOTES) ?>" data-store="<?= $src['store'] ?>"><?= htmlspecialchars($src['name'], ENT_QUOTES) ?></option>
         <?php endforeach; ?>
@@ -191,12 +196,12 @@ render_admin_header('제품관리', 'products');
     <table class="adm-table">
         <thead>
             <tr>
-                <th>이미지</th><th>제품명</th><th>카테고리</th><th>규격</th>
+                <th>이미지</th><th>제품명</th><th>업체</th><th>카테고리</th><th>규격</th>
                 <th>매입가</th><th>B2B단가</th><th>B2C단가</th><th>상차수량</th><th>상태</th><th>관리</th>
             </tr>
         </thead>
         <tbody id="prod-tbody">
-            <tr><td colspan="10" class="empty-row">불러오는 중...</td></tr>
+            <tr><td colspan="11" class="empty-row">불러오는 중...</td></tr>
         </tbody>
     </table>
 </div>
@@ -387,6 +392,7 @@ function srcOpt() { const s = document.getElementById('filter-source'); return s
 function srcCode() { return document.getElementById('filter-source').value; }
 function srcName() { return srcOpt()?.textContent.trim() || ''; }
 function isSyc() { return srcOpt()?.dataset.store === 'syc'; }
+function isAll() { return srcOpt()?.dataset.store === 'all'; }   // 모든 업체: 고객용 상품 표 전체(API source=all)
 
 let sycCatsLoaded = false;
 async function sourceChanged() {
@@ -394,6 +400,12 @@ async function sourceChanged() {
     document.getElementById('filter-cat').classList.toggle('bk-hide', syc);
     document.getElementById('filter-syc-cat').classList.toggle('bk-hide', !syc);
     document.getElementById('src-name').textContent = srcName();
+    // 모든 업체: 일괄 등록·제품 등록은 업체를 고른 뒤(덮어쓰기는 업체 안에서만)
+    ['btn-bulk', 'btn-create'].forEach(id => {
+        const b = document.getElementById(id);
+        b.disabled = isAll();
+        b.title = isAll() ? '업체를 먼저 고르세요' : '';
+    });
     document.getElementById('bk-banner').hidden = true;
     if (syc && !sycCatsLoaded) {
         const d = await fetch(`${SYC_API}?action=categories`).then(r => r.json()).catch(() => ({ok:false}));
@@ -414,13 +426,13 @@ async function load(page) {
     const status = document.getElementById('filter-status').value;
     const catId  = document.getElementById(syc ? 'filter-syc-cat' : 'filter-cat').value;
     const q      = document.getElementById('filter-q').value;
-    document.getElementById('prod-tbody').innerHTML = '<tr><td colspan="10" class="empty-row">불러오는 중...</td></tr>';
-    const r = await fetch(`${syc ? SYC_API : API}?${syc ? 'source=' + encodeURIComponent(srcCode()) + '&' : ''}status=${status}&cat_id=${catId}&q=${encodeURIComponent(q)}&page=${page}`);
+    document.getElementById('prod-tbody').innerHTML = '<tr><td colspan="11" class="empty-row">불러오는 중...</td></tr>';
+    const r = await fetch(`${syc ? SYC_API : API}?source=${encodeURIComponent(srcCode())}&status=${status}&cat_id=${catId}&q=${encodeURIComponent(q)}&page=${page}`);
     // 오류는 200 + ok:false + error 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
     const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok) { alert(d.error); return; }
     sycTotal = d.total; sycAllMatching = false;
-    sycFilter = syc ? {source: srcCode(), status, cat_id: catId, q} : {status, cat_id: catId, q};
+    sycFilter = {source: srcCode(), status, cat_id: catId, q};
     if (syc) renderSyc(d.products); else render(d.products);
     sycSelCount();
     renderPaging(d.total, d.limit, page);
@@ -429,12 +441,13 @@ async function load(page) {
 // 상용콘크리트 목록: 썸네일이 없으면 기존 빈 이미지 표시(.prod-no-img) 그대로
 function renderSyc(rows) {
     const tb = document.getElementById('prod-tbody');
-    if (!rows.length) { tb.innerHTML = '<tr><td colspan="10" class="empty-row">제품이 없습니다.</td></tr>'; return; }
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="11" class="empty-row">제품이 없습니다.</td></tr>'; return; }
     tb.innerHTML = rows.map(p => {
         const active = p.is_active == 1;
         return `<tr>
             <td>${p.image_thumb_file ? `<img src="${x(p.image_thumb_file)}" class="prod-img-thumb" alt="">` : '<span class="prod-no-img"></span>'}</td>
             <td style="font-weight:600;color:#1a2035">${x(p.name)}${p.brand ? `<span class="syc-brand">${x(p.brand)}</span>` : ''}</td>
+            <td style="font-size:12px;white-space:nowrap">${x(srcName())}</td>
             <td style="font-size:12px;color:#888">${x(p.cat_name)}</td>
             <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${x(p.spec)}">${x(p.spec || '-')}</td>
             <td style="font-size:13px;color:#004EA1">${+p.cost_price ? Number(p.cost_price).toLocaleString()+'원' : '-'}</td>
@@ -499,7 +512,7 @@ async function sycBulk(val) {
 async function sycToggle(id, val) {
     const ids = Array.isArray(id) ? id : [id];
     const syc = isSyc();
-    const r = await fetch(syc ? SYC_API : API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action: syc ? 'set_active' : 'bulk_toggle', ids, is_active:val})});
+    const r = await fetch(syc ? SYC_API : API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action: syc ? 'set_active' : 'bulk_toggle', ids, is_active:val, source: srcCode()})});
     const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok) { alert(d.error); return; }
     pubWarn(d);
@@ -746,13 +759,16 @@ async function sycCreateSave() {
 
 function render(rows) {
     const tb = document.getElementById('prod-tbody');
-    if (!rows.length) { tb.innerHTML = '<tr><td colspan="10" class="empty-row">제품이 없습니다.</td></tr>'; return; }
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="11" class="empty-row">제품이 없습니다.</td></tr>'; return; }
     tb.innerHTML = rows.map(p => {
         const sp = parseSpec(p.spec || '');
         const active = p.is_active == 1;
+        // 상용콘크리트·업체 반영본(모든 업체 보기): 내용 수정은 그 업체를 골라 원본에서 — 여기서는 활성/비활성만
+        const own = p.store !== 'syc';
         return `<tr>
             <td>${p.image_url ? `<img src="${x(p.image_url)}" class="prod-img-thumb">` : '<span class="prod-no-img"></span>'}</td>
-            <td><a href="/admin-product.php?id=${p.id}" style="color:#004EA1;font-weight:600;text-decoration:none">${x(p.name)}</a></td>
+            <td>${own ? `<a href="/admin-product.php?id=${p.id}" style="color:#004EA1;font-weight:600;text-decoration:none">${x(p.name)}</a>` : `<span style="font-weight:600;color:#1a2035">${x(p.name)}</span>`}</td>
+            <td style="font-size:12px;white-space:nowrap">${x(p.src_name || srcName())}</td>
             <td style="font-size:12px;color:#888">${x(p.cat_name)}</td>
             <td style="font-size:12px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x(sp.spec || p.spec || '-')}</td>
             <td style="font-size:13px;color:#004EA1">${+p.cost_price ? Number(p.cost_price).toLocaleString()+'원' : '-'}</td>
@@ -762,7 +778,7 @@ function render(rows) {
             <td><span class="badge ${active?'badge-on':'badge-off'}">${active?'활성':'비활성'}</span></td>
             <td style="white-space:nowrap">
                 <label class="syc-sel"><input type="checkbox" class="syc-chk" value="${+p.id}" aria-label="${x(p.name)} ${x(sp.spec || p.spec)} 선택" onchange="sycSelCount()"></label>
-                <button class="btn-sm btn-sm-edit" onclick='edit(${JSON.stringify(p)})'>수정</button>
+                ${own ? `<button class="btn-sm btn-sm-edit" onclick='edit(${JSON.stringify(p).replace(/'/g, '&#39;')})'>수정</button>` : ''}
                 <button class="btn-sm ${active?'btn-sm-del':'btn-sm-edit'}" onclick="sycToggle(${+p.id}, ${active?0:1})" style="margin-left:4px"${ACTIVE_TOGGLE ? '' : ` disabled title="${x(ACTIVE_OFF_MSG)}"`}>${active?'비활성으로':'활성으로'}</button>
             </td>
         </tr>`;

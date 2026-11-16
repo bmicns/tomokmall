@@ -16,6 +16,7 @@ require __DIR__ . '/../app/work_types.php';
 require __DIR__ . '/../app/corp_home.php';
 require_once __DIR__ . '/../app/rag.php';
 require_once __DIR__ . '/../app/auth.php';
+require_once __DIR__ . '/../app/layout.php';
 
 $pass = 0; $fail = 0;
 function ok(string $name, bool $cond): void {
@@ -1516,6 +1517,14 @@ eq('[L번호] 없이 쓴 근거: 수치가 원문에 있는 근거만, 없으면
     rag_legal_implicit_ids('보행안전법 시행규칙에서 기준을 정하고 있습니다.', $ld),
     rag_legal_implicit_ids('포장 블록 두께는 80mm 이상을 권합니다.', $ld),
     rag_legal_implicit_ids('스테인리스 볼라드가 있습니다.', $ld)], [[57], [57, 56], [68], []]);
+
+// 메가 메뉴 '기타' 묶음(화면 표시만): 정한 순서대로 묶음 칸, 묶음에 없는 중분류는 '그 밖의 자재', 빈 묶음은 뺌
+$gm = fn(int $id, string $slug, string $n) => ['mid' => ['id' => $id, 'slug' => $slug, 'name' => $n, 'thumb' => null], 'subs' => []];
+$gc = mega_menu_grouped_cols([$gm(2, 'insulation', '단열재'), $gm(5, 'tile-supplies', '타일 부자재'), $gm(205, 'ktomok-7750', '과속방지턱'), $gm(999, 'std-099', '새 분류')],
+    ['건축 부자재' => ['tile-supplies', 'tile', 'insulation'], '설비·전기' => ['plumbing'], '도로 안전' => ['ktomok-7750']]);
+eq('메가 메뉴 묶음: 제목·순서·남은 분류', array_map(fn($c) => [$c[0]['mid']['name'], array_column($c[0]['subs'], 'id'), $c[0]['group']], $gc),
+    [['건축 부자재', [5, 2], true], ['도로 안전', [205], true], ['그 밖의 자재', [999], true]]);
+eq('메가 메뉴 묶음: 기타(16) 묶음 id 중복 없음', count(array_merge(...array_values(MEGA_MENU_GROUPS[16]))), count(array_unique(array_merge(...array_values(MEGA_MENU_GROUPS[16])))));
 
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
