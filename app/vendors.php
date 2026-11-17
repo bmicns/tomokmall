@@ -36,13 +36,16 @@ function vendor_names_subquery(): string
 {
     // 업체공급가(product_vendors)가 없으면 상품의 업체명(brand) — 상용콘크리트 반영 상품(app/syc_publish.php)은 업체가 상품 행에 있음.
     // 케이토목 상품은 brand 가 비어 있어 기존 표시 그대로(운영 확인 2026-11-12: 업체공급가 없이 brand 만 있는 상품 0건)
+    // 업체 연결 상품 줄(출처ID link-<이 상품 id>)이 있는 업체는 그 줄에 따로 보이므로 원래 상품 줄 이름에서 뺀다(S17 업체가 다르면 다른 줄)
     if (!vendors_available()) {
         return "NULLIF(p.brand, '')";
     }
     return "COALESCE((SELECT GROUP_CONCAT(v.name ORDER BY pv.is_primary DESC, v.name SEPARATOR '|')
              FROM product_vendors pv
              JOIN vendors v ON v.id = pv.vendor_id
-             WHERE pv.product_id = p.id AND v.is_active = 1), NULLIF(p.brand, ''))";
+             WHERE pv.product_id = p.id AND v.is_active = 1
+               AND NOT EXISTS (SELECT 1 FROM products lp WHERE lp.external_source = CONCAT('vendor-', pv.vendor_id)
+                                                           AND lp.external_id = CONCAT('link-', p.id))), NULLIF(p.brand, ''))";
 }
 
 /**
@@ -67,7 +70,7 @@ function render_vendor_names(?string $names, bool $full = false): string
 }
 
 /**
- * 업체 상태 바꾸기 영향(직원 업체 목록 확인 창·응답 숫자). 제품관리 상품 = syc_products 출처 vendor-<id>
+ * 업체 상태 바꾸기 영향(직원 업체 목록 확인 창·응답 숫자). 제품관리 상품 = syc_products 출처 vendor-<id> + 업체 연결 상품 줄
  * @return array{items:int, primary_items:int, products:int, products_active:int}
  */
 function vendor_impact(PDO $pdo, int $vendorId): array
@@ -79,7 +82,12 @@ function vendor_impact(PDO $pdo, int $vendorId): array
     $sp = $pdo->prepare('SELECT COUNT(*) AS n, COALESCE(SUM(is_active=1), 0) AS act FROM syc_products WHERE external_source=:src');
     $sp->execute(['src' => product_source_vendor_code($vendorId)]);
     $p = $sp->fetch() ?: ['n' => 0, 'act' => 0];
-    return ['items' => (int)$pv['items'], 'primary_items' => (int)$pv['prim'], 'products' => (int)$p['n'], 'products_active' => (int)$p['act']];
+    // 업체 연결 상품 줄(products 출처ID link-…, 원본 없음)도 그 업체 상품
+    $lp = $pdo->prepare("SELECT COUNT(*) AS n, COALESCE(SUM(is_active=1), 0) AS act FROM products WHERE external_source=:src AND external_id LIKE 'link-%'");
+    $lp->execute(['src' => product_source_vendor_code($vendorId)]);
+    $l = $lp->fetch() ?: ['n' => 0, 'act' => 0];
+    return ['items' => (int)$pv['items'], 'primary_items' => (int)$pv['prim'],
+            'products' => (int)$p['n'] + (int)$l['n'], 'products_active' => (int)$p['act'] + (int)$l['act']];
 }
 
 /**
@@ -93,6 +101,95 @@ function vendor_deactivate_products(PDO $pdo, int $vendorId): array
     $src = product_source_vendor_code($vendorId);
     $a = $pdo->prepare('UPDATE syc_products SET is_active=0 WHERE external_source=:src AND is_active=1');
     $a->execute(['src' => $src]);
+    $offSyc = $a->rowCount();
+    // 고객용 반영본 + 업체 연결 상품 줄(원본 없음 — 이 줄 수만 더함, 반영본은 원본 수로 셈)
+    $l = $pdo->prepare("SELECT COUNT(*) FROM products WHERE external_source=:src AND external_id LIKE 'link-%' AND is_active=1");
+    $l->execute(['src' => $src]);
+    $offLink = (int) $l->fetchColumn();
     $pdo->prepare('UPDATE products SET is_active=0 WHERE external_source=:src AND is_active=1')->execute(['src' => $src]);
-    return ['products_off' => $a->rowCount()];
+    return ['products_off' => $offSyc + $offLink];
+}
+
+/*
+ * 업체 연결 = 업체 상품(사용자 결정 2026-11-17, 가안): 품목의 [업체 관리]에서 업체를 추가하면 그 업체가 파는 상품 줄을
+ * 고객용 상품 표(products)에 만든다 — 출처 vendor-<업체 id>, 출처ID link-<원래 상품 id>. DB 구조 변경 없음.
+ * 분류·이름·규격·치수·이미지·정가(price_b2c)는 원래 상품에서 복사, 매입가(cost_price) = 공급단가, 브랜드 = 업체명,
+ * 비활성으로 시작(관리자가 제품관리 '모든 업체'에서 활성으로). 회원가는 기존 계산(app/pricing.php) 그대로.
+ * 연결 삭제(공급 제외) → 연결 행 삭제 + 이 줄 비활성(행은 남김 — 견적·주문 기록이 가리킴).
+ */
+const VENDOR_LINK_PREFIX = 'link-';
+
+/** 업체 연결 상품의 출처ID(link-<원래 상품 id>) */
+function vendor_link_external_id(int $productId): string
+{
+    return VENDOR_LINK_PREFIX . $productId;
+}
+
+/** 업체 연결 상품 줄 id(없으면 null) */
+function vendor_link_find(PDO $pdo, int $productId, int $vendorId): ?int
+{
+    require_once __DIR__ . '/product_sources.php';
+    $st = $pdo->prepare('SELECT id FROM products WHERE external_source = :src AND external_id = :eid');
+    $st->execute(['src' => product_source_vendor_code($vendorId), 'eid' => vendor_link_external_id($productId)]);
+    $id = $st->fetchColumn();
+    return $id === false ? null : (int) $id;
+}
+
+/** 이 상품이 업체 연결 상품 줄인가(연결 상품에 다시 업체를 붙이지 않음) */
+function vendor_link_is_link_row(PDO $pdo, int $productId): bool
+{
+    $st = $pdo->prepare("SELECT 1 FROM products WHERE id = :id AND external_source LIKE 'vendor-%' AND external_id LIKE :pre");
+    $st->execute(['id' => $productId, 'pre' => VENDOR_LINK_PREFIX . '%']);
+    return $st->fetchColumn() !== false;
+}
+
+/**
+ * 업체 연결 상품 줄 만들기 또는 고치기. 트랜잭션은 호출측.
+ * - 없으면 원래 상품 줄을 복사해 새로 만든다(비활성).
+ * - 있으면(전에 삭제했다가 다시 추가 포함) 매입가·브랜드만 고친다. 활성 상태는 그대로(삭제 때 꺼졌으면 비활성 유지).
+ * @return array{id:int, created:bool}
+ */
+function vendor_link_upsert(PDO $pdo, int $productId, int $vendorId, int $supplyPrice): array
+{
+    require_once __DIR__ . '/product_sources.php';
+    $vn = $pdo->prepare('SELECT name FROM vendors WHERE id = :id');
+    $vn->execute(['id' => $vendorId]);
+    $vendorName = $vn->fetchColumn();
+    if ($vendorName === false) { throw new InvalidArgumentException('업체를 찾지 못했습니다.'); }
+    $brand = mb_substr((string) $vendorName, 0, 100);
+    $supplyPrice = max(0, $supplyPrice);
+
+    $id = vendor_link_find($pdo, $productId, $vendorId);
+    if ($id !== null) {
+        $pdo->prepare('UPDATE products SET cost_price = :c, brand = :b WHERE id = :id')->execute(['c' => $supplyPrice, 'b' => $brand, 'id' => $id]);
+        return ['id' => $id, 'created' => false];
+    }
+    // 원래 상품의 칸을 그대로 복사(칸 목록은 지금 표 구조에서 — 운영·로컬 칸 차이에 안전). 바꾸는 칸만 따로 넣는다
+    $own  = ['id', 'created_at', 'updated_at', 'brand', 'external_source', 'external_id', 'source_url', 'cost_price', 'is_active'];
+    $copy = [];
+    foreach ($pdo->query('SHOW COLUMNS FROM products')->fetchAll() as $c) {
+        $f = (string) $c['Field'];
+        if (in_array($f, $own, true) || stripos((string) ($c['Extra'] ?? ''), 'GENERATED') !== false) { continue; }
+        if (!preg_match('/^[a-z0-9_]+$/', $f)) { continue; }
+        $copy[] = $f;
+    }
+    $hasCost = (bool) $pdo->query("SHOW COLUMNS FROM products LIKE 'cost_price'")->fetch();
+    $colSql = implode(', ', array_map(static fn($f) => "`{$f}`", $copy));
+    $sql = "INSERT INTO products ({$colSql}, brand, external_source, external_id" . ($hasCost ? ', cost_price' : '') . ", is_active)
+            SELECT {$colSql}, :b, :src, :eid" . ($hasCost ? ', :c' : '') . ", 0 FROM products WHERE id = :pid";
+    $params = ['b' => $brand, 'src' => product_source_vendor_code($vendorId), 'eid' => vendor_link_external_id($productId), 'pid' => $productId];
+    if ($hasCost) { $params['c'] = $supplyPrice; }
+    $ins = $pdo->prepare($sql);
+    $ins->execute($params);
+    if ($ins->rowCount() !== 1) { throw new InvalidArgumentException('원래 상품을 찾지 못했습니다.'); }
+    return ['id' => (int) $pdo->lastInsertId(), 'created' => true];
+}
+
+/** 업체 연결 삭제 때: 그 업체 상품 줄 비활성(행은 남김). @return int 바뀐 줄 수 */
+function vendor_link_deactivate(PDO $pdo, int $productId, int $vendorId): int
+{
+    require_once __DIR__ . '/product_sources.php';
+    $st = $pdo->prepare('UPDATE products SET is_active = 0 WHERE external_source = :src AND external_id = :eid AND is_active = 1');
+    $st->execute(['src' => product_source_vendor_code($vendorId), 'eid' => vendor_link_external_id($productId)]);
+    return $st->rowCount();
 }

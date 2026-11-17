@@ -5,9 +5,10 @@ declare(strict_types=1);
  * GET  ?list=1              — 전체 업체 목록
  * GET  ?id=N                — 업체 상세
  * GET  ?product_id=N        — 품목-업체 연결 목록
- * POST action=add_product_vendor  — 품목-업체 추가
+ * POST action=add_product_vendor  — 품목-업체 추가 + 그 업체 상품 줄(products 출처 vendor-<id>·출처ID link-<품목 id>, 비활성으로 시작,
+ *      매입가 = 공급단가, 정가 = 원래 상품 정가 — 사용자 결정 2026-11-17). 다시 추가(공급단가 변경)는 그 줄의 매입가만 고침
  * GET  ?impact=N            — 업체 비활성 전 영향(제품관리 상품 수·연결 품목 수·주거래 품목 수)
- * POST action=remove_product_vendor — 삭제
+ * POST action=remove_product_vendor — 삭제 + 그 업체 상품 줄 비활성(행은 남김)
  * POST action=set_primary   — 품목의 주거래 업체 바꾸기(연결 id, 공급단가는 그대로)
  * POST action=set_vendor_active — 업체 활성/비활성(사용자 결정 2026-11-17):
  *      비활성 → 그 업체 상품(제품관리 출처 vendor-<id>: 원본 syc_products + 고객용 반영본 products) 전부 비활성.
@@ -97,19 +98,48 @@ if ($method === 'POST') {
 
         if (!$pid || !$vid) { echo json_encode(['ok'=>false,'error'=>'product_id, vendor_id 필요']); exit; }
 
-        // 주거래 설정 시 기존 주거래 해제
-        if ($prim) {
-            db()->prepare('UPDATE product_vendors SET is_primary=0 WHERE product_id=:pid')->execute(['pid'=>$pid]);
+        // 업체 연결 = 업체 상품(사용자 결정 2026-11-17): 연결 저장 + 그 업체 상품 줄(비활성으로 시작) — app/vendors.php vendor_link_upsert
+        $pdo = db();
+        $va = $pdo->prepare('SELECT is_active FROM vendors WHERE id=:id');
+        $va->execute(['id' => $vid]);
+        $vAct = $va->fetchColumn();
+        if ($vAct === false) { echo json_encode(['ok'=>false,'error'=>'업체를 찾지 못했습니다.'], JSON_UNESCAPED_UNICODE); exit; }
+        if (vendor_link_is_link_row($pdo, $pid)) { echo json_encode(['ok'=>false,'error'=>'업체 연결로 만든 상품에는 업체를 추가할 수 없습니다. 원래 상품에서 추가해 주세요.'], JSON_UNESCAPED_UNICODE); exit; }
+        $ex = $pdo->prepare('SELECT 1 FROM product_vendors WHERE product_id=:pid AND vendor_id=:vid');
+        $ex->execute(['pid' => $pid, 'vid' => $vid]);
+        $isNewLink = $ex->fetchColumn() === false;
+        if ($isNewLink && !(int)$vAct) { echo json_encode(['ok'=>false,'error'=>'비활성 업체는 추가할 수 없습니다. 업체 목록에서 먼저 다시 활성으로 바꿔 주세요.'], JSON_UNESCAPED_UNICODE); exit; }
+        if (!(int)$vAct) { $prim = 0; }   // 비활성 업체는 주거래로 지정하지 않음
+
+        $pdo->beginTransaction();
+        try {
+            // 주거래 설정 시 기존 주거래 해제
+            if ($prim) {
+                $pdo->prepare('UPDATE product_vendors SET is_primary=0 WHERE product_id=:pid')->execute(['pid'=>$pid]);
+            }
+            $pdo->prepare(
+                'INSERT INTO product_vendors (product_id, vendor_id, supply_price, lead_days, is_primary)
+                 VALUES (:pid, :vid, :price, :lead, :prim)
+                 ON DUPLICATE KEY UPDATE supply_price=:price2, lead_days=:lead2, is_primary=:prim2'
+            )->execute([
+                'pid'=>$pid,'vid'=>$vid,'price'=>$price,'lead'=>$lead,'prim'=>$prim,
+                'price2'=>$price,'lead2'=>$lead,'prim2'=>$prim,
+            ]);
+            $link = vendor_link_upsert($pdo, $pid, $vid, $price);
+            $pdo->commit();
+        } catch (\InvalidArgumentException $e) {
+            if ($pdo->inTransaction()) { $pdo->rollBack(); }
+            echo json_encode(['ok'=>false,'error'=>$e->getMessage()], JSON_UNESCAPED_UNICODE);
+            exit;
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) { $pdo->rollBack(); }
+            throw $e;
         }
-        db()->prepare(
-            'INSERT INTO product_vendors (product_id, vendor_id, supply_price, lead_days, is_primary)
-             VALUES (:pid, :vid, :price, :lead, :prim)
-             ON DUPLICATE KEY UPDATE supply_price=:price2, lead_days=:lead2, is_primary=:prim2'
-        )->execute([
-            'pid'=>$pid,'vid'=>$vid,'price'=>$price,'lead'=>$lead,'prim'=>$prim,
-            'price2'=>$price,'lead2'=>$lead,'prim2'=>$prim,
-        ]);
-        echo json_encode(['ok' => true]);
+        if ($link['created']) {
+            try { spec_axes_sync_product($link['id']); }   // 규격 축 칸(목록 '규격' 필터) — 실패해도 상품 줄은 저장됨
+            catch (\Throwable $e) { error_log('[api/staff/vendors] 규격 축 갱신 실패 id=' . $link['id'] . ': ' . get_class($e)); }
+        }
+        echo json_encode(['ok' => true, 'link_product_id' => $link['id'], 'link_created' => $link['created']], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -157,8 +187,22 @@ if ($method === 'POST') {
     if ($action === 'remove_product_vendor') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) { echo json_encode(['ok'=>false,'error'=>'id 필요']); exit; }
-        db()->prepare('DELETE FROM product_vendors WHERE id=:id')->execute(['id'=>$id]);
-        echo json_encode(['ok' => true]);
+        // 연결 삭제 + 그 업체 상품 줄 비활성(행은 남김 — 견적·주문 기록에는 '지금은 없는 상품'으로 보임)
+        $pdo = db();
+        $pdo->beginTransaction();
+        try {
+            $st = $pdo->prepare('SELECT product_id, vendor_id FROM product_vendors WHERE id=:id FOR UPDATE');
+            $st->execute(['id' => $id]);
+            $pv = $st->fetch();
+            if (!$pv) { $pdo->rollBack(); echo json_encode(['ok'=>false,'error'=>'연결을 찾지 못했습니다. 창을 다시 열어 주세요.'], JSON_UNESCAPED_UNICODE); exit; }
+            $pdo->prepare('DELETE FROM product_vendors WHERE id=:id')->execute(['id'=>$id]);
+            $off = vendor_link_deactivate($pdo, (int)$pv['product_id'], (int)$pv['vendor_id']);
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) { $pdo->rollBack(); }
+            throw $e;
+        }
+        echo json_encode(['ok' => true, 'link_off' => $off]);
         exit;
     }
 

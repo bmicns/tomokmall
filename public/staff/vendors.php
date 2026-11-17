@@ -22,7 +22,8 @@ $h = fn($v) => htmlspecialchars((string)($v ?? ''), ENT_QUOTES);
 // ── view=products: 품목별 업체 목록 ───────────────────────────
 $productRows = [];
 if ($view === 'products') {
-    $where  = ['p.is_active=1'];
+    // 업체 연결로 만든 업체 상품 줄(출처ID link-…)은 품목이 아님 — 원래 상품에서 관리(app/vendors.php)
+    $where  = ['p.is_active=1', "(p.external_id IS NULL OR p.external_id NOT LIKE 'link-%')"];
     $params = [];
     if ($catId) {
         $where[]        = '(p.category_id=:cid OR c.parent_id=:cid2)';
@@ -320,6 +321,7 @@ render_staff_header('품목별 업체정보', 'vendors');
                 </label>
             </div>
         </div>
+        <p style="font-size:11.5px;color:#666;line-height:1.6;margin:4px 0 0">추가하면 이 업체가 파는 상품이 제품관리에 <b>비활성</b>으로 따로 생깁니다(매입가 = 공급단가, 정가 = 이 상품 정가, 회원가는 분류 마진율로 자동). 관리자가 제품관리 '모든 업체'에서 활성으로 바꾸면 고객 화면에 보입니다.</p>
         <input type="hidden" id="pv-product-id" value="">
         <div class="modal-footer" style="margin-top:6px">
             <button class="btn btn-secondary" onclick="closeModal('pv-modal')">닫기</button>
@@ -517,7 +519,7 @@ async function addProductVendor(){
     if(d && d.ok){
         ['pv-price','pv-lead'].forEach(id => document.getElementById(id).value = '');   // 추가 후 입력칸 비움
         await loadProductVendors(productId);
-        vdToast(name + '을(를) 연결했습니다' + (prim ? ' (주거래)' : ''));
+        vdToast(name + '을(를) 연결했습니다' + (prim ? ' (주거래)' : '') + (d.link_created ? ' — 업체 상품이 비활성으로 만들어졌습니다. 제품관리에서 활성으로 바꿔 주세요' : ''));
     }
     else alert('오류: '+((d && d.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
 }
@@ -535,7 +537,7 @@ async function setPrimary(pvId){
     else alert('오류: '+((d && d.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
 }
 
-// 삭제 = 공급 제외: 이 품목과 업체의 연결 한 줄(공급단가·리드타임 포함)만 지운다. 상품·업체 정보는 그대로
+// 삭제 = 공급 제외: 이 품목과 업체의 연결 한 줄(공급단가·리드타임 포함)을 지우고 그 업체 상품 줄은 비활성(행은 남김). 원래 상품·업체 정보는 그대로
 function askRemoveProductVendor(pvId){
     const l = pvCur.links.find(x => +x.id === pvId);
     if (!l) return;
@@ -543,7 +545,8 @@ function askRemoveProductVendor(pvId){
     document.getElementById('pv-ex-title').textContent = l.vendor_name + '을(를) ‘' + pvCur.name + '’ 공급 업체에서 제외할까요?';
     const li = [
         `이 품목에 저장된 공급단가(${parseInt(l.supply_price||0, 10).toLocaleString()}원)·리드타임(${parseInt(l.lead_days||0, 10)}일) 기록이 함께 지워지며 되돌릴 수 없습니다.`,
-        '고객 화면의 이 상품에 이 업체 이름이 더 이상 나오지 않습니다.',
+        '이 업체 상품(제품관리의 업체 상품 줄)이 비활성이 되어 고객 화면에서 빠집니다. 상품 줄은 지우지 않습니다.',
+        '이미 견적·주문 기록에 있는 이 업체 상품은 기록에 그대로 남고, 고객에게는 회색으로 \'지금은 없는 상품입니다\'로 보입니다.',
     ];
     if (+l.is_primary) li.push('주거래 업체입니다. 제외한 뒤 다른 업체를 주거래로 지정해 주세요.');
     li.push('업체 정보와 이 업체의 다른 품목 연결은 그대로 남습니다.');
