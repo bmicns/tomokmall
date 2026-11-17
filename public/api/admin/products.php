@@ -27,8 +27,8 @@ require_admin();
 const KTOMOK_ROWS_WHERE = "(p.external_source IS NULL OR (p.external_source <> 'syccrt' AND p.external_source NOT LIKE 'vendor-%'))";
 const KTOMOK_WEBROOT = __DIR__ . '/../..';   // 이미지 경로(/…)를 찾는 웹루트(public)
 // 상용콘크리트·업체 반영본(원본 = syc_products, 같은 출처 + 출처ID)
-// 업체 연결 상품 줄(사용자 결정 2026-11-17): 출처 vendor-<id> + 출처ID link-<원래 상품 id>, 원본 없이 이 표에만 있음 → 여기서 바로 고친다
-const LINK_ROWS_WHERE = "(p.external_source LIKE 'vendor-%' AND p.external_id LIKE 'link-%')";
+// 업체 연결 상품 줄(사용자 결정 2026-11-17): 출처 = 그 업체 출처 코드 + 출처ID link-<원래 상품 id>, 원본 없이 이 표에만 있음 → 여기서 바로 고친다
+const LINK_ROWS_WHERE = "(p.external_id LIKE 'link-%')";
 const PUBLISHED_ROWS_WHERE = "((p.external_source = 'syccrt' OR p.external_source LIKE 'vendor-%') AND NOT " . LINK_ROWS_WHERE . ")";
 // 이 API 가 products 에서 바로 고치는 행 = 케이토목 행 + 업체 연결 상품 줄
 const OWN_ROWS_WHERE = "(" . KTOMOK_ROWS_WHERE . " OR " . LINK_ROWS_WHERE . ")";
@@ -108,8 +108,8 @@ function admin_products_assert_activatable(PDO $pdo, string $where, array $param
 {
     product_assert_no_inactive_vendor($pdo, 'products p', $where, $params, 'p.external_source');
     $gone = $pdo->prepare("SELECT COUNT(*) FROM products p WHERE ({$where}) AND " . LINK_ROWS_WHERE . "
-                           AND NOT EXISTS (SELECT 1 FROM product_vendors pv WHERE CONCAT('vendor-', pv.vendor_id) = p.external_source
-                                                                             AND CONCAT('link-', pv.product_id) = p.external_id)");
+                           AND NOT EXISTS (SELECT 1 FROM product_vendors pv JOIN vendors v ON v.id = pv.vendor_id
+                                           WHERE " . vendor_source_sql($pdo, 'v') . " = p.external_source AND CONCAT('link-', pv.product_id) = p.external_id)");
     $gone->execute($params);
     $g = (int) $gone->fetchColumn();
     if ($g > 0) { throw new \InvalidArgumentException("업체 연결을 삭제한 상품 {$g}개가 들어 있어 활성으로 바꿀 수 없습니다. 품목별 업체정보에서 그 업체를 다시 추가해 주세요."); }
@@ -166,7 +166,7 @@ try {
         $products = $st->fetchAll();
         $vendorNames = [];   // vendor-<id> → 업체 목록 이름(표가 없으면 출처 코드 그대로)
         try {
-            foreach (db()->query('SELECT id, name FROM vendors') as $v) { $vendorNames[product_source_vendor_code((int) $v['id'])] = (string) $v['name']; }
+            foreach (product_sources(db()) as $src) { $vendorNames[$src['code']] = $src['name']; }   // 출처 코드 → 업체 이름(상용콘크리트·케이토목 포함, S25)
         } catch (\PDOException $e) {
             error_log('[api/admin/products] vendors 표를 읽지 못함: ' . $e->getCode());
         }
@@ -176,7 +176,7 @@ try {
             $pr['price_customer']  = $pb['customer'];
             $pr['price_corporate'] = $pb['corporate'];
             $es = (string) ($pr['external_source'] ?? '');
-            $pr['src_name'] = $es === PRODUCT_SOURCE_SYC ? '상용콘크리트' : ($pr['store'] !== 'products' ? ($vendorNames[$es] ?? $es) : '케이토목');
+            $pr['src_name'] = $pr['store'] !== 'products' ? ($vendorNames[$es] ?? $es) : ($vendorNames[$es] ?? $vendorNames[PRODUCT_SOURCE_KTOMOK] ?? '케이토목');
             $pr['src_code'] = $pr['store'] === 'syc' ? $es : PRODUCT_SOURCE_KTOMOK;   // 반영본 수정 = 원본(syc_products)을 출처 + 출처ID 로 찾아 엶
             if ($pr['store'] !== 'syc') { unset($pr['external_id']); }
             unset($pr['external_source']);
@@ -284,10 +284,10 @@ try {
                 $id,
             ]);
             // 업체 연결 상품 줄: 매입가 = 그 업체 공급단가(한 값) — 공급단가도 같이 고친다(사용자 결정 2026-11-17)
-            if ($curRow && (int)$curRow['is_link'] && preg_match('/^vendor-(\d+)$/', (string)$curRow['external_source'], $vm)
-                && preg_match('/^link-(\d+)$/', (string)$curRow['external_id'], $lm)) {
-                $pdo->prepare('UPDATE product_vendors SET supply_price=? WHERE vendor_id=? AND product_id=?')
-                    ->execute([max(0, (int)($body['cost_price'] ?? 0)), (int)$vm[1], (int)$lm[1]]);
+            if ($curRow && (int)$curRow['is_link'] && preg_match('/^link-(\d+)$/', (string)$curRow['external_id'], $lm)) {
+                $pdo->prepare('UPDATE product_vendors pv JOIN vendors v ON v.id = pv.vendor_id SET pv.supply_price=?
+                               WHERE ' . vendor_source_sql($pdo, 'v') . ' = ? AND pv.product_id=?')
+                    ->execute([max(0, (int)($body['cost_price'] ?? 0)), (string)$curRow['external_source'], (int)$lm[1]]);
             }
             admin_product_sync_spec_axes($id);
             echo json_encode(['ok' => true]);
