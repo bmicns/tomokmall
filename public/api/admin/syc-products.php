@@ -13,6 +13,11 @@ declare(strict_types=1);
  *                                        — 같은 상품 = 출처ID, 출처ID가 없으면 제품명+규격+옵션(사용자 결정 2026-11-13)
  *                                        normalize(기본 true) = 자동 정리(app/syc_normalize.php) 적용 — 올릴 때 미리보기와 같은 결과
  * POST JSON {action:'create', source, …칸}  제품 1건 등록(비활성). 같은 제품명+규격+옵션이 이미 있으면 거절(고칠 때는 일괄 등록)
+ * GET  ?action=get&source=&id=  또는  &external_id=   제품 1건(수정 창) — '모든 업체' 목록은 출처ID로 엶
+ * POST JSON {action:'update', source, id, …칸, dims:{축 키: 값}, image_thumb_file·image_file·image_spec_file, is_active}  제품 1건 수정(사용자 결정
+ *      2026-11-16 — 케이토목처럼 가격 3칸·분류·세부 치수도 관리자 화면에서). 세부 치수 = 고른 분류의 이름표(syc_category_spec_axes) 칸,
+ *      저장하면 spec_dims_src = 규격(이 치수가 지금 규격 기준). 출처·출처ID는 그대로. 저장 뒤 고객 화면 반영
+ *      (create 도 dims·이미지 3칸을 받음). 분류 목록(action=categories)에 분류별 세부 치수 칸(axes)을 함께 보냄
  * POST JSON {action:'set_active', ids, is_active} / {action:'delete', id}(비활성화)
  * POST JSON {action:'set_active_filter', filter:{source,status,cat_id,q}, expect, is_active}  검색 결과 전체(모든 페이지) 활성/비활성
  *      ↑ 활성/비활성 바꾸기 3개는 지금 멈춤(PRODUCT_ACTIVE_TOGGLE_ENABLED — 사용자 결정 2026-11-13, 추후 개발)
@@ -23,6 +28,7 @@ require __DIR__ . '/../../../app/bootstrap.php';
 require __DIR__ . '/../../../app/auth.php';
 require __DIR__ . '/../../../app/syc_bulk.php';
 require __DIR__ . '/../../../app/syc_publish.php';   // 바뀐 뒤 고객 화면(공통 분류)에 바로 반영 — syc_publish_std_run
+require __DIR__ . '/../../../app/product_images.php';   // 수정 창 이미지 3칸 경로 확인
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -43,6 +49,25 @@ function syc_api_publish(PDO $pdo): array
         return ['publish_error' => $e instanceof RuntimeException && str_contains($e->getMessage(), '공통 분류')
             ? $e->getMessage() : '고객 화면 반영에 실패했습니다. 원본은 저장됐습니다 — 잠시 후 다시 시도해 주세요.'];
     }
+}
+
+/**
+ * 수정·등록 창의 세부 치수 {축 키: 값} → [칸 => 값|null]. 일괄 등록 엑셀 칸과 같은 규칙(syc_bulk_columns)으로 확인, 빈칸 = 비움.
+ * 모르는 축 키는 오류. @return array<string,mixed>
+ */
+function syc_api_dims_input(mixed $dims): array
+{
+    if (!is_array($dims)) { return []; }
+    $rules = syc_bulk_columns();
+    $out = [];
+    foreach ($dims as $key => $raw) {
+        $col = syc_axis_column((string) $key);
+        if ($col === null || !isset($rules[$col])) { throw new InvalidArgumentException("알 수 없는 세부 치수 칸입니다({$key})."); }
+        [$v, $e] = syc_bulk_cell($col, is_scalar($raw) ? (string) $raw : '', $rules[$col]);
+        if ($e !== null) { throw new InvalidArgumentException("[세부 치수 {$key}] {$e}"); }
+        $out[$col] = $v;
+    }
+    return $out;
 }
 
 function syc_api_out(array $d): never
@@ -110,7 +135,11 @@ try {
         if ($action === 'categories') {
             $rows = $pdo->query('SELECT c.id, c.slug, c.name, g.name AS group_name FROM syc_categories c JOIN syc_categories g ON g.id = c.parent_id
                                  WHERE c.is_active = 1 ORDER BY g.sort_order, c.sort_order, c.id')->fetchAll();
-            syc_api_out(['ok' => true, 'categories' => $rows]);
+            $axes = [];   // 분류별 세부 치수 칸(수정·등록 창) — 일괄 등록 엑셀의 치수 칸과 같은 칸
+            foreach (syc_axes_rows() as $cid => $list) {
+                $axes[$cid] = array_map(static fn($a) => ['key' => $a['axis_key'], 'label' => $a['label'], 'symbol' => $a['symbol'], 'unit' => $a['unit']], $list);
+            }
+            syc_api_out(['ok' => true, 'categories' => $rows, 'axes' => $axes]);
         }
         if ($action === 'progress') {
             $file = syc_api_progress_file((string) ($_GET['job'] ?? ''));
@@ -118,6 +147,17 @@ try {
             syc_api_out(['ok' => true, 'progress' => is_array($p) ? $p : null]);
         }
         $src    = product_source_syc_or_fail($pdo, (string) ($_GET['source'] ?? ''));
+        if ($action === 'get') {   // 수정 창: 고른 업체 상품 1건(id 또는 출처ID)
+            $byId = (int) ($_GET['id'] ?? 0) > 0;
+            $dimSel = implode(', ', array_map(static fn($k) => 'p.' . syc_axis_column($k), SYC_AXIS_KEYS));
+            $st = $pdo->prepare('SELECT p.id, p.category_id, p.name, p.brand, p.spec, p.spec_code, p.spec_option, p.unit, p.weight_kg, p.description,
+                                        p.price_b2c, p.price_b2b, p.cost_price, p.image_thumb_file, p.image_file, p.image_spec_file, p.is_active, p.external_id, ' . $dimSel . '
+                                 FROM syc_products p WHERE p.external_source = ? AND ' . ($byId ? 'p.id = ?' : 'p.external_id = ?') . ' LIMIT 1');
+            $st->execute([$src['code'], $byId ? (int) $_GET['id'] : (string) ($_GET['external_id'] ?? '')]);
+            $row = $st->fetch();
+            if (!$row) { throw new InvalidArgumentException('상품을 찾지 못했습니다. 목록을 새로 고쳐 주세요.'); }
+            syc_api_out(['ok' => true, 'product' => $row]);
+        }
         $page   = max(1, (int) ($_GET['page'] ?? 1));
         $limit  = 20;
         [$w, $params] = syc_api_list_where($_GET, $src['code']);
@@ -238,10 +278,46 @@ try {
         $dup->execute([$src['code'], $row['name'], $row['spec'], $row['spec_option']]);
         if ((int) $dup->fetchColumn() > 0) { throw new InvalidArgumentException('같은 업체에 제품명·규격·옵션이 같은 상품이 이미 있습니다. 고칠 때는 일괄 등록으로 올려 주세요.'); }
         $ins = ['category_id' => $catId, 'spec_dims_src' => $row['spec'], 'external_id' => product_auto_external_id($key), 'is_active' => 0] + $row;
+        foreach (['image_thumb_file' => '썸네일 이미지', 'image_file' => '상세 이미지', 'image_spec_file' => '규격 이미지'] as $c => $label) {
+            if (array_key_exists($c, $body)) { $ins[$c] = product_image_path_input($body[$c], SYC_WEBROOT, $label); }
+        }
+        $ins += syc_api_dims_input($body['dims'] ?? null);
         $pdo->prepare('INSERT INTO syc_products (' . implode(', ', array_keys($ins)) . ') VALUES (' . implode(', ', array_fill(0, count($ins), '?')) . ')')
             ->execute(array_values($ins));
         $newId = (int) $pdo->lastInsertId();
         syc_api_out(['ok' => true, 'id' => $newId] + syc_api_publish($pdo));
+    }
+
+    if ($action === 'update') {
+        $src = product_source_syc_or_fail($pdo, (string) ($body['source'] ?? ''));
+        $id  = (int) ($body['id'] ?? 0);
+        $cur = $pdo->prepare('SELECT id FROM syc_products WHERE id = ? AND external_source = ?');
+        $cur->execute([$id, $src['code']]);
+        if (!$cur->fetchColumn()) { throw new InvalidArgumentException('상품을 찾지 못했습니다. 목록을 새로 고쳐 주세요.'); }
+        $cols = syc_bulk_columns();
+        $set = [];
+        foreach (['name', 'brand', 'spec', 'spec_code', 'spec_option', 'unit', 'weight_kg', 'description', 'price_b2c', 'price_b2b', 'cost_price'] as $k) {
+            [$v, $e] = syc_bulk_cell($k, $body[$k] ?? '', $cols[$k]);
+            if ($e !== null) { throw new InvalidArgumentException("[{$k}] {$e}"); }
+            $set[$k] = $v;
+        }
+        if ($set['name'] === null) { throw new InvalidArgumentException('제품명을 입력해 주세요.'); }
+        $set['category_id'] = (int) ($body['category_id'] ?? 0);
+        if (!in_array($set['category_id'], syc_bulk_category_ids($pdo), true)) { throw new InvalidArgumentException('카테고리를 선택해 주세요.'); }
+        $dup = $pdo->prepare('SELECT COUNT(*) FROM syc_products WHERE external_source = ? AND name = ? AND spec <=> ? AND spec_option <=> ? AND id <> ?');
+        $dup->execute([$src['code'], $set['name'], $set['spec'], $set['spec_option'], $id]);
+        if ((int) $dup->fetchColumn() > 0) { throw new InvalidArgumentException('같은 업체에 제품명·규격·옵션이 같은 상품이 이미 있습니다.'); }
+        foreach (['image_thumb_file' => '썸네일 이미지', 'image_file' => '상세 이미지', 'image_spec_file' => '규격 이미지'] as $c => $label) {
+            if (array_key_exists($c, $body)) { $set[$c] = product_image_path_input($body[$c], SYC_WEBROOT, $label); }
+        }
+        if (array_key_exists('dims', $body)) {   // 창에서 세부 치수를 함께 보냄 → 이 치수가 지금 규격 기준(상세 화면에 보임)
+            $set += syc_api_dims_input($body['dims']);
+            $set['spec_dims_src'] = $set['spec'];
+        }
+        if (PRODUCT_ACTIVE_TOGGLE_ENABLED && array_key_exists('is_active', $body)) { $set['is_active'] = (int) $body['is_active'] === 1 ? 1 : 0; }
+        $sql = implode(', ', array_map(static fn($c) => "{$c} = ?", array_keys($set)));
+        $pdo->prepare("UPDATE syc_products SET {$sql} WHERE id = ? AND external_source = ?")->execute(array_merge(array_values($set), [$id, $src['code']]));
+        syc_api_out(['ok' => true] + syc_api_publish($pdo));
     }
 
     if (!PRODUCT_ACTIVE_TOGGLE_ENABLED && in_array($action, ['set_active', 'set_active_filter', 'delete'], true)) {

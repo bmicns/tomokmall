@@ -17,6 +17,7 @@ require __DIR__ . '/../app/corp_home.php';
 require_once __DIR__ . '/../app/rag.php';
 require_once __DIR__ . '/../app/auth.php';
 require_once __DIR__ . '/../app/layout.php';
+require_once __DIR__ . '/../app/product_images.php';
 
 $pass = 0; $fail = 0;
 function ok(string $name, bool $cond): void {
@@ -1525,6 +1526,21 @@ $gc = mega_menu_grouped_cols([$gm(2, 'insulation', '단열재'), $gm(5, 'tile-su
 eq('메가 메뉴 묶음: 제목·순서·남은 분류', array_map(fn($c) => [$c[0]['mid']['name'], array_column($c[0]['subs'], 'id'), $c[0]['group']], $gc),
     [['건축 부자재', [5, 2], true], ['도로 안전', [205], true], ['그 밖의 자재', [999], true]]);
 eq('메가 메뉴 묶음: 기타(16) 묶음 id 중복 없음', count(array_merge(...array_values(MEGA_MENU_GROUPS[16]))), count(array_unique(array_merge(...array_values(MEGA_MENU_GROUPS[16])))));
+
+// 상품 이미지 낱장(수정 창): 업체 폴더 이름·경로 칸 확인(빈칸 = 비우기, 서버 경로는 실제 이미지 파일이 있어야, 외부 주소는 그대로)
+$bad = function (callable $f): bool { try { $f(); return false; } catch (InvalidArgumentException $e) { return true; } };
+eq('이미지 폴더: 업체 코드만', [product_image_dir_name('ktomok'), product_image_dir_name('syccrt'), product_image_dir_name('vendor-12')], ['ktomok', 'syccrt', 'vendor-12']);
+ok('이미지 폴더: 그 밖(../·빈칸·vendor-0) 거부', $bad(fn() => product_image_dir_name('../x')) && $bad(fn() => product_image_dir_name('')) && $bad(fn() => product_image_dir_name('vendor-0')));
+$wr = sys_get_temp_dir() . '/pimg_' . bin2hex(random_bytes(4));
+mkdir($wr . '/uploads/products/ktomok', 0777, true);
+$png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=');
+file_put_contents($wr . '/uploads/products/ktomok/a.png', $png);
+file_put_contents($wr . '/uploads/products/ktomok/fake.png', '<?php echo 1;');
+eq('이미지 경로 칸: 빈칸·서버 파일·외부 주소', [product_image_path_input('', $wr, '썸네일'), product_image_path_input(' /uploads/products/ktomok/a.png ', $wr, '썸네일'),
+    product_image_path_input('https://ex.com/a.jpg', $wr, '썸네일')], [null, '/uploads/products/ktomok/a.png', 'https://ex.com/a.jpg']);
+ok('이미지 경로 칸: 없는 파일·이미지 아닌 파일·../ 거부', $bad(fn() => product_image_path_input('/uploads/products/ktomok/none.png', $wr, 'x'))
+    && $bad(fn() => product_image_path_input('/uploads/products/ktomok/fake.png', $wr, 'x')) && $bad(fn() => product_image_path_input('/uploads/../a.png', $wr, 'x')));
+array_map('unlink', glob($wr . '/uploads/products/ktomok/*')); rmdir($wr . '/uploads/products/ktomok'); rmdir($wr . '/uploads/products'); rmdir($wr . '/uploads'); rmdir($wr);
 
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";

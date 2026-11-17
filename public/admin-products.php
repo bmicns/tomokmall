@@ -7,6 +7,28 @@ require_once __DIR__ . '/../app/ktomok_bulk.php';   // 업체(출처) 목록·�
 
 require_admin();
 
+/**
+ * 수정 창 이미지 칸 3개(썸네일·상세·규격): 미리보기 + 경로 칸 + [파일 선택](끌어다 놓기 가능) + [비우기].
+ * 파일은 고르는 즉시 /api/admin/product-image.php 로 올려 경로를 칸에 채움 — 상품에는 [저장] 때 연결(사용자 결정 2026-11-16)
+ */
+function admin_img_slots(string $prefix): string
+{
+    $out = '';
+    foreach (['thumb' => '썸네일 이미지(목록)', 'detail' => '상세 이미지', 'spec' => '규격 이미지(상세 화면)'] as $k => $label) {
+        $id = $prefix . '-img-' . $k;
+        $out .= '<div class="img-slot" ondragover="event.preventDefault();this.classList.add(\'drag\')" ondragleave="this.classList.remove(\'drag\')"'
+              . ' ondrop="imgDrop(event,\'' . $id . '\')">'
+              . '<div class="img-slot-prev" id="' . $id . '-prev"><span>이미지 없음</span></div>'
+              . '<div class="img-slot-body"><label for="' . $id . '" class="img-slot-label">' . $label . '</label>'
+              . '<input type="text" id="' . $id . '" maxlength="255" placeholder="/uploads/… 또는 https://…" oninput="imgPrev(\'' . $id . '\')">'
+              . '<div class="img-slot-btns"><label class="btn-sm btn-sm-edit img-slot-file">파일 선택'
+              . '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onchange="imgUpload(this.files[0],\'' . $id . '\');this.value=\'\'"></label>'
+              . '<button type="button" class="btn-sm" onclick="imgClear(\'' . $id . '\')">비우기</button>'
+              . '<span class="img-slot-msg" id="' . $id . '-msg" aria-live="polite"></span></div></div></div>';
+    }
+    return $out;
+}
+
 // 첫 번째 드롭다운 = 업체: (모든 업체) → 케이토목 → 상용콘크리트 → 업체 목록(직원 '품목별 업체정보')의 활성 업체(사용자 결정 2026-11-13·16)
 // '모든 업체'(기본)는 고객용 상품 표 전체(공통 분류)를 업체 칸과 함께 보여 줌 — 일괄 등록·제품 등록은 업체를 고른 뒤
 $sources = product_sources(db());
@@ -128,7 +150,30 @@ render_admin_header('제품관리', 'products');
 #filter-source{font-weight:700}
 /* 업체 칸이 생겨도 가격(매입가·B2B·B2C)·상태 배지는 한 줄 — 칸 순서: 이미지·제품명·업체·카테고리·규격·매입가·B2B·B2C */
 .prod-table-wrap td:nth-child(6),.prod-table-wrap td:nth-child(7),.prod-table-wrap td:nth-child(8),.prod-table-wrap td .badge{white-space:nowrap}
-.btn:disabled{opacity:.45;cursor:not-allowed}   /* 모든 업체: 일괄 등록·제품 등록은 업체를 고른 뒤 */
+.btn:disabled{opacity:.45;cursor:not-allowed}
+/* 수정·등록 창 세부 치수 칸 */
+.sc-dims-box{margin-bottom:14px}
+.sc-dims{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 10px}
+.sc-dims .form-field{margin:0}
+.sc-dims label small{font-weight:400;color:#888}
+/* 수정 창 이미지 칸(썸네일·상세·규격) */
+.img-slots{display:grid;gap:10px;margin-bottom:14px}
+.img-slots-h{font-size:13px;font-weight:600;color:#1a2035;margin-bottom:2px}
+.img-slots-note{font-size:12px;color:#888;margin:-2px 0 2px}
+.img-slot{display:flex;gap:12px;align-items:flex-start;border:1px dashed #d5d9e0;border-radius:8px;padding:10px}
+.img-slot.drag{border-color:#004EA1;background:#f2f7fd}
+.img-slot-prev{flex:0 0 72px;height:72px;border-radius:6px;background:#f4f5f7;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:11px;color:#999;text-align:center}
+.img-slot-prev img{width:100%;height:100%;object-fit:contain}
+.img-slot-body{flex:1;min-width:0;display:grid;gap:6px}
+.img-slot-label{font-size:12.5px;font-weight:600;color:#444}
+.img-slot-body input[type=text]{width:100%;min-width:0;border:1px solid #e8eaed;border-radius:6px;padding:8px 10px;font-size:13px;background:#fff;outline:none}
+.img-slot-body input[type=text]:focus{border-color:#004EA1}
+.img-slot-btns{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.img-slot-btns .btn-sm{min-height:32px;display:inline-flex;align-items:center}
+.img-slot-file{cursor:pointer;position:relative}
+.img-slot-file input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.img-slot-msg{font-size:12px;color:#666}
+.img-slot-msg.err{color:#c62828}   /* 모든 업체: 일괄 등록·제품 등록은 업체를 고른 뒤 */
 @media (max-width:640px){.bk-b,.bk-h,.bk-f{padding-left:16px;padding-right:16px}.bk-hint{flex-basis:100%}}
 </style>
 
@@ -314,11 +359,13 @@ render_admin_header('제품관리', 'products');
             </div>
         </div>
 
+        <div class="img-slots">
+            <div class="img-slots-h">이미지</div>
+            <div class="img-slots-note">파일을 고르거나 끌어다 놓으면 서버에 올리고 경로를 채웁니다. 서버에 있는 파일 경로(/…)나 외부 주소를 직접 적어도 됩니다. [저장]을 눌러야 상품에 반영됩니다.</div>
+            <?= admin_img_slots('f') ?>
+        </div>
+
         <div class="form-2col">
-            <div class="form-field">
-                <label>이미지 URL</label>
-                <input type="text" id="f-img" placeholder="https://...">
-            </div>
             <div class="form-field" id="f-active-wrap" style="display:none">
                 <label>상태<?= PRODUCT_ACTIVE_TOGGLE_ENABLED ? '' : ' <small style="font-weight:400;color:#888">(변경은 추후 지원)</small>' ?></label>
                 <select id="f-active"<?= PRODUCT_ACTIVE_TOGGLE_ENABLED ? '' : ' disabled' ?>>
@@ -342,10 +389,12 @@ render_admin_header('제품관리', 'products');
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
         <h3 id="sc-title">제품 등록</h3>
-        <div class="bk-note" style="margin-bottom:12px">새 상품은 <strong>비활성</strong>으로 저장됩니다. 이미 있는 상품(제품명·규격·옵션이 같음)을 고칠 때와 치수·이미지는 <strong>일괄 등록</strong>으로 올려 주세요.</div>
+        <input type="hidden" id="sc-id">
+        <div class="bk-note" style="margin-bottom:12px" id="sc-note-new">새 상품은 <strong>비활성</strong>으로 저장됩니다.</div>
+        <div class="bk-note" style="margin-bottom:12px" id="sc-note-edit" hidden>저장하면 고객 화면에 바로 반영됩니다.</div>
         <div class="form-field">
             <label for="sc-cat">카테고리 *</label>
-            <select id="sc-cat"><option value="">선택하세요</option></select>
+            <select id="sc-cat" onchange="scDimsRender()"><option value="">선택하세요</option></select>
         </div>
         <div class="form-2col">
             <div class="form-field"><label for="sc-name">제품명 *</label><input type="text" id="sc-name" maxlength="160"></div>
@@ -359,6 +408,12 @@ render_admin_header('제품관리', 'products');
             <div class="form-field"><label for="sc-opt">옵션</label><input type="text" id="sc-opt" maxlength="160"></div>
             <div class="form-field"><label for="sc-unit">단위</label><input type="text" id="sc-unit" maxlength="20" placeholder="예) 본"></div>
         </div>
+        <!-- 세부 치수: 고른 분류의 칸(이름표 — 일괄 등록 엑셀의 치수 칸과 같음). 분류를 바꾸면 칸이 바뀌고 같은 칸 값은 그대로 -->
+        <div class="sc-dims-box">
+            <div class="img-slots-h">세부 치수</div>
+            <div class="img-slots-note" id="sc-dims-note">분류를 고르면 그 분류의 치수 칸이 나옵니다. 상세 화면 '세부 치수'와 목록 '규격(치수)' 필터에 쓰입니다.</div>
+            <div class="sc-dims" id="sc-dims"></div>
+        </div>
         <div class="form-2col">
             <div class="form-field"><label for="sc-weight">중량(kg)</label><input type="number" id="sc-weight" min="0" step="0.01"></div>
             <div class="form-field"><label for="sc-cost">매입가 (원)</label><input type="number" id="sc-cost" min="0" placeholder="0"></div>
@@ -368,9 +423,18 @@ render_admin_header('제품관리', 'products');
             <div class="form-field"><label for="sc-pb2b">판매가 기업 (원)</label><input type="number" id="sc-pb2b" min="0" placeholder="0"></div>
         </div>
         <div class="form-field"><label for="sc-desc">설명</label><textarea id="sc-desc" rows="3" style="width:100%;border:1px solid #e8eaed;border-radius:6px;padding:8px;font-family:inherit"></textarea></div>
+        <div class="img-slots">
+            <div class="img-slots-h">이미지</div>
+            <div class="img-slots-note">파일을 고르거나 끌어다 놓으면 서버에 올리고 경로를 채웁니다. 서버에 있는 파일 경로(/…)나 외부 주소를 직접 적어도 됩니다. [저장]을 눌러야 상품에 반영됩니다.</div>
+            <?= admin_img_slots('sc') ?>
+        </div>
+        <div class="form-field" id="sc-active-wrap" hidden>
+            <label for="sc-active">상태</label>
+            <select id="sc-active"<?= PRODUCT_ACTIVE_TOGGLE_ENABLED ? '' : ' disabled' ?>><option value="1">활성</option><option value="0">비활성</option></select>
+        </div>
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="sycCreateClose()">취소</button>
-            <button class="btn btn-primary" onclick="sycCreateSave()">저장(비활성)</button>
+            <button class="btn btn-primary" id="sc-save" onclick="sycCreateSave()">저장(비활성)</button>
         </div>
     </div>
 </div>
@@ -445,7 +509,7 @@ function renderSyc(rows) {
     tb.innerHTML = rows.map(p => {
         const active = p.is_active == 1;
         return `<tr>
-            <td>${p.image_thumb_file ? `<img src="${x(p.image_thumb_file)}" class="prod-img-thumb" alt="">` : '<span class="prod-no-img"></span>'}</td>
+            <td>${(p.image_thumb_file || p.image_file) ? `<img src="${x(p.image_thumb_file || p.image_file)}" class="prod-img-thumb" alt="">` : '<span class="prod-no-img"></span>'}</td>
             <td style="font-weight:600;color:#1a2035">${x(p.name)}${p.brand ? `<span class="syc-brand">${x(p.brand)}</span>` : ''}</td>
             <td style="font-size:12px;white-space:nowrap">${x(srcName())}</td>
             <td style="font-size:12px;color:#888">${x(p.cat_name)}</td>
@@ -457,7 +521,8 @@ function renderSyc(rows) {
             <td><span class="badge ${active?'badge-on':'badge-off'}">${active?'활성':'비활성'}</span></td>
             <td style="white-space:nowrap">
                 <label class="syc-sel"><input type="checkbox" class="syc-chk" value="${+p.id}" aria-label="${x(p.name)} ${x(p.spec)} 선택" onchange="sycSelCount()"></label>
-                <button class="btn-sm ${active?'btn-sm-del':'btn-sm-edit'}" onclick="sycToggle(${+p.id}, ${active?0:1})"${ACTIVE_TOGGLE ? '' : ` disabled title="${x(ACTIVE_OFF_MSG)}"`}>${active?'비활성으로':'활성으로'}</button>
+                <button class="btn-sm btn-sm-edit" onclick="sycEditOpen(srcCode(), srcName(), {id: ${+p.id}})">수정</button>
+                <button class="btn-sm ${active?'btn-sm-del':'btn-sm-edit'}" style="margin-left:4px" onclick="sycToggle(${+p.id}, ${active?0:1})"${ACTIVE_TOGGLE ? '' : ` disabled title="${x(ACTIVE_OFF_MSG)}"`}>${active?'비활성으로':'활성으로'}</button>
             </td>
         </tr>`;
     }).join('');
@@ -725,27 +790,91 @@ async function bkCatCodes() {
 // 제품 등록: 케이토목 = 기존 등록 창(고객용 상품 표), 그 밖 = 원본 표 등록 창. 모두 비활성으로 저장
 function createOpen() { if (isSyc()) sycCreateOpen(); else openModal(); }
 let sycCatsAll = null;
-async function sycCreateOpen() {
-    if (!sycCatsAll) {
-        const d = await fetch(`${SYC_API}?action=categories`).then(r => r.json()).catch(() => ({ok:false}));
-        if (!d.ok) { alert('분류 목록을 불러오지 못했습니다.'); return; }
-        sycCatsAll = d.categories;
-        const groups = {};
-        d.categories.forEach(c => (groups[c.group_name] ??= []).push(c));
-        document.getElementById('sc-cat').innerHTML = '<option value="">선택하세요</option>' +
-            Object.entries(groups).map(([g, cs]) => `<optgroup label="${x(g)}">${cs.map(c => `<option value="${c.id}">${x(c.name)}</option>`).join('')}</optgroup>`).join('');
-    }
-    document.getElementById('sc-title').textContent = `${srcName()} 제품 등록`;
-    ['sc-cat','sc-name','sc-spec','sc-code','sc-opt','sc-unit','sc-weight','sc-cost','sc-pb2c','sc-pb2b','sc-desc'].forEach(id => { document.getElementById(id).value = ''; });
-    document.getElementById('sc-brand').value = srcName();
+let sycEdit = null;   // 수정 중인 상품 {source, name} — null 이면 새 상품 등록
+let sycAxes = {}, scDimVals = {};   // 분류별 세부 치수 칸 {분류 id: [{key,label,symbol,unit}]} · 창에 적은 치수 값 {축 키: 값}
+function scAxisCol(k) { return k === 'wire_no' ? 'spec_wire_no' : 'dim_' + k; }
+function scNum(v) { if (v === null || v === undefined || v === '') return ''; const n = Number(v); return Number.isFinite(n) && String(v).trim() !== '' && !/[^0-9.\-]/.test(String(v)) ? String(n) : String(v); }
+// 고른 분류의 치수 칸 그리기 — 분류를 바꿔도 같은 축 키 값은 그대로(scDimVals)
+function scDimsRender() {
+    const axes = sycAxes[document.getElementById('sc-cat').value] || [];
+    const box = document.getElementById('sc-dims');
+    document.getElementById('sc-dims-note').textContent = !document.getElementById('sc-cat').value
+        ? '분류를 고르면 그 분류의 치수 칸이 나옵니다.'
+        : (axes.length ? "상세 화면 '세부 치수'와 목록 '규격(치수)' 필터에 쓰입니다. 빈칸은 값 없음." : '이 분류는 세부 치수 칸이 없습니다(규격 원문만 보임).');
+    box.innerHTML = axes.map(a => {
+        const id = 'sc-dim-' + a.key;
+        const unit = a.unit && a.unit !== 'no' ? a.unit : '';
+        const text = a.key === 'd_inlet' || a.key === 'd_outlet';
+        return `<div class="form-field"><label for="${id}">${x(a.label)}${a.symbol ? ' ' + x(a.symbol) : ''}${unit ? ` <small>(${x(unit)})</small>` : ''}</label>`
+             + `<input type="${text ? 'text' : 'number'}" id="${id}" data-key="${x(a.key)}" ${text ? 'maxlength="20"' : 'step="0.1" min="0"'} value="${x(scDimVals[a.key] ?? '')}" oninput="scDimVals[this.dataset.key]=this.value"></div>`;
+    }).join('');
+}
+function scDimsPayload() {
+    const out = {};
+    document.querySelectorAll('#sc-dims input[data-key]').forEach(i => { out[i.dataset.key] = i.value.trim(); });
+    return out;
+}
+async function sycCatsReady() {
+    if (sycCatsAll) return true;
+    const d = await fetch(`${SYC_API}?action=categories`).then(r => r.json()).catch(() => ({ok:false}));
+    if (!d.ok) { alert('분류 목록을 불러오지 못했습니다.'); return false; }
+    sycCatsAll = d.categories;
+    sycAxes = d.axes || {};
+    const groups = {};
+    d.categories.forEach(c => (groups[c.group_name] ??= []).push(c));
+    document.getElementById('sc-cat').innerHTML = '<option value="">선택하세요</option>' +
+        Object.entries(groups).map(([g, cs]) => `<optgroup label="${x(g)}">${cs.map(c => `<option value="${c.id}">${x(c.name)}</option>`).join('')}</optgroup>`).join('');
+    return true;
+}
+const SC_FIELDS = {'sc-cat':'category_id','sc-name':'name','sc-brand':'brand','sc-spec':'spec','sc-code':'spec_code','sc-opt':'spec_option','sc-unit':'unit',
+    'sc-weight':'weight_kg','sc-cost':'cost_price','sc-pb2c':'price_b2c','sc-pb2b':'price_b2b','sc-desc':'description'};
+const SC_IMGS = {'sc-img-thumb':'image_thumb_file','sc-img-detail':'image_file','sc-img-spec':'image_spec_file'};
+function sycModalShow(edit, title) {
+    document.getElementById('sc-title').textContent = title;
+    document.getElementById('sc-note-new').hidden = edit;
+    document.getElementById('sc-note-edit').hidden = !edit;
+    document.getElementById('sc-active-wrap').hidden = !edit;
+    document.getElementById('sc-save').textContent = edit ? '저장' : '저장(비활성)';
+    Object.keys(SC_IMGS).forEach(id => imgPrev(id, true));
     document.getElementById('syc-modal').classList.add('open');
+}
+async function sycCreateOpen() {
+    if (!await sycCatsReady()) return;
+    sycEdit = null;
+    document.getElementById('sc-id').value = '';
+    [...Object.keys(SC_FIELDS), ...Object.keys(SC_IMGS)].forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('sc-brand').value = srcName();
+    scDimVals = {};
+    scDimsRender();
+    sycModalShow(false, `${srcName()} 제품 등록`);
+}
+// 수정: 업체 화면은 원본 id, '모든 업체' 화면은 출처 + 출처ID 로 원본을 찾아 엶
+async function sycEditOpen(source, srcLabel, ref) {
+    if (!await sycCatsReady()) return;
+    const q = ref.id ? `id=${+ref.id}` : `external_id=${encodeURIComponent(ref.external_id || '')}`;
+    const d = await fetch(`${SYC_API}?action=get&source=${encodeURIComponent(source)}&${q}`).then(r => r.json()).catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
+    if (!d.ok) { alert(d.error); return; }
+    const p = d.product;
+    sycEdit = {source};
+    document.getElementById('sc-id').value = p.id;
+    Object.entries(SC_FIELDS).forEach(([id, k]) => { document.getElementById(id).value = p[k] ?? ''; });
+    Object.entries(SC_IMGS).forEach(([id, k]) => { document.getElementById(id).value = p[k] ?? ''; });
+    document.getElementById('sc-active').value = String(+p.is_active === 1 ? 1 : 0);
+    scDimVals = {};
+    Object.values(sycAxes).flat().forEach(a => { const v = p[scAxisCol(a.key)]; if (v !== null && v !== undefined) scDimVals[a.key] = scNum(v); });
+    scDimsRender();
+    sycModalShow(true, `${srcLabel} 제품 수정`);
 }
 function sycCreateClose() { document.getElementById('syc-modal').classList.remove('open'); }
 async function sycCreateSave() {
     const v = id => document.getElementById(id).value.trim();
-    const payload = {action:'create', source: srcCode(), category_id: +v('sc-cat'), name: v('sc-name'), brand: v('sc-brand'), spec: v('sc-spec'),
-        spec_code: v('sc-code'), spec_option: v('sc-opt'), unit: v('sc-unit'), weight_kg: v('sc-weight'), cost_price: v('sc-cost'),
-        price_b2c: v('sc-pb2c'), price_b2b: v('sc-pb2b'), description: v('sc-desc')};
+    const edit = sycEdit !== null;
+    const payload = {action: edit ? 'update' : 'create', source: edit ? sycEdit.source : srcCode()};
+    Object.entries(SC_FIELDS).forEach(([id, k]) => { payload[k] = v(id); });
+    Object.entries(SC_IMGS).forEach(([id, k]) => { payload[k] = v(id); });
+    payload.category_id = +payload.category_id;
+    payload.dims = scDimsPayload();   // 고른 분류의 치수 칸만
+    if (edit) { payload.id = +v('sc-id'); if (ACTIVE_TOGGLE) payload.is_active = +v('sc-active'); }
     if (!payload.category_id) { alert('카테고리를 선택해 주세요.'); return; }
     if (!payload.name) { alert('제품명을 입력해 주세요.'); return; }
     const r = await fetch(SYC_API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
@@ -753,8 +882,42 @@ async function sycCreateSave() {
     if (!d.ok) { alert('저장 실패: ' + d.error); return; }
     pubWarn(d);
     sycCreateClose();
-    document.getElementById('filter-status').value = 'inactive';
-    load(1);
+    if (!edit) document.getElementById('filter-status').value = 'inactive';
+    load(edit ? curPage : 1);
+}
+
+/* ── 이미지 칸: 파일을 고르면(끌어다 놓으면) 바로 서버에 올려 경로를 채움. 상품에는 [저장] 때 연결 ── */
+function imgSlotSource(id) {
+    if (id.startsWith('sc-')) return sycEdit ? sycEdit.source : srcCode();
+    return 'ktomok';   // 케이토목 수정·등록 창
+}
+function imgIsPath(v) { return /^(\/[^\s]+|https?:\/\/\S+)$/i.test(v); }
+function imgPrev(id, resetMsg) {
+    const v = document.getElementById(id).value.trim();
+    const box = document.getElementById(id + '-prev');
+    box.innerHTML = imgIsPath(v) ? `<img src="${x(v)}" alt="" onerror="this.parentNode.innerHTML='<span>미리보기 없음</span>'">` : '<span>이미지 없음</span>';
+    if (resetMsg) imgMsg(id, '');
+}
+function imgMsg(id, t, err) { const m = document.getElementById(id + '-msg'); m.textContent = t; m.classList.toggle('err', !!err); }
+function imgClear(id) { document.getElementById(id).value = ''; imgPrev(id); imgMsg(id, '비움 — 저장하면 이 이미지를 뺍니다'); }
+function imgDrop(e, id) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag');
+    if (e.dataTransfer.files.length) imgUpload(e.dataTransfer.files[0], id);
+}
+async function imgUpload(file, id) {
+    if (!file) return;
+    if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)) { imgMsg(id, 'jpg·png·webp·gif 이미지만 올릴 수 있습니다.', true); return; }
+    if (file.size > 10 * 1024 * 1024) { imgMsg(id, '이미지가 너무 큽니다(한 장 10MB 까지).', true); return; }
+    imgMsg(id, '올리는 중…');
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('source', imgSlotSource(id));
+    const d = await fetch('/api/admin/product-image.php', {method:'POST', body:fd}).then(r => r.json()).catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
+    if (!d.ok) { imgMsg(id, d.error, true); return; }
+    document.getElementById(id).value = d.path;
+    imgPrev(id);
+    imgMsg(id, '올림 완료 — [저장]을 눌러야 반영됩니다');
 }
 
 function render(rows) {
@@ -763,10 +926,11 @@ function render(rows) {
     tb.innerHTML = rows.map(p => {
         const sp = parseSpec(p.spec || '');
         const active = p.is_active == 1;
-        // 상용콘크리트·업체 반영본(모든 업체 보기): 내용 수정은 그 업체를 골라 원본에서 — 여기서는 활성/비활성만
+        // 상용콘크리트·업체 반영본(모든 업체 보기): 수정은 원본(syc_products)을 출처 + 출처ID 로 찾아 같은 창(sycEditOpen)으로
         const own = p.store !== 'syc';
+        const thumb = p.image_thumb_url || p.image_url;
         return `<tr>
-            <td>${p.image_url ? `<img src="${x(p.image_url)}" class="prod-img-thumb">` : '<span class="prod-no-img"></span>'}</td>
+            <td>${thumb ? `<img src="${x(thumb)}" class="prod-img-thumb" alt="">` : '<span class="prod-no-img"></span>'}</td>
             <td>${own ? `<a href="/admin-product.php?id=${p.id}" style="color:#004EA1;font-weight:600;text-decoration:none">${x(p.name)}</a>` : `<span style="font-weight:600;color:#1a2035">${x(p.name)}</span>`}</td>
             <td style="font-size:12px;white-space:nowrap">${x(p.src_name || srcName())}</td>
             <td style="font-size:12px;color:#888">${x(p.cat_name)}</td>
@@ -778,7 +942,8 @@ function render(rows) {
             <td><span class="badge ${active?'badge-on':'badge-off'}">${active?'활성':'비활성'}</span></td>
             <td style="white-space:nowrap">
                 <label class="syc-sel"><input type="checkbox" class="syc-chk" value="${+p.id}" aria-label="${x(p.name)} ${x(sp.spec || p.spec)} 선택" onchange="sycSelCount()"></label>
-                ${own ? `<button class="btn-sm btn-sm-edit" onclick='edit(${JSON.stringify(p).replace(/'/g, '&#39;')})'>수정</button>` : ''}
+                ${own ? `<button class="btn-sm btn-sm-edit" onclick='edit(${JSON.stringify(p).replace(/'/g, '&#39;')})'>수정</button>`
+                      : `<button class="btn-sm btn-sm-edit" onclick='sycEditOpen(${JSON.stringify(p.src_code)}, ${JSON.stringify(p.src_name).replace(/'/g, '&#39;')}, {external_id: ${JSON.stringify(p.external_id).replace(/'/g, '&#39;')}})'>수정</button>`}
                 <button class="btn-sm ${active?'btn-sm-del':'btn-sm-edit'}" onclick="sycToggle(${+p.id}, ${active?0:1})" style="margin-left:4px"${ACTIVE_TOGGLE ? '' : ` disabled title="${x(ACTIVE_OFF_MSG)}"`}>${active?'비활성으로':'활성으로'}</button>
             </td>
         </tr>`;
@@ -843,7 +1008,10 @@ function openModal(data) {
     document.getElementById('f-pb2b').value  = data?.price_b2b ?? '';
     document.getElementById('f-pb2c').value  = data?.price_b2c ?? '';
     document.getElementById('f-cost').value  = data?.cost_price ?? '';   // 매입가: 비워 저장하면 0 이 되므로 기존 값을 채워 둠
-    document.getElementById('f-img').value   = data?.image_url ?? '';
+    document.getElementById('f-img-thumb').value  = data?.image_thumb_url ?? '';
+    document.getElementById('f-img-detail').value = data?.image_url ?? '';
+    document.getElementById('f-img-spec').value   = data?.image_spec_url ?? '';
+    ['f-img-thumb', 'f-img-detail', 'f-img-spec'].forEach(id => imgPrev(id, true));
     document.getElementById('f-active').value = data?.is_active ?? '1';
     document.getElementById('f-active-wrap').style.display = data ? 'block' : 'none';
     const sp = parseSpec(data?.spec ?? '');
@@ -871,7 +1039,9 @@ async function save() {
         price_b2b:   +document.getElementById('f-pb2b').value,
         price_b2c:   +document.getElementById('f-pb2c').value,
         cost_price:  +document.getElementById('f-cost').value,
-        image_url:   document.getElementById('f-img').value.trim(),
+        image_thumb_url: document.getElementById('f-img-thumb').value.trim(),
+        image_url:       document.getElementById('f-img-detail').value.trim(),
+        image_spec_url:  document.getElementById('f-img-spec').value.trim(),
         is_active:   +document.getElementById('f-active').value,
     };
     if (!payload.name) { alert('제품명을 입력해 주세요.'); return; }
