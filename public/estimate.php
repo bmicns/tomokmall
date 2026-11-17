@@ -11,6 +11,8 @@ require __DIR__ . '/../app/layout.php';
 
 $cart      = cart_session_read();
 $cartItems = cart_fetch_items($cart);
+// 담겨 있지만 지금은 팔지 않는 상품(비활성·없어짐) — 회색 줄 + X 로 빼게 함(금액·접수에는 원래대로 안 들어감, 2026-11-17)
+$goneItems = cart_fetch_gone_items($cart);
 $isQuick   = false;
 if (empty($cartItems)) {
     $qi = $_SESSION['quick_items'] ?? [];
@@ -78,6 +80,17 @@ render_header('견적 요청');
   .est-total-row span:last-child,.est-vat-row span:last-child,.est-final-row span:last-child,.est-freight-val{white-space:nowrap}
   .est-vat-row small{display:block}
 }
+.est-gone{border:1px solid #e0e3e8;background:#f6f7f9;margin-bottom:16px}
+.est-gone-head{font-size:13px;color:#555;padding:10px 14px;border-bottom:1px solid #e0e3e8}
+.est-gone-items{width:100%;border-collapse:collapse;font-size:14px}
+.est-gone-items td{color:#9aa0a6;padding:10px 14px;border-top:1px solid #e0e3e8;vertical-align:middle}
+.est-gone-items tr:first-child td{border-top:none}
+.est-gone-items .num{text-align:right;white-space:nowrap}
+.est-gone-items .remove-btn{background:none;border:none;cursor:pointer;color:var(--color-text-secondary);min-width:44px;min-height:44px;font-size:18px;line-height:1}
+.est-gone-items .remove-btn:hover{color:#e53935}
+.est-gone-items td:nth-child(2):empty{display:none}
+.est-gone-name{text-decoration:line-through;margin-right:8px}
+.est-gone-tag{display:inline-block;font-size:11.5px;color:#6b7280;background:#e5e7eb;padding:2px 8px;border-radius:10px;text-decoration:none}
 .est-empty{padding:40px 0;text-align:center;color:var(--color-text-secondary);font-size:14px;border:1px solid var(--color-border);margin-bottom:32px}
 
 /* 폼 */
@@ -186,6 +199,24 @@ render_header('견적 요청');
 
     <form id="est-form" onsubmit="submitEst(event)">
         <!-- ① 품목 목록 -->
+        <?php if ($goneItems && !$isQuick): ?>
+        <div class="est-gone" id="gone-box" role="status">
+            <div class="est-gone-head">지금은 없는 상품이 담겨 있습니다. 견적에 들어가지 않으니 × 로 빼 주세요.</div>
+            <table class="est-gone-items">
+                <tbody id="gone-body">
+                <?php foreach ($goneItems as $g): ?>
+                <?php $gsp = parse_spec_field($g['spec']); ?>
+                <tr data-pid="<?= (int)$g['product_id'] ?>">
+                    <td><span class="est-gone-name"><?= e($g['name']) ?></span><span class="est-gone-tag">지금은 없는 상품입니다</span></td>
+                    <td style="font-size:12px"><?= e($gsp['spec']) ?></td>
+                    <td class="num" style="width:90px"><?= (int)$g['quantity'] ?>개</td>
+                    <td style="width:36px"><button type="button" class="remove-btn" onclick="removeGone(this)" title="빼기" aria-label="<?= e($g['name']) ?> 빼기">×</button></td>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
         <?php if ($cartItems): ?>
         <table class="est-items" id="items-table">
             <thead>
@@ -490,6 +521,16 @@ function recalcTotal() {
     document.getElementById('final-display').textContent = t.final;
     document.getElementById('final-suffix').textContent  = t.finalSuffix;
     setNotes(document.getElementById('final-note'), t.notes);
+}
+
+// 지금은 없는 상품 빼기: 세션에서만 지움(금액·운임 계산에는 처음부터 없음)
+function removeGone(btn) {
+    const row = btn.closest('tr');
+    const pid = parseInt(row.dataset.pid);
+    row.remove();
+    const body = document.getElementById('gone-body');
+    if (body && !body.children.length) document.getElementById('gone-box').remove();
+    if (pid) queueRemove(pid);
 }
 
 function removeRow(btn) {

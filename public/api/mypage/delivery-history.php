@@ -44,7 +44,7 @@ $stmt = $pdo->prepare(
     "SELECT e.id AS estimate_id,
             DATE(e.delivery_completed_at) AS delivery_completed_at,
             GROUP_CONCAT(
-                CONCAT(p.name, ' × ', ei.quantity, '개')
+                CONCAT(p.name, IF(p.is_active = 1, '', ' (지금은 없는 상품)'), ' × ', ei.quantity, '개')
                 ORDER BY ei.id SEPARATOR ', '
             ) AS products_summary,
             ra.alert_after,

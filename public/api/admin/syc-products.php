@@ -333,6 +333,7 @@ try {
             $set['spec_dims_src'] = $set['spec'];
         }
         if (PRODUCT_ACTIVE_TOGGLE_ENABLED && array_key_exists('is_active', $body)) { $set['is_active'] = (int) $body['is_active'] === 1 ? 1 : 0; }
+        if (($set['is_active'] ?? 0) === 1 && !$src['active']) { throw new InvalidArgumentException(product_inactive_vendor_msg(1)); }
         $sql = implode(', ', array_map(static fn($c) => "{$c} = ?", array_keys($set)));
         $pdo->prepare("UPDATE syc_products SET {$sql} WHERE id = ? AND external_source = ?")->execute(array_merge(array_values($set), [$id, $src['code']]));
         syc_api_out(['ok' => true] + syc_api_publish($pdo));
@@ -346,6 +347,11 @@ try {
         $ids = array_values(array_filter(array_map('intval', (array) ($body['ids'] ?? [])), static fn($v) => $v > 0));
         if (!$ids || count($ids) > 500) { throw new InvalidArgumentException('대상 상품이 없습니다.'); }
         $val = (int) ($body['is_active'] ?? 0) === 1 ? 1 : 0;
+        if ($val === 1) {   // 비활성 업체 상품은 활성으로 바꾸지 않음(업체를 먼저 다시 활성으로 — 사용자 결정 2026-11-17)
+            $nph = [];
+            foreach ($ids as $i => $v) { $nph['id' . $i] = $v; }
+            product_assert_no_inactive_vendor($pdo, 'syc_products s', 's.id IN (:' . implode(', :', array_keys($nph)) . ')', $nph, 's.external_source');
+        }
         $ph = implode(',', array_fill(0, count($ids), '?'));
         $pdo->prepare("UPDATE syc_products SET is_active = ? WHERE id IN ({$ph})")->execute(array_merge([$val], $ids));
         syc_api_out(['ok' => true] + syc_api_publish($pdo));
@@ -357,7 +363,9 @@ try {
         $filter = is_array($body['filter'] ?? null) ? $body['filter'] : [];
         $expect = (int) ($body['expect'] ?? -1);
         $val = (int) ($body['is_active'] ?? 0) === 1 ? 1 : 0;
-        [$w, $params] = syc_api_list_where($filter, product_source_syc_or_fail($pdo, (string) ($filter['source'] ?? ''))['code']);
+        $fsrc = product_source_syc_or_fail($pdo, (string) ($filter['source'] ?? ''));
+        if ($val === 1 && !$fsrc['active']) { throw new InvalidArgumentException(product_inactive_vendor_msg((int) ($body['expect'] ?? 0))); }
+        [$w, $params] = syc_api_list_where($filter, $fsrc['code']);
         $pdo->beginTransaction();
         $cnt = $pdo->prepare("SELECT COUNT(*) FROM syc_products p WHERE {$w}");
         $cnt->execute($params);

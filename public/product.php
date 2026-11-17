@@ -23,7 +23,23 @@ $st = db()->prepare(
 );
 $st->execute([$id]);
 $p = $st->fetch();
-if (!$p) { header('Location: /index.php'); exit; }
+if (!$p) {
+    // 지금은 팔지 않는 상품(비활성 — 업체 연결 삭제·업체 비활성 등): 견적·주문 기록에서 눌러도 상세를 보여 주지 않고 안내만(2026-11-17).
+    // 없는 id 는 예전처럼 메인으로. 상태 코드는 200(닷홈이 4xx 본문을 오류 페이지로 바꿈)
+    $gone = db()->prepare('SELECT name FROM products WHERE id = ? AND is_active = 0');
+    $gone->execute([$id]);
+    $goneName = $gone->fetchColumn();
+    if ($goneName === false) { header('Location: /index.php'); exit; }
+    header('X-Robots-Tag: noindex');
+    render_header('지금은 없는 상품');
+    echo '<section class="section narrow" style="text-align:center;padding:64px 16px">'
+       . '<p style="font-size:15px;color:#9aa0a6;text-decoration:line-through;margin-bottom:8px">' . e((string) $goneName) . '</p>'
+       . '<h1 style="font-size:20px;margin-bottom:12px">지금은 없는 상품입니다</h1>'
+       . '<p style="font-size:13.5px;color:#666;margin-bottom:24px">이 상품은 현재 판매하지 않습니다. 비슷한 상품은 상품 목록에서 찾아 주세요.</p>'
+       . '<a class="button" href="/products.php">상품 목록 보기</a></section>';
+    render_footer();
+    exit;
+}
 
 $sp       = parse_spec_field($p['spec'] ?? '');
 $sp['unit'] = unit_display_label($sp['unit']);   // 표시용 단위(m 2 → ㎡)
