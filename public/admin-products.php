@@ -143,13 +143,17 @@ render_admin_header('제품관리', 'products');
 .syc-all-link{min-height:36px;padding:0 4px;border:0;background:none;color:#004EA1;font-size:13px;font-weight:600;text-decoration:underline;cursor:pointer;font-family:inherit}
 .syc-all-on #syc-sel-count{color:#004EA1;font-weight:700}
 .syc-brand{display:block;font-size:11.5px;font-weight:500;color:#888;margin-top:2px}
-.src-label{font-size:12.5px;color:#666;align-self:center}
-.src-label b{color:#1a2035}
 .btn-sm:disabled,.syc-bulkbar button:disabled{opacity:.45;cursor:not-allowed}
 .bk-tpl{display:flex;gap:8px;flex-wrap:wrap}
 #filter-source{font-weight:700}
-/* 업체 칸이 생겨도 가격(매입가·B2B·B2C)·상태 배지는 한 줄 — 칸 순서: 이미지·제품명·업체·카테고리·규격·매입가·B2B·B2C */
-.prod-table-wrap td:nth-child(6),.prod-table-wrap td:nth-child(7),.prod-table-wrap td:nth-child(8),.prod-table-wrap td .badge{white-space:nowrap}
+/* 가격 4칸(매입가·비회원가·개인회원가·기업회원가, 2026-11-17)·상태 배지는 한 줄 — 칸 순서: 이미지·제품명·업체·카테고리·규격·가격 4칸. B2B단가는 목록에서 뺌(수정 창에만) */
+.prod-table-wrap td:nth-child(2),.prod-table-wrap td:nth-child(n+6):nth-child(-n+9),.prod-table-wrap td .badge{white-space:nowrap}   /* 제품명·가격 4칸 한 줄 */
+/* 관리(수정·활성) 칸은 오른쪽에 고정 — 표가 넓어 가로로 넘겨도 버튼이 보이게 */
+.prod-table-wrap th:last-child,.prod-table-wrap td:last-child{position:sticky;right:0;z-index:1;box-shadow:-6px 0 8px -6px rgba(0,0,0,.12)}
+.prod-table-wrap td:last-child{background:#fff}
+.prod-table-wrap th:last-child{background:#f8f9fb}
+.prod-table-wrap td.empty-row{position:static;box-shadow:none}   /* "불러오는 중·없음" 한 칸은 고정하지 않음 */
+.pt-calc{color:#555}   /* 회원가(계산값, 읽기 전용) */
 .btn:disabled{opacity:.45;cursor:not-allowed}
 /* 수정·등록 창 세부 치수 칸 */
 .sc-dims-box{margin-bottom:14px}
@@ -180,7 +184,6 @@ render_admin_header('제품관리', 'products');
 <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:20px">
     <div class="page-heading" style="margin:0">제품관리</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <span class="src-label">업체: <b id="src-name"></b></span>
         <button type="button" class="btn btn-outline" id="btn-bulk" onclick="bkOpen()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>일괄 등록
         </button>
@@ -232,8 +235,8 @@ render_admin_header('제품관리', 'products');
     <label><input type="checkbox" id="syc-chk-all" onchange="sycCheckAll(this.checked)">이 페이지 전체 선택</label>
     <span id="syc-sel-count" aria-live="polite">선택 0개</span>
     <button type="button" class="syc-all-link" id="syc-all-btn" onclick="sycSelectAllMatching(!sycAllMatching)" hidden></button>
-    <button type="button" class="btn-sm btn-sm-edit" onclick="sycBulk(1)" disabled id="syc-bulk-on">선택 활성으로</button>
-    <button type="button" class="btn-sm btn-sm-del" onclick="sycBulk(0)" disabled id="syc-bulk-off">선택 비활성으로</button>
+    <button type="button" class="btn-sm btn-sm-edit" onclick="sycBulk(1)" disabled id="syc-bulk-on">활성화</button>
+    <button type="button" class="btn-sm btn-sm-del" onclick="sycBulk(0)" disabled id="syc-bulk-off">비활성화</button>
 </div>
 
 <!-- 테이블 -->
@@ -242,11 +245,13 @@ render_admin_header('제품관리', 'products');
         <thead>
             <tr>
                 <th>이미지</th><th>제품명</th><th>업체</th><th>카테고리</th><th>규격</th>
-                <th>매입가</th><th>B2B단가</th><th>B2C단가</th><th>상차수량</th><th>상태</th><th>관리</th>
+                <th>매입가</th><th title="비회원·일반 고객에게 보이는 가격(판매가, 저장 값)">비회원가</th>
+                <th title="매입가 × (1 + 개인 마진율) — 고객 화면과 같은 계산, 읽기 전용">개인회원가</th><th title="매입가 × (1 + 기업 마진율) — 고객 화면과 같은 계산, 읽기 전용">기업회원가</th>
+                <th>상차수량</th><th>상태</th><th>관리</th>
             </tr>
         </thead>
         <tbody id="prod-tbody">
-            <tr><td colspan="11" class="empty-row">불러오는 중...</td></tr>
+            <tr><td colspan="12" class="empty-row">불러오는 중...</td></tr>
         </tbody>
     </table>
 </div>
@@ -350,11 +355,11 @@ render_admin_header('제품관리', 'products');
         </div>
         <div class="form-2col">
             <div class="form-field">
-                <label>단가 B2B (원)</label>
+                <label>B2B단가 (원) <small style="font-weight:400;color:#888">참고 — 고객 화면 가격에 쓰지 않음</small></label>
                 <input type="number" id="f-pb2b" placeholder="0" min="0">
             </div>
             <div class="form-field">
-                <label>단가 B2C (원)</label>
+                <label>판매가 (원) <small style="font-weight:400;color:#888">일반·비회원</small></label>
                 <input type="number" id="f-pb2c" placeholder="0" min="0">
             </div>
         </div>
@@ -419,8 +424,8 @@ render_admin_header('제품관리', 'products');
             <div class="form-field"><label for="sc-cost">매입가 (원)</label><input type="number" id="sc-cost" min="0" placeholder="0"></div>
         </div>
         <div class="form-2col">
-            <div class="form-field"><label for="sc-pb2c">판매가 개인 (원)</label><input type="number" id="sc-pb2c" min="0" placeholder="0"></div>
-            <div class="form-field"><label for="sc-pb2b">판매가 기업 (원)</label><input type="number" id="sc-pb2b" min="0" placeholder="0"></div>
+            <div class="form-field"><label for="sc-pb2c">판매가 (원) <small style="font-weight:400;color:#888">일반·비회원</small></label><input type="number" id="sc-pb2c" min="0" placeholder="0"></div>
+            <div class="form-field"><label for="sc-pb2b">B2B단가 (원) <small style="font-weight:400;color:#888">참고</small></label><input type="number" id="sc-pb2b" min="0" placeholder="0"></div>
         </div>
         <div class="form-field"><label for="sc-desc">설명</label><textarea id="sc-desc" rows="3" style="width:100%;border:1px solid #e8eaed;border-radius:6px;padding:8px;font-family:inherit"></textarea></div>
         <div class="img-slots">
@@ -463,7 +468,6 @@ async function sourceChanged() {
     const syc = isSyc();
     document.getElementById('filter-cat').classList.toggle('bk-hide', syc);
     document.getElementById('filter-syc-cat').classList.toggle('bk-hide', !syc);
-    document.getElementById('src-name').textContent = srcName();
     // 모든 업체: 일괄 등록·제품 등록은 업체를 고른 뒤(덮어쓰기는 업체 안에서만)
     ['btn-bulk', 'btn-create'].forEach(id => {
         const b = document.getElementById(id);
@@ -490,7 +494,7 @@ async function load(page) {
     const status = document.getElementById('filter-status').value;
     const catId  = document.getElementById(syc ? 'filter-syc-cat' : 'filter-cat').value;
     const q      = document.getElementById('filter-q').value;
-    document.getElementById('prod-tbody').innerHTML = '<tr><td colspan="11" class="empty-row">불러오는 중...</td></tr>';
+    document.getElementById('prod-tbody').innerHTML = '<tr><td colspan="12" class="empty-row">불러오는 중...</td></tr>';
     const r = await fetch(`${syc ? SYC_API : API}?source=${encodeURIComponent(srcCode())}&status=${status}&cat_id=${catId}&q=${encodeURIComponent(q)}&page=${page}`);
     // 오류는 200 + ok:false + error 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
     const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
@@ -502,10 +506,16 @@ async function load(page) {
     renderPaging(d.total, d.limit, page);
 }
 
+// 개인회원가·기업회원가: 서버가 고객 화면과 같은 계산으로 보냄(읽기 전용, 2026-11-17 B안). 0 = 견적문의
+function memberCells(p) {
+    const f = v => +v ? Number(v).toLocaleString() + '원' : '-';
+    return `<td style="font-size:13px" class="pt-calc">${f(p.price_customer)}</td><td style="font-size:13px" class="pt-calc">${f(p.price_corporate)}</td>`;
+}
+
 // 상용콘크리트 목록: 썸네일이 없으면 기존 빈 이미지 표시(.prod-no-img) 그대로
 function renderSyc(rows) {
     const tb = document.getElementById('prod-tbody');
-    if (!rows.length) { tb.innerHTML = '<tr><td colspan="11" class="empty-row">제품이 없습니다.</td></tr>'; return; }
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="12" class="empty-row">제품이 없습니다.</td></tr>'; return; }
     tb.innerHTML = rows.map(p => {
         const active = p.is_active == 1;
         return `<tr>
@@ -513,10 +523,10 @@ function renderSyc(rows) {
             <td style="font-weight:600;color:#1a2035">${x(p.name)}${p.brand ? `<span class="syc-brand">${x(p.brand)}</span>` : ''}</td>
             <td style="font-size:12px;white-space:nowrap">${x(srcName())}</td>
             <td style="font-size:12px;color:#888">${x(p.cat_name)}</td>
-            <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${x(p.spec)}">${x(p.spec || '-')}</td>
+            <td style="font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${x(p.spec)}">${x(p.spec || '-')}</td>
             <td style="font-size:13px;color:#004EA1">${+p.cost_price ? Number(p.cost_price).toLocaleString()+'원' : '-'}</td>
-            <td style="font-size:13px">${+p.price_b2b ? Number(p.price_b2b).toLocaleString()+'원' : '-'}</td>
             <td style="font-size:13px">${+p.price_b2c ? Number(p.price_b2c).toLocaleString()+'원' : '-'}</td>
+            ${memberCells(p)}
             <td style="font-size:12px">-</td>
             <td><span class="badge ${active?'badge-on':'badge-off'}">${active?'활성':'비활성'}</span></td>
             <td style="white-space:nowrap">
@@ -540,7 +550,7 @@ function sycSelCount() {
     document.getElementById('syc-sel-count').textContent = sycAllMatching ? `검색 결과 전체 ${shown.toLocaleString()}개 선택됨` : `선택 ${n}개`;
     document.getElementById('syc-bulkbar').classList.toggle('syc-all-on', sycAllMatching);
     document.getElementById('syc-bulk-on').disabled = document.getElementById('syc-bulk-off').disabled = shown === 0 || !ACTIVE_TOGGLE;
-    // 상태 드롭다운: 비활성 제품 → '선택 활성으로'만, 활성 제품 → '선택 비활성으로'만, 전체 → 둘 다
+    // 상태 드롭다운: 비활성 제품 → '활성화'만, 활성 제품 → '비활성화'만, 전체 → 둘 다
     const st = document.getElementById('filter-status').value;
     document.getElementById('syc-bulk-on').hidden  = st === 'active';
     document.getElementById('syc-bulk-off').hidden = st === 'inactive';
@@ -922,7 +932,7 @@ async function imgUpload(file, id) {
 
 function render(rows) {
     const tb = document.getElementById('prod-tbody');
-    if (!rows.length) { tb.innerHTML = '<tr><td colspan="11" class="empty-row">제품이 없습니다.</td></tr>'; return; }
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="12" class="empty-row">제품이 없습니다.</td></tr>'; return; }
     tb.innerHTML = rows.map(p => {
         const sp = parseSpec(p.spec || '');
         const active = p.is_active == 1;
@@ -934,10 +944,10 @@ function render(rows) {
             <td>${own ? `<a href="/admin-product.php?id=${p.id}" style="color:#004EA1;font-weight:600;text-decoration:none">${x(p.name)}</a>` : `<span style="font-weight:600;color:#1a2035">${x(p.name)}</span>`}</td>
             <td style="font-size:12px;white-space:nowrap">${x(p.src_name || srcName())}</td>
             <td style="font-size:12px;color:#888">${x(p.cat_name)}</td>
-            <td style="font-size:12px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x(sp.spec || p.spec || '-')}</td>
+            <td style="font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${x(sp.spec || p.spec || '')}">${x(sp.spec || p.spec || '-')}</td>
             <td style="font-size:13px;color:#004EA1">${+p.cost_price ? Number(p.cost_price).toLocaleString()+'원' : '-'}</td>
-            <td style="font-size:13px">${p.price_b2b ? Number(p.price_b2b).toLocaleString()+'원' : '-'}</td>
             <td style="font-size:13px">${p.price_b2c ? Number(p.price_b2c).toLocaleString()+'원' : '-'}</td>
+            ${memberCells(p)}
             <td style="font-size:12px">${x(sp.load || '-')}</td>
             <td><span class="badge ${active?'badge-on':'badge-off'}">${active?'활성':'비활성'}</span></td>
             <td style="white-space:nowrap">

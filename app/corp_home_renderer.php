@@ -85,8 +85,8 @@ $corpJsV   = ($docRootCh ? @filemtime($docRootCh . '/assets/corp-home.js') : fal
                 <div id="ch-flt" class="ch-flt" hidden>
                     <div class="ch-flt-grid" id="ch-flt-grid"></div>
                     <div class="ch-flt-actions">
+                        <span class="ch-flt-hint">고르는 즉시 목록에 적용됩니다. 괄호 안 숫자 = 상품 수</span>
                         <button type="button" class="ch-btn-text" id="ch-flt-reset">초기화</button>
-                        <button type="button" class="ch-btn-primary" id="ch-flt-apply">적용</button>
                     </div>
                 </div>
 
