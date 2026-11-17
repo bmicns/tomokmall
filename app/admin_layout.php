@@ -107,6 +107,17 @@ function render_admin_header(string $title, string $activeMenu = ''): void
     .page-btn.page-nav{padding:0 12px}
     .page-btn:disabled{opacity:.4;cursor:default}
     .page-gap{align-self:center;padding:0 2px;color:#aaa;font-size:13px}
+    /* 숫자 카드(대시보드·통계 공통) — 2026-11-17 admin.php 에서 옮김(통계 화면에 스타일이 없어 깨져 보였음) */
+    .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(200px,100%),1fr));gap:14px;margin-bottom:24px}   /* 좁은 화면에서도 화면 폭을 넘지 않게 */
+    .kpi-card{background:#fff;border-radius:10px;padding:18px 20px;display:flex;align-items:center;gap:14px;border:1px solid #e8eaed}
+    .kpi-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .kpi-icon.blue{background:#e8f0fe;color:#004EA1}
+    .kpi-icon.green{background:#e8f5e9;color:#2e7d32}
+    .kpi-icon.orange{background:#fff3e0;color:#e65100}
+    .kpi-icon.purple{background:#f3e8ff;color:#6d28d9}
+    .kpi-icon.red{background:#fce4ec;color:#c62828}
+    .kpi-val{font-size:26px;font-weight:800;color:#1a2035;line-height:1}
+    .kpi-label{font-size:11px;color:#888;margin-top:3px}
     </style>
 </head>
 <body>

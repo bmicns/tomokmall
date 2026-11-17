@@ -37,16 +37,7 @@ $h = fn($v) => htmlspecialchars((string)($v ?? ''), ENT_QUOTES);
 render_admin_header('대시보드', 'dashboard');
 ?>
 <style>
-.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:24px}
-.kpi-card{background:#fff;border-radius:10px;padding:18px 20px;display:flex;align-items:center;gap:14px;border:1px solid #e8eaed}
-.kpi-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.kpi-icon.blue{background:#e8f0fe;color:#004EA1}
-.kpi-icon.green{background:#e8f5e9;color:#2e7d32}
-.kpi-icon.orange{background:#fff3e0;color:#e65100}
-.kpi-icon.purple{background:#f3e8ff;color:#6d28d9}
-.kpi-icon.red{background:#fce4ec;color:#c62828}
-.kpi-val{font-size:26px;font-weight:800;color:#1a2035;line-height:1}
-.kpi-label{font-size:11px;color:#888;margin-top:3px}
+/* 숫자 카드(.kpi-*)는 관리자 공통 레이아웃(app/admin_layout.php)에 있음 — 통계 화면과 같이 씀 */
 .quick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:22px}
 .quick-card{display:flex;align-items:center;gap:8px;padding:12px 16px;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none;border:1px solid #e8eaed;background:#fff;color:#1a2035;transition:all .15s}
 .quick-card:hover{border-color:#004EA1;color:#004EA1;background:#f0f5ff}

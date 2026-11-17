@@ -81,6 +81,7 @@ render_admin_header('통계', 'stats');
 .period-btn{display:inline-block;padding:5px 12px;border:1px solid #e8eaed;border-radius:5px;font-size:12px;font-weight:600;text-decoration:none;color:#555;background:#fff;margin-right:4px}
 .period-btn.active{background:#004EA1;color:#fff;border-color:#004EA1}
 .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+@media(max-width:900px){.stats-grid{grid-template-columns:minmax(0,1fr)}}   /* 좁은 화면: 차트 칸 한 줄에 하나 */
 .chart-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px}
 .chart-bar-label{width:100px;flex-shrink:0;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chart-bar-bg{flex:1;height:18px;background:#f0f2f5;border-radius:3px;overflow:hidden}
