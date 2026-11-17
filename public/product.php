@@ -106,7 +106,8 @@ render_header($p['name']);
 .pd-body{display:grid;grid-template-columns:1fr 420px;gap:0;border:1px solid var(--color-border);border-radius:10px;overflow:hidden}
 /* 이미지 영역 */
 .pd-img-area{background:#f7f7f7;display:flex;align-items:center;justify-content:center;min-height:420px;padding:32px}
-.pd-img-area img{width:100%;max-height:400px;object-fit:contain;display:block}
+/* 상세 이미지: 세로로 긴 이미지(제조사 소개 이미지 등)도 영역을 채우게 높이 한도 840px(예전 400px — 작게 보였음, 2026-11-17) */
+.pd-img-area img{width:100%;height:auto;max-height:840px;object-fit:contain;display:block}
 .pd-img-empty-msg{color:var(--color-text-secondary);font-size:14px}
 /* 정보 영역 */
 .pd-info-area{border-left:1px solid var(--color-border);padding:32px 28px;display:flex;flex-direction:column;gap:0}
@@ -214,7 +215,7 @@ render_header($p['name']);
 @media(max-width:800px){
   .pd-body{grid-template-columns:1fr}
   .pd-img-area{min-height:280px;padding:20px}
-  .pd-img-area img{max-height:260px}
+  .pd-img-area img{max-height:560px}
   .pd-info-area{border-left:none;border-top:1px solid var(--color-border)}
   .pd-price-val{font-size:24px}
   .pd-price-grade .pd-price-val{font-size:15px}
@@ -230,7 +231,7 @@ render_header($p['name']);
   .pd-breadcrumb > *{min-width:0;overflow-wrap:anywhere}
   .pd-body{grid-template-columns:minmax(0,1fr)}
   .pd-img-area{min-height:220px;padding:16px}
-  .pd-img-area img{max-height:220px}
+  .pd-img-area img{max-height:440px}
   .pd-info-area{min-width:0;padding:20px 16px}
   .pd-product-name{font-size:21px}
   .pd-fav-btn{min-width:0}
