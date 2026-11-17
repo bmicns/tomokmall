@@ -117,6 +117,7 @@ body.mode-corp .footer-inner { max-width: 1360px; padding: 28px 24px 32px; }
 .ch-flt .ch-field label { font-size: 14px; color: #333333; }
 .ch-flt .ch-select select { height: 38px; }
 .ch-flt-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 6px; }
+.ch-flt-hint { margin-right: auto; font-size: 12.5px; color: #777777; }   /* 규격 필터 안내(왼쪽), 초기화(오른쪽) */
 .ch-btn-text { height: 40px; padding: 0 14px; border: 0; background: transparent; color: #555555; font-size: 14px; cursor: pointer; }
 .ch-btn-text { font-weight: 400; }
 .ch-btn-text:hover { color: #222222; background: transparent; text-decoration: underline; }

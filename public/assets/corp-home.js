@@ -151,7 +151,33 @@
 
   // 실제 상품 규격에서 필터 항목 생성(값이 2개 이상인 치수만). 폭·높이·길이·두께 명칭은
   // 모든 상품이 '숫자×숫자×숫자×숫자T' 형식(플륨관·수로관류)일 때만 붙이고, 그 외는 '치수 n'.
+  var NONE = '__none__';   // 규격외정보가 없는 상품을 고르는 값
   function buildFilters() {
+    // 규격(치수)·규격외정보(모델 코드·옵션 등) 두 칸 — 고객 상품 목록과 같은 기준(API spec_main·spec_info, 사용자 결정 S17·2026-11-17).
+    // 예전 '치수 1·치수 2' 나누기는 업체·분류가 섞이면 이름을 붙일 수 없어 쓰지 않음(API 가 두 값을 주지 않을 때만 아래 예전 방식)
+    if (products.length && products[0].spec_main !== undefined) {
+      fltDims = [];
+      var sv = {}, iv = {}, noInfo = false;
+      products.forEach(function (p) { if (p.spec_main) sv[p.spec_main] = 1; if (p.spec_info) iv[p.spec_info] = 1; else noInfo = true; });
+      var sl = Object.keys(sv).sort(natCmp), il = Object.keys(iv).sort(natCmp);
+      // 치수: 분류에 이름표(폭 W·높이 H…)가 있고 상품 대부분이 그 값을 가지면 칸별 선택(폭·높이·길이…), 아니면 '규격 (치수)' 하나
+      var axF = [];
+      (axesDef || []).forEach(function (a) {
+        if (a.key === '_code') return;   // 모델 코드는 규격외정보 칸에 있음
+        var vals = {}, has = 0;
+        products.forEach(function (p) { var v = (p.ax || {})[a.key]; if (v) { vals[v] = 1; has++; } });
+        var list = Object.keys(vals).sort(natCmp);
+        if (list.length < 2 || has < products.length * 0.8) return;
+        axF.push({ key: 'a_' + a.key, label: a.label, values: list, pick: function (p) { return (p.ax || {})[a.key] || ''; } });
+      });
+      if (axF.length) fltDims = axF;
+      else if (sl.length >= 2) fltDims.push({ key: 'spec', label: '규격 (치수)', values: sl, pick: function (p) { return p.spec_main || ''; } });
+      if (il.length >= 2 || (il.length === 1 && noInfo)) {
+        fltDims.push({ key: 'info', label: '규격외정보 (형식·옵션)', values: noInfo ? il.concat([NONE]) : il,
+          pick: function (p) { return p.spec_info || NONE; } });
+      }
+      return renderFilterGrid();
+    }
     // 상용콘크리트 카테고리: API 가 준 이름표(axes)·치수 값(ax)·옵션(opt)으로 필터(값이 2개 이상인 칸만) — 화면 모양은 같음
     if (axesDef && axesDef.length) {
       fltDims = [];
@@ -196,23 +222,45 @@
     fltGrid.innerHTML = fltDims.map(function (f) {
       var id = 'ch-flt-' + f.key;
       return '<div class="ch-field"><label for="' + id + '">' + esc(f.label) + '</label><div class="ch-select">' +
-        '<select id="' + id + '" data-flt="' + f.key + '"><option value="">전체</option>' +
-        f.values.map(function (v) { return '<option value="' + esc(v) + '">' + esc(v) + '</option>'; }).join('') +
-        '</select><svg class="ch-select-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></div></div>';
+        '<select id="' + id + '" data-flt="' + f.key + '"></select><svg class="ch-select-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></div></div>';
     }).join('');
     fltToggle.hidden = fltDims.length === 0;
     fltBox.hidden = fltDims.length === 0 || fltToggle.getAttribute('aria-expanded') !== 'true';
+    refreshFilterOptions();
   }
 
-  function applyFilters() {
-    var conds = fltDims.map(function (f) {
+  function filterConds() {
+    return fltDims.map(function (f) {
       var el = fltGrid.querySelector('[data-flt="' + f.key + '"]');
       return { f: f, v: el ? el.value : '' };
     }).filter(function (c) { return c.v !== ''; });
+  }
+  // 항목마다 상품 수(다른 칸에서 고른 조건 기준) — 0개인 항목은 고를 수 없게(고른 값은 그대로 둠)
+  function refreshFilterOptions() {
+    var conds = filterConds();
+    fltDims.forEach(function (f) {
+      var el = fltGrid.querySelector('[data-flt="' + f.key + '"]');
+      if (!el) return;
+      var cur = el.value;
+      var others = conds.filter(function (c) { return c.f !== f; });
+      var base = products.filter(function (p) { return others.every(function (c) { return c.f.pick(p) === c.v; }); });
+      var cnt = {};
+      base.forEach(function (p) { var v = f.pick(p); cnt[v] = (cnt[v] || 0) + 1; });
+      el.innerHTML = '<option value="">전체 (' + base.length + ')</option>' + f.values.map(function (v) {
+        var n = cnt[v] || 0;
+        return '<option value="' + esc(v) + '"' + (n === 0 && v !== cur ? ' disabled' : '') + '>' + esc(v === NONE ? '없음' : v) + ' (' + n + ')</option>';
+      }).join('');
+      el.value = cur;
+    });
+  }
+
+  function applyFilters() {
+    var conds = filterConds();
     filtered = products.filter(function (p) {
       return conds.every(function (c) { return c.f.pick(p) === c.v; });
     });
     prodPage = 1;
+    refreshFilterOptions();
     renderProducts();
   }
 
@@ -222,7 +270,8 @@
     $('ch-flt-chevron').setAttribute('d', open ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6');
     fltBox.hidden = !open;
   });
-  $('ch-flt-apply').addEventListener('click', function () {
+  // 고르는 즉시 적용(적용 버튼 없음 — 2026-11-17)
+  fltGrid.addEventListener('change', function () {
     applyFilters();
     announce('규격 필터를 적용했습니다. ' + filtered.length + '개 상품');
   });
@@ -279,7 +328,8 @@
           return {
             id: p.id, name: p.name, size: p.size || '', unit: p.unit || '',
             price: p.price_b2b != null ? p.price_b2b : p.price_b2c, image_url: p.image_url || '',
-            price_list: p.price_list, price_member: p.price_member, ax: p.ax || null, opt: p.opt || ''
+            price_list: p.price_list, price_member: p.price_member, ax: p.ax || null, opt: p.opt || '',
+            spec_main: p.spec_main, spec_info: p.spec_info || ''   // 규격 필터 두 칸(API 가 주지 않으면 undefined → 예전 방식)
           };
         });
         buildFilters();
