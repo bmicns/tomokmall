@@ -150,6 +150,10 @@ try {
             error_log('[api/admin/products] vendors 표를 읽지 못함: ' . $e->getCode());
         }
         foreach ($products as &$pr) {
+            // 회원가(읽기 전용 표시, 사용자 결정 2026-11-17 B안): 고객 화면과 같은 계산(app/pricing.php price_bundle) — 저장 값은 그대로
+            $pb = price_bundle($pr);
+            $pr['price_customer']  = $pb['customer'];
+            $pr['price_corporate'] = $pb['corporate'];
             $es = (string) ($pr['external_source'] ?? '');
             $pr['src_name'] = $es === PRODUCT_SOURCE_SYC ? '상용콘크리트' : ($pr['store'] === 'syc' ? ($vendorNames[$es] ?? $es) : '케이토목');
             $pr['src_code'] = $pr['store'] === 'syc' ? $es : PRODUCT_SOURCE_KTOMOK;   // 반영본 수정 = 원본(syc_products)을 출처 + 출처ID 로 찾아 엶

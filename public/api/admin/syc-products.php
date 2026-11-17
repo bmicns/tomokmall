@@ -165,11 +165,29 @@ try {
         $cnt->execute($params);
         $offset = ($page - 1) * $limit;
         $st = $pdo->prepare("SELECT p.id, p.name, p.brand, p.spec, p.spec_code, p.unit, p.weight_kg, p.price_b2b, p.price_b2c, p.cost_price,
-                                    p.image_file, p.image_thumb_file, p.is_active, p.external_id, c.name AS cat_name
+                                    p.image_file, p.image_thumb_file, p.is_active, p.external_id, p.category_id, c.name AS cat_name
                              FROM syc_products p JOIN syc_categories c ON c.id = p.category_id
                              WHERE {$w} ORDER BY p.id DESC LIMIT {$limit} OFFSET {$offset}");
         $st->execute($params);
-        syc_api_out(['ok' => true, 'products' => $st->fetchAll(), 'total' => (int) $cnt->fetchColumn(), 'page' => $page, 'limit' => $limit]);
+        $list = $st->fetchAll();
+        // 회원가(읽기 전용 표시, 2026-11-17 B안): 고객이 실제로 보는 값 = 고객용 상품 표 반영본(공통 분류 마진율)으로 계산.
+        // 반영본이 없으면 원본 분류(syc_categories) 마진율로 — 둘 다 app/pricing.php price_bundle(저장 값은 그대로)
+        $pub = [];
+        if ($list) {
+            $ph = implode(',', array_fill(0, count($list), '?'));
+            $q = $pdo->prepare("SELECT external_id, category_id, price_b2c, price_b2b, cost_price FROM products WHERE external_source = ? AND external_id IN ({$ph})");
+            $q->execute(array_merge([$src['code']], array_column($list, 'external_id')));
+            foreach ($q as $r) { $pub[(string) $r['external_id']] = $r; }
+        }
+        $sycAll = null;
+        foreach ($list as &$r) {
+            if (isset($pub[(string) $r['external_id']])) { $pb = price_bundle($pub[(string) $r['external_id']]); }
+            else { $sycAll ??= syc_categories_all(); $pb = price_bundle(syc_price_row($r, $sycAll)); }
+            $r['price_customer']  = $pb['customer'];
+            $r['price_corporate'] = $pb['corporate'];
+        }
+        unset($r);
+        syc_api_out(['ok' => true, 'products' => $list, 'total' => (int) $cnt->fetchColumn(), 'page' => $page, 'limit' => $limit]);
     }
 
     if ($method !== 'POST') { syc_api_out(['ok' => false, 'error' => '지원하지 않는 요청']); }

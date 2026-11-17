@@ -148,8 +148,16 @@ render_admin_header('제품관리', 'products');
 .btn-sm:disabled,.syc-bulkbar button:disabled{opacity:.45;cursor:not-allowed}
 .bk-tpl{display:flex;gap:8px;flex-wrap:wrap}
 #filter-source{font-weight:700}
-/* 업체 칸이 생겨도 가격(매입가·B2B·B2C)·상태 배지는 한 줄 — 칸 순서: 이미지·제품명·업체·카테고리·규격·매입가·B2B·B2C */
-.prod-table-wrap td:nth-child(6),.prod-table-wrap td:nth-child(7),.prod-table-wrap td:nth-child(8),.prod-table-wrap td .badge{white-space:nowrap}
+/* 가격 5칸(매입가·B2B단가·판매가·개인회원가·기업회원가)·상태 배지는 한 줄 — 칸 순서: 이미지·제품명·업체·카테고리·규격·가격 5칸 */
+.prod-table-wrap td:nth-child(n+6):nth-child(-n+10),.prod-table-wrap td .badge{white-space:nowrap}
+.th-sub{display:block;font-size:11px;font-weight:400;color:#999}
+.prod-table-wrap td:nth-child(2){min-width:130px}   /* 가격 칸이 늘어 제품명이 세 줄로 접히지 않게(넘치면 표 안에서 가로 스크롤) */
+/* 관리(수정·활성) 칸은 오른쪽에 고정 — 표가 넓어 가로로 넘겨도 버튼이 보이게 */
+.prod-table-wrap th:last-child,.prod-table-wrap td:last-child{position:sticky;right:0;z-index:1;box-shadow:-6px 0 8px -6px rgba(0,0,0,.12)}
+.prod-table-wrap td:last-child{background:#fff}
+.prod-table-wrap th:last-child{background:#f8f9fb}
+.prod-table-wrap td.empty-row{position:static;box-shadow:none}   /* "불러오는 중·없음" 한 칸은 고정하지 않음 */
+.pt-calc{color:#555}   /* 회원가(계산값, 읽기 전용) */
 .btn:disabled{opacity:.45;cursor:not-allowed}
 /* 수정·등록 창 세부 치수 칸 */
 .sc-dims-box{margin-bottom:14px}
@@ -242,11 +250,13 @@ render_admin_header('제품관리', 'products');
         <thead>
             <tr>
                 <th>이미지</th><th>제품명</th><th>업체</th><th>카테고리</th><th>규격</th>
-                <th>매입가</th><th>B2B단가</th><th>B2C단가</th><th>상차수량</th><th>상태</th><th>관리</th>
+                <th>매입가</th><th title="저장 값 — 지금 고객 화면 가격에는 쓰지 않음">B2B단가<small class="th-sub">참고</small></th><th title="비회원·일반 고객에게 보이는 가격(저장 값)">판매가<small class="th-sub">일반·비회원</small></th>
+                <th title="매입가 × (1 + 개인 마진율) — 고객 화면과 같은 계산, 읽기 전용">개인회원가<small class="th-sub">계산</small></th><th title="매입가 × (1 + 기업 마진율) — 고객 화면과 같은 계산, 읽기 전용">기업회원가<small class="th-sub">계산</small></th>
+                <th>상차수량</th><th>상태</th><th>관리</th>
             </tr>
         </thead>
         <tbody id="prod-tbody">
-            <tr><td colspan="11" class="empty-row">불러오는 중...</td></tr>
+            <tr><td colspan="13" class="empty-row">불러오는 중...</td></tr>
         </tbody>
     </table>
 </div>
@@ -350,11 +360,11 @@ render_admin_header('제품관리', 'products');
         </div>
         <div class="form-2col">
             <div class="form-field">
-                <label>단가 B2B (원)</label>
+                <label>B2B단가 (원) <small style="font-weight:400;color:#888">참고 — 고객 화면 가격에 쓰지 않음</small></label>
                 <input type="number" id="f-pb2b" placeholder="0" min="0">
             </div>
             <div class="form-field">
-                <label>단가 B2C (원)</label>
+                <label>판매가 (원) <small style="font-weight:400;color:#888">일반·비회원</small></label>
                 <input type="number" id="f-pb2c" placeholder="0" min="0">
             </div>
         </div>
@@ -419,8 +429,8 @@ render_admin_header('제품관리', 'products');
             <div class="form-field"><label for="sc-cost">매입가 (원)</label><input type="number" id="sc-cost" min="0" placeholder="0"></div>
         </div>
         <div class="form-2col">
-            <div class="form-field"><label for="sc-pb2c">판매가 개인 (원)</label><input type="number" id="sc-pb2c" min="0" placeholder="0"></div>
-            <div class="form-field"><label for="sc-pb2b">판매가 기업 (원)</label><input type="number" id="sc-pb2b" min="0" placeholder="0"></div>
+            <div class="form-field"><label for="sc-pb2c">판매가 (원) <small style="font-weight:400;color:#888">일반·비회원</small></label><input type="number" id="sc-pb2c" min="0" placeholder="0"></div>
+            <div class="form-field"><label for="sc-pb2b">B2B단가 (원) <small style="font-weight:400;color:#888">참고</small></label><input type="number" id="sc-pb2b" min="0" placeholder="0"></div>
         </div>
         <div class="form-field"><label for="sc-desc">설명</label><textarea id="sc-desc" rows="3" style="width:100%;border:1px solid #e8eaed;border-radius:6px;padding:8px;font-family:inherit"></textarea></div>
         <div class="img-slots">
@@ -490,7 +500,7 @@ async function load(page) {
     const status = document.getElementById('filter-status').value;
     const catId  = document.getElementById(syc ? 'filter-syc-cat' : 'filter-cat').value;
     const q      = document.getElementById('filter-q').value;
-    document.getElementById('prod-tbody').innerHTML = '<tr><td colspan="11" class="empty-row">불러오는 중...</td></tr>';
+    document.getElementById('prod-tbody').innerHTML = '<tr><td colspan="13" class="empty-row">불러오는 중...</td></tr>';
     const r = await fetch(`${syc ? SYC_API : API}?source=${encodeURIComponent(srcCode())}&status=${status}&cat_id=${catId}&q=${encodeURIComponent(q)}&page=${page}`);
     // 오류는 200 + ok:false + error 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
     const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
@@ -502,10 +512,16 @@ async function load(page) {
     renderPaging(d.total, d.limit, page);
 }
 
+// 개인회원가·기업회원가: 서버가 고객 화면과 같은 계산으로 보냄(읽기 전용, 2026-11-17 B안). 0 = 견적문의
+function memberCells(p) {
+    const f = v => +v ? Number(v).toLocaleString() + '원' : '-';
+    return `<td style="font-size:13px" class="pt-calc">${f(p.price_customer)}</td><td style="font-size:13px" class="pt-calc">${f(p.price_corporate)}</td>`;
+}
+
 // 상용콘크리트 목록: 썸네일이 없으면 기존 빈 이미지 표시(.prod-no-img) 그대로
 function renderSyc(rows) {
     const tb = document.getElementById('prod-tbody');
-    if (!rows.length) { tb.innerHTML = '<tr><td colspan="11" class="empty-row">제품이 없습니다.</td></tr>'; return; }
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="13" class="empty-row">제품이 없습니다.</td></tr>'; return; }
     tb.innerHTML = rows.map(p => {
         const active = p.is_active == 1;
         return `<tr>
@@ -517,6 +533,7 @@ function renderSyc(rows) {
             <td style="font-size:13px;color:#004EA1">${+p.cost_price ? Number(p.cost_price).toLocaleString()+'원' : '-'}</td>
             <td style="font-size:13px">${+p.price_b2b ? Number(p.price_b2b).toLocaleString()+'원' : '-'}</td>
             <td style="font-size:13px">${+p.price_b2c ? Number(p.price_b2c).toLocaleString()+'원' : '-'}</td>
+            ${memberCells(p)}
             <td style="font-size:12px">-</td>
             <td><span class="badge ${active?'badge-on':'badge-off'}">${active?'활성':'비활성'}</span></td>
             <td style="white-space:nowrap">
@@ -922,7 +939,7 @@ async function imgUpload(file, id) {
 
 function render(rows) {
     const tb = document.getElementById('prod-tbody');
-    if (!rows.length) { tb.innerHTML = '<tr><td colspan="11" class="empty-row">제품이 없습니다.</td></tr>'; return; }
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="13" class="empty-row">제품이 없습니다.</td></tr>'; return; }
     tb.innerHTML = rows.map(p => {
         const sp = parseSpec(p.spec || '');
         const active = p.is_active == 1;
@@ -938,6 +955,7 @@ function render(rows) {
             <td style="font-size:13px;color:#004EA1">${+p.cost_price ? Number(p.cost_price).toLocaleString()+'원' : '-'}</td>
             <td style="font-size:13px">${p.price_b2b ? Number(p.price_b2b).toLocaleString()+'원' : '-'}</td>
             <td style="font-size:13px">${p.price_b2c ? Number(p.price_b2c).toLocaleString()+'원' : '-'}</td>
+            ${memberCells(p)}
             <td style="font-size:12px">${x(sp.load || '-')}</td>
             <td><span class="badge ${active?'badge-on':'badge-off'}">${active?'활성':'비활성'}</span></td>
             <td style="white-space:nowrap">
