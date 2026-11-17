@@ -96,9 +96,10 @@ render_staff_header('품목별 업체정보', 'vendors');
 .st-tab.on{border-color:#003580;color:#003580;background:#e8f0fe}
 .btn-sm-off{background:#fce4ec;color:#c62828}
 .btn-sm-on{background:#e8f0fe;color:#003580}
+#pv-add-btn:disabled{background:#c5cad3;border-color:#c5cad3;cursor:not-allowed}
 .vd-warn{background:#fff8e1;border:1px solid #ffe082;color:#6d4c00;border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:10px}
 .vd-list{margin:0 0 4px;padding-left:18px;font-size:13px;line-height:1.7;color:#333}
-.stf-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#263238;color:#fff;padding:10px 16px;border-radius:6px;font-size:13px;z-index:2000;max-width:calc(100% - 32px);box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.stf-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#263238;color:#fff;padding:10px 16px;border-radius:6px;font-size:13px;z-index:9500;max-width:calc(100% - 32px);box-shadow:0 4px 12px rgba(0,0,0,.2)}
 </style>
 
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
@@ -186,7 +187,7 @@ render_staff_header('품목별 업체정보', 'vendors');
                     <?php if ((int)$row['vendor_off_cnt']): ?><div style="font-size:10px;color:#999;margin-top:2px">비활성 <?= (int)$row['vendor_off_cnt'] ?></div><?php endif; ?>
                 </td>
                 <td>
-                    <button class="btn-sm btn-sm-view" onclick="openProductVendors(<?= (int)$row['id'] ?>, '<?= $h(addslashes($row['name'])) ?>')">
+                    <button class="btn-sm btn-sm-view" onclick="openProductVendors(<?= (int)$row['id'] ?>, <?= $h(json_encode((string)$row['name'], JSON_UNESCAPED_UNICODE)) ?>, <?= $h(json_encode((string)($row['spec'] ?? ''), JSON_UNESCAPED_UNICODE)) ?>)">
                         업체 관리
                     </button>
                 </td>
@@ -288,40 +289,54 @@ render_staff_header('품목별 업체정보', 'vendors');
     </div>
 </div>
 
-<!-- 품목-업체 연결 모달 -->
-<div class="modal-overlay" id="pv-modal">
+<!-- 품목-업체 연결 모달(시안 '업체관리(After)' — 비활성 표시·주거래 지정·추가 가능한 업체만) -->
+<div class="modal-overlay" id="pv-modal" role="dialog" aria-modal="true" aria-labelledby="pv-modal-title">
     <div class="modal-box" style="width:520px">
-        <h3 id="pv-modal-title">업체 관리</h3>
-        <button class="modal-close" onclick="closeModal('pv-modal')">×</button>
-        <div id="pv-warn" class="vd-warn" style="display:none"></div>
-        <div id="pv-list" style="min-height:60px;margin-bottom:14px"></div>
-        <hr style="border:none;border-top:1px solid #e8eaed;margin-bottom:14px">
+        <h3 id="pv-modal-title" style="margin-bottom:4px">업체 관리</h3>
+        <div id="pv-modal-sub" style="font-size:12.5px;color:#666;margin-bottom:16px"></div>
+        <button class="modal-close" onclick="closeModal('pv-modal')" aria-label="닫기">×</button>
+        <div id="pv-list" style="min-height:52px"></div>
+        <hr style="border:none;border-top:1px solid #e8eaed;margin:14px 0">
         <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:#555">업체 추가</div>
         <div class="form-2col">
             <div class="form-field">
-                <label>업체 선택</label>
-                <select id="pv-vendor-sel"><option value="">-- 선택 --</option></select>
+                <label for="pv-vendor-sel">업체 선택</label>
+                <select id="pv-vendor-sel" onchange="pvSelChanged()"><option value="">-- 선택 --</option></select>
+                <span id="pv-no-opts" style="display:none;font-size:11.5px;color:#888">추가할 수 있는 활성 업체가 없습니다</span>
             </div>
             <div class="form-field">
-                <label>공급단가 (원)</label>
-                <input type="number" id="pv-price" placeholder="0" min="0">
+                <label for="pv-price">공급단가 (원)</label>
+                <input type="text" inputmode="numeric" id="pv-price" placeholder="0" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
             </div>
         </div>
         <div class="form-2col">
             <div class="form-field">
-                <label>리드타임 (일)</label>
-                <input type="number" id="pv-lead" placeholder="0" min="0">
+                <label for="pv-lead">리드타임 (일)</label>
+                <input type="text" inputmode="numeric" id="pv-lead" placeholder="0" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
             </div>
-            <div class="form-field" style="justify-content:flex-end;padding-top:18px">
-                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
-                    <input type="checkbox" id="pv-primary"> 주거래업체
+            <div class="form-field" style="justify-content:flex-end">
+                <label style="display:flex;align-items:center;gap:7px;min-height:34px;font-size:12.5px;font-weight:400;color:#444;cursor:pointer">
+                    <input type="checkbox" id="pv-primary" style="width:16px;height:16px;margin:0;accent-color:#003580"> <span>주거래 업체</span>
                 </label>
             </div>
         </div>
         <input type="hidden" id="pv-product-id" value="">
-        <div class="modal-footer">
+        <div class="modal-footer" style="margin-top:6px">
             <button class="btn btn-secondary" onclick="closeModal('pv-modal')">닫기</button>
-            <button class="btn btn-primary" onclick="addProductVendor()">추가</button>
+            <button class="btn btn-primary" id="pv-add-btn" onclick="addProductVendor()" disabled>추가</button>
+        </div>
+    </div>
+</div>
+
+<!-- 공급 제외 확인(연결 한 줄과 그 공급단가·리드타임이 함께 지워짐) -->
+<div class="modal-overlay" id="pv-ex-modal" role="alertdialog" aria-modal="true" aria-labelledby="pv-ex-title" style="z-index:9100">
+    <div class="modal-box" style="width:460px">
+        <h3 id="pv-ex-title" style="font-weight:600;line-height:1.5"></h3>
+        <input type="hidden" id="pv-ex-id" value="">
+        <ul class="vd-list" id="pv-ex-body"></ul>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('pv-ex-modal')">취소</button>
+            <button class="btn btn-primary" id="pv-ex-ok" style="background:#c62828;border-color:#c62828" onclick="removeProductVendor()">공급 제외</button>
         </div>
     </div>
 </div>
@@ -426,73 +441,84 @@ async function setVendorActive(id, val){
 }
 
 // ── 품목-업체 연결 ─────────────────────────────────────────────
-async function openProductVendors(productId, productName){
+let pvCur = { id: 0, name: '', links: [] };
+async function openProductVendors(productId, productName, productSpec){
+    pvCur = { id: productId, name: productName, links: [] };
     document.getElementById('pv-product-id').value = productId;
-    document.getElementById('pv-modal-title').textContent = productName + ' — 업체 관리';
+    document.getElementById('pv-modal-sub').textContent = productName + (productSpec ? ' · ' + productSpec : '');
+    ['pv-price','pv-lead'].forEach(id => document.getElementById(id).value = '');
     await loadProductVendors(productId);
-    // 업체 목록 로드
-    const r = await fetch('/api/staff/vendors.php?list=1');
-    const d = await r.json();
-    const sel = document.getElementById('pv-vendor-sel');
-    sel.innerHTML = '<option value="">-- 선택 --</option>';
-    (d.data||[]).forEach(v => {
-        const opt = document.createElement('option');
-        opt.value = v.id; opt.textContent = v.name;
-        sel.appendChild(opt);
-    });
     openModal('pv-modal');
 }
 
 function pvEsc(v){ return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// 업체 추가 목록: 활성 업체 중 아직 연결되지 않은 업체만(이름순). 주거래가 없거나 비활성이면 '주거래 업체'를 미리 체크
+async function pvFillVendors(){
+    const r = await fetch('/api/staff/vendors.php?list=1');
+    const d = await r.json().catch(() => null);
+    const linked = new Set(pvCur.links.map(l => String(l.vendor_id)));
+    const opts = ((d && d.data) || []).filter(v => !linked.has(String(v.id)));
+    const sel = document.getElementById('pv-vendor-sel');
+    sel.innerHTML = '<option value="">-- 선택 --</option>' + opts.map(v => `<option value="${parseInt(v.id, 10)}">${pvEsc(v.name)}</option>`).join('');
+    document.getElementById('pv-no-opts').style.display = opts.length ? 'none' : '';
+    const prim = pvCur.links.find(l => +l.is_primary);
+    document.getElementById('pv-primary').checked = !prim || !+prim.vendor_active;
+    pvSelChanged();
+}
+function pvSelChanged(){ document.getElementById('pv-add-btn').disabled = !document.getElementById('pv-vendor-sel').value; }
+
 async function loadProductVendors(productId){
     const r = await fetch('/api/staff/vendors.php?product_id='+productId);
-    const d = await r.json();
+    const d = await r.json().catch(() => null);
+    pvCur.links = (d && d.data) || [];
     const list = document.getElementById('pv-list');
-    const warn = document.getElementById('pv-warn');
-    const prim = (d.data || []).find(pv => +pv.is_primary);
-    if (prim && !+prim.vendor_active) {
-        warn.textContent = prim.vendor_name + '(주거래)이(가) 비활성이라 고객 화면에 이 업체명이 표시되지 않습니다. 주거래 업체를 바꿔 주세요.';
-        warn.style.display = '';
-    } else { warn.style.display = 'none'; }
-    if(!d.data || !d.data.length){
-        list.innerHTML = '<div style="color:#aaa;font-size:12px;padding:8px 0">연결된 업체가 없습니다.</div>';
-        return;
-    }
-    list.innerHTML = d.data.map(pv => `
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f5f5">
-            <div>
-                <span style="font-size:13px;font-weight:600;color:${+pv.vendor_active ? 'inherit' : '#999'}">${pvEsc(pv.vendor_name)}</span>
-                ${+pv.is_primary ? '<span style="margin-left:6px;font-size:10px;background:#003580;color:#fff;padding:1px 5px;border-radius:3px">주거래</span>' : ''}
-                ${+pv.vendor_active ? '' : '<span class="off-tag">비활성</span>'}
-                <div style="font-size:11px;color:#888;margin-top:2px">
-                    공급단가: ${parseInt(pv.supply_price||0).toLocaleString()}원 | 리드타임: ${pv.lead_days||0}일
-                </div>
-            </div>
-            <span style="display:flex;gap:4px;flex-shrink:0">
-            ${+pv.vendor_active && !+pv.is_primary ? `<button onclick="setPrimary(${parseInt(pv.id, 10)})" class="btn-sm btn-sm-on">주거래로 지정</button>` : ''}
-            <button onclick="removeProductVendor(${parseInt(pv.id, 10)})" style="background:#fce4ec;color:#c62828;border:none;border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer">삭제</button>
+    if(!pvCur.links.length){
+        list.innerHTML = '<div style="color:#888;font-size:12.5px;padding:14px 0">연결된 업체가 없습니다.</div>';
+    } else {
+        list.innerHTML = pvCur.links.map(pv => {
+            const off = !+pv.vendor_active, prim = +pv.is_primary, id = parseInt(pv.id, 10);
+            return `
+        <div style="display:flex;align-items:center;gap:8px;min-height:52px;padding:8px 0;border-bottom:1px solid #f3f4f6">
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                    <b style="font-size:13px;font-weight:600;color:${off ? '#999' : 'inherit'}">${pvEsc(pv.vendor_name)}</b>
+                    ${prim ? '<span style="display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:3px;background:#003580;color:#fff;font-size:10.5px">주거래</span>' : ''}
+                    ${off ? '<span class="off-tag" style="margin-left:0">비활성</span>' : ''}
+                </span>
+                <span style="font-size:11px;color:#888">공급단가: ${parseInt(pv.supply_price||0, 10).toLocaleString()}원 | 리드타임: ${parseInt(pv.lead_days||0, 10)}일</span>
+                ${off ? `<span style="font-size:11px;color:#999">고객 화면에 해당 업체는 표시되지 않습니다.${prim ? ' 주거래 업체를 변경해주세요.' : ''}</span>` : ''}
             </span>
-        </div>
-    `).join('');
+            ${!off && !prim ? `<button onclick="setPrimary(${id})" class="btn-sm btn-sm-on" style="height:28px;font-weight:400">주거래로 지정</button>` : ''}
+            <button onclick="askRemoveProductVendor(${id})" class="btn-sm btn-sm-off" style="height:28px;font-weight:400">삭제</button>
+        </div>`;
+        }).join('');
+    }
+    await pvFillVendors();
 }
 
 async function addProductVendor(){
-    const productId = document.getElementById('pv-product-id').value;
+    const productId = pvCur.id;
     const vendorId  = document.getElementById('pv-vendor-sel').value;
-    if(!vendorId){ alert('업체를 선택하세요.'); return; }
+    if(!vendorId){ return; }
+    const name = document.getElementById('pv-vendor-sel').selectedOptions[0]?.textContent || '';
+    const prim = document.getElementById('pv-primary').checked;
     const body = {
         action: 'add_product_vendor',
-        product_id:   parseInt(productId),
-        vendor_id:    parseInt(vendorId),
-        supply_price: parseInt(document.getElementById('pv-price').value)||0,
-        lead_days:    parseInt(document.getElementById('pv-lead').value)||0,
-        is_primary:   document.getElementById('pv-primary').checked ? 1 : 0,
+        product_id:   parseInt(productId, 10),
+        vendor_id:    parseInt(vendorId, 10),
+        supply_price: parseInt(document.getElementById('pv-price').value, 10)||0,
+        lead_days:    parseInt(document.getElementById('pv-lead').value, 10)||0,
+        is_primary:   prim ? 1 : 0,
     };
     const r = await fetch('/api/staff/vendors.php', {
         method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
     });
     const d = await r.json().catch(() => null);
-    if(d && d.ok){ await loadProductVendors(productId); }
+    if(d && d.ok){
+        ['pv-price','pv-lead'].forEach(id => document.getElementById(id).value = '');   // 추가 후 입력칸 비움
+        await loadProductVendors(productId);
+        vdToast(name + '을(를) 연결했습니다' + (prim ? ' (주거래)' : ''));
+    }
     else alert('오류: '+((d && d.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
 }
 
@@ -501,20 +527,44 @@ async function setPrimary(pvId){
         method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'set_primary', id: pvId})
     });
     const d = await r.json().catch(() => null);
-    const pid = document.getElementById('pv-product-id').value;
-    if(d && d.ok) await loadProductVendors(parseInt(pid));
+    if(d && d.ok){
+        const l = pvCur.links.find(x => +x.id === pvId);
+        await loadProductVendors(pvCur.id);
+        vdToast('주거래 업체를 ' + (l ? l.vendor_name : '') + '(으)로 바꿨습니다');
+    }
     else alert('오류: '+((d && d.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
 }
 
-async function removeProductVendor(pvId){
-    if(!confirm('이 업체 연결을 삭제하시겠습니까?')) return;
-    const body = { action: 'remove_product_vendor', id: pvId };
+// 삭제 = 공급 제외: 이 품목과 업체의 연결 한 줄(공급단가·리드타임 포함)만 지운다. 상품·업체 정보는 그대로
+function askRemoveProductVendor(pvId){
+    const l = pvCur.links.find(x => +x.id === pvId);
+    if (!l) return;
+    document.getElementById('pv-ex-id').value = pvId;
+    document.getElementById('pv-ex-title').textContent = l.vendor_name + '을(를) ‘' + pvCur.name + '’ 공급 업체에서 제외할까요?';
+    const li = [
+        `이 품목에 저장된 공급단가(${parseInt(l.supply_price||0, 10).toLocaleString()}원)·리드타임(${parseInt(l.lead_days||0, 10)}일) 기록이 함께 지워지며 되돌릴 수 없습니다.`,
+        '고객 화면의 이 상품에 이 업체 이름이 더 이상 나오지 않습니다.',
+    ];
+    if (+l.is_primary) li.push('주거래 업체입니다. 제외한 뒤 다른 업체를 주거래로 지정해 주세요.');
+    li.push('업체 정보와 이 업체의 다른 품목 연결은 그대로 남습니다.');
+    document.getElementById('pv-ex-body').innerHTML = li.map(x => '<li>' + pvEsc(x) + '</li>').join('');
+    openModal('pv-ex-modal');
+}
+
+async function removeProductVendor(){
+    const pvId = parseInt(document.getElementById('pv-ex-id').value, 10);
+    const l = pvCur.links.find(x => +x.id === pvId);
+    const ok = document.getElementById('pv-ex-ok'); ok.disabled = true;
     const r = await fetch('/api/staff/vendors.php', {
-        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action: 'remove_product_vendor', id: pvId })
     });
     const d = await r.json().catch(() => null);
-    const pid = document.getElementById('pv-product-id').value;
-    if(d && d.ok) await loadProductVendors(parseInt(pid));
+    ok.disabled = false;
+    if(d && d.ok){
+        closeModal('pv-ex-modal');
+        await loadProductVendors(pvCur.id);
+        vdToast((l ? l.vendor_name : '업체') + '을(를) 공급 업체에서 제외했습니다' + (l && +l.is_primary ? ' — 주거래 업체를 지정해 주세요' : ''));
+    }
     else alert('오류: '+((d && d.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
 }
 </script>

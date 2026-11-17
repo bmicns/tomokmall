@@ -67,7 +67,7 @@ if ($method === 'GET') {
     if (isset($_GET['product_id'])) {
         $pid = (int)$_GET['product_id'];
         $st  = db()->prepare(
-            'SELECT pv.id, pv.supply_price, pv.lead_days, pv.is_primary,
+            'SELECT pv.id, pv.vendor_id, pv.supply_price, pv.lead_days, pv.is_primary,
                     v.name AS vendor_name, v.phone, v.region, v.is_active AS vendor_active
              FROM product_vendors pv
              JOIN vendors v ON v.id=pv.vendor_id
