@@ -143,8 +143,6 @@ render_admin_header('제품관리', 'products');
 .syc-all-link{min-height:36px;padding:0 4px;border:0;background:none;color:#004EA1;font-size:13px;font-weight:600;text-decoration:underline;cursor:pointer;font-family:inherit}
 .syc-all-on #syc-sel-count{color:#004EA1;font-weight:700}
 .syc-brand{display:block;font-size:11.5px;font-weight:500;color:#888;margin-top:2px}
-.src-label{font-size:12.5px;color:#666;align-self:center}
-.src-label b{color:#1a2035}
 .btn-sm:disabled,.syc-bulkbar button:disabled{opacity:.45;cursor:not-allowed}
 .bk-tpl{display:flex;gap:8px;flex-wrap:wrap}
 #filter-source{font-weight:700}
@@ -186,7 +184,6 @@ render_admin_header('제품관리', 'products');
 <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:20px">
     <div class="page-heading" style="margin:0">제품관리</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <span class="src-label">업체: <b id="src-name"></b></span>
         <button type="button" class="btn btn-outline" id="btn-bulk" onclick="bkOpen()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>일괄 등록
         </button>
@@ -471,7 +468,6 @@ async function sourceChanged() {
     const syc = isSyc();
     document.getElementById('filter-cat').classList.toggle('bk-hide', syc);
     document.getElementById('filter-syc-cat').classList.toggle('bk-hide', !syc);
-    document.getElementById('src-name').textContent = srcName();
     // 모든 업체: 일괄 등록·제품 등록은 업체를 고른 뒤(덮어쓰기는 업체 안에서만)
     ['btn-bulk', 'btn-create'].forEach(id => {
         const b = document.getElementById(id);
