@@ -235,8 +235,8 @@ render_admin_header('제품관리', 'products');
     <label><input type="checkbox" id="syc-chk-all" onchange="sycCheckAll(this.checked)">이 페이지 전체 선택</label>
     <span id="syc-sel-count" aria-live="polite">선택 0개</span>
     <button type="button" class="syc-all-link" id="syc-all-btn" onclick="sycSelectAllMatching(!sycAllMatching)" hidden></button>
-    <button type="button" class="btn-sm btn-sm-edit" onclick="sycBulk(1)" disabled id="syc-bulk-on">선택 활성으로</button>
-    <button type="button" class="btn-sm btn-sm-del" onclick="sycBulk(0)" disabled id="syc-bulk-off">선택 비활성으로</button>
+    <button type="button" class="btn-sm btn-sm-edit" onclick="sycBulk(1)" disabled id="syc-bulk-on">활성화</button>
+    <button type="button" class="btn-sm btn-sm-del" onclick="sycBulk(0)" disabled id="syc-bulk-off">비활성화</button>
 </div>
 
 <!-- 테이블 -->
@@ -550,7 +550,7 @@ function sycSelCount() {
     document.getElementById('syc-sel-count').textContent = sycAllMatching ? `검색 결과 전체 ${shown.toLocaleString()}개 선택됨` : `선택 ${n}개`;
     document.getElementById('syc-bulkbar').classList.toggle('syc-all-on', sycAllMatching);
     document.getElementById('syc-bulk-on').disabled = document.getElementById('syc-bulk-off').disabled = shown === 0 || !ACTIVE_TOGGLE;
-    // 상태 드롭다운: 비활성 제품 → '선택 활성으로'만, 활성 제품 → '선택 비활성으로'만, 전체 → 둘 다
+    // 상태 드롭다운: 비활성 제품 → '활성화'만, 활성 제품 → '비활성화'만, 전체 → 둘 다
     const st = document.getElementById('filter-status').value;
     document.getElementById('syc-bulk-on').hidden  = st === 'active';
     document.getElementById('syc-bulk-off').hidden = st === 'inactive';
