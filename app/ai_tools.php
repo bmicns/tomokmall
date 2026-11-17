@@ -961,16 +961,51 @@ function ai_traffic_value(mixed $v): string
 }
 
 /**
- * 그레이팅 하중 등급 (순수 함수) — 카탈로그 상품명의 3단계(시스템 프롬프트 [그레이팅] 하중 등급·상담 가이드와 같은 기준):
+ * 그레이팅 하중 등급 (순수 함수) — 상품명의 하중 표기:
  * '안전중하중' → truck(트럭·버스 등 대형차), '중하중' → car(승용차·SUV), 그 밖의 '그레이팅' → pedestrian(보행자 전용).
  * 그레이팅이 아니면 ''(등급 없음 — 하중 필터 대상 아님, 그대로 둔다).
+ * 업체 공통(2026-11-17, 상담 가이드 A안): '표기 없음 = 보행자용'은 상품명에 하중 단계를 붙이는 업체(같은 출처에 '중하중' 상품이
+ * 있는 업체 — 케이토목)의 이름 규칙이다. $tiered 가 false(그 규칙이 없는 업체)면 표기 없는 그레이팅은 ''(등급 모름 → 차량 통행에서 확인 필요).
+ * $tiered 가 null(출처 모름 — 기존 호출·테스트)이면 기존과 같다.
  */
-function ai_grating_load_class(string $name): string
+function ai_grating_load_class(string $name, ?bool $tiered = null): string
 {
     if (str_contains($name, '안전중하중')) { return 'truck'; }
     if (str_contains($name, '중하중'))     { return 'car'; }
-    if (str_contains($name, '그레이팅'))   { return 'pedestrian'; }
+    if (str_contains($name, '그레이팅'))   { return $tiered === false ? '' : 'pedestrian'; }
     return '';
+}
+
+/**
+ * 상품명에 하중 단계('중하중')를 붙이는 업체(출처) 목록 (DB, 요청 중 1회) — products.external_source 기준, 판매 중 상품만.
+ * 조회 실패·출처 칸 없음이면 null(→ 기존 판정). 테스트는 $set 으로 미리 정하고($set = [] 은 그런 업체 없음), $reset 으로 지운다.
+ * @return list<string>|null
+ */
+function ai_tiered_load_sources(?array $set = null, bool $reset = false): ?array
+{
+    static $cache = false;
+    if ($reset) { $cache = false; return null; }   // 다음 호출 때 다시 조회
+    if ($set !== null) { $cache = array_values($set); }
+    if ($cache === false) {
+        try {
+            $cache = array_map('strval', db()->query(
+                "SELECT DISTINCT external_source FROM products WHERE is_active = 1 AND external_source IS NOT NULL AND name LIKE '%중하중%'"
+            )->fetchAll(PDO::FETCH_COLUMN));
+        } catch (\Throwable $e) {
+            $cache = null;
+        }
+    }
+    return $cache;
+}
+
+/** 행의 업체가 상품명 하중 단계 규칙을 쓰는지 — 출처 칸이 없거나 업체 목록을 못 읽으면 null(기존 판정) */
+function ai_row_tiered(array $row): ?bool
+{
+    if (!array_key_exists('external_source', $row) || $row['external_source'] === null || $row['external_source'] === '') {
+        return null;
+    }
+    $set = ai_tiered_load_sources();
+    return $set === null ? null : in_array((string) $row['external_source'], $set, true);
 }
 
 /** 차량 통행 조건에서 하중 판정이 필요한 제품인지 (순수 함수) — 차량이 위로 지나가는 덮개류(그레이팅·뚜껑·덮개·커버·트렌치·주철·날개형)와
@@ -1004,7 +1039,7 @@ function ai_load_name(array $row): string
 function ai_load_class_of(array $row): string
 {
     $name = (string) ($row['name'] ?? '');
-    $cls = ai_grating_load_class($name);
+    $cls = ai_grating_load_class($name, ai_row_tiered($row));
     if ($cls !== '' || !ai_load_relevant(ai_load_name($row))) { return $cls; }
     return match (ai_spec_use_class((string) ($row['spec'] ?? ''))) { 'road' => 'car', 'pedestrian' => 'pedestrian', default => '' };
 }
@@ -1012,7 +1047,7 @@ function ai_load_class_of(array $row): string
 /**
  * 하중 판정 (순수 함수, 2026-11-11) — 통행 조건 대비 'ok' 맞음 · 'heavier' 높은 등급(과잉) · 'lighter' 낮은 등급(안전 부족) ·
  * 'unverified' 확인 필요 · 'na' 판정 대상 아님. 근거는 둘만 쓴다(없는 등급을 만들지 않음):
- *  ① 상품명 등급(카탈로그 3단계: 안전중하중·중하중·그 밖의 그레이팅)  ② 등록 규격의 용도 표기('차도용'·'보도용').
+ *  ① 상품명 등급(안전중하중·중하중·그 밖의 그레이팅 — '그 밖'은 하중 단계 이름 규칙이 있는 업체만, ai_grating_load_class)  ② 등록 규격의 용도 표기('차도용'·'보도용').
  * '차도용'은 차량용이지만 톤수가 없어 대형차 조건에서는 확인 필요. 근거가 없는 덮개류(사각주철·트렌치 등)는 차량 통행에서 확인 필요.
  * @return array{status:string, basis:string}
  */
@@ -1023,7 +1058,7 @@ function ai_load_status(array $row, string $traffic): array
         return ['status' => 'na', 'basis' => ''];
     }
     $name = (string) ($row['name'] ?? '');
-    $cls  = ai_grating_load_class($name);
+    $cls  = ai_grating_load_class($name, ai_row_tiered($row));
     if ($cls !== '') {
         $rank = AI_LOAD_RANK[$cls];
         $basis = '상품명 등급';

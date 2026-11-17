@@ -52,6 +52,7 @@
 | A4 | AI 상담 대체품은 화면 카드로 표시하지 않음 | 11-11 | `docs/03-analysis/ai-consult-chat193-195-2026-11-11.md` 4장 |
 | A5 | 제조사 연락·카탈로그 이용 허락 요청은 작업에서 제외 | 11-05 | `docs/03-analysis/ai-sourcing/external-sources/gap-plan-2026-11-04.md` |
 | A6 | `ai_tools.php` 자료 공백 기록(material_gap) 배포는 후순위 | 11-03 | `docs/03-analysis/remaining-work-2026-11-02.md` |
+| A7 | AI 상담 가이드는 업체 공통 — 고정 부분은 자재 종류별 확인 항목만(업체 상품명 없음), 상품 정보는 판매 중 상품에서 상담마다 자동(`app/consult_catalog.php`), 하중은 상품명·규격 표기만(하중 칸 추가는 결정 대기), 옛 `category_consult_guide` 행은 두고 읽지 않음 | 11-13·17 | `docs/03-analysis/consult-guide-vendor-neutral-2026-11-17.md` |
 | O1 | 원격 관리는 관리자 화면 승인 유지(채팅 승인 대체 `c60ae20` 되돌림) — P0-5 | 11-04·10 | `docs/REMOTE-OPS.md`, 커밋 `5c84a00` |
 | O2 | 가격 데이터 변경 금지(승인과 무관) — P0-4 | 11-04 | `CLAUDE.md` P0-4 |
 | O3 | 원격 관리 승인 상태·목록·이력 보기는 실행 이력에 남기지 않음 | 11-04 | `docs/REMOTE-OPS.md` 3-6 |
