@@ -218,7 +218,7 @@ render_staff_header('품목별 업체정보', 'vendors');
         <?php if ($vendorRows): ?>
         <?php foreach ($vendorRows as $v): ?>
             <tr>
-                <td style="font-weight:600"><?= $h($v['name']) ?></td>
+                <td style="font-weight:600"><?= $h($v['name']) ?><?php if (trim((string)($v['source_code'] ?? '')) !== ''): ?><span class="off-tag" style="background:#e8f0fe;color:#003580" title="이 업체 상품은 제품관리에 출처 코드 <?= $h($v['source_code']) ?> 로 저장돼 있습니다">기존 상품 업체</span><?php endif; ?></td>
                 <td><?= $h($v['contact'] ?? '-') ?></td>
                 <td><?= $h($v['phone'] ?? '-') ?></td>
                 <td style="font-size:12px;color:#888"><?= $h($v['region'] ?? '-') ?></td>
