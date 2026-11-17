@@ -10,6 +10,7 @@ require_staff();
 $catId = (int)($_GET['cat'] ?? 0);
 $q     = trim($_GET['q'] ?? '');
 $view  = in_array($_GET['view'] ?? '', ['products', 'vendors'], true) ? $_GET['view'] : 'products';
+$stTab = in_array($_GET['st'] ?? '', ['active', 'inactive', 'all'], true) ? $_GET['st'] : 'active';   // 업체 목록 상태 탭
 
 // ── 카테고리 목록 (루트만) ──────────────────────────────────────
 $rootCats = db()->query(
@@ -37,9 +38,14 @@ if ($view === 'products') {
     $st = db()->prepare(
         "SELECT p.id, p.name, p.spec, p.brand, p.price_b2b,
                 c.name AS cat_name,
-                (SELECT COUNT(*) FROM product_vendors pv WHERE pv.product_id=p.id) AS vendor_cnt,
+                (SELECT COUNT(*) FROM product_vendors pv JOIN vendors v ON v.id=pv.vendor_id
+                 WHERE pv.product_id=p.id AND v.is_active=1) AS vendor_cnt,
+                (SELECT COUNT(*) FROM product_vendors pv JOIN vendors v ON v.id=pv.vendor_id
+                 WHERE pv.product_id=p.id AND v.is_active=0) AS vendor_off_cnt,
                 (SELECT v.name FROM product_vendors pv JOIN vendors v ON v.id=pv.vendor_id
-                 WHERE pv.product_id=p.id AND pv.is_primary=1 LIMIT 1) AS primary_vendor
+                 WHERE pv.product_id=p.id AND pv.is_primary=1 LIMIT 1) AS primary_vendor,
+                (SELECT v.is_active FROM product_vendors pv JOIN vendors v ON v.id=pv.vendor_id
+                 WHERE pv.product_id=p.id AND pv.is_primary=1 LIMIT 1) AS primary_active
          FROM products p JOIN categories c ON c.id=p.category_id
          {$w}
          ORDER BY c.sort_order, c.id, p.id
@@ -51,12 +57,17 @@ if ($view === 'products') {
 
 // ── view=vendors: 업체 목록 ────────────────────────────────────
 $vendorRows = [];
+$stCounts   = ['active' => 0, 'inactive' => 0, 'all' => 0];
 if ($view === 'vendors') {
-    $where  = ['v.is_active=1'];
+    foreach (db()->query('SELECT is_active, COUNT(*) AS n FROM vendors GROUP BY is_active') as $r) {
+        $stCounts[(int)$r['is_active'] === 1 ? 'active' : 'inactive'] = (int)$r['n'];
+    }
+    $stCounts['all'] = $stCounts['active'] + $stCounts['inactive'];
+    $where  = $stTab === 'all' ? ['1=1'] : ['v.is_active=' . ($stTab === 'active' ? 1 : 0)];
     $params = [];
     if ($q !== '') {
-        $where[]     = '(v.name LIKE :q OR v.contact LIKE :q2 OR v.region LIKE :q3)';
-        $params['q'] = $params['q2'] = $params['q3'] = "%{$q}%";
+        $where[]     = '(v.name LIKE :q OR v.contact LIKE :q2 OR v.region LIKE :q3 OR v.phone LIKE :q4)';
+        $params['q'] = $params['q2'] = $params['q3'] = $params['q4'] = "%{$q}%";
     }
     $w = 'WHERE ' . implode(' AND ', $where);
     $st = db()->prepare(
@@ -78,6 +89,16 @@ render_staff_header('품목별 업체정보', 'vendors');
 .tag-cnt{background:#e8f0fe;color:#003580;font-size:10px;padding:1px 5px;border-radius:10px;margin-left:4px}
 .vendor-chip{display:inline-block;padding:2px 7px;background:#e8f0fe;color:#003580;border-radius:4px;font-size:11px;font-weight:600}
 .no-vendor{font-size:11px;color:#ccc}
+.vendor-chip.off{background:#f0f0f0;color:#888}
+.off-tag{display:inline-block;margin-left:4px;padding:1px 5px;border-radius:3px;font-size:10px;font-weight:600;background:#f0f0f0;color:#666}
+.st-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.st-tab{padding:6px 14px;min-height:32px;box-sizing:border-box;border:1px solid #e8eaed;border-radius:20px;font-size:12px;font-weight:600;text-decoration:none;color:#555;background:#fff;display:inline-flex;align-items:center;gap:4px}
+.st-tab.on{border-color:#003580;color:#003580;background:#e8f0fe}
+.btn-sm-off{background:#fce4ec;color:#c62828}
+.btn-sm-on{background:#e8f0fe;color:#003580}
+.vd-warn{background:#fff8e1;border:1px solid #ffe082;color:#6d4c00;border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:10px}
+.vd-list{margin:0 0 4px;padding-left:18px;font-size:13px;line-height:1.7;color:#333}
+.stf-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#263238;color:#fff;padding:10px 16px;border-radius:6px;font-size:13px;z-index:2000;max-width:calc(100% - 32px);box-shadow:0 4px 12px rgba(0,0,0,.2)}
 </style>
 
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
@@ -104,6 +125,13 @@ render_staff_header('품목별 업체정보', 'vendors');
     </a>
     <?php endforeach; ?>
 </div>
+<?php else: ?>
+<!-- 업체 상태 탭 -->
+<div class="st-tabs" role="tablist" aria-label="업체 상태">
+    <?php foreach (['active' => '활성', 'inactive' => '비활성', 'all' => '전체'] as $k => $label): ?>
+    <a href="?view=vendors&st=<?= $k ?>&q=<?= $h($q) ?>" class="st-tab <?= $stTab === $k ? 'on' : '' ?>" role="tab" aria-selected="<?= $stTab === $k ? 'true' : 'false' ?>"><?= $label ?> <span class="tag-cnt"><?= (int)$stCounts[$k] ?></span></a>
+    <?php endforeach; ?>
+</div>
 <?php endif; ?>
 
 <!-- 검색 -->
@@ -111,10 +139,11 @@ render_staff_header('품목별 업체정보', 'vendors');
     <form method="get" style="display:contents">
         <input type="hidden" name="view" value="<?= $h($view) ?>">
         <?php if ($catId && $view==='products'): ?><input type="hidden" name="cat" value="<?= $catId ?>"><?php endif; ?>
-        <input type="text" name="q" value="<?= $h($q) ?>" placeholder="<?= $view==='products' ? '품명·규격 검색' : '업체명·담당자·지역 검색' ?>">
+        <?php if ($view==='vendors'): ?><input type="hidden" name="st" value="<?= $h($stTab) ?>"><?php endif; ?>
+        <input type="text" name="q" value="<?= $h($q) ?>" placeholder="<?= $view==='products' ? '품명·규격 검색' : '업체명·담당자·지역·연락처 검색' ?>" aria-label="검색어">
         <button type="submit" class="btn btn-secondary">검색</button>
         <?php if ($q): ?>
-        <a href="?view=<?= $h($view) ?><?= $catId ? '&cat='.$catId : '' ?>" style="font-size:12px;color:#888;text-decoration:none;align-self:center">초기화</a>
+        <a href="?view=<?= $h($view) ?><?= $catId && $view==='products' ? '&cat='.$catId : '' ?><?= $view==='vendors' ? '&st='.$h($stTab) : '' ?>" style="font-size:12px;color:#888;text-decoration:none;align-self:center">초기화</a>
         <?php endif; ?>
     </form>
 </div>
@@ -145,7 +174,7 @@ render_staff_header('품목별 업체정보', 'vendors');
                 <td style="text-align:right;font-size:12px"><?= number_format((int)$row['price_b2b']) ?>원</td>
                 <td>
                     <?php if ($row['primary_vendor']): ?>
-                    <span class="vendor-chip"><?= $h($row['primary_vendor']) ?></span>
+                    <span class="vendor-chip<?= (int)$row['primary_active'] ? '' : ' off' ?>"><?= $h($row['primary_vendor']) ?></span><?php if (!(int)$row['primary_active']): ?><span class="off-tag">비활성</span><?php endif; ?>
                     <?php else: ?>
                     <span class="no-vendor">미등록</span>
                     <?php endif; ?>
@@ -154,6 +183,7 @@ render_staff_header('품목별 업체정보', 'vendors');
                     <span style="background:#f0f2f5;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600">
                         <?= (int)$row['vendor_cnt'] ?>
                     </span>
+                    <?php if ((int)$row['vendor_off_cnt']): ?><div style="font-size:10px;color:#999;margin-top:2px">비활성 <?= (int)$row['vendor_off_cnt'] ?></div><?php endif; ?>
                 </td>
                 <td>
                     <button class="btn-sm btn-sm-view" onclick="openProductVendors(<?= (int)$row['id'] ?>, '<?= $h(addslashes($row['name'])) ?>')">
@@ -174,7 +204,7 @@ render_staff_header('품목별 업체정보', 'vendors');
 <!-- 업체 목록 -->
 <div class="card">
     <div class="card-header">
-        <span class="card-title">등록된 업체</span>
+        <span class="card-title"><?= ['active' => '활성 업체', 'inactive' => '비활성 업체', 'all' => '등록된 업체'][$stTab] ?></span>
         <span style="font-size:12px;color:#888"><?= count($vendorRows) ?>개</span>
     </div>
     <div style="overflow-x:auto">
@@ -200,11 +230,16 @@ render_staff_header('품목별 업체정보', 'vendors');
                 </td>
                 <td style="display:flex;gap:4px">
                     <button class="btn-sm btn-sm-view" onclick="editVendor(<?= (int)$v['id'] ?>)">수정</button>
+                    <?php if ($v['is_active']): ?>
+                    <button class="btn-sm btn-sm-off" onclick="askVendorOff(<?= (int)$v['id'] ?>)">비활성</button>
+                    <?php else: ?>
+                    <button class="btn-sm btn-sm-on" onclick="setVendorActive(<?= (int)$v['id'] ?>, 1)">재활성</button>
+                    <?php endif; ?>
                 </td>
             </tr>
         <?php endforeach; ?>
         <?php else: ?>
-            <tr><td colspan="7" style="text-align:center;padding:32px;color:#aaa">등록된 업체가 없습니다.<br><small>오른쪽 위 + 업체 등록 버튼을 눌러 추가하세요.</small></td></tr>
+            <tr><td colspan="7" style="text-align:center;padding:32px;color:#aaa"><?php if ($q !== '' || $stTab !== 'active'): ?>조건에 맞는 업체가 없습니다.<?php else: ?>등록된 업체가 없습니다.<br><small>오른쪽 위 + 업체 등록 버튼을 눌러 추가하세요.</small><?php endif; ?></td></tr>
         <?php endif; ?>
         </tbody>
     </table>
@@ -239,11 +274,26 @@ render_staff_header('품목별 업체정보', 'vendors');
     </div>
 </div>
 
+<!-- 업체 비활성 확인 -->
+<div class="modal-overlay" id="vendor-off-modal" role="dialog" aria-modal="true" aria-labelledby="vo-title">
+    <div class="modal-box" style="width:460px">
+        <h3 id="vo-title">업체를 비활성으로 바꿀까요?</h3>
+        <button class="modal-close" onclick="closeModal('vendor-off-modal')" aria-label="닫기">×</button>
+        <input type="hidden" id="vo-id" value="">
+        <ul class="vd-list" id="vo-body"></ul>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('vendor-off-modal')">취소</button>
+            <button class="btn btn-primary" id="vo-ok" style="background:#c62828;border-color:#c62828" onclick="setVendorActive(parseInt(document.getElementById('vo-id').value, 10), 0)">비활성으로 변경</button>
+        </div>
+    </div>
+</div>
+
 <!-- 품목-업체 연결 모달 -->
 <div class="modal-overlay" id="pv-modal">
     <div class="modal-box" style="width:520px">
         <h3 id="pv-modal-title">업체 관리</h3>
         <button class="modal-close" onclick="closeModal('pv-modal')">×</button>
+        <div id="pv-warn" class="vd-warn" style="display:none"></div>
         <div id="pv-list" style="min-height:60px;margin-bottom:14px"></div>
         <hr style="border:none;border-top:1px solid #e8eaed;margin-bottom:14px">
         <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:#555">업체 추가</div>
@@ -331,6 +381,50 @@ async function saveVendor(){
     else alert('오류: '+((d && d.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
 }
 
+// ── 업체 활성/비활성 ───────────────────────────────────────────
+// 비활성: 그 업체 상품(제품관리) 전부 비활성 + 고객 화면에서 업체명 빠짐. 재활성: 업체만 — 상품은 제품관리에서 직접 활성으로
+function vdToast(msg){
+    const t = document.createElement('div');
+    t.className = 'stf-toast'; t.setAttribute('role', 'status'); t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 5000);
+}
+function vdNote(msg){ try { sessionStorage.setItem('vd-note', msg); } catch(e) {} }
+(function(){ try { const m = sessionStorage.getItem('vd-note'); if (m) { sessionStorage.removeItem('vd-note'); vdToast(m); } } catch(e) {} })();
+
+async function askVendorOff(id){
+    const r = await fetch('/api/staff/vendors.php?impact='+id);
+    const d = await r.json().catch(() => null);
+    if(!d || !d.ok){ alert('오류: '+((d && d.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.')); return; }
+    const v = d.data;
+    document.getElementById('vo-id').value = v.id;
+    document.getElementById('vo-title').textContent = v.name + '을(를) 비활성으로 바꿀까요?';
+    const li = [];
+    li.push(v.products
+        ? `이 업체 상품 <b>${v.products.toLocaleString()}개</b>가 모두 비활성이 되어 고객 화면에서 사라집니다(지금 활성 ${v.products_active.toLocaleString()}개).`
+        : '제품관리에 등록된 이 업체 상품은 없습니다.');
+    li.push('고객 화면의 상품 업체명에서 이 업체 이름이 빠집니다' + (v.primary_items ? ` (주거래 품목 ${v.primary_items}개 — 품목별 보기에서 주거래를 다시 지정해 주세요).` : '.'));
+    li.push(`연결된 품목 ${v.items}개의 공급단가·리드타임 기록은 지워지지 않습니다.`);
+    li.push("다시 활성으로 바꿔도 상품은 비활성 그대로입니다. 상품은 제품관리에서 직접 활성으로 바꿔야 합니다.");
+    document.getElementById('vo-body').innerHTML = li.map(x => '<li>' + x + '</li>').join('');
+    openModal('vendor-off-modal');
+}
+
+async function setVendorActive(id, val){
+    const ok = document.getElementById('vo-ok');
+    if (val === 0 && ok) ok.disabled = true;
+    const r = await fetch('/api/staff/vendors.php', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'set_vendor_active', id, is_active:val})
+    });
+    const d = await r.json().catch(() => null);
+    if (ok) ok.disabled = false;
+    if(!d || !d.ok){ alert('오류: '+((d && d.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.')); return; }
+    vdNote(val === 0
+        ? '비활성으로 바꿨습니다' + (d.products_off ? ` · 상품 ${d.products_off.toLocaleString()}개를 비활성으로 바꿨습니다` : '')
+        : '다시 활성으로 바꿨습니다' + (d.products ? ` · 상품 ${d.products.toLocaleString()}개는 비활성 그대로입니다 — 제품관리에서 직접 활성으로 바꿔 주세요` : ''));
+    location.reload();
+}
+
 // ── 품목-업체 연결 ─────────────────────────────────────────────
 async function openProductVendors(productId, productName){
     document.getElementById('pv-product-id').value = productId;
@@ -354,6 +448,12 @@ async function loadProductVendors(productId){
     const r = await fetch('/api/staff/vendors.php?product_id='+productId);
     const d = await r.json();
     const list = document.getElementById('pv-list');
+    const warn = document.getElementById('pv-warn');
+    const prim = (d.data || []).find(pv => +pv.is_primary);
+    if (prim && !+prim.vendor_active) {
+        warn.textContent = prim.vendor_name + '(주거래)이(가) 비활성이라 고객 화면에 이 업체명이 표시되지 않습니다. 주거래 업체를 바꿔 주세요.';
+        warn.style.display = '';
+    } else { warn.style.display = 'none'; }
     if(!d.data || !d.data.length){
         list.innerHTML = '<div style="color:#aaa;font-size:12px;padding:8px 0">연결된 업체가 없습니다.</div>';
         return;
@@ -361,13 +461,17 @@ async function loadProductVendors(productId){
     list.innerHTML = d.data.map(pv => `
         <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f5f5">
             <div>
-                <span style="font-size:13px;font-weight:600">${pvEsc(pv.vendor_name)}</span>
-                ${pv.is_primary ? '<span style="margin-left:6px;font-size:10px;background:#003580;color:#fff;padding:1px 5px;border-radius:3px">주거래</span>' : ''}
+                <span style="font-size:13px;font-weight:600;color:${+pv.vendor_active ? 'inherit' : '#999'}">${pvEsc(pv.vendor_name)}</span>
+                ${+pv.is_primary ? '<span style="margin-left:6px;font-size:10px;background:#003580;color:#fff;padding:1px 5px;border-radius:3px">주거래</span>' : ''}
+                ${+pv.vendor_active ? '' : '<span class="off-tag">비활성</span>'}
                 <div style="font-size:11px;color:#888;margin-top:2px">
                     공급단가: ${parseInt(pv.supply_price||0).toLocaleString()}원 | 리드타임: ${pv.lead_days||0}일
                 </div>
             </div>
+            <span style="display:flex;gap:4px;flex-shrink:0">
+            ${+pv.vendor_active && !+pv.is_primary ? `<button onclick="setPrimary(${parseInt(pv.id, 10)})" class="btn-sm btn-sm-on">주거래로 지정</button>` : ''}
             <button onclick="removeProductVendor(${parseInt(pv.id, 10)})" style="background:#fce4ec;color:#c62828;border:none;border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer">삭제</button>
+            </span>
         </div>
     `).join('');
 }
@@ -389,6 +493,16 @@ async function addProductVendor(){
     });
     const d = await r.json().catch(() => null);
     if(d && d.ok){ await loadProductVendors(productId); }
+    else alert('오류: '+((d && d.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
+}
+
+async function setPrimary(pvId){
+    const r = await fetch('/api/staff/vendors.php', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'set_primary', id: pvId})
+    });
+    const d = await r.json().catch(() => null);
+    const pid = document.getElementById('pv-product-id').value;
+    if(d && d.ok) await loadProductVendors(parseInt(pid));
     else alert('오류: '+((d && d.error) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
 }
 

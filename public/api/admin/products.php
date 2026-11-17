@@ -102,6 +102,8 @@ function admin_products_publish(PDO $pdo): array
  */
 function admin_products_set_active(PDO $pdo, string $where, array $params, int $val, bool $all): array
 {
+    // 비활성 업체 상품은 활성으로 바꾸지 않음(업체를 먼저 다시 활성으로 — 사용자 결정 2026-11-17, app/product_sources.php)
+    if ($val === 1 && $all) { product_assert_no_inactive_vendor($pdo, 'products p', $where, $params, 'p.external_source'); }
     $up = $pdo->prepare("UPDATE products p SET p.is_active = :val WHERE ({$where}) AND " . KTOMOK_ROWS_WHERE);
     $up->execute(['val' => $val] + $params);
     $changed = $up->rowCount();
@@ -351,6 +353,7 @@ try {
             echo json_encode(['ok' => false, 'error' => '알 수 없는 action']);
     }
 } catch (\InvalidArgumentException $e) {
+    if (db() && db()->inTransaction()) { db()->rollBack(); }   // 검사에서 멈춘 트랜잭션(set_active_filter) 정리
     // 입력 검증 실패: HTTP 200 + ok:false (닷홈 Apache 가 4xx 본문을 HTML 오류 페이지로 바꿔 JSON 문구가 사라짐)
     echo json_encode(['ok' => false, 'error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
 } catch (\Throwable $e) {

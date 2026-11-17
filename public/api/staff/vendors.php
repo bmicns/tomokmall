@@ -6,7 +6,12 @@ declare(strict_types=1);
  * GET  ?id=N                — 업체 상세
  * GET  ?product_id=N        — 품목-업체 연결 목록
  * POST action=add_product_vendor  — 품목-업체 추가
+ * GET  ?impact=N            — 업체 비활성 전 영향(제품관리 상품 수·연결 품목 수·주거래 품목 수)
  * POST action=remove_product_vendor — 삭제
+ * POST action=set_primary   — 품목의 주거래 업체 바꾸기(연결 id, 공급단가는 그대로)
+ * POST action=set_vendor_active — 업체 활성/비활성(사용자 결정 2026-11-17):
+ *      비활성 → 그 업체 상품(제품관리 출처 vendor-<id>: 원본 syc_products + 고객용 반영본 products) 전부 비활성.
+ *      다시 활성 → 업체만 활성. 상품은 그대로 비활성(관리자가 제품관리에서 직접 활성으로). 가격 칸은 건드리지 않음
  * POST (id 없음)            — 업체 등록
  * POST (id 있음)            — 업체 수정
  *
@@ -48,16 +53,26 @@ if ($method === 'GET') {
         echo json_encode(['ok' => true, 'data' => $row]);
         exit;
     }
+    // 업체 비활성 전 영향(확인 창 숫자)
+    if (isset($_GET['impact'])) {
+        $id = (int)$_GET['impact'];
+        $st = db()->prepare('SELECT id, name, is_active FROM vendors WHERE id=:id');
+        $st->execute(['id' => $id]);
+        $v = $st->fetch();
+        if (!$v) { echo json_encode(['ok'=>false,'error'=>'업체를 찾지 못했습니다.'], JSON_UNESCAPED_UNICODE); exit; }
+        echo json_encode(['ok' => true, 'data' => ['id' => (int)$v['id'], 'name' => $v['name'], 'is_active' => (int)$v['is_active']] + vendor_impact(db(), $id)], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
     // 품목-업체 연결 목록
     if (isset($_GET['product_id'])) {
         $pid = (int)$_GET['product_id'];
         $st  = db()->prepare(
             'SELECT pv.id, pv.supply_price, pv.lead_days, pv.is_primary,
-                    v.name AS vendor_name, v.phone, v.region
+                    v.name AS vendor_name, v.phone, v.region, v.is_active AS vendor_active
              FROM product_vendors pv
              JOIN vendors v ON v.id=pv.vendor_id
              WHERE pv.product_id=:pid
-             ORDER BY pv.is_primary DESC, v.name'
+             ORDER BY pv.is_primary DESC, v.is_active DESC, v.name'
         );
         $st->execute(['pid' => $pid]);
         echo json_encode(['ok' => true, 'data' => $st->fetchAll()]);
@@ -95,6 +110,46 @@ if ($method === 'POST') {
             'price2'=>$price,'lead2'=>$lead,'prim2'=>$prim,
         ]);
         echo json_encode(['ok' => true]);
+        exit;
+    }
+
+    // 주거래 바꾸기: 같은 품목의 다른 연결은 주거래 해제. 공급단가·리드타임은 건드리지 않음. 비활성 업체는 주거래로 지정하지 않음
+    if ($action === 'set_primary') {
+        $id = (int)($body['id'] ?? 0);
+        $st = db()->prepare('SELECT pv.product_id, v.is_active FROM product_vendors pv JOIN vendors v ON v.id=pv.vendor_id WHERE pv.id=:id');
+        $st->execute(['id' => $id]);
+        $row = $st->fetch();
+        if (!$row) { echo json_encode(['ok'=>false,'error'=>'연결을 찾지 못했습니다. 창을 다시 열어 주세요.'], JSON_UNESCAPED_UNICODE); exit; }
+        if (!(int)$row['is_active']) { echo json_encode(['ok'=>false,'error'=>'비활성 업체는 주거래로 지정할 수 없습니다.'], JSON_UNESCAPED_UNICODE); exit; }
+        $pdo = db();
+        $pdo->beginTransaction();
+        $pdo->prepare('UPDATE product_vendors SET is_primary=0 WHERE product_id=:pid AND id<>:id')->execute(['pid' => (int)$row['product_id'], 'id' => $id]);
+        $pdo->prepare('UPDATE product_vendors SET is_primary=1 WHERE id=:id')->execute(['id' => $id]);
+        $pdo->commit();
+        echo json_encode(['ok' => true]);
+        exit;
+    }
+
+    // 업체 활성/비활성
+    if ($action === 'set_vendor_active') {
+        $id  = (int)($body['id'] ?? 0);
+        $val = (int)($body['is_active'] ?? -1);
+        if (!$id || !in_array($val, [0, 1], true)) { echo json_encode(['ok'=>false,'error'=>'id, is_active(0/1) 필요'], JSON_UNESCAPED_UNICODE); exit; }
+        $pdo = db();
+        $pdo->beginTransaction();
+        try {
+            $st = $pdo->prepare('SELECT is_active FROM vendors WHERE id=:id FOR UPDATE');
+            $st->execute(['id' => $id]);
+            $cur = $st->fetchColumn();
+            if ($cur === false) { $pdo->rollBack(); echo json_encode(['ok'=>false,'error'=>'업체를 찾지 못했습니다.'], JSON_UNESCAPED_UNICODE); exit; }
+            $pdo->prepare('UPDATE vendors SET is_active=:v WHERE id=:id')->execute(['v' => $val, 'id' => $id]);
+            $off = $val === 0 ? vendor_deactivate_products($pdo, $id) : ['products_off' => 0];
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) { $pdo->rollBack(); }
+            throw $e;
+        }
+        echo json_encode(['ok' => true, 'is_active' => $val] + $off + vendor_impact($pdo, $id), JSON_UNESCAPED_UNICODE);
         exit;
     }
 

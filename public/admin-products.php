@@ -202,7 +202,7 @@ render_admin_header('제품관리', 'products');
     <select id="filter-source" onchange="sourceChanged()" aria-label="업체">
         <option value="all" data-store="all" selected>모든 업체</option>
         <?php foreach ($sources as $src): ?>
-        <option value="<?= htmlspecialchars($src['code'], ENT_QUOTES) ?>" data-store="<?= $src['store'] ?>"><?= htmlspecialchars($src['name'], ENT_QUOTES) ?></option>
+        <option value="<?= htmlspecialchars($src['code'], ENT_QUOTES) ?>" data-store="<?= $src['store'] ?>"<?= $src['active'] ? '' : ' data-inactive="1"' ?>><?= htmlspecialchars($src['name'], ENT_QUOTES) ?><?= $src['active'] ? '' : ' (비활성)' ?></option>
         <?php endforeach; ?>
     </select>
     <select id="filter-status" onchange="load(1)" aria-label="상태">
