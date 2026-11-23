@@ -6,6 +6,8 @@ declare(strict_types=1);
  * 입력: docs/03-analysis/testdb/02_prod_export_selects.sql 결과 CSV(blk·cnt·result)
  *       + (선택) 03_prod_export_pricing.sql 결과 CSV — 매입가(E7)·마진율(E8). 없으면 02 그대로 0
  * 책임: 적재 전 검사(허용 테이블·컬럼, 건수, 민감 항목 NULL/0, 이메일·전화번호 형태 문자열) → 통과 시에만 적재
+ * 2026-11-23: --schema=<10.csv> 를 주면 표·칸 목록을 운영 구조(A3)에서 읽는다(make-export-sql.php 로 만든 02 — 새 칸·category_spec_axes 포함).
+ *             주지 않으면 예전 고정 칸 목록(TDB_TABLES — 11-03 이전 02 SQL)으로 검사한다.
  * 사용: php scripts/testdb/load-export.php <02.csv> [03.csv]            검사만(기본, DB 변경 없음)
  *       php scripts/testdb/load-export.php <02.csv> [03.csv] --apply    검사 통과 시 6개 테이블 내용을 교체 적재(+ 03 값 반영)
  *       ... --apply --mask-contacts                                     상품 설명 등의 연락처 형태 문자열을 '[비식별]'로 바꿔 적재
@@ -16,6 +18,8 @@ declare(strict_types=1);
 require __DIR__ . '/common.php';
 
 $csvs  = array_values(array_filter(array_slice($argv, 1), static fn($a) => !str_starts_with($a, '--')));
+$schemaCsv = '';
+foreach ($argv as $a) { if (str_starts_with($a, '--schema=')) { $schemaCsv = substr($a, 9); } }
 $apply = in_array('--apply', $argv, true);
 $mask  = in_array('--mask-contacts', $argv, true);
 if (!$csvs) {
@@ -37,13 +41,30 @@ const TDB_TABLES = [
              ['supply_price' => 0, 'memo' => null]],
     'E6' => ['category_gallery', ['id', 'category_id', 'image_url', 'caption', 'sort_order'], []],
 ];
+// 운영 구조로 표·칸 목록 만들기(--schema): 칸은 운영 A3 그대로, 강제값은 tdb_export_policy(0/NULL)
+if ($schemaCsv !== '') {
+    $schema = tdb_schema_columns(tdb_read_csv($schemaCsv));
+    $tables = [];
+    foreach (TDB_EXPORT_TABLES as $key => [$table]) {
+        if (!isset($schema[$table])) { continue; }
+        $forced = [];
+        foreach ($schema[$table] as $c) {
+            $p = tdb_export_policy($table, $c);
+            if ($p !== 'raw') { $forced[$c] = $p === 'zero' ? 0 : null; }
+        }
+        $tables[$key] = [$table, $schema[$table], $forced];
+    }
+} else {
+    $tables = TDB_TABLES;
+}
+
 // (선택) 03 매입가·마진율: 블록 → [테이블, 키를 뺀 갱신 컬럼]. 02 적재 후 같은 ID 행에 UPDATE 로 반영
 const TDB_PRICING = [
     'E7' => ['products', ['cost_price']],
     'E8' => ['categories', ['discount_customer', 'discount_corporate']],
 ];
 // 연락처 형태 검사에서 뺄 컬럼(URL·식별자: 긴 숫자열 오탐)
-const TDB_SCAN_SKIP = ['slug', 'image_url', 'source_url', 'external_id', 'external_source', 'created_at', 'updated_at'];
+const TDB_SCAN_SKIP = ['slug', 'image_url', 'image_thumb_url', 'image_spec_url', 'source_url', 'external_id', 'external_source', 'created_at', 'updated_at'];
 const TDB_EMAIL = '/[[:alnum:]._%+-]+@[[:alnum:].-]+\.[[:alpha:]]{2,}/u';
 const TDB_PHONE = '/(?<![0-9])0[0-9]{1,2}[- .]?[0-9]{3,4}[- .]?[0-9]{4}(?![0-9])/u';
 
@@ -52,6 +73,11 @@ foreach ($csvs as $f) {
     $in += tdb_read_csv($f);
 }
 $rows = $errors = $hits = $pricing = [];
+foreach (array_keys($tables) as $key) {   // 표마다 결과 블록이 있어야 한다(없으면 02 가 운영 구조와 맞지 않음 — make-export-sql.php 로 다시 만듦)
+    if (!array_filter(array_keys($in), static fn($blk) => str_starts_with((string) $blk, $key . ' '))) {
+        $errors[] = "{$key} {$tables[$key][0]}: 결과 블록 없음 — 02 SQL 을 make-export-sql.php 로 다시 만들어 실행하세요";
+    }
+}
 foreach ($in as $blk => $r) {
     $key = substr($blk, 0, 2);
     if (isset(TDB_PRICING[$key])) {
@@ -79,10 +105,10 @@ foreach ($in as $blk => $r) {
         }
         continue;
     }
-    if (!isset(TDB_TABLES[$key])) {
+    if (!isset($tables[$key])) {
         tdb_stop("허용되지 않은 결과 블록: {$blk}");
     }
-    [$table, $cols, $forced] = TDB_TABLES[$key];
+    [$table, $cols, $forced] = $tables[$key];
     $data = $r['data'] ?? [];
     if (!is_array($data) || $r['cnt'] === null || count($data) !== $r['cnt']) {
         $errors[] = "{$blk}: 건수 불일치(cnt={$r['cnt']}, 실제 " . (is_array($data) ? count($data) : 0) . ') — 결과가 잘렸을 수 있음';
@@ -121,7 +147,7 @@ foreach ($in as $blk => $r) {
 }
 
 tdb_line('[검사]');
-foreach (TDB_TABLES as [$table]) {
+foreach ($tables as [$table]) {
     tdb_line(sprintf('  %-20s %5d행', $table, count($rows[$table] ?? [])));
 }
 foreach (TDB_PRICING as $key => [$table, $cols]) {
@@ -146,10 +172,10 @@ if (!$apply) {
     exit(0);
 }
 
-// 적재: 대상 6개 테이블 내용을 교체(FK 검사 잠시 해제 — 운영 ID 그대로 넣기 위해)
+// 적재: 대상 테이블(예전 6개, --schema 면 + category_spec_axes) 내용을 교체(FK 검사 잠시 해제 — 운영 ID 그대로 넣기 위해)
 $pdo = tdb_test_pdo();
 $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
-foreach (TDB_TABLES as [$table, $cols]) {
+foreach ($tables as [$table, $cols]) {
     $pdo->exec("DELETE FROM `{$table}`");
     $list = $rows[$table] ?? [];
     $ph   = '(' . implode(',', array_fill(0, count($cols), '?')) . ')';
@@ -167,6 +193,7 @@ foreach (TDB_TABLES as [$table, $cols]) {
     }
 }
 foreach (TDB_PRICING as [$table, $cols]) {
+    if (empty($pricing[$table])) { continue; }   // 03 이 없으면 0 그대로(UPDATE 준비도 하지 않음)
     $st = $pdo->prepare("UPDATE `{$table}` SET " . implode(', ', array_map(static fn($c) => "`{$c}` = ?", $cols)) . ' WHERE id = ?');
     foreach ($pricing[$table] ?? [] as $row) {
         $st->execute(array_merge(array_map(static fn($c) => $row[$c] ?? 0, $cols), [$row['id']]));
@@ -174,6 +201,6 @@ foreach (TDB_PRICING as [$table, $cols]) {
 }
 $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
 tdb_line('[적재 완료]' . ($pricing ? ' (매입가·마진율 반영)' : ' (매입가·마진율 0)'));
-foreach (TDB_TABLES as [$table]) {
+foreach ($tables as [$table]) {
     tdb_line(sprintf('  %-20s %5d행', $table, (int) $pdo->query("SELECT COUNT(*) FROM `{$table}`")->fetchColumn()));
 }
