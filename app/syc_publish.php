@@ -272,7 +272,7 @@ function catalog_std_category(string $vendorSlug, array $row, array $stdIds, ?ar
         return is_int($std) ? $std : ($stdIds[$std] ?? null);
     }
     $dac = catalog_dac_std_slug($vendorSlug);          // 동아산업 dac-<번호> → ktomok-<번호>(S29)
-    if ($dac !== null) { return $stdIds[$dac] ?? null; }
+    if ($dac !== null) { return $dac === '' ? null : ($stdIds[$dac] ?? null); }   // '' = 반영 안 함(예외표)
     return $stdIds[$vendorSlug] ?? null;               // 엑셀에 공통 분류를 바로 적은 업체 상품(S30) — 원본 분류 slug = 공통 분류 slug
 }
 

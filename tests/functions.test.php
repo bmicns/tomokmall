@@ -1439,6 +1439,10 @@ eq('동아산업 분류 → 공통 분류: 번호 연결·예외표·없는 번�
     [catalog_std_category('dac-1060', [], ['ktomok-1060' => 21]), catalog_std_category('dac-3426', [], ['ktomok-3425' => 71, 'ktomok-3426' => 72]),
      catalog_std_category('dac-2620', [], ['ktomok-1060' => 21]), catalog_std_category('syc-s21', [], ['ktomok-1010' => 9]), catalog_dac_std_slug('syc-s1'), catalog_dac_std_slug('dac-x1')],
     [21, 71, null, 9, null, null]);
+eq('동아산업 연결 안 된 분류(11-23 추천안): 라인잔디블록 → 99, 새 품명은 DB 에 있을 때만, 아스콘·레미콘은 반영 안 함',
+    [catalog_std_category('dac-5422', [], ['ktomok-5420' => 99]), catalog_std_category('dac-7616', [], ['std-020' => 1040]), catalog_std_category('dac-2620', [], []),
+     catalog_std_category('dac-7410', [], ['' => 1, 'ktomok-7410' => 5]), catalog_std_category('dac-7420', [], ['ktomok-7420' => 6])],
+    [99, 1040, null, null, null]);
 eq('공통 분류를 바로 적은 업체 상품(S30): 원본 분류 slug = 공통 분류 slug 면 그 분류, 매핑 줄·동아산업 규칙이 먼저',
     [catalog_std_category('ktomok-1060', [], ['ktomok-1060' => 21]), catalog_std_category('std-004', [], ['std-004' => 9004]), catalog_std_category('mid12--40', [], ['mid12--40' => 264]),
      catalog_std_category('syc-s21', [], ['syc-s21' => 351, 'ktomok-1010' => 9]), catalog_std_category('common-std', [], [])],
