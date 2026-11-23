@@ -66,8 +66,7 @@ function work_types(): array
         // 배수로 신설·보수 + 도로·진입로 노면 배수(측구·트렌치·진입로 밑 수로) 통합. 근거: 도로 배수시설 지침·도로 연결 규칙(v5 3-1)
         ['key' => 'drainage', 'name' => '배수로 설치·정비',
          'summary' => '마당·도로변·진입로에 배수로를 놓거나, 깨진 덮개를 바꿀 때',
-         'img' => '/assets/images/home-use-배수로.png', 'img_kind' => 'photo', 'img_alt' => '보도 옆 배수로에 그레이팅이 설치된 모습',
-         'banner' => '/assets/images/home-use-배수로-wide.png',
+         'img' => '/assets/images/home-use-배수로.jpg', 'img_kind' => 'photo', 'img_alt' => '보도 옆 콘크리트 배수로에 철 그레이팅 덮개가 이어진 모습',
          'materials' => [
              [24,  '수로관(벤치3종)',            '마당 배수로 본체'],
              [34,  '측구수로관B형(앵글부착)',    '덮개 얹는 길가 측구'],
@@ -146,7 +145,7 @@ function work_types(): array
         // 157 사구석(사고석포장, KCS 34 60 20)을 넣고 104 수목보호틀(인조석)을 뺌 — 사용자 결정 2026-11-05
         ['key' => 'garden', 'name' => '정원·담장 꾸미기',
          'summary' => '정원에 디딤돌·계단·화단을 놓거나 블록 담장을 쌓을 때',
-         'img' => '/assets/images/home-use-포장.png', 'img_kind' => 'photo', 'img_alt' => '꽃과 나무 사이로 블록이 깔린 정원 보행로',
+         'img' => '/assets/images/home-use-포장.jpg', 'img_kind' => 'photo', 'img_alt' => '판석·큐브석 길과 계단석, 경계블록 화단, 블록 담장이 있는 주택 정원',
          'materials' => [
              [156, '판석',                       '정원 길 돌판'],
              [157, '사구석/소포석',              '정원 길 큐브석 포장'],
@@ -162,7 +161,7 @@ function work_types(): array
         // 근거: 하수도법 시행규칙 제23조·별표 7(배수설비)·KDS 61 00 00 관로시설·개인하수처리시설 기준(v5 3-7)
         ['key' => 'building-drain', 'name' => '건물 외부 배수시설 설치',
          'summary' => '건물을 짓거나 고치며 주변 오수받이·빗물받이·홈통을 연결할 때',
-         'img' => '/assets/images/home-use-배관.png', 'img_kind' => 'photo', 'img_alt' => '땅속에 연결된 배관',
+         'img' => '/assets/images/home-use-배관.jpg', 'img_kind' => 'photo', 'img_alt' => '건물 벽을 따라 판 도랑에 배수관을 오수받이·빗물받이에 연결하는 공사',
          'materials' => [
              [178, 'PE오수받이',                 '화장실·주방 물받이'],
              [182, 'PVC관VN(구VG1)',             '건물 배수관'],
@@ -178,7 +177,7 @@ function work_types(): array
         // 지하 배수관 매설 + 집수정·맨홀 설치 + 도로 밑 횡단 배수 통합. 근거: 하수도법 시행규칙 별표 5·KDS 61 00 00·도로 배수시설 지침(v5 3-8)
         ['key' => 'sewer', 'name' => '배수관 묻기·맨홀 설치',
          'summary' => '빗물·하수를 땅속 관으로 보내거나, 맨홀·집수정·도로 밑 물길을 놓을 때',
-         'img' => '/assets/images/home-use-맨홀.png', 'img_kind' => 'photo', 'img_alt' => '집수정 구조물과 맨홀 뚜껑',
+         'img' => '/assets/images/home-use-맨홀.jpg', 'img_kind' => 'photo', 'img_alt' => '길가 도랑에 이중벽관을 묻고 콘크리트 맨홀·집수정과 맨홀 뚜껑을 놓는 공사',
          'materials' => [
              [164, 'PE이중벽관2종',              '일반 우수·오수관'],
              [163, 'PE이중벽관1종',              '차도 하부 우수관'],
