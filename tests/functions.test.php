@@ -1439,6 +1439,10 @@ eq('동아산업 분류 → 공통 분류: 번호 연결·예외표·없는 번�
     [catalog_std_category('dac-1060', [], ['ktomok-1060' => 21]), catalog_std_category('dac-3426', [], ['ktomok-3425' => 71, 'ktomok-3426' => 72]),
      catalog_std_category('dac-2620', [], ['ktomok-1060' => 21]), catalog_std_category('syc-s21', [], ['ktomok-1010' => 9]), catalog_dac_std_slug('syc-s1'), catalog_dac_std_slug('dac-x1')],
     [21, 71, null, 9, null, null]);
+eq('공통 분류를 바로 적은 업체 상품(S30): 원본 분류 slug = 공통 분류 slug 면 그 분류, 매핑 줄·동아산업 규칙이 먼저',
+    [catalog_std_category('ktomok-1060', [], ['ktomok-1060' => 21]), catalog_std_category('std-004', [], ['std-004' => 9004]), catalog_std_category('mid12--40', [], ['mid12--40' => 264]),
+     catalog_std_category('syc-s21', [], ['syc-s21' => 351, 'ktomok-1010' => 9]), catalog_std_category('common-std', [], [])],
+    [21, 9004, 264, 9, null]);
 $pdm = syc_publish_dims(['dim_w' => 300.0, 'dim_w1' => 600.0, 'dim_l' => null], [
     ['axis_key' => 'w', 'label' => '폭', 'symbol' => 'W', 'unit' => 'mm', 'in_list' => true], ['axis_key' => 'w1', 'label' => '세부', 'symbol' => 'w1', 'unit' => 'mm', 'in_list' => false],
     ['axis_key' => 'l', 'label' => '길이', 'symbol' => 'L', 'unit' => 'mm', 'in_list' => true]]);
