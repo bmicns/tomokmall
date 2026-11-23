@@ -428,6 +428,10 @@ body:is(.mode-home, .mode-normal) .header-nav { justify-self: end; margin-left: 
     flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center;
     height: 40px; padding: 0 4px; font-size: 13px;
   }
+  /* 검색·AI 상담·견적보기 버튼: 늘어나지 않고 글자 크기만큼(높이 32px) — 사용자 요청 2026-11-20 */
+  body:not(.mode-corp) .header-nav > .btn-header-search,
+  body:not(.mode-corp) .header-nav > .btn-header-ai,
+  body:not(.mode-corp) .header-nav > .btn-header-est { flex: 0 0 auto; height: 32px; padding: 0 10px; }
   /* AI 상담 화면: 로고 / 대분류 탭 / 메뉴 3줄 */
   body.mode-chat { --header-h: 148px; }
   body.mode-chat .header-nav { display: flex; }
@@ -440,6 +444,9 @@ body:is(.mode-home, .mode-normal) .header-nav { justify-self: end; margin-left: 
   body:not(.mode-corp) .header-nav > .btn-header-ai,
   body:not(.mode-corp) .header-nav > .btn-header-est,
   body:not(.mode-corp) .header-nav > .nav-link { padding: 0 3px; font-size: 12px; }
+  body:not(.mode-corp) .header-nav > .btn-header-search,
+  body:not(.mode-corp) .header-nav > .btn-header-ai,
+  body:not(.mode-corp) .header-nav > .btn-header-est { padding: 0 8px; }
 }
 
 /* ── 공용 mega-tabs (채팅 모드 인라인) ─────────────────── */
@@ -1880,6 +1887,11 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .pt-col-price { margin-top: 6px; }
   .pt-col-price::before { content: "판매가 "; color: var(--color-text-disabled); font-size: 12px; }
   .pt-col-price .pt-price-val { font-size: 15px; }
+  /* 판매가: '원' 붙이기, 회원 할인가는 '정가(취소선) → 판매가원' 한 줄(사용자 요청 2026-11-20, 모바일만 — 표시만, 금액·계산은 그대로) */
+  .pt-col-price { white-space: nowrap; }
+  .pt-col-price .pt-price-val::after { content: "원"; }
+  .pt-col-price .pt-price-was { display: inline; font-size: 12px; }
+  .pt-col-price .pt-price-was::after { content: "→"; display: inline-block; margin: 0 4px; text-decoration: none; color: var(--color-text-secondary); }
 
   /* GNB 카테고리 바: 가로 스크롤 (넘침·잘림 방지) */
   .gnb-bar { justify-content: flex-start; }
@@ -1968,6 +1980,8 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .pt-head-right.has-fav{justify-content:flex-start}   /* 모바일 정렬·목록검색 배치는 기존 그대로 */
   .pt-fav-bar{flex:1 1 100%}
   .pt-fav-btn{min-height:44px;font-size:13px}
+  /* '관심품목 추가하기'(처음 버튼)만 작게 — 글자 크기만큼·높이 34px(사용자 요청 2026-11-20). 선택 모드 버튼(완료·취소)은 그대로 */
+  .pt-fav-start{min-height:34px;padding:6px 12px}
   /* 선택 모드: [N개 선택됨 | 전체선택] / [추가하기 완료 | 취소] 2줄 */
   .pt-fav-mode .pt-fav-bar{display:grid;grid-template-columns:1fr 1fr;gap:6px 8px}
   .pt-fav-mode .pt-fav-all-m{display:inline-flex;justify-self:end}
@@ -2110,6 +2124,7 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   .gh-hero-title{font-size:34px}
   .gh-hero-sub{font-size:18px}
   .gh-section-title{font-size:22px}
+  .gh-section-side{margin-left:auto}   /* '해당하는 상황이 없어요 · AI에게 설명하기' 오른쪽 끝에(사용자 요청 2026-11-20) */
   /* 검색창 아래 칩 5개: 360px 폭에서 한 줄(5번째 칩만 다음 줄로 떨어지던 것) — 글자·여백 축소 */
   .gh-chips{gap:5px}
   .gh-chips a{display:inline-flex;align-items:center;min-height:36px;padding:0 8px;font-size:12px}

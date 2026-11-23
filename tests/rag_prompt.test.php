@@ -7,6 +7,8 @@ declare(strict_types=1);
  *        (시나리오 7개 × V21·V22 비활성/활성). 분리 후 같은 시나리오의 rag_build_prompt() 결과가 글자 하나까지 같아야 한다.
  *        2026-10-29 의도적 변경 반영: s3(공공 보도)·s6(불명확) 안내 구역에서 근거 없이 적힌 '최소 100mm' 문장 1줄씩 수정
  *        (분리 자체의 전후 동일성은 수정 전 기준값으로 14건 모두 일치 확인 — 요청 본문 전체 바이트 비교).
+ *        2026-11-17 의도적 변경 반영(업체 공통 상담 가이드 A안): 옛 고정 가이드(category_consult_guide) 대신 '현재 등록 상품' 구역(판매 데이터 — 비교에서 빼고 따로 검사),
+ *        케이토목 하중 3단계·'그레이팅 수로용 중하중' 예시를 업체 중립 문장으로(전 시나리오 같은 차이).
  *        2026-10-29 의도적 변경 반영(2): '블록'만 쓴 바닥 포장 문맥도 보도블록으로 감지 → s2~s7 에 보도블록 상담 가이드·사내 문서 추가,
  *        공공도로 활성(s1·s2) 구역에 '적합 상품 없으면 얇은 제품 대체 금지·설계도서 확인·별도 견적' 1줄 추가. 그 밖의 문장은 그대로.
  *        2026-10-29 의도적 변경 반영(3, 실제 GPT-4o 결과 반영): 공통 규칙 4줄 — 처리할 수 없는 문의·연락 약속 금지,
@@ -70,6 +72,11 @@ function ok(string $name, bool $cond): void {
     else       { $fail++; echo "  ✗ {$name}\n"; }
 }
 $scenarios = require __DIR__ . '/fixtures/prompts/scenarios.php';
+/** '=== 현재 등록 상품: …' 구역(판매 중 상품에서 만든 목록 — 데이터마다 다름, 2026-11-17 A안)을 뺀 프롬프트 — 기준값 비교용 */
+function rag_prompt_strip_catalog(string $x): string
+{
+    return (string) preg_replace('/\n\n=== 현재 등록 상품: .*?(?=\n\n===|\z)/su', '', $x);
+}
 $golden = __DIR__ . '/fixtures/prompts/golden';
 $rule80 = '★차량이 올라가면 두께 80mm 이상(80T) 제품, 사람만 다니면 60mm(60T)도 가능 → [참조 문서] 기준.';
 
@@ -98,7 +105,7 @@ echo "[분리 전후 동일성 — 기준값과 글자 단위 비교]\n";
 foreach ($prompts as $state => $byKey) {
     foreach ($byKey as $key => $p) {
         $g = (string) @file_get_contents("{$golden}/{$key}_{$state}.txt");
-        $norm = static fn(string $x): string => (string) preg_replace('/\[L\d+\]/', '[L#]', $x);   // 근거 문서 ID 는 DB 마다 다름 — 번호만 빼고 비교
+        $norm = static fn(string $x): string => (string) preg_replace('/\[L\d+\]/', '[L#]', rag_prompt_strip_catalog($x));   // 근거 문서 ID 는 DB 마다 다름 — 번호만 빼고 비교, 현재 등록 상품 구역(판매 데이터)은 따로 검사
         ok("{$key} ({$state}) 시스템 프롬프트 = 분리 전", $g !== '' && $norm($p['system']) === $norm($g));
     }
 }
@@ -143,7 +150,8 @@ foreach ($scenarios as $key => $s) {
 
 echo "[카테고리 감지 — '블록' 바닥 포장 문맥]\n";
 foreach ($scenarios as $key => $s) {
-    ok("{$key}: 보도블록 카테고리 + 상담 가이드", $P[$key]['categoryKey'] === 'pavement' && str_contains($P[$key]['system'], '【보도블록·경계석 추가 가이드】'));
+    ok("{$key}: 보도블록 카테고리 + 현재 등록 상품(판매 데이터) 구역, 옛 고정 가이드 없음(2026-11-17 A안)", $P[$key]['categoryKey'] === 'pavement'
+        && str_contains($P[$key]['system'], '=== 현재 등록 상품: 보도블록·경계석') && !str_contains($P[$key]['system'], '【보도블록·경계석 추가 가이드】'));
     ok("{$key}: 블록 종류 확인 구역 없음(포장 문맥이 분명)", !str_contains($P[$key]['system'], '=== 블록 종류 확인'));
 }
 

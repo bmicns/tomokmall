@@ -1519,6 +1519,45 @@ eq('[L번호] 없이 쓴 근거: 수치가 원문에 있는 근거만, 없으면
     rag_legal_implicit_ids('포장 블록 두께는 80mm 이상을 권합니다.', $ld),
     rag_legal_implicit_ids('스테인리스 볼라드가 있습니다.', $ld)], [[57], [57, 56], [68], []]);
 
+echo "[AI 상담 2026-11-17: 업체 공통 상담 가이드(A안) — 하중 단계 이름 규칙은 그 업체만, '현재 등록 상품' 자동 목록]\n";
+ai_tiered_load_sources(['ktomok']);   // '중하중' 상품이 있는 업체 = 케이토목만
+eq('하중 단계 규칙이 없는 업체: 표기 없는 그레이팅은 등급 모름, 출처 모름·규칙 있는 업체는 기존대로 보행자용', [
+    ai_grating_load_class('그레이팅수로용', false), ai_grating_load_class('그레이팅수로용', true), ai_grating_load_class('그레이팅수로용', null),
+    ai_grating_load_class('중하중그레이팅수로용', false)], ['', 'pedestrian', 'pedestrian', 'car']);
+$vg = ['name' => '스틸그레이팅', 'spec' => '규격: W300*L1000', 'external_source' => 'vendor-3'];
+$kg = ['name' => '그레이팅수로용', 'spec' => '규격: W300*L1000', 'external_source' => 'ktomok'];
+eq('다른 업체의 표기 없는 그레이팅: 차량 통행이면 확인 필요(낮은 등급으로 버리지 않음), 보행자면 판정 안 함 / 케이토목은 그대로', [
+    ai_load_status($vg, 'car')['status'], ai_load_status($vg, 'pedestrian')['status'], ai_load_class_of($vg),
+    ai_load_status($kg, 'car')['status'], ai_load_class_of($kg), ai_row_tiered(['name' => 'x'])], ['unverified', 'na', '', 'lighter', 'pedestrian', null]);
+eq('업체 연결 상품 줄(link-, 원래 상품 이름 복사)은 원래 상품처럼 이름 기준', [ai_load_class_of($vg + ['external_id' => 'link-123']), ai_load_class_of($vg + ['external_id' => 'V-1'])], ['pedestrian', '']);
+eq('상담 품목 → 공통 분류 품명(일반 명칭 규칙, 몰드·집게·부속 제외)', [
+    consult_kind_matches('grating', '중하중그레이팅수로용'), consult_kind_matches('grating', '알루미늄트렌치'), consult_kind_matches('grating', '사각주철(수로용/닥타일)'), consult_kind_matches('grating', '알루미늄트렌치 소켓'),
+    consult_kind_matches('grating', '낙엽방지덮개'), consult_kind_matches('culvert', '수로관(벤치3종)몰드'), consult_kind_matches('culvert', '측구수로관A형(앵글미부착)'),
+    consult_kind_matches('pe_pipe', 'PE이중벽관1종'), consult_kind_matches('pe_pipe', 'PE이경소켓'), consult_kind_matches('pe_pipe', '측구수로관유공(앵글부착)'),
+    consult_kind_matches('manhole', '사각맨홀(집수정)'), consult_kind_matches('manhole', '주철뚜껑(우수/오수/전기/통신)'),
+    consult_kind_matches('pavement', '인조화강블록(투수)'), consult_kind_matches('pavement', '보강토블록(줄무늬)'), consult_kind_matches('pavement', '콘크리트경계석'),
+    consult_kind_matches('없는품목', '그레이팅')],
+    [true, true, true, false, false, false, true, true, false, false, true, false, true, false, true, false]);
+$cr = [
+    ['category_id' => 7, 'category_name' => '그레이팅수로용', 'parent_name' => '스틸제품', 'name' => '그레이팅수로용', 'spec' => '', 'external_source' => 'ktomok'],
+    ['category_id' => 7, 'category_name' => '그레이팅수로용', 'parent_name' => '스틸제품', 'name' => '스틸그레이팅', 'spec' => '', 'external_source' => 'vendor-3'],
+    ['category_id' => 8, 'category_name' => '중하중그레이팅수로용', 'parent_name' => '스틸제품', 'name' => '중하중그레이팅수로용', 'spec' => '', 'external_source' => 'ktomok'],
+    ['category_id' => 8, 'category_name' => '중하중그레이팅수로용', 'parent_name' => '스틸제품', 'name' => '중하중그레이팅수로용', 'spec' => '', 'external_source' => 'ktomok'],
+    ['category_id' => 8, 'category_name' => '중하중그레이팅수로용', 'parent_name' => '스틸제품', 'name' => '안전중하중그레이팅수로용', 'spec' => '', 'external_source' => 'ktomok'],
+];
+$cs = consult_catalog_summary($cr);
+eq('품명별 요약: 상품 많은 순, 업체 수 = 출처 종류, 하중 표기 현황(업체별 이름 규칙 반영)', array_map(static fn($g) => [$g['name'], $g['count'], $g['vendors'], consult_load_label($g)], $cs),
+    [['중하중그레이팅수로용', 3, 1, '대형차용 1 · 승용차용 2'], ['그레이팅수로용', 2, 2, '보행자용 1 · 하중 표기 없음 1']]);
+$cp = consult_catalog_prompt('grating', $cs);
+ok('프롬프트: 품명·분류·상품 수·업체 수·하중, 검색어는 목록 품명, 목록에 없으면 견적요청, 표기 없음은 차량 적합이라 말하지 않음, 가격·업체명 없음',
+    str_contains($cp, '=== 현재 등록 상품: 그레이팅·덮개류') && str_contains($cp, '- 중하중그레이팅수로용(스틸제품): 상품 3개 · 업체 1곳 · 하중: 대형차용 1 · 승용차용 2')
+    && str_contains($cp, '견적요청하기') && str_contains($cp, "'하중 표기 없음' 상품은 차량 통행에 적합하다고 말하지 않는다") && str_contains($cp, 'T-25')
+    && !preg_match('/원|price|ktomok|vendor-/u', preg_replace('/견적요청|업체 이름은|품명\(괄호 앞 이름\)/u', '', $cp)));
+eq('조회 실패면 구역 없음, 판매 상품이 없으면 없다고 안내(상품을 권하지 않음), 모르는 품목은 없음', [
+    consult_catalog_prompt('grating', null), str_contains(consult_catalog_prompt('pe_pipe', []), '판매 중인 배수관·관류 상품이 없다'), consult_catalog_prompt('etc', $cs)], ['', true, '']);
+ok('하중 표기 없음 규칙은 그런 상품이 있을 때만', !str_contains(consult_catalog_prompt('grating', [$cs[0]]), '하중 표기 없음'));
+ai_tiered_load_sources(null, true);
+
 // 메가 메뉴 '기타' 묶음(화면 표시만): 정한 순서대로 묶음 칸, 묶음에 없는 중분류는 '그 밖의 자재', 빈 묶음은 뺌
 $gm = fn(int $id, string $slug, string $n) => ['mid' => ['id' => $id, 'slug' => $slug, 'name' => $n, 'thumb' => null], 'subs' => []];
 $gc = mega_menu_grouped_cols([$gm(2, 'insulation', '단열재'), $gm(5, 'tile-supplies', '타일 부자재'), $gm(205, 'ktomok-7750', '과속방지턱'), $gm(999, 'std-099', '새 분류')],

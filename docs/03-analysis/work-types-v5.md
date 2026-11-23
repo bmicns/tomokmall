@@ -381,7 +381,7 @@
 
 ## 5. 상황 사진 (자재 사진 아님) — 2026-11-05 8장 모두 반영(실사 5장 + AI 생성 3장)
 
-- 기존 상황 사진 카드 4개는 그대로: drainage(`home-use-배수로.png`·배너 `-wide`), garden(`home-use-포장.png`), building-drain(`home-use-배관.png`), sewer(`home-use-맨홀.png`).
+- ~~기존 상황 사진 카드 4개는 그대로: drainage(`home-use-배수로.png`·배너 `-wide`), garden(`home-use-포장.png`), building-drain(`home-use-배관.png`), sewer(`home-use-맨홀.png`).~~ → 2026-11-18 출처 불명으로 AI 생성 이미지로 교체(5-4).
 - **이번에 넣은 사진 5장**: paving, curb, river, farm, utility. 모두 **출처 표시가 필요 없는 CC0 또는 퍼블릭 도메인**이다(CC BY·CC BY-SA 사진은 쓰지 않음).
 - **AI 생성 3장**: retaining, parking, subdrain — 조건에 맞는 실사 사진을 찾지 못해(5-2 표) 사용자 결정(2026-11-05)으로 이미지 생성 AI 로 만들었다(5-3).
 - 검색 방법: 위키미디어 공용(구조화 데이터 `P275=CC0` 또는 `P6216=퍼블릭 도메인` 조건 검색, 한국어·일본어·영어 검색어), Openverse API(`license=cc0,pdm`), WordPress 사진 디렉터리(CC0). Unsplash 는 검색 API 가 인증을 요구하고 사이트 검색 페이지는 봇 차단이라 쓰지 못했다(검색 우회는 하지 않음). Pexels·Pixabay 는 403.
@@ -432,6 +432,27 @@
   - parking: "Photorealistic documentary-style photo, wide landscape shot at eye level. A small empty outdoor parking lot next to a countryside cafe building in South Korea. The parking spaces are paved with concrete grass paver blocks (grid blocks with green grass growing in the openings), each space has a black-and-yellow rubber wheel stopper at its head, white painted lines mark the spaces, and a row of yellow flexible urethane bollards separates the parking area from a pedestrian walkway paved with gray concrete blocks. Natural daylight, realistic textures. No cars, no people, no text, no readable signs, no logos, no watermark."
   - subdrain: "Photorealistic documentary-style construction photo, wide landscape shot slightly from above. Subsurface drainage work in a soggy grass field next to a farm in South Korea: a straight narrow trench about 60 cm wide and 1 m deep runs diagonally across the field; the trench is lined with white nonwoven geotextile filter fabric, and a black corrugated perforated drain pipe with clearly visible small slots/holes lies on a bed of washed crushed gravel at the bottom of the trench; piles of gravel and excavated soil sit beside the trench, a small yellow mini excavator stands far in the background, slightly out of focus. Overcast natural daylight, realistic mud and textures. No people, no text, no logos, no brand names, no watermark."
 - 다른 도구로 다시 만들 때: 같은 프롬프트를 Adobe Firefly(상업 이용 가능 모델·학습 데이터 출처가 명확한 편), Google Imagen(Gemini), OpenAI 이미지 생성(ChatGPT) 등에 넣고 가로 21:9 비율로 만든 뒤 같은 규격으로 가공한다. 서비스마다 상업 이용 조건이 다르므로 쓰기 전에 그 서비스 약관을 확인한다.
+
+### 5-4. 출처 불명 4장 교체 (2026-11-18)
+
+- 재점검 결과: drainage·garden·building-drain·sewer 의 옛 이미지(`home-use-배수로.png`·`-wide.png`·`포장.png`·`배관.png`·`맨홀.png`)는 2026-10-21 디자인 시안 캔버스에 올라온 파일과 크기가 같고, 커밋 `86278c0`('시안 이미지')로 들어왔다. 출처·생성 도구·라이선스 기록이 없어 상업 이용 근거를 확인할 수 없었다. 나머지 8장은 출처 원문 재확인(위키미디어 API 라이선스, Figma AI Terms 2026-10-30판 — 5-1·5-3 과 같음).
+- 사용자 결정(2026-11-18): Figma AI 로 새로 생성해 교체. 옛 파일 5개는 저장소에서 지움(운영 서버 파일은 배포가 업로드 전용이라 남음 — 지우려면 별도 승인).
+- 도구·조건: 5-3 과 같음(Figma 파일 https://www.figma.com/design/HT4iqbsfUs04BATNfsQcRo 노드 2:2~2:5, `gpt-image-2.5-flare`, 각 1회 생성, 1792×768 PNG, 약 8 크레딧). 원본 크기로 글자·로고·번호판·사람 없음 확인.
+- 가공: 5-3 과 같음(→ 902×382 JPG, 품질 80, 프로그레시브, 메타데이터 제거). drainage 의 배너 전용 가로형(`banner`)은 없앰 — 다른 11개 작업처럼 카드 사진을 배너에 가운데 자르기로 씀(1280·360px 확인).
+
+| 키 | 파일 (용량) | 프롬프트 요지 | 화면 설명(`img_alt`) |
+|---|---|---|---|
+| drainage | `home-use-배수로.jpg` (90KB) | 한국 주택가 블록 보도 옆 콘크리트 U형 배수로, 아연도금 그레이팅 덮개 연속, 반대편 풀·관목 | 보도 옆 콘크리트 배수로에 철 그레이팅 덮개가 이어진 모습 |
+| garden | `home-use-포장.jpg` (104KB) | 한국 단독주택 앞마당, 판석·큐브석 길, 디딤돌·계단석, 경계블록 화단, 뒤쪽 콘크리트 블록 담장 | 판석·큐브석 길과 계단석, 경계블록 화단, 블록 담장이 있는 주택 정원 |
+| building-drain | `home-use-배관.jpg` (104KB) | 새로 지은 2층 주택 외벽을 따라 판 도랑, 회색 PVC 배수관이 검정 오수받이·선홈통 아래 빗물받이에 연결 | 건물 벽을 따라 판 도랑에 배수관을 오수받이·빗물받이에 연결하는 공사 |
+| sewer | `home-use-맨홀.jpg` (104KB) | 한국 농촌 길가 도랑, 모래 기초 위 검정 이중벽 PE관, 콘크리트 맨홀, 옆에 주철 맨홀 뚜껑·사각 집수정, 멀리 소형 굴착기 | 길가 도랑에 이중벽관을 묻고 콘크리트 맨홀·집수정과 맨홀 뚜껑을 놓는 공사 |
+
+- 전체 프롬프트
+  - garden: "Photorealistic documentary-style photo, wide landscape shot at eye level. A tidy residential front garden of a detached house in suburban South Korea: a curving garden path paved with gray natural stone slabs and small granite cobble setts, a few stone stepping stones and two low stone steps, flower beds edged with concrete landscape edging blocks, shrubs and seasonal flowers, and a low garden wall built from gray concrete blocks along the back. Soft natural daylight, realistic textures and scale. No people, no vehicles, no text, no signs, no logos, no watermark."
+  - building-drain: "Photorealistic documentary-style construction photo, wide landscape shot slightly from above. Building drainage work next to a newly built small two-story house in South Korea: a shallow open trench in the soil along the outside wall of the house holds gray PVC drain pipes connected with fittings to a round black plastic inspection chamber (sewage catch basin) with its lid off, and a square plastic rainwater catch basin below a downspout of the house; sand bedding and piles of excavated soil beside the trench. Natural daylight, realistic textures and scale. No people, no text, no logos, no brand names, no watermark."
+  - sewer: "Photorealistic documentary-style construction photo, wide landscape shot slightly from above. Storm sewer installation at the edge of a small road in rural South Korea: a wide excavated trench with a large black corrugated double-wall PE pipe laid on a sand bed, connected to a precast concrete manhole structure; a round cast iron manhole cover rests on the ground beside the open manhole, and a square precast concrete catch basin stands nearby. Gravel and excavated soil piles, a small yellow mini excavator far in the background slightly out of focus. Overcast natural daylight, realistic textures and scale. No people, no text, no readable markings, no logos, no brand names, no watermark."
+  - drainage: "Photorealistic documentary-style photo, wide landscape shot at eye level with a long perspective. A precast concrete U-shaped drainage channel runs along the edge of a gray concrete block sidewalk beside a narrow residential road in South Korea, covered with a continuous row of galvanized steel grating covers; a small planted strip with grass and low shrubs on the other side, a low concrete wall in the background. Natural daylight, realistic textures and scale. No people, no vehicles, no text, no signs, no logos, no watermark."
+- 이로써 메인 상황 카드 12장 = 퍼블릭 도메인·CC0 실사 5장 + Figma AI 생성 7장. 법률 자문이 아니며, 미국 연방정부 저작물의 미국 밖 지위 단서(5-1)는 그대로다.
 
 ## 6. 사용자 결정·후속 검토 항목
 

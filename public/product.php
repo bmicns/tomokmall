@@ -457,7 +457,7 @@ render_header($p['name']);
                 <?php if (!$loggedIn): ?>
                 <button class="btn-pd-action" onclick="openAuthModal('login')">견적에 넣기</button>
                 <button class="btn-pd-action" onclick="openAuthModal('login')">견적 요청</button>
-                <div class="pd-login-notice">견적·주문은 로그인 후 이용 가능합니다 (기업회원가 추가 공개)</div>
+                <div class="pd-login-notice">견적·주문은 로그인 후 이용 가능합니다</div>
                 <?php else: ?>
                 <button class="btn-pd-action" onclick="addCart(<?= (int)$p['id'] ?>)">견적에 넣기</button>
                 <button class="btn-pd-action" onclick="location.href='/estimate.php'">견적 요청</button>
