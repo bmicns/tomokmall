@@ -130,6 +130,13 @@ foreach ($in as $blk => $r) {
             }
         }
         foreach ($row as $c => $v) {
+            if (is_array($v)) {   // JSON 칸도 연락처 형태 검사(치환은 문자열 칸만 — JSON 칸에서 걸리면 멈춤)
+                $j = (string) json_encode($v, JSON_UNESCAPED_UNICODE);
+                foreach (['email' => TDB_EMAIL, 'phone' => TDB_PHONE] as $kind => $re) {
+                    if (preg_match($re, $j)) { $errors[] = "{$table} id={$id}: {$c}(JSON) 에 {$kind} 형태 문자열"; }
+                }
+                continue;
+            }
             if (!is_string($v) || in_array($c, TDB_SCAN_SKIP, true)) {
                 continue;
             }
@@ -185,6 +192,9 @@ foreach ($tables as [$table, $cols]) {
         foreach ($chunk as $row) {
             foreach ($cols as $c) {
                 $v = $row[$c];
+                if (is_array($v)) {   // JSON 칸(products.spec_detail 등)은 JSON_OBJECT 안에서 객체로 나온다 → 다시 JSON 문자열로
+                    $v = json_encode($v, JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
+                }
                 // JSON_OBJECT 의 DATETIME 은 'YYYY-MM-DD HH:MM:SS.ffffff' → 소수부 제거
                 $vals[] = is_string($v) && preg_match('/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d+$/', $v) ? substr($v, 0, 19) : $v;
             }
