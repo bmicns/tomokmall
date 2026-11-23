@@ -146,13 +146,13 @@ cmd_refresh() {
   for f in "$chk" "$@"; do [ -f "$f" ] || die "파일 없음: $f"; done
   cmd_up
   say "[1/5] 적재 전 검사(DB 변경 없음)"
-  php scripts/testdb/load-export.php "$@" ${opts[@]+"${opts[@]}"} | sed 's/^/  /' || die "내보내기 파일 검사 실패 — 적재하지 않았습니다."
+  php scripts/testdb/load-export.php "$@" --schema="$chk" ${opts[@]+"${opts[@]}"} | sed 's/^/  /' || die "내보내기 파일 검사 실패 — 적재하지 않았습니다."
   say "[2/5] 운영 구조 DDL 생성·적용(빈 DB로 다시 만듦)"
   php scripts/testdb/build-schema.php "$chk" > "$DATA/prod_schema.sql"
   recreate_db
   root_sql "$DB" < "$DATA/prod_schema.sql"
   say "[3/5] 데이터 적재"
-  php scripts/testdb/load-export.php "$@" ${opts[@]+"${opts[@]}"} --apply | sed 's/^/  /'
+  php scripts/testdb/load-export.php "$@" --schema="$chk" ${opts[@]+"${opts[@]}"} --apply | sed 's/^/  /'
   say "[4/5] 운영 지문 대조"
   # 연락처 치환 적재면 상품 spec 이 바뀌므로 상품 지문(C2)만 비교에서 뺀다(나머지는 모두 일치해야 함)
   local ign=(); [ ${#opts[@]} -gt 0 ] && ign=(--ignore=C2)

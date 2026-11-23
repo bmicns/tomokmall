@@ -215,6 +215,13 @@ cmd /c "C:\xampp\mysql\bin\mysql.exe -u tm_test -p --default-character-set=utf8m
 
 ### 11-1. 운영에서 내보낼 파일 (사용자, 닷홈 phpMyAdmin — 매번 승인)
 
+> **2026-11-23 바뀜 — 02 는 운영 구조로 만든다.** 11-03 이후 상품 표에 규격 치수 칸·모델 코드·이미지 경로 칸이 생겨 고정 02 SQL 로는 빠지는 칸이 생겼다.
+> 순서: ① `10_refresh_checks.sql` 실행 → CSV 첨부 → ② Claude 가 `php scripts/testdb/make-export-sql.php <10.csv> > 02_YYYYMMDD.sql` 로 운영 칸 그대로의 02 를 만들어 전달
+> (민감 칸은 SELECT 안에서 0/NULL — `scripts/testdb/common.php` `tdb_export_policy`: 가격 이름 칸은 판매가 `price_b2c`·`price_b2b` 만 그대로, 업체는 이름·지역·활성·일시만,
+> 규격 이름표 `category_spec_axes` 포함) → ③ 사용자가 그 02 를 실행 → CSV 첨부 → `devdb.sh refresh`(적재 검사·적재가 10 의 칸 목록 기준 — `load-export.php --schema=`).
+> 저장소의 `02_prod_export_selects.sql` 은 11-03 이전 구조용(예전 기록 대조용으로만 둠).
+> 도구 점검(2026-11-23): 저장소 데이터 + 규격 칸·이미지 칸 마이그레이션으로 만든 일회용 원본 DB → 10 → 02 생성·실행 → `refresh --mask-contacts` → 대조 20/20 일치(C2 제외), 치수 칸 값 적재 확인. 점검용 스냅샷은 삭제.
+
 | 순서 | SQL 파일 | 결과 | 저장 이름(권장) | 내용 |
 |---|---|---|---|---|
 | ① | `10_refresh_checks.sql` | 약 21줄(blk·result) | `10_YYYYMMDD.csv` | 운영 구조(information_schema)·카테고리/상품/관계 **지문** — 스키마 생성·적재 후 대조 기준. 01 1부 + 2부(P1·P2·P3·P5)를 SELECT 하나로 합침 |
