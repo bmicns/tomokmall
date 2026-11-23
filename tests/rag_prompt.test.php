@@ -125,7 +125,7 @@ foreach ($promptsOff as $key => $p) {
     $expect = $i === false || $j === false ? '' : substr($on, 0, $i) . $quoteOff . substr($on, $j + strlen('- 연관 제품이 더 필요할 것 같으면 추가 검색 제안.'));
     ok("{$key}: 끄면 3단계만 반영 전 문장(나머지 같음)", $expect !== '' && $p['system'] === $expect);
 }
-ok('rag_process 가 rag_build_prompt 결과를 그대로 사용', (bool) preg_match('/\$prompt\s*=\s*rag_build_prompt\(\$messages(?:,\s*(?:rag_recent_cards\(\$sid\)|\$recentCards))?\);\s*\$system\s*=\s*\$prompt\[\'system\'\];/', (string) file_get_contents(__DIR__ . '/../app/rag.php')));
+ok('rag_process 가 rag_build_prompt 결과를 그대로 사용', (bool) preg_match('/\$prompt\s*=\s*rag_build_prompt\(\$messages(?:,\s*(?:rag_recent_cards\(\$sid\)|\$recentCards)(?:,\s*\$style)?)?\);\s*\$system\s*=\s*\$prompt\[\'system\'\];/', (string) file_get_contents(__DIR__ . '/../app/rag.php')));
 
 echo "[시나리오별 내용 — V21·V22 비활성(현재 상태)]\n";
 $P = $prompts['inactive'];

@@ -975,11 +975,25 @@ function rag_curl_post(string $url, string $body, array $headers): string|false
 }
 
 /**
+ * 우측 하단 'AI 빠른 견적' 창 답변 방식(케이토목 1분 자동견적과 비슷하게 — 사용자 요청 2026-11-23, 지금 상담과 비교용).
+ * 시스템 프롬프트 맨 끝에 붙어 위 '검색 결과 답변 형식'·'3단계 견적 안내'의 길이·담기 순서만 바꾼다. 하중·두께·공공도로 등 안전 규칙과 가격·수량 계산은 그대로.
+ */
+const RAG_QUICK_STYLE_PROMPT = "\n\n=== 빠른 견적 창 답변 방식 (이 구역이 위 '검색 결과 답변 형식'·'3단계: 견적 안내'보다 우선) ===\n"
+    . "- 화면 오른쪽 아래의 작은 견적 창이다. 답 글은 3~5줄, 200자 안팎. 제품별 설명 줄·장단점 나열·'원하시는 제품을 선택해 주세요' 없이 짧게.\n"
+    . "- 고객이 자재와 수량(또는 설치 길이·면적)을 말하면 되묻지 말고 search_products 로 찾고, 같은 응답에서 조건에 가장 알맞은 1개를 add_to_cart 로 바로 담는다(quantity = 권장 수량 suggested_qty, 고객이 개수를 말했으면 그 수량). 담기 전에 묻지 않는다.\n"
+    . "- 담은 뒤 첫 줄: 무엇을 왜 골랐는지 한 줄('차량이 다니는 주차장 배수로라 중하중 300×1000 규격을 담았습니다.'), 이어서 수량 근거 한 줄('20m ÷ 1m = 20개'). 일반 규격으로 골랐으면 '우선 가장 일반적인 규격으로 담아 드렸습니다.'\n"
+    . "- 안전에 꼭 필요한 조건(그레이팅·블록의 차량 통행 여부 등 필수 항목)이 말에 없으면 담기 전에 그 하나만 한 줄로 묻는다. 차량·하중·두께·공공도로 규칙은 위 규칙 그대로 지킨다.\n"
+    . "- 고객이 '같이 넣어줘'·'추가'라고 하면 이미 담긴 것은 두고 더 담는다. 빼기·수량 바꾸기는 update_cart.\n"
+    . "- 배송 지역(시·도)을 고객이 말하면 add_to_cart·get_cart 의 region 에 넣는다. 아직 모르면 마지막 줄에 '현장 지역(시·도)을 알려 주시면 운반비까지 계산해 드립니다.' 한 줄.\n"
+    . "- 금액(단가·합계·운반비·부가세)은 창의 견적 표가 보여 주므로 글에 쓰지 않는다.\n"
+    . "- 맞는 제품이 없거나 가격 문의 상품이면 그 사실을 한 줄로 말하고 다른 규격을 지어내지 않는다.";
+
+/**
  * 상담 시스템 프롬프트와 이번 질문의 근거 묶음 생성 — API 호출 없음.
  * rag_process() 가 이 결과를 그대로 OpenAI 에 보낸다. 프롬프트 검증(scripts/testdb/dump-prompts.php)·테스트에서도 같은 함수를 쓴다.
  * @return array{system:string, categoryKey:string, ragDocs:array, legalDocs:array, roadCtx:string, scopes:array}
  */
-function rag_build_prompt(array $messages, array $recentCards = []): array
+function rag_build_prompt(array $messages, array $recentCards = [], string $style = 'consult'): array
 {
     // Stage 2: 카테고리 자동 감지 + 업체 공통 '현재 등록 상품'(판매 중 상품에서 자동 생성 — 상담 가이드 A안, 2026-11-17)
     // 기존 category_consult_guide(케이토목 상품명 기준 고정 문장)는 읽지 않는다(행은 DB 에 그대로 — 되돌리려면 rag_load_consult_guide 를 다시 붙임)
@@ -1165,6 +1179,9 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
     $system .= rag_legal_prompt_section($legalDocs);
     $system .= rag_drain_notice_prompt(rag_drain_notice_keys($messages)); // 옹벽 배수관·도로 횡단배수관 주의(해당 상황만, 없으면 빈 문자열)
     $system .= rag_recent_cards_prompt($recentCards, price_basis_label());   // 이 상담에서 고객 화면에 보인 직전 추천표(담기·비교 질문용) — 없으면 빈 문자열(기존과 같음)
+    if ($style === 'quick') {
+        $system .= RAG_QUICK_STYLE_PROMPT;   // 우측 하단 빠른 견적 창(2026-11-23 비교용) — 기본 상담('consult')은 그대로
+    }
 
     return [
         'system'      => $system,
@@ -2350,7 +2367,7 @@ function rag_strip_dangling_choice(string $text, array $events): string
  *
  * @return array{ok:bool, text:string, events:list<array>, error?:string}
  */
-function rag_process(array $messages, string $sid): array
+function rag_process(array $messages, string $sid, string $style = 'consult'): array
 {
     global $config;
 
@@ -2364,7 +2381,7 @@ function rag_process(array $messages, string $sid): array
 
     // 프롬프트·근거 생성(rag_build_prompt) — 내용은 분리 전과 동일
     $recentCards = rag_recent_cards($sid);
-    $prompt      = rag_build_prompt($messages, $recentCards);
+    $prompt      = rag_build_prompt($messages, $recentCards, $style);
     $system      = $prompt['system'];
     $categoryKey = $prompt['categoryKey'];
     $legalDocs   = $prompt['legalDocs'];

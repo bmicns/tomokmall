@@ -45,6 +45,7 @@ function mega_menu_grouped_cols(array $mids, array $groups): array
 function render_header(string $title, string $mode = 'normal'): void
 {
     global $config;
+    $GLOBALS['__layout_mode'] = $mode;   // render_footer 가 화면 종류를 알게(우측 하단 빠른 견적 창은 AI 상담 화면에서 빼기)
 
     $path    = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 
@@ -649,7 +650,54 @@ document.addEventListener('DOMContentLoaded', () => {
     })();
 });
 </script>
+<?php render_quick_chat(); ?>
 </body>
 </html>
+    <?php
+}
+
+/**
+ * 우측 하단 'AI 빠른 견적' 창(케이토목식 짧은 상담, 비교용 — 사용자 결정 2026-11-23).
+ * 기능 스위치(app/features.php FEATURE_AI_QUICK_CHAT)에 맞는 사용자에게만, AI 상담 화면(chat)에서는 빼고 출력.
+ */
+function render_quick_chat(): void
+{
+    $user = current_user();
+    if (($GLOBALS['__layout_mode'] ?? '') === 'chat' || !ai_quick_chat_visible($user)) {
+        return;
+    }
+    $trial = FEATURE_AI_QUICK_CHAT === 'staff';
+    $v     = (string) @filemtime(__DIR__ . '/../public/assets/quick-chat.js') . (string) @filemtime(__DIR__ . '/../public/assets/quick-chat.css');
+    ?>
+<link rel="stylesheet" href="/assets/quick-chat.css?v=<?= e($v) ?>">
+<button type="button" class="qc-fab" id="qc-fab" aria-controls="qc-panel" aria-expanded="false">
+    <span class="qc-fab-icon" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 11h7M8.5 14h4"/></svg>
+    </span>
+    <span class="qc-fab-label">AI 빠른 견적</span>
+</button>
+<section class="qc-panel" id="qc-panel" role="dialog" aria-labelledby="qc-title" hidden>
+    <header class="qc-head">
+        <div>
+            <h2 class="qc-title" id="qc-title">AI 빠른 견적</h2>
+            <p class="qc-sub"><?= $trial ? '관리자·직원 시험 중 · ' : '' ?>자재·규격·수량을 한 번에 적어 주세요</p>
+        </div>
+        <div class="qc-head-btns">
+            <button type="button" class="qc-icon-btn" id="qc-new" title="새 대화">새 대화</button>
+            <button type="button" class="qc-icon-btn qc-close" id="qc-close" aria-label="닫기">&times;</button>
+        </div>
+    </header>
+    <div class="qc-body" id="qc-body" aria-live="polite"></div>
+    <form class="qc-form" id="qc-form">
+        <label class="qc-sr" for="qc-input">질문</label>
+        <textarea id="qc-input" rows="2" maxlength="200" placeholder="예: 아파트 주차장 배수로 그레이팅 폭 300, 20m, 차가 다녀요"></textarea>
+        <div class="qc-form-row">
+            <span class="qc-count" id="qc-count">0 / 200</span>
+            <button type="submit" class="qc-send" id="qc-send">보내기</button>
+        </div>
+        <p class="qc-disclaimer">AI 답변에는 오류가 있을 수 있습니다. 금액은 예상이며 담당자 확인 후 확정됩니다.</p>
+    </form>
+</section>
+<script src="/assets/quick-chat.js?v=<?= e($v) ?>"></script>
     <?php
 }
