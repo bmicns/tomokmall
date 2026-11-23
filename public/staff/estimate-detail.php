@@ -21,7 +21,7 @@ $estimate = $est->fetch();
 if (!$estimate) { header('Location: /staff/index.php'); exit; }
 
 $itemSt = db()->prepare(
-    'SELECT ei.*, p.name AS product_name, p.spec, p.brand, p.price_b2b, p.price_b2c
+    'SELECT ei.*, p.name AS product_name, p.spec, p.brand, p.price_b2b, p.price_b2c, p.is_active AS product_active
      FROM estimate_items ei
      JOIN products p ON p.id = ei.product_id
      WHERE ei.estimate_id = :id ORDER BY ei.id'
@@ -112,7 +112,7 @@ render_staff_header("견적 #{$id} 상세", 'estimates');
                     $lineTotal = $dispPrice * (int)$it['quantity'];
                     ?>
                     <tr data-item-id="<?= (int)$it['id'] ?>">
-                        <td style="font-weight:600;max-width:140px"><?= $h($it['product_name']) ?></td>
+                        <td style="font-weight:600;max-width:140px<?= (int)($it['product_active'] ?? 1) === 1 ? '' : ';color:#9aa0a6' ?>"><?= $h($it['product_name']) ?><?php if ((int)($it['product_active'] ?? 1) !== 1): ?><span style="display:block;font-size:11px;font-weight:400;color:#6b7280">지금은 없는 상품입니다</span><?php endif; ?></td>
                         <td style="font-size:11px;color:#666;max-width:100px"><?= $h($it['spec']) ?></td>
                         <td style="text-align:right;color:#888"><?= number_format($reqPrice) ?>원</td>
                         <td>

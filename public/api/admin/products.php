@@ -27,7 +27,11 @@ require_admin();
 const KTOMOK_ROWS_WHERE = "(p.external_source IS NULL OR (p.external_source <> 'syccrt' AND p.external_source NOT LIKE 'vendor-%'))";
 const KTOMOK_WEBROOT = __DIR__ . '/../..';   // 이미지 경로(/…)를 찾는 웹루트(public)
 // 상용콘크리트·업체 반영본(원본 = syc_products, 같은 출처 + 출처ID)
-const PUBLISHED_ROWS_WHERE = "(p.external_source = 'syccrt' OR p.external_source LIKE 'vendor-%')";
+// 업체 연결 상품 줄(사용자 결정 2026-11-17): 출처 = 그 업체 출처 코드 + 출처ID link-<원래 상품 id>, 원본 없이 이 표에만 있음 → 여기서 바로 고친다
+const LINK_ROWS_WHERE = "(p.external_id LIKE 'link-%')";
+const PUBLISHED_ROWS_WHERE = "((p.external_source = 'syccrt' OR p.external_source LIKE 'vendor-%') AND NOT " . LINK_ROWS_WHERE . ")";
+// 이 API 가 products 에서 바로 고치는 행 = 케이토목 행 + 업체 연결 상품 줄
+const OWN_ROWS_WHERE = "(" . KTOMOK_ROWS_WHERE . " OR " . LINK_ROWS_WHERE . ")";
 
 /**
  * 저장 뒤 규격 축 새 칸(spec_code·dim_*)을 지금 규격 원문 기준으로 다시 계산(app/spec_axes.php).
@@ -97,12 +101,29 @@ function admin_products_publish(PDO $pdo): array
 }
 
 /**
+ * 활성으로 바꿔도 되는지: 비활성 업체 상품(업체를 먼저 다시 활성으로 — 2026-11-17)과
+ * 업체 연결을 삭제(공급 제외)한 업체 상품 줄(품목별 업체정보에서 그 업체를 다시 추가한 뒤)은 막는다. 안 되면 InvalidArgumentException
+ */
+function admin_products_assert_activatable(PDO $pdo, string $where, array $params): void
+{
+    product_assert_no_inactive_vendor($pdo, 'products p', $where, $params, 'p.external_source');
+    $gone = $pdo->prepare("SELECT COUNT(*) FROM products p WHERE ({$where}) AND " . LINK_ROWS_WHERE . "
+                           AND NOT EXISTS (SELECT 1 FROM product_vendors pv JOIN vendors v ON v.id = pv.vendor_id
+                                           WHERE " . vendor_source_sql($pdo, 'v') . " = p.external_source AND CONCAT('link-', pv.product_id) = p.external_id)");
+    $gone->execute($params);
+    $g = (int) $gone->fetchColumn();
+    if ($g > 0) { throw new \InvalidArgumentException("업체 연결을 삭제한 상품 {$g}개가 들어 있어 활성으로 바꿀 수 없습니다. 품목별 업체정보에서 그 업체를 다시 추가해 주세요."); }
+}
+
+/**
  * 활성/비활성 바꾸기: $where(products p 조건)에 맞는 행 중 케이토목 행은 products 를, ($all 일 때) 반영본은 원본 syc_products 를 바꾼다.
  * 반영본을 products 에서만 바꾸면 다음 고객 화면 반영 때 원본 값으로 되돌아가므로 원본을 바꾼다. @return [바뀐 행 수, 원본을 바꿨는지]
  */
 function admin_products_set_active(PDO $pdo, string $where, array $params, int $val, bool $all): array
 {
-    $up = $pdo->prepare("UPDATE products p SET p.is_active = :val WHERE ({$where}) AND " . KTOMOK_ROWS_WHERE);
+    // 비활성 업체 상품은 활성으로 바꾸지 않음(업체를 먼저 다시 활성으로 — 사용자 결정 2026-11-17, app/product_sources.php)
+    if ($val === 1) { admin_products_assert_activatable($pdo, $where, $params); }
+    $up = $pdo->prepare("UPDATE products p SET p.is_active = :val WHERE ({$where}) AND " . OWN_ROWS_WHERE);
     $up->execute(['val' => $val] + $params);
     $changed = $up->rowCount();
     $src = 0;
@@ -134,7 +155,7 @@ try {
                        p.image_url, p.image_thumb_url, p.image_spec_url, p.is_active, p.category_id, p.external_id,
                        c.name AS cat_name,
                        p.external_source,
-                       CASE WHEN " . PUBLISHED_ROWS_WHERE . " THEN 'syc' ELSE 'products' END AS store
+                       CASE WHEN " . PUBLISHED_ROWS_WHERE . " THEN 'syc' WHEN " . LINK_ROWS_WHERE . " THEN 'link' ELSE 'products' END AS store
                 FROM products p
                 JOIN categories c ON c.id = p.category_id
                 WHERE {$whereStr}
@@ -145,7 +166,7 @@ try {
         $products = $st->fetchAll();
         $vendorNames = [];   // vendor-<id> → 업체 목록 이름(표가 없으면 출처 코드 그대로)
         try {
-            foreach (db()->query('SELECT id, name FROM vendors') as $v) { $vendorNames[product_source_vendor_code((int) $v['id'])] = (string) $v['name']; }
+            foreach (product_sources(db()) as $src) { $vendorNames[$src['code']] = $src['name']; }   // 출처 코드 → 업체 이름(상용콘크리트·케이토목 포함, S25)
         } catch (\PDOException $e) {
             error_log('[api/admin/products] vendors 표를 읽지 못함: ' . $e->getCode());
         }
@@ -155,7 +176,7 @@ try {
             $pr['price_customer']  = $pb['customer'];
             $pr['price_corporate'] = $pb['corporate'];
             $es = (string) ($pr['external_source'] ?? '');
-            $pr['src_name'] = $es === PRODUCT_SOURCE_SYC ? '상용콘크리트' : ($pr['store'] === 'syc' ? ($vendorNames[$es] ?? $es) : '케이토목');
+            $pr['src_name'] = $pr['store'] !== 'products' ? ($vendorNames[$es] ?? $es) : ($vendorNames[$es] ?? $vendorNames[PRODUCT_SOURCE_KTOMOK] ?? '케이토목');
             $pr['src_code'] = $pr['store'] === 'syc' ? $es : PRODUCT_SOURCE_KTOMOK;   // 반영본 수정 = 원본(syc_products)을 출처 + 출처ID 로 찾아 엶
             if ($pr['store'] !== 'syc') { unset($pr['external_id']); }
             unset($pr['external_source']);
@@ -236,12 +257,19 @@ try {
 
             // 활성 상태는 PRODUCT_ACTIVE_TOGGLE_ENABLED 가 true 일 때만 반영. 케이토목 행만(반영본은 원본 수정 — api/admin/syc-products.php update)
             $activeSql = PRODUCT_ACTIVE_TOGGLE_ENABLED ? ', is_active=?' : '';
+            $pdo = db();
+            $cur = $pdo->prepare('SELECT p.is_active, p.external_source, p.external_id, (' . LINK_ROWS_WHERE . ') AS is_link FROM products p WHERE p.id = ?');
+            $cur->execute([$id]);
+            $curRow = $cur->fetch();
+            if (PRODUCT_ACTIVE_TOGGLE_ENABLED && $curRow && (int)($body['is_active'] ?? 1) === 1 && !(int)$curRow['is_active']) {
+                admin_products_assert_activatable($pdo, 'p.id = :aid', ['aid' => $id]);
+            }
             $imgs = admin_products_image_inputs($body);
             $imgSql = implode('', array_map(static fn($c) => ", {$c}=?", array_keys($imgs)));
             $st = db()->prepare(
                 "UPDATE products p SET category_id=?, name=?, brand=?, spec=?,
                  price_b2b=?, price_b2c=?, cost_price=?{$imgSql}{$activeSql}
-                 WHERE p.id=? AND " . KTOMOK_ROWS_WHERE
+                 WHERE p.id=? AND " . OWN_ROWS_WHERE
             );
             $st->execute([
                 (int)($body['category_id'] ?? 0),
@@ -255,6 +283,12 @@ try {
                 ...(PRODUCT_ACTIVE_TOGGLE_ENABLED ? [(int)($body['is_active'] ?? 1)] : []),
                 $id,
             ]);
+            // 업체 연결 상품 줄: 매입가 = 그 업체 공급단가(한 값) — 공급단가도 같이 고친다(사용자 결정 2026-11-17)
+            if ($curRow && (int)$curRow['is_link'] && preg_match('/^link-(\d+)$/', (string)$curRow['external_id'], $lm)) {
+                $pdo->prepare('UPDATE product_vendors pv JOIN vendors v ON v.id = pv.vendor_id SET pv.supply_price=?
+                               WHERE ' . vendor_source_sql($pdo, 'v') . ' = ? AND pv.product_id=?')
+                    ->execute([max(0, (int)($body['cost_price'] ?? 0)), (string)$curRow['external_source'], (int)$lm[1]]);
+            }
             admin_product_sync_spec_axes($id);
             echo json_encode(['ok' => true]);
             break;
@@ -351,6 +385,7 @@ try {
             echo json_encode(['ok' => false, 'error' => '알 수 없는 action']);
     }
 } catch (\InvalidArgumentException $e) {
+    if (db() && db()->inTransaction()) { db()->rollBack(); }   // 검사에서 멈춘 트랜잭션(set_active_filter) 정리
     // 입력 검증 실패: HTTP 200 + ok:false (닷홈 Apache 가 4xx 본문을 HTML 오류 페이지로 바꿔 JSON 문구가 사라짐)
     echo json_encode(['ok' => false, 'error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
 } catch (\Throwable $e) {
