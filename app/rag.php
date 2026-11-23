@@ -1138,8 +1138,15 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "  → note가 없을 때만: '해당 조건의 제품을 찾지 못했습니다. 용도나 재질을 알려주시면 다시 찾아드리겠습니다.' 후 검색어를 바꿔 1회 재시도.\n"
         . "  → 결과에 alternatives(같은 두께로 등록된 다른 포장 블록 이름)가 있으면, 같은 턴에서 그 이름들을 queries 로 같은 spec_mm·spec_strict·area_m2 와 함께 search_products 를 다시 호출해 표를 보여준다(더 얇은 두께로 바꾸지 않는다).\n"
         . "【3단계: 견적 안내】\n"
-        . "- 고객이 담기 원하면 add_to_cart 호출. quantity 는 답변에서 안내한 권장 수량(suggested_qty)을 쓰고, 고객이 다른 수량을 말하면 그 수량.\n"
-        . "- 완료 후: '견적요청하기 버튼을 눌러 신청해 주세요.' 한 줄만 출력.\n"
+        . (ai_quote_card_enabled()   // 견적 카드 스위치(app/features.php) — 끄면 반영 전 문장 그대로
+            ? ""
+            . "- 고객이 표에서 제품을 고르면(예: '이걸로 할게요') '이 제품으로 견적서에 담을까요? 배송 지역(시·도)을 알려 주시면 예상 운임까지 계산해 드립니다.'처럼 담을지 묻는다. 고객이 담아 달라고 하기 전에는 add_to_cart 를 호출하지 않는다.\n"
+            . "- 고객이 담기 원하면 add_to_cart 호출. quantity 는 답변에서 안내한 권장 수량(suggested_qty)을 쓰고, 고객이 다른 수량을 말하면 그 수량. 고객이 배송 지역을 말했으면 region 에 시·도를 넣는다.\n"
+            . "- 담은 뒤 배송 지역만 알려 주면 get_cart 를 region 과 함께 호출한다. 담긴 제품을 빼거나 수량을 바꿔 달라고 하면 update_cart(빼기 = quantity 0). 고객이 말한 제품만 담고·빼고·바꾼다.\n"
+            . "- 완료 후: 견적 카드(품목·상품 합계·예상 운임·부가세·최종 예상 금액)가 화면에 보이므로 금액을 다시 나열하지 않는다. '견적서에 담았습니다. 견적요청하기 버튼을 눌러 신청해 주세요.'처럼 짧게. 도구 결과 quote_note 의 안내(배송 지역 묻기 등)는 한 줄로 덧붙인다. 금액을 말해야 하면 도구 결과 quote 의 값만 쓴다.\n"
+            : ""
+            . "- 고객이 담기 원하면 add_to_cart 호출. quantity 는 답변에서 안내한 권장 수량(suggested_qty)을 쓰고, 고객이 다른 수량을 말하면 그 수량.\n"
+            . "- 완료 후: '견적요청하기 버튼을 눌러 신청해 주세요.' 한 줄만 출력.\n")
         . "- 연관 제품이 더 필요할 것 같으면 추가 검색 제안.";
 
     // Stage 2: 상담 품목의 현재 등록 상품(모든 업체) — 조회 실패·품목 없음이면 빈 문자열
@@ -2275,10 +2282,34 @@ function rag_tool_summary(string $name, array $d): string
             . ' · 국가표준 ' . (implode(', ', array_column($b['standards'] ?? [], 'ref')) ?: '없음') . ' · 등록 상품 ' . count($b['products'] ?? []) . '종'
             . (!empty($b['procurement']) ? ' · 조달 현황 ' . implode(', ', array_column($b['procurement'], 'name')) : '');
     }
-    if ($name === 'add_to_cart') {
-        return !empty($d['success']) || !empty($d['ok']) ? '담기 성공' : '담기 실패: ' . mb_substr((string) ($d['error'] ?? json_encode($d, JSON_UNESCAPED_UNICODE)), 0, 60);
+    if ($name === 'add_to_cart' || $name === 'update_cart') {
+        $ok = !empty($d['success']) || !empty($d['ok']);
+        $label = $name === 'add_to_cart' ? '담기' : (!empty($d['removed']) ? '빼기' : '수량 변경');
+        return ($ok ? "{$label} 성공" : "{$label} 실패: " . mb_substr((string) ($d['error'] ?? json_encode($d, JSON_UNESCAPED_UNICODE)), 0, 60))
+            . ($ok ? rag_quote_summary($d) : '');
+    }
+    if ($name === 'get_cart') {
+        return '견적서 ' . (int) ($d['count'] ?? 0) . '개' . rag_quote_summary($d);
     }
     return mb_substr(json_encode($d, JSON_UNESCAPED_UNICODE) ?: '', 0, 80);
+}
+
+/** 견적 카드 요약(도구 로그용) — 지역·운임 상태 (순수 함수) */
+function rag_quote_summary(array $d): string
+{
+    $q = $d['quote'] ?? null;
+    if (!is_array($q)) { return ''; }
+    return ' · 지역 ' . ($q['region'] ?? '없음') . ' · 운임 ' . (string) ($q['freight_text'] ?? '')
+        . (!empty($d['region_error']) ? ' · 지역 해석 실패' : '');
+}
+
+/** 견적 카드(quote_draft) 이벤트는 마지막 것만 남긴다 (순수 함수) */
+function rag_last_quote_only(array $events): array
+{
+    $last = null;
+    foreach ($events as $i => $ev) { if (($ev['type'] ?? '') === 'quote_draft') { $last = $i; } }
+    if ($last === null) { return $events; }
+    return array_values(array_filter($events, static fn($ev, $i) => ($ev['type'] ?? '') !== 'quote_draft' || $i === $last, ARRAY_FILTER_USE_BOTH));
 }
 
 /** 답변이 '제품을 찾아/검색해 드리겠다'는 약속으로 끝나는지 (순수 함수) — 도구 호출 없이 끝나면 손님이 결과 없이 기다리게 됨 */
@@ -2516,6 +2547,8 @@ function rag_process(array $messages, string $sid): array
             return ['ok' => false, 'text' => '', 'events' => $events, 'tools' => $toolLog, 'error' => '답변을 만들지 못했습니다. 다시 시도해 주세요.'];
         }
     }
+
+    $events = rag_last_quote_only($events);   // 한 턴에 여러 개 담으면 견적 카드는 마지막(모두 담긴 상태) 하나만
 
     if (trim($responseText) === '' && $preToolText !== '') {
         $responseText = $preToolText;

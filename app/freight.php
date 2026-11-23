@@ -208,3 +208,77 @@ function freight_estimate_lines(array $lines, string $dest): array
         'origins'  => array_map('strval', array_keys($kgByOrigin)),
     ];
 }
+
+// 시도 정식·흔한 이름 → FREIGHT_SIDO_COORDS 키 (상담에서 고객이 말한 배송 지역 해석용)
+const FREIGHT_SIDO_ALIASES = [
+    '서울특별시' => '서울', '서울시' => '서울',
+    '부산광역시' => '부산', '부산시' => '부산',
+    '대구광역시' => '대구', '대구시' => '대구',
+    '인천광역시' => '인천', '인천시' => '인천',
+    '광주광역시' => '광주',   // '광주시'는 경기 광주시와 헷갈려 받지 않음
+    '대전광역시' => '대전', '대전시' => '대전',
+    '울산광역시' => '울산', '울산시' => '울산',
+    '세종특별자치시' => '세종', '세종시' => '세종',
+    '경기도' => '경기',
+    '강원도' => '강원', '강원특별자치도' => '강원',
+    '충청북도' => '충북', '충청남도' => '충남',
+    '전라북도' => '전북', '전북특별자치도' => '전북', '전라남도' => '전남',
+    '경상북도' => '경북', '경상남도' => '경남',
+    '제주도' => '제주', '제주특별자치도' => '제주',
+];
+
+/**
+ * 배송 지역 말 → 시도 키(FREIGHT_SIDO_COORDS). 공백 무시, 정식 이름('경기도'·'충청남도')·'시' 붙은 이름 허용.
+ * 시·군·구 이름('수원')이나 모르는 이름은 null — 추측하지 않는다(호출부가 시·도를 다시 묻게).
+ */
+function freight_region_normalize(string $text): ?string
+{
+    $t = preg_replace('/\s+/u', '', $text) ?? '';
+    if ($t === '') { return null; }
+    if (isset(FREIGHT_SIDO_COORDS[$t])) { return $t; }
+    return FREIGHT_SIDO_ALIASES[$t] ?? null;
+}
+
+/**
+ * 견적 품목(상품 id → 수량)의 운임 계산 줄 — 판매 중 상품의 중량(spec)·출하권역(카테고리 대/중분류). IN(...) 단일 쿼리.
+ * 견적 화면 운임 API(public/api/freight-cart.php)와 AI 상담 견적 카드(app/quote_draft.php)가 같은 줄을 쓴다.
+ *
+ * @param  array<int,int> $qtyById [product_id => 수량]
+ * @return array{lines:list<array{unit_kg:float,qty:int,origin:string}>, missing_names:list<string>, found:int}|null  조회 실패 시 null
+ */
+function freight_cart_lines(\PDO $pdo, array $qtyById): ?array
+{
+    if (!$qtyById) { return ['lines' => [], 'missing_names' => [], 'found' => 0]; }
+    try {
+        $ids = array_map('intval', array_keys($qtyById));
+        $ph  = implode(',', array_fill(0, count($ids), '?'));
+        $st  = $pdo->prepare(
+            "SELECT p.id, p.name, p.spec,
+                    mid.name  AS mid_name,
+                    root.name AS root_name
+             FROM products p
+             JOIN categories c         ON c.id    = p.category_id
+             LEFT JOIN categories mid  ON mid.id  = c.parent_id
+             LEFT JOIN categories root ON root.id = mid.parent_id
+             WHERE p.id IN ({$ph}) AND p.is_active = 1"
+        );
+        $st->execute($ids);
+        $rows = $st->fetchAll();
+    } catch (\Throwable $e) {
+        error_log('[freight-cart] ' . $e->getMessage());
+        return null;
+    }
+
+    $lines        = [];
+    $missingNames = [];
+    foreach ($rows as $p) {
+        $unitKg = freight_unit_kg(parse_spec_field((string) $p['spec'])['weight']);
+        if ($unitKg <= 0) { $missingNames[] = (string) $p['name']; }
+        $lines[] = [
+            'unit_kg' => $unitKg,
+            'qty'     => (int) $qtyById[(int) $p['id']],
+            'origin'  => freight_origin_sido($p['root_name'] ?? null, $p['mid_name'] ?? null),
+        ];
+    }
+    return ['lines' => $lines, 'missing_names' => $missingNames, 'found' => count($rows)];
+}

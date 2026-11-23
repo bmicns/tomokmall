@@ -1608,5 +1608,42 @@ ok('이미지 경로 칸: 없는 파일·이미지 아닌 파일·../ 거부', $
 array_map('unlink', glob($wr . '/uploads/products/ktomok/*')); rmdir($wr . '/uploads/products/ktomok'); rmdir($wr . '/uploads/products'); rmdir($wr . '/uploads'); rmdir($wr);
 
 
+echo "[상담 견적 카드 — 배송 지역 해석·금액 (app/quote_draft.php, 2026-11-23 A8)]\n";
+eq('경기도 → 경기',         freight_region_normalize('경기도'), '경기');
+eq('충청 남도(공백) → 충남', freight_region_normalize('충청 남도'), '충남');
+eq('전북특별자치도 → 전북',  freight_region_normalize('전북특별자치도'), '전북');
+eq('서울 → 서울',           freight_region_normalize(' 서울 '), '서울');
+eq('수원(시·군) → null',     freight_region_normalize('수원'), null);
+eq('광주시(헷갈림) → null',  freight_region_normalize('광주시'), null);
+$qItems = [
+    ['product_id' => 1, 'name' => 'A', 'spec' => '300×300', 'quantity' => 10, 'unit_price' => 12000, 'subtotal' => 120000],
+    ['product_id' => 2, 'name' => 'B', 'spec' => '',        'quantity' => 2,  'unit_price' => 0,     'subtotal' => 0],
+];
+$q = quote_draft_build($qItems, ['status' => 'ok', 'freight' => 150000, 'km' => 40.2, 'total_kg' => 900, 'origins' => ['경기']], '서울');
+eq('운임 있음: 상품 합계(문의 품목 제외)', $q['goods_total'], 120000);
+eq('운임 있음: 부가세 = (상품+운임)×10%', $q['vat'], 27000);
+eq('운임 있음: 최종 = 297,000', $q['final'], 297000);
+eq('운임 있음: 꼬리 = 문의 품목만', $q['final_suffix'], ' + 문의 품목');
+eq('운임 있음: 운임 글', $q['freight']['text'], '150,000원');
+ok('문의 품목 안내', $q['has_inquiry'] && count($q['notes']) === 3);
+$q = quote_draft_build([$qItems[0]], ['status' => 'none'], null);
+eq('지역 없음: 운임 0원 아님(묻기 문장)', $q['freight']['text'], '배송 지역을 알려 주시면 계산해 드립니다');
+eq('지역 없음: 부가세 = 상품만', $q['vat'], 12000);
+eq('지역 없음: 꼬리 = 운임 별도', $q['final_suffix'], ' + 운임 별도');
+$q = quote_draft_build([$qItems[0]], ['status' => 'missing_weight', 'missing' => 1, 'missing_names' => ['A']], '경기');
+ok('중량 없음: 운임 별도 확인, 최종에 운임 없음', str_starts_with($q['freight']['text'], '별도 확인') && $q['final'] === 132000 && $q['final_suffix'] === ' + 운임 별도');
+$q = quote_draft_build([$qItems[0]], ['status' => 'negotiate'], '제주');
+eq('제주: 별도 협의', $q['freight']['text'], '별도 협의');
+$q = quote_draft_build([$qItems[1]], ['status' => 'ok', 'freight' => 50000], '서울');
+ok('가격 문의 품목만: 최종 = 담당자 문의(null)', $q['final'] === null && $q['vat'] === null && $q['final_suffix'] === '');
+$q = quote_draft_build([], ['status' => 'ok', 'freight' => 1], '서울');
+eq('품목 없음: empty', $q['freight']['status'], 'empty');
+$q = quote_draft_build([$qItems[0]], ['status' => '이상한값'], '서울');
+eq('모르는 상태 → error(별도 확인)', $q['freight']['text'], '별도 확인');
+$evs = [['type' => 'cart_update'], ['type' => 'quote_draft', 'n' => 1], ['type' => 'cart_update'], ['type' => 'quote_draft', 'n' => 2], ['type' => 'legal_sources']];
+$kept = rag_last_quote_only($evs);
+ok('한 턴 견적 카드는 마지막 하나만', count($kept) === 4 && $kept[2]['n'] === 2 && $kept[3]['type'] === 'legal_sources');
+eq('견적 카드 없으면 그대로', rag_last_quote_only([['type' => 'a']]), [['type' => 'a']]);
+
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

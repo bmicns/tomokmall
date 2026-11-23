@@ -55,44 +55,19 @@ if (!$pdo) {
     exit;
 }
 
-try {
-    // 상품 중량(spec) + 카테고리 대/중분류(출하권역 판정용) — IN(...) 단일 쿼리
-    $ids = array_keys($qtyById);
-    $ph  = implode(',', array_fill(0, count($ids), '?'));
-    $st  = $pdo->prepare(
-        "SELECT p.id, p.name, p.spec,
-                mid.name  AS mid_name,
-                root.name AS root_name
-         FROM products p
-         JOIN categories c         ON c.id    = p.category_id
-         LEFT JOIN categories mid  ON mid.id  = c.parent_id
-         LEFT JOIN categories root ON root.id = mid.parent_id
-         WHERE p.id IN ({$ph}) AND p.is_active = 1"
-    );
-    $st->execute($ids);
-    $rows = $st->fetchAll();
-} catch (\Throwable $e) {
-    error_log('[freight-cart] ' . $e->getMessage());
+$cl = freight_cart_lines($pdo, $qtyById);   // 상품 중량(spec) + 출하권역 — app/freight.php (AI 상담 견적 카드와 같은 계산)
+if ($cl === null) {
     echo json_encode(['ok' => false, 'error' => '조회 실패'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-if (count($rows) !== count($qtyById)) {
+if ($cl['found'] !== count($qtyById)) {
     echo json_encode(['ok' => false, 'error' => '판매 중이 아닌 품목이 포함되어 있습니다. 화면을 새로고침해 주세요.'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-$lines        = [];
-$missingNames = [];
-foreach ($rows as $p) {
-    $unitKg = freight_unit_kg(parse_spec_field((string) $p['spec'])['weight']);
-    if ($unitKg <= 0) { $missingNames[] = (string) $p['name']; }
-    $lines[] = [
-        'unit_kg' => $unitKg,
-        'qty'     => $qtyById[(int) $p['id']],
-        'origin'  => freight_origin_sido($p['root_name'] ?? null, $p['mid_name'] ?? null),
-    ];
-}
+$lines        = $cl['lines'];
+$missingNames = $cl['missing_names'];
 
 $est = freight_estimate_lines($lines, $dest);
 if ($est['status'] === 'invalid') {
