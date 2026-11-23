@@ -67,3 +67,4 @@ SELECT reviewer, reviewed_at, COUNT(*) AS n FROM rag_documents WHERE author = '�
 | 아파트 단지 주차장 블록 80T면 되나요? | 저희 권장 80T, 주차장법 카드가 붙을 수 있음, 공공도로 기준 없음 |
 | 시청에서 발주한 도로 공사인데 차도에 블록 깔려면 두께 몇 mm 써야 해요? | KDS/KCS 44 50 25·100mm 단정 없이 설계도서·시방서 두께 확인 안내(운영 V21·V22 비활성) |
 | 벤치플룸관이 뭐예요? | 제조사 자료 없음 + 'KS F 4010(철근 콘크리트 플룸 및 벤치 플룸)' + 토목몰 등록 규격, '확인된 기본 정보' 카드 |
+| 2026-11-23 | 동아산업 분류 연결(DB·코드) | main 병합 `469189f`(작업 브랜치 `claude/project-thread-vpuxgt` — 임시 가격 엑셀 S28·분류 연결 S29). DB: 사용자가 phpMyAdmin 에서 `database/20261123_dacity_syc_categories_phpmyadmin.sql` 실행(`syc_categories` dac-… 212행 확인, 마진율 칸 없음). 코드: 원격 관리 `G261123-H9KZD`(관리자 화면 승인) → op 1774 `app/catalog_map.php`·`app/syc_publish.php` 교체(php lint ok, 서버 = 커밋 해시 같음) | `469189f` | `/`·`/products.php?category=21` 200, 배포 직전 운영 '원본 없는 반영본' 0행 확인(반영 때 상용콘크리트 숨김 없음) | 완료 — 동아산업 일괄 등록은 사용자(업체 id 7) |
