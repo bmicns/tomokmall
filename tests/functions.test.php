@@ -1538,6 +1538,19 @@ eq('상담 품목 → 공통 분류 품명(일반 명칭 규칙, 몰드·집게�
     consult_kind_matches('pavement', '인조화강블록(투수)'), consult_kind_matches('pavement', '보강토블록(줄무늬)'), consult_kind_matches('pavement', '콘크리트경계석'),
     consult_kind_matches('없는품목', '그레이팅')],
     [true, true, true, false, false, false, true, true, false, false, true, false, true, false, true, false]);
+eq('보도블록·경계석 품목에 화강경계(도로·경사·낮춤) 포함', [consult_kind_matches('pavement', '화강경계도로'), consult_kind_matches('pavement', '화강경계낮춤')], [true, true]);
+$on = [1 => '스텐볼라드', 2 => '탄성볼라드(HK)', 3 => '부직포', 4 => '중력식옹벽블록', 5 => '인조화강블록', 6 => '보도블록', 7 => '잔디블록', 8 => '타일'];
+eq('기타 자재: 질문 단어로 품명 고르기(조사 떼기·괄호 무시·흔한 말 제외)', [
+    consult_other_pick('볼라드 설치하려고 하는데 추천해줘', $on), consult_other_pick('부직포를 깔려고요', $on),
+    consult_other_pick('옹벽블록 쌓으려는데', $on), consult_other_pick('설치 가격 문의', $on), consult_other_pick('타일', $on),
+    consult_name_core('스텐볼라드 U형(HK)'), consult_text_words('볼라드는 2개 설치')],
+    [[1, 2], [3], [4], [], [8], '스텐볼라드 U형', ['볼라드']]);
+$wide = array_combine(range(1, 13), array_map(static fn($i) => "블록{$i}형", range(1, 13)));
+eq('기타 자재: 너무 넓은 단어(품명 12개 초과)로는 고르지 않음', [count(consult_other_pick('블록 추천', $wide)), consult_other_pick('블록3형 추천', $wide)], [0, [3]]);
+$op = consult_catalog_prompt('other', [['name' => '스텐볼라드', 'parent' => '기타 철재', 'count' => 16, 'vendors' => 2, 'load' => ['truck' => 0, 'car' => 0, 'pedestrian' => 0, 'none' => 0], 'load_relevant' => false]]);
+eq('기타 자재 프롬프트: 질문한 자재 목록 + 빠진 품명은 검색으로 확인 / 조회 실패·5개 품목 밖 키는 구역 없음', [
+    str_contains($op, '=== 현재 등록 상품: 질문한 자재'), str_contains($op, '스텐볼라드(기타 철재): 상품 16개'), str_contains($op, '빠진 품명이 있음'),
+    consult_catalog_prompt('other', null), consult_catalog_prompt('없는키', [])], [true, true, true, '', '']);
 $cr = [
     ['category_id' => 7, 'category_name' => '그레이팅수로용', 'parent_name' => '스틸제품', 'name' => '그레이팅수로용', 'spec' => '', 'external_source' => 'ktomok'],
     ['category_id' => 7, 'category_name' => '그레이팅수로용', 'parent_name' => '스틸제품', 'name' => '스틸그레이팅', 'spec' => '', 'external_source' => 'vendor-3'],

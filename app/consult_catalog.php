@@ -20,7 +20,7 @@ const CONSULT_KIND_CATEGORY_RULES = [
     'pe_pipe'  => ['/배수관|이중벽관|다중벽관|흄관|VR관|레진관|PVC관|파형강관|주름관|유공관|수도관|직관|칼라관|하수관|우수관/u', '/소켓|분기구|몰드|수로관|캡|받이/u', '배수관·관류'],
     'manhole'  => ['/맨홀|집수정|받이|우수통|노바시/u', '/몰드|뚜껑|그레이팅|사다리/u', '맨홀·집수정'],
     'culvert'  => ['/수로관|플륨관|측구|암거|개거|생태탈출로|배수로/u', '/몰드|집게|뚜껑|그레이팅|집수정|분기구/u', '수로관·암거'],
-    'pavement' => ['/블[록럭]|경계석|판석|점토/u', '/집게|축조|보강토|옹벽|호안|속빈|벽돌|빗물받이|큐블록|디자인블록/u', '보도블록·경계석'],
+    'pavement' => ['/블[록럭]|경계석|화강경계|판석|점토/u', '/집게|축조|보강토|옹벽|호안|속빈|벽돌|빗물받이|큐블록|디자인블록/u', '보도블록·경계석'],
 ];
 
 /** 프롬프트에 넣는 품명 수 상한(상품 많은 순) — 프롬프트 길이 관리 */
@@ -42,11 +42,20 @@ function consult_kind_matches(string $kindKey, string $categoryName): bool
 function consult_catalog_rows(string $kindKey): ?array
 {
     if (!isset(CONSULT_KIND_CATEGORY_RULES[$kindKey])) { return null; }
+    return consult_catalog_rows_where(static fn(string $name): bool => consult_kind_matches($kindKey, $name));
+}
+
+/**
+ * 품명 조건($match: 품명 → 포함 여부)에 드는 판매 중 상품 행 (DB). 가격 칸은 읽지 않는다. 조회 실패면 null.
+ * $names 를 주면 품명 목록(활성 분류 이름)을 DB 대신 그것으로 고른다(호출 쪽에서 이미 읽은 경우).
+ */
+function consult_catalog_rows_where(callable $match, ?array $names = null): ?array
+{
     try {
         $pdo = db();
         $ids = [];
-        foreach ($pdo->query('SELECT id, name FROM categories WHERE is_active = 1') as $c) {
-            if (consult_kind_matches($kindKey, (string) $c['name'])) { $ids[] = (int) $c['id']; }
+        foreach ($names ?? consult_active_category_names() ?? [] as $id => $name) {
+            if ($match((string) $name)) { $ids[] = (int) $id; }
         }
         if ($ids === []) { return []; }
         $ph = implode(',', array_fill(0, count($ids), '?'));
@@ -71,6 +80,91 @@ function consult_catalog_rows(string $kindKey): ?array
     } catch (\Throwable $e) {
         return null;
     }
+}
+
+/** 활성 분류 id → 이름 (DB), 실패면 null */
+function consult_active_category_names(): ?array
+{
+    try {
+        $out = [];
+        foreach (db()->query('SELECT id, name FROM categories WHERE is_active = 1') as $c) { $out[(int) $c['id']] = (string) $c['name']; }
+        return $out;
+    } catch (\Throwable $e) {
+        return null;
+    }
+}
+
+/** 기타 자재: 질문 단어로 품명을 고를 때 버리는 흔한 말 (자재 이름이 아님) */
+const CONSULT_OTHER_STOPWORDS = ['설치', '추천', '가격', '제품', '자재', '문의', '견적', '구매', '주문', '사용', '시공', '얼마', '어떤', '어디', '규격', '사이즈',
+    '크기', '종류', '필요', '가능', '정도', '현장', '공사', '알려', '주세요', '해주세요', '있나요', '있어요', '싶어요', '하려고', '하는데', '건데', '때문'];
+/** 한 단어가 이보다 많은 품명에 걸리면(너무 넓은 말 — 블록·콘크리트 등) 그 단어로는 고르지 않는다 */
+const CONSULT_OTHER_MAX_NAMES_PER_WORD = 12;
+
+/** 품명의 핵심 이름 (순수 함수) — 괄호 부분을 뺀 이름. '스텐볼라드(HK)' → '스텐볼라드' */
+function consult_name_core(string $name): string
+{
+    return trim((string) preg_replace('/\(.*?\)|（.*?）/u', '', $name));
+}
+
+/** 질문 글의 단어 (순수 함수) — 2글자 이상, 끝의 조사 떼고, 숫자로 시작하는 말(2개·300mm)·흔한 말 뺌 */
+function consult_text_words(string $text): array
+{
+    $words = [];
+    foreach (preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($text)) ?: [] as $w) {
+        $w = (string) preg_replace('/(으로|에서|이랑|에는|이나|은|는|이|가|을|를|에|의|도|로|와|과|랑|만)$/u', '', $w);
+        if (mb_strlen($w) < 2 || preg_match('/^\d/u', $w) || in_array($w, CONSULT_OTHER_STOPWORDS, true)) { continue; }
+        $words[$w] = true;
+    }
+    return array_keys($words);
+}
+
+/**
+ * 기타 자재 상담(5개 품목 밖)에서 질문에 나온 자재의 품명 고르기 (순수 함수) — $names: id → 품명.
+ * 질문 글에 품명 핵심 이름이 그대로 있거나, 질문 단어가 품명 핵심 이름 안에 있으면 고른다('볼라드' → 스텐볼라드·탄성볼라드…).
+ * 너무 넓은 단어(품명 CONSULT_OTHER_MAX_NAMES_PER_WORD 개 초과)로는 고르지 않는다. @return list<int> 분류 id
+ */
+function consult_other_pick(string $text, array $names): array
+{
+    $lower = mb_strtolower($text);
+    $picked = [];
+    foreach ($names as $id => $name) {
+        $core = mb_strtolower(consult_name_core((string) $name));
+        if (mb_strlen($core) >= 2 && mb_strpos($lower, $core) !== false) { $picked[(int) $id] = true; }
+    }
+    foreach (consult_text_words($text) as $w) {
+        $hit = [];
+        foreach ($names as $id => $name) {
+            if (mb_strpos(mb_strtolower(consult_name_core((string) $name)), $w) !== false) { $hit[] = (int) $id; }
+        }
+        if ($hit !== [] && count($hit) <= CONSULT_OTHER_MAX_NAMES_PER_WORD) {
+            foreach ($hit as $id) { $picked[$id] = true; }
+        }
+    }
+    return array_keys($picked);
+}
+
+/** 상담의 고객 글 모음 (순수 함수) — rag_detect_category 와 같이 고객 메시지만 */
+function consult_user_text(array $messages): string
+{
+    $t = '';
+    foreach ($messages as $m) {
+        if (($m['role'] ?? '') === 'user') { $t .= ($m['content'] ?? '') . ' '; }
+    }
+    return $t;
+}
+
+/**
+ * 기타 자재(5개 품목 밖)의 '현재 등록 상품' 구역 (DB) — 질문에 나온 자재의 품명만. 고른 품명이 없거나 조회 실패면 ''.
+ */
+function consult_other_catalog_section(array $messages): string
+{
+    $names = consult_active_category_names();
+    if ($names === null || $names === []) { return ''; }
+    $ids = array_flip(consult_other_pick(consult_user_text($messages), $names));
+    if ($ids === []) { return ''; }
+    $rows = consult_catalog_rows_where(static fn(string $n): bool => true, array_intersect_key($names, $ids));
+    if ($rows === null || $rows === []) { return ''; }
+    return consult_catalog_prompt('other', consult_catalog_summary($rows));
 }
 
 /**
@@ -121,8 +215,8 @@ function consult_load_label(array $g): string
  */
 function consult_catalog_prompt(string $kindKey, ?array $summary): string
 {
-    if ($summary === null || !isset(CONSULT_KIND_CATEGORY_RULES[$kindKey])) { return ''; }
-    $label = CONSULT_KIND_CATEGORY_RULES[$kindKey][2];
+    if ($summary === null || ($kindKey !== 'other' && !isset(CONSULT_KIND_CATEGORY_RULES[$kindKey]))) { return ''; }
+    $label = $kindKey === 'other' ? '질문한 자재' : CONSULT_KIND_CATEGORY_RULES[$kindKey][2];
     $head = "\n\n=== 현재 등록 상품: {$label} (판매 중 상품에서 자동으로 만든 목록 — 모든 업체 공통) ===\n";
     if ($summary === []) {
         return $head
@@ -145,14 +239,14 @@ function consult_catalog_prompt(string $kindKey, ?array $summary): string
         . implode("\n", $lines) . "\n" . $more
         . "이 목록을 쓰는 규칙:\n"
         . "- search_products 검색어(query)는 위 품명(괄호 앞 이름)이나 그 일반 명칭으로 쓴다. 고객이 찾는 품명·재질이 위에 없으면 있다고 말하거나 권하지 말고"
-        . ($more !== '' ? " search_products 로 한 번 확인한 뒤(생략한 품명이 있음), 결과가 없으면" : '')
+        . ($more !== '' || $kindKey === 'other' ? " search_products 로 한 번 확인한 뒤(" . ($kindKey === 'other' ? '이 목록은 질문에 나온 말로 고른 것이라 빠진 품명이 있음' : '생략한 품명이 있음') . "), 결과가 없으면" : '')
         . " 사이트에 아직 등록되지 않았다고 알리고 견적요청하기로 안내한다.\n"
         . "- 하중 등급은 상품명·규격에 표기된 것만 근거다(위 '하중' 칸, 검색 결과의 load_check·load_grade). 등급 이름이나 톤수(예: T-25)를 지어내지 않는다.\n"
         . ($hasNoLoad ? "- '하중 표기 없음' 상품은 차량 통행에 적합하다고 말하지 않는다. 차량이 다니면 '하중 확인 필요'라고 알리고 견적 요청 때 확인한다고 안내한다.\n" : '')
         . "- 상품 수·업체 수는 고객이 물을 때만 말한다(업체 이름은 말하지 않는다).\n";
 }
 
-/** 상담 품목의 '현재 등록 상품' 구역 (DB) — rag_build_prompt 에서 호출 */
+/** 상담 품목의 '현재 등록 상품' 구역 (DB) — rag_build_prompt 에서 호출(기타 자재는 consult_other_catalog_section) */
 function consult_catalog_section(string $kindKey): string
 {
     if ($kindKey === '') { return ''; }

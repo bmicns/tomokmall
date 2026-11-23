@@ -984,7 +984,7 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
     // Stage 2: 카테고리 자동 감지 + 업체 공통 '현재 등록 상품'(판매 중 상품에서 자동 생성 — 상담 가이드 A안, 2026-11-17)
     // 기존 category_consult_guide(케이토목 상품명 기준 고정 문장)는 읽지 않는다(행은 DB 에 그대로 — 되돌리려면 rag_load_consult_guide 를 다시 붙임)
     $categoryKey = rag_detect_category($messages);
-    $catalogText = consult_catalog_section($categoryKey);
+    $catalogText = $categoryKey !== '' ? consult_catalog_section($categoryKey) : consult_other_catalog_section($messages);
 
     // RAG 문서 검색 — 마지막 사용자 메시지 기준
     $lastUserMsg = '';
