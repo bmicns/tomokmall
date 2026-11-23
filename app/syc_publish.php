@@ -252,7 +252,8 @@ function syc_catalog_switch(PDO $pdo, string $to, ?int $userId = null): array
 
 /**
  * 업체 상품 1행 → 공통 분류 id. 매핑 줄을 조건 종류 순서(모델 코드 → 옵션 → 상품명 → 전부)로 보고 처음 맞는 줄. 순수 함수
- * @param array<string,int> $stdIds 새 품명 slug('std-…') => categories.id, @param ?array $map 매핑(기본 CATALOG_STD_MAP)
+ * 매핑 줄이 없는 동아산업 분류(dac-<번호>)는 같은 번호의 케이토목 분류(catalog_dac_std_slug).
+ * @param array<string,int> $stdIds 공통 분류 slug('std-…'·'ktomok-…') => categories.id, @param ?array $map 매핑(기본 CATALOG_STD_MAP)
  */
 function catalog_std_category(string $vendorSlug, array $row, array $stdIds, ?array $map = null): ?int
 {
@@ -270,7 +271,8 @@ function catalog_std_category(string $vendorSlug, array $row, array $stdIds, ?ar
         if (!$hit) { continue; }
         return is_int($std) ? $std : ($stdIds[$std] ?? null);
     }
-    return null;
+    $dac = catalog_dac_std_slug($vendorSlug);          // 동아산업 dac-<번호> → ktomok-<번호>(S29)
+    return $dac !== null ? ($stdIds[$dac] ?? null) : null;
 }
 
 /**
@@ -298,7 +300,7 @@ function syc_publish_dims(array $p, array $axes): array
 function syc_publish_std_apply(PDO $pdo): array
 {
     $stdIds = [];
-    foreach ($pdo->query("SELECT id, slug FROM categories WHERE slug LIKE 'std-%'") as $r) { $stdIds[(string) $r['slug']] = (int) $r['id']; }
+    foreach ($pdo->query("SELECT id, slug FROM categories WHERE slug LIKE 'std-%' OR slug LIKE 'ktomok-%'") as $r) { $stdIds[(string) $r['slug']] = (int) $r['id']; }
     $need = array_unique(array_filter(array_map(static fn($m) => is_string($m[3]) ? $m[3] : null, CATALOG_STD_MAP)));
     $missing = array_values(array_diff($need, array_keys($stdIds)));
     if ($missing) { throw new RuntimeException('공통 분류 새 품명이 아직 DB 에 없습니다: ' . implode(', ', $missing) . ' (database/20261116_std_categories.sql)'); }
