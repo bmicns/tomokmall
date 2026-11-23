@@ -135,6 +135,13 @@ render_admin_header('제품관리', 'products');
 .bk-norm-tbl th{position:sticky;top:0;background:#f8f9fb;font-weight:700;white-space:nowrap}
 .bk-norm-tbl del{color:#9b1c1c}.bk-norm-tbl ins{color:#1b5e20;text-decoration:none;font-weight:600}
 .bk-norm-warn{margin:0;padding:8px 10px 8px 26px;border-radius:6px;background:#fff8e1;color:#7a5200;font-size:12px;line-height:1.6}
+.bk-auto select{width:100%;min-width:180px;min-height:36px;font-size:12px;font-family:inherit;border:1px solid #c5cad3;border-radius:6px;background:#fff}
+.bk-auto .bk-norm-tbl{max-height:300px}
+.bk-auto .bk-norm-tbl td{vertical-align:middle}
+.bk-how{display:inline-block;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap}
+.bk-how-sure,.bk-how-exact{background:#e8f5e9;color:#2e7d32}.bk-how-check,.bk-how-alias{background:#fff3cd;color:#7a5200}
+.bk-how-none{background:#fce4ec;color:#c62828}.bk-how-manual{background:#e8f0fe;color:#004EA1}.bk-how-skip,.bk-how-off{background:#eceff1;color:#546e7a}
+.bk-auto tr.bk-row-none td{background:#fff5f5}.bk-auto tr.bk-row-check td{background:#fffbea}
 .bk-norm-dl{align-self:flex-start;min-height:32px;padding:0 10px;border:1px solid #c5cad3;border-radius:6px;background:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
 .syc-bulkbar{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;margin:-4px 0 12px;font-size:13px}
 .syc-bulkbar label{display:inline-flex;align-items:center;gap:6px;min-height:36px;cursor:pointer}
@@ -451,6 +458,9 @@ const ACTIVE_TOGGLE = <?= PRODUCT_ACTIVE_TOGGLE_ENABLED ? 'true' : 'false' ?>;  
 function pubWarn(d) { if (d && d.publish_error) alert('고객 화면 반영 안 됨: ' + d.publish_error); }
 const ACTIVE_OFF_MSG = <?= json_encode(PRODUCT_ACTIVE_TOGGLE_OFF_MSG, JSON_UNESCAPED_UNICODE) ?>;
 const TPL_COLS = <?= json_encode($tplCols, JSON_UNESCAPED_UNICODE) ?>;
+// 업체 엑셀 칸 맞추기(2026-11-23): 고를 수 있는 칸과 이름(가격 칸은 자동으로 짐작하지 않음 — 직접 고름)
+const BK_COL_KEYS = <?= json_encode(syc_bulk_mappable_keys(), JSON_UNESCAPED_UNICODE) ?>;
+const BK_COL_LABEL = <?= json_encode($tplLabels + ['category_name' => '업체 분류명(분류 추천에 씀)', 'category_group' => '업체 중분류(분류 추천에 씀)', 'category_top' => '업체 대분류(참고)'], JSON_UNESCAPED_UNICODE) ?>;
 let curPage = 1, debTimer;
 
 function debounce() { clearTimeout(debTimer); debTimer = setTimeout(() => load(1), 380); }
@@ -607,10 +617,11 @@ function bkApi() { return isSyc() ? SYC_API : API; }
 function bkOpen() {
     bk.ex = {state:'empty'}; bk.norm = true;   // 자동 정리 기본 켬
     bk.src = srcCode(); bk.srcName = srcName(); bk.syc = isSyc();
+    if (bk.syc && !bk.std) fetch(`${SYC_API}?action=categories`).then(r => r.json()).then(d => { if (d.ok) { bk.std = d.std || []; bk.stdPath = Object.fromEntries(bk.std.map(c => [c.slug, c.path])); bkRender(); } }).catch(() => {});
     document.getElementById('bk-title').textContent = `${bk.srcName} 일괄 등록`;
     document.getElementById('bk-note').innerHTML = `엑셀을 올리면 <strong>${x(bk.srcName)}</strong> 상품을 한 번에 등록합니다. 새 상품은 <strong>비활성</strong>으로 저장됩니다.`
         + ` 이미 있는 상품은 엑셀 값으로 고칩니다(활성 상태 그대로) — 같은 상품 = 출처ID, 출처ID가 없으면 제품명·규격${bk.syc ? '·옵션' : ''}이 같은 상품. <strong>다른 업체 상품은 바뀌지 않습니다.</strong>`
-        + (bk.syc ? `<br>분류코드: <strong>분류코드 목록</strong>의 '고객 화면 분류' 코드를 적으면 그 분류에 바로 들어갑니다(업체 분류를 따로 만들 필요 없음).` : '')
+        + (bk.syc ? `<br><strong>업체에서 받은 엑셀을 그대로 올려도 됩니다</strong> — 머리글로 칸을 맞추고(<strong>칸 맞추기</strong>), 분류코드가 비어 있으면 업체 분류명·상품명으로 고객 화면 분류를 추천합니다(<strong>분류 정하기</strong> — 노란 줄·빨간 줄만 확인). 고친 내용은 이 업체용으로 기억합니다. 가격 칸은 자동으로 맞추지 않으니 직접 고르세요.` : '')
         + `<br>이미지: 엑셀의 <strong>썸네일·상세·규격 이미지 url 경로</strong> 칸에 서버에 올려 둔 파일 경로(/로 시작) 또는 외부 주소를 적습니다. 서버에서 못 찾은 이미지는 빈칸으로 두고(기존 이미지는 그대로) 알려 드립니다.`;
     ['bk-running','bk-done'].forEach(id => document.getElementById(id).classList.add('bk-hide'));
     document.getElementById('bk-form').classList.remove('bk-hide');
@@ -644,13 +655,14 @@ function bkRender() {
             + (st ? `<span class="bk-st">${st}</span>` : '')
             + `<button type="button" class="bk-fx" aria-label="${BK_LABEL[k][1]} ${busy?'업로드 취소':'파일 삭제'}" onclick="bkClear('${k}')">×</button></div>`
             + (busy ? `<div class="bk-bar" role="progressbar" aria-label="${BK_LABEL[k][1]} 업로드 진행률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${s.pct}"><div style="width:${s.pct}%"></div></div>` : '')
+            + (k === 'ex' && s.state !== 'busy' ? bkAutoHtml(s) : '')
             + (s.errors?.length ? `<ul class="bk-errs">${s.errors.map(e => `<li>${x(e)}</li>`).join('')}${s.errorCount > s.errors.length ? `<li>…외 ${s.errorCount - s.errors.length}행</li>` : ''}</ul>` : '')
             + (s.imgWarn?.length ? `<ul class="bk-norm-warn"><li><b>서버에서 못 찾은 이미지 ${Number(s.imgWarnCount).toLocaleString()}건</b> — 등록은 되고 그 이미지만 빈칸(기존 이미지는 그대로)</li>${s.imgWarn.map(w => `<li>${x(w)}</li>`).join('')}${s.imgWarnCount > s.imgWarn.length ? `<li>…외 ${s.imgWarnCount - s.imgWarn.length}건</li>` : ''}</ul>` : '')
             + (k === 'ex' && s.state === 'done' ? bkNormHtml(s.normalize) : '');
     });
     const exOk = bk.ex.state === 'done', ready = exOk;
     let hint = '';
-    if (bk.ex.state === 'err') hint = '엑셀 오류를 고친 뒤 다시 올려 주세요.';
+    if (bk.ex.state === 'err') hint = bk.ex.groups?.some(g => g.how === 'none') ? "'분류 정하기'에서 빨간 줄의 분류를 고르면 등록할 수 있습니다." : '엑셀 오류를 고친 뒤 다시 올려 주세요.';
     else if (!exOk) hint = '엑셀 파일을 올리면 등록할 수 있습니다.';
     document.getElementById('bk-hint').textContent = hint;
     const go = document.getElementById('bk-go');
@@ -696,6 +708,7 @@ function bkPicked(k, file) {
     const fd = new FormData();
     fd.append('action', k === 'ex' ? 'stage_excel' : 'stage_zip');
     fd.append('source', bk.src);
+    if (bk.syc && k === 'ex') { fd.append('mapping', JSON.stringify(bkLsGet('map'))); fd.append('cats', JSON.stringify(bkLsGet('cats'))); }
     fd.append('file', file);
     const xhr = s.xhr = new XMLHttpRequest();
     xhr.open('POST', bk.syc ? SYC_API : API);
@@ -703,14 +716,81 @@ function bkPicked(k, file) {
     xhr.onload = () => {
         if (bk[k] !== s) return;
         let d; try { d = JSON.parse(xhr.responseText); } catch (e) { d = {ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}; }
-        if (!d.ok) Object.assign(s, {state:'err', error:d.error});
-        else if (k === 'ex' && d.error_count > 0) Object.assign(s, {state:'err', error:`오류 ${d.error_count}행`, errors:d.errors, errorCount:d.error_count});
-        else Object.assign(s, {state:'done', rows:d.rows, normalize:d.normalize || null, imgWarn:d.image_warnings || [], imgWarnCount:d.image_warning_count || 0});
+        bkApplyStage(s, d);
         bkRender();
     };
     xhr.onerror = () => { if (bk[k] === s) { Object.assign(s, {state:'err', error:'업로드에 실패했습니다.'}); bkRender(); } };
     xhr.send(fd);
     bkRender();
+}
+
+// 검사 결과 → 화면 상태(처음 올릴 때·칸/분류를 고쳐 다시 검사할 때 같음)
+function bkApplyStage(s, d) {
+    if (!d.ok) { Object.assign(s, {state:'err', error:d.error, errors:null}); return; }
+    const base = {rows:d.rows, normalize:d.normalize || null, imgWarn:d.image_warnings || [], imgWarnCount:d.image_warning_count || 0,
+                  columns:d.columns || null, groups:d.cat_groups || [], groupCount:d.cat_group_count || 0, skipped:d.skipped || 0};
+    if (d.error_count > 0) Object.assign(s, base, {state:'err', error:`오류 ${d.error_count}행`, errors:d.errors, errorCount:d.error_count});
+    else Object.assign(s, base, {state:'done', errors:null, errorCount:0});
+}
+
+// 업체 엑셀 자동 정리(2026-11-23): 칸 맞추기·분류 고르기를 업체별로 이 브라우저에 기억(다음에 같은 업체 엑셀을 올리면 그대로)
+function bkLsKey(kind) { return `tomok.bulk.${kind}.${bk.src}`; }
+function bkLsGet(kind) { try { const v = JSON.parse(localStorage.getItem(bkLsKey(kind)) || '{}'); return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; } }
+function bkLsSet(kind, v) { try { localStorage.setItem(bkLsKey(kind), JSON.stringify(v)); } catch (e) {} }
+async function bkRestage() {
+    const s = bk.ex;
+    Object.assign(s, {state:'busy', pct:100});
+    bkRender();
+    const d = await fetch(SYC_API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'restage', mapping:bkLsGet('map'), cats:bkLsGet('cats')})})
+        .then(r => r.json()).catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
+    if (bk.ex !== s) return;
+    bkApplyStage(s, d);
+    bkRender();
+}
+function bkColPick(i, key) { const c = bk.ex.columns[i], m = bkLsGet('map'); m[c.header] = key; bkLsSet('map', m); bkRestage(); }
+function bkCatPick(i, slug) { const g = bk.ex.groups[i], m = bkLsGet('cats'); if (slug === '') delete m[g.key]; else m[g.key] = slug; bkLsSet('cats', m); bkRestage(); }
+function bkAutoReset() { if (!confirm('이 업체용으로 기억한 칸 맞추기·분류 고르기를 지우고 자동 짐작으로 되돌릴까요?')) return; bkLsSet('map', {}); bkLsSet('cats', {}); bkRestage(); }
+function bkCatFill(sel) {   // 분류 목록(200여 개)은 고를 때만 채움(묶음이 많아도 창이 가볍게)
+    if (sel.dataset.filled || !bk.std) return;
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">(추천대로)</option><option value="-">등록 안 함</option>` + bk.std.map(c => `<option value="${x(c.slug)}">${x(c.path)}</option>`).join('');
+    sel.value = cur; sel.dataset.filled = '1';
+}
+const BK_HOW = {exact:'양식 칸', alias:'짐작', manual:'직접 고름', none:'안 씀', sure:'확실', check:'확인 필요', skip:'등록 안 함'};
+function bkHow(h, none) { return `<span class="bk-how bk-how-${h === 'none' && none ? 'none' : (h === 'none' ? 'off' : h)}">${h === 'none' && none ? none : BK_HOW[h]}</span>`; }
+function bkAutoHtml(s) {
+    if (!bk.syc || !s.columns) return '';
+    const cols = s.columns, noName = !cols.some(c => c.key === 'name');
+    const colRows = cols.map((c, i) => `<tr><td>${x(c.header || '(빈 머리글)')}</td>
+        <td><select aria-label="${x(c.header)} → 칸" onchange="bkColPick(${i}, this.value)"><option value="">(쓰지 않음)</option>${BK_COL_KEYS.map(k => `<option value="${k}"${k === c.key ? ' selected' : ''}>${x(BK_COL_LABEL[k] || k)}</option>`).join('')}</select></td>
+        <td>${bkHow(c.how)}${c.note ? `<br><small>${x(c.note)}</small>` : ''}</td></tr>`).join('');
+    const nUsed = cols.filter(c => c.key).length, nGuess = cols.filter(c => c.how === 'alias').length;
+    let html = `<div class="bk-norm bk-auto"><b>칸 맞추기</b>
+        <span>엑셀 머리글 ${cols.length}개 중 <b>${nUsed}</b>개를 씁니다${nGuess ? ` (이름으로 짐작한 칸 ${nGuess}개 — 맞는지 보세요)` : ''}. 가격 칸은 짐작하지 않습니다. 필요하면 직접 고르세요.</span>
+        ${noName ? `<ul class="bk-norm-warn"><li><b>상품명 칸을 찾지 못했습니다</b> — 아래에서 상품명 칸을 골라 주세요.</li></ul>` : ''}
+        <details${noName || nGuess ? ' open' : ''}><summary>칸 맞추기 보기·고치기</summary>
+          <div class="bk-norm-tbl"><table><thead><tr><th>엑셀 머리글</th><th>넣을 칸</th><th>상태</th></tr></thead><tbody>${colRows}</tbody></table></div>
+        </details></div>`;
+    const gs = s.groups || [];
+    if (gs.length) {
+        const cnt = h => gs.filter(g => g.how === h).length;
+        const row = (g, i) => `<tr class="bk-row-${g.how}"><td>${x(g.key)}</td><td>${x(g.sample)}</td><td style="text-align:right">${Number(g.count).toLocaleString()}</td>
+            <td><select aria-label="${x(g.key)} 분류" onfocus="bkCatFill(this)" onpointerdown="bkCatFill(this)" onchange="bkCatPick(${i}, this.value)">
+                <option value="${g.how === 'manual' || g.how === 'skip' ? x(g.slug) : ''}" selected>${g.how === 'skip' ? '등록 안 함' : (g.slug ? x(bk.stdPath?.[g.slug] || g.slug) : '— 골라 주세요 —')}</option></select></td>
+            <td>${bkHow(g.how, '못 정함')}</td></tr>`;
+        const head = `<thead><tr><th>업체 분류(묶음)</th><th>예시 상품</th><th>상품 수</th><th>고객 화면 분류</th><th>상태</th></tr></thead>`;
+        const todo = gs.map((g, i) => [g, i]).filter(([g]) => g.how !== 'sure'), sure = gs.map((g, i) => [g, i]).filter(([g]) => g.how === 'sure');
+        html += `<div class="bk-norm bk-auto"><b>분류 정하기</b>
+            <span>분류코드가 빈 상품을 업체 분류명·상품명으로 고객 화면 분류에 넣습니다. 묶음 ${s.groupCount.toLocaleString()}개: 
+              ${bkHow('sure')} ${cnt('sure')} · ${bkHow('check')} ${cnt('check')} · ${bkHow('none', '못 정함')} ${cnt('none')}${cnt('manual') ? ` · ${bkHow('manual')} ${cnt('manual')}` : ''}${cnt('skip') ? ` · ${bkHow('skip')} ${cnt('skip')} (상품 ${Number(s.skipped).toLocaleString()}건 제외)` : ''}.
+              <b>노란 줄·빨간 줄</b>만 보고 맞는 분류를 고르세요. 맞는 분류가 없거나 취급하지 않는 상품은 '등록 안 함'.</span>
+            ${todo.length ? `<div class="bk-norm-tbl"><table>${head}<tbody>${todo.map(([g, i]) => row(g, i)).join('')}</tbody></table></div>` : ''}
+            ${sure.length ? `<details><summary>이름이 같은 분류(확실) ${sure.length}개 보기</summary><div class="bk-norm-tbl"><table>${head}<tbody>${sure.map(([g, i]) => row(g, i)).join('')}</tbody></table></div></details>` : ''}
+            ${s.groupCount > gs.length ? `<span>묶음이 많아 앞 ${gs.length}개만 보입니다.</span>` : ''}
+            </div>`;
+    }
+    html += `<button type="button" class="bk-norm-dl" onclick="bkAutoReset()">이 업체용 기억 지우기</button>`;
+    return html;
 }
 
 function bkClear(k) {
@@ -748,6 +828,7 @@ async function bkRegister() {
     const parts = [`새 상품 ${d.insert.toLocaleString()}건은 <strong style="color:#1a2035">비활성</strong>으로 저장됐습니다.`];
     if (d.update || d.same) parts.push(`이미 있던 상품 ${(d.update + d.same).toLocaleString()}건은 엑셀 값으로 고쳤습니다(활성 상태 그대로).`);
     if (d.images || d.images_missing) parts.push(`이미지 경로 ${Number(d.images).toLocaleString()}건 연결` + (d.images_missing ? ` · 서버에서 못 찾은 이미지 ${Number(d.images_missing).toLocaleString()}건은 빈칸(기존 이미지 그대로)` : ''));
+    if (d.skipped) parts.push(`'등록 안 함'으로 고른 묶음의 상품 ${Number(d.skipped).toLocaleString()}건은 등록하지 않았습니다.`);
     if (d.normalized_rows) parts.push(`자동 정리: 상품 ${d.normalized_rows.toLocaleString()}건의 품명·모델 코드·옵션·치수·분류를 사이트 표기로 고쳐 저장했습니다.`);
     parts.push(ACTIVE_TOGGLE ? '제품관리에서 내용을 확인한 뒤 활성으로 바꾸면 고객 화면에 보입니다.' : '활성/비활성 변경은 추후 지원 예정입니다.');
     if (d.publish) parts.push(`고객 화면 반영: 상품 ${Number(d.publish.products).toLocaleString()}건` + (d.publish.unmapped ? ` · 공통 분류 매핑 없음 ${d.publish.unmapped}건(반영 안 됨)` : ''));

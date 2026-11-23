@@ -182,7 +182,7 @@ function syc_bulk_image_name(mixed $raw): array
  * @param array<int,string> $map 머리글 지도, @param array<string,int> $catIds 분류코드 → syc_categories.id
  * @return array{row:?array, errors:list<string>, empty:bool}
  */
-function syc_bulk_parse_row(array $raw, array $map, array $catIds, string $source = PRODUCT_SOURCE_SYC): array
+function syc_bulk_parse_row(array $raw, array $map, array $catIds, string $source = PRODUCT_SOURCE_SYC, ?string $slugIn = null): array
 {
     $cells = [];
     foreach ($map as $i => $k) { $cells[$k] = $raw[$i] ?? ''; }
@@ -198,8 +198,8 @@ function syc_bulk_parse_row(array $raw, array $map, array $catIds, string $sourc
         $row[$k] = $v;
     }
     if (($row['name'] ?? null) === null) { $err[] = '[name] 상품명이 비어 있습니다'; }
-    $slug = trim((string) ($cells['category_slug'] ?? ''));
-    if ($slug === '') { $err[] = '[category_slug] 분류코드가 비어 있습니다'; }
+    $slug = $slugIn ?? trim((string) ($cells['category_slug'] ?? ''));   // $slugIn: 분류 추천·관리자가 고른 분류(업체 엑셀 자동 정리)
+    if ($slug === '') { $err[] = $slugIn === null ? '[category_slug] 분류코드가 비어 있습니다' : '[category_slug] 분류를 정하지 못했습니다 — 화면 \'분류 정하기\'에서 고르세요'; }
     elseif (!isset($catIds[$slug])) { $err[] = "[category_slug] 없는 분류코드입니다('{$slug}')"; }
     $row['category_id'] = $catIds[$slug] ?? null;
     $row['_category_slug'] = $slug;      // 자동 정리가 분류를 바꿀 수 있어 slug 도 둔다(정리 뒤 category_id 다시 정함)
@@ -234,7 +234,7 @@ function syc_bulk_iter_raw(string $file, string $ext): Generator
  * @return array{rows:list<array>, errors:list<string>, error_count:int, data_rows:int, present:list<string>, normalize:?array}
  *         present = 엑셀에 있는 저장 칸(정리로 값이 생긴 칸 포함), normalize = 정리 요약(syc_normalize_summary) 또는 null
  */
-function syc_bulk_read_excel(string $file, string $ext, array $catIds, bool $normalize = false, ?array $active = null, string $source = PRODUCT_SOURCE_SYC): array
+function syc_bulk_read_excel(string $file, string $ext, array $catIds, bool $normalize = false, ?array $active = null, string $source = PRODUCT_SOURCE_SYC, ?array $auto = null): array
 {
     $map = null;
     $rows = [];
@@ -242,10 +242,45 @@ function syc_bulk_read_excel(string $file, string $ext, array $catIds, bool $nor
     $errCount = 0;
     $line = 0;
     $seen = [];
+    $columns = null; $groups = []; $index = null; $skipped = 0;
+    if ($auto !== null) {
+        // 업체 엑셀 자동 정리: 칸 맞추기(필수는 상품명만 — 분류는 추천) + 분류 추천 색인
+        [$head, $samples] = syc_bulk_read_head($file, $ext);
+        $columns = syc_bulk_columns_auto($head, $samples, (array) ($auto['manual'] ?? []), $catIds);
+        $map = [];
+        foreach ($columns as $c) { if ($c['key'] !== '') { $map[$c['i']] = $c['key']; } }
+        if (!in_array('name', $map, true)) {
+            return ['rows' => [], 'errors' => ['상품명 칸을 찾지 못했습니다 — 아래 \'칸 맞추기\'에서 상품명 칸을 골라 주세요.'], 'error_count' => 1,
+                    'data_rows' => 0, 'present' => [], 'normalize' => null, 'columns' => $columns, 'cat_groups' => []];
+        }
+        $index = syc_bulk_suggest_index((array) ($auto['std'] ?? []));
+        $picked = (array) ($auto['cats'] ?? []);
+        $col = array_flip($map);
+    }
     foreach (syc_bulk_iter_raw($file, $ext) as $raw) {
         $line++;
+        if ($line === 1 && $auto !== null) { continue; }
         if ($map === null) { $map = syc_bulk_header_map($raw); continue; }
-        $r = syc_bulk_parse_row($raw, $map, $catIds, $source);
+        $slugIn = null;
+        if ($auto !== null) {
+            $cv = static fn(string $k) => isset($col[$k]) ? trim((string) ($raw[$col[$k]] ?? '')) : '';
+            $excelSlug = $cv('category_slug');
+            if ($excelSlug === '' && $cv('name') !== '') {
+                $gk = syc_bulk_cat_group_key($cv('category_name'), $cv('category_group'), $cv('name'));
+                if (!isset($groups[$gk])) {
+                    $sg = syc_bulk_suggest_category($cv('category_name'), $cv('category_group'), $cv('name'), $index);
+                    $p = isset($picked[$gk]) ? (string) $picked[$gk] : null;   // 관리자가 고른 분류, '-' = 이 묶음은 등록 안 함
+                    $manualSlug = $p !== null && ($p === '-' || isset($catIds[$p])) ? $p : null;
+                    $groups[$gk] = ['key' => $gk, 'sample' => $cv('name'), 'count' => 0, 'suggest' => $sg['slug'],
+                                    'slug' => $manualSlug ?? $sg['slug'],
+                                    'how' => $manualSlug === '-' ? 'skip' : ($manualSlug !== null ? 'manual' : ($sg['slug'] === null ? 'none' : ($sg['sure'] ? 'sure' : 'check')))];
+                }
+                $groups[$gk]['count']++;
+                if ($groups[$gk]['how'] === 'skip') { $skipped++; continue; }
+                $slugIn = (string) ($groups[$gk]['slug'] ?? '');
+            }
+        }
+        $r = syc_bulk_parse_row($raw, $map, $catIds, $source, $slugIn);
         if ($r['empty']) { continue; }
         if (count($rows) + $errCount >= SYC_BULK_MAX_ROWS) {
             throw new InvalidArgumentException('한 번에 ' . number_format(SYC_BULK_MAX_ROWS) . '행까지 올릴 수 있습니다.');
@@ -291,8 +326,15 @@ function syc_bulk_read_excel(string $file, string $ext, array $catIds, bool $nor
         $keys[$k] = true;
     }
     $rows = array_values($rows);
-    return ['rows' => $rows, 'errors' => $errors, 'error_count' => $errCount, 'data_rows' => count($rows) + $errCount,
+    $out = ['rows' => $rows, 'errors' => $errors, 'error_count' => $errCount, 'data_rows' => count($rows) + $errCount,
             'present' => $present, 'normalize' => $summary];
+    if ($auto !== null) {
+        $order = ['none' => 0, 'check' => 1, 'manual' => 2, 'skip' => 3, 'sure' => 4];   // 못 정함 → 확인 필요 → 고침 → 등록 안 함 → 확실
+        $g = array_values($groups);
+        usort($g, static fn($a, $b) => [$order[$a['how']], $a['key']] <=> [$order[$b['how']], $b['key']]);
+        $out += ['columns' => $columns, 'cat_groups' => $g, 'skipped' => $skipped];
+    }
+    return $out;
 }
 
 /**
@@ -481,4 +523,187 @@ function syc_bulk_stage_dir(): string
         if (is_file($f) && filemtime($f) < time() - 86400) { unlink($f); }
     }
     return $dir;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * 업체 엑셀 자동 정리(사용자 결정 2026-11-23 — 양식에 맞추지 않은 업체 엑셀을 그대로 올림)
+ *  ① 칸 맞추기: 머리글 '[칸 이름]'·칸 이름이 아니면 한글 이름(별칭)으로 짐작. 짐작한 칸은 앞 20행 값을 검사해
+ *     맞지 않으면(예: 이미지 칸에 '사진 보기' 글자) 쓰지 않음. 관리자가 화면에서 고친 칸(manual)이 우선 — 화면이 업체별로 기억.
+ *     가격 칸은 짐작하지 않는다(업체 '단가'가 매입가인지 판매가인지 모름 → 관리자가 직접 고름, P0-4 가격 저장 경로는 그대로).
+ *  ② 분류 추천: 분류코드가 비어 있으면 업체 분류명(카테고리·중분류)·상품명을 고객 화면 분류(공통 분류 끝 단계) 이름과 비교.
+ *     이름이 같으면 '확실', 아니면 '확인 필요'(가장 비슷한 분류), 비슷한 것도 없으면 '못 정함'(등록 불가 — 화면에서 고름).
+ *     같은 업체 분류명(묶음)마다 한 번 정하고, 관리자가 고친 묶음(cats)이 우선.
+ * ───────────────────────────────────────────────────────────────────────────── */
+
+/** 칸 맞추기 별칭(정리한 글자 — syc_bulk_norm_text). 가격 칸(price_b2c·price_b2b·cost_price)은 일부러 없음 */
+const SYC_BULK_HEADER_ALIASES = [
+    'name'             => ['상품명', '제품명', '품명', '품목명', '자재명', '상품이름', '제품이름'],
+    'brand'            => ['업체명', '제조사', '브랜드', '제조업체'],
+    'spec'             => ['규격', '사양', '치수', '규격치수'],
+    'spec_code'        => ['모델코드', '모델명', '모델'],
+    'spec_option'      => ['옵션', '규격외정보', '규격외', '형식', '종류'],
+    'unit'             => ['단위'],
+    'weight_kg'        => ['중량', '중량kg', '무게', '무게kg', '단위중량', '개당중량'],
+    'description'      => ['설명', '상세설명', '상품설명', '제품설명'],
+    'stock_qty'        => ['재고', '재고수량'],
+    'external_id'      => ['품번', '상품코드', '제품코드', '품목코드', '상품번호', '출처id'],
+    'source_url'       => ['상세페이지', '상품주소', '상세주소', '링크', 'url', '출처주소'],
+    'image_thumb_url'  => ['썸네일', '사진', '이미지', '대표이미지', '썸네일이미지', '이미지주소', '사진주소', '이미지url'],
+    'image_detail_url' => ['상세이미지', '상세사진'],
+    'image_spec_url'   => ['규격이미지', '도면', '도면이미지'],
+    'category_slug'    => ['분류코드', '카테고리코드'],
+    'category_name'    => ['카테고리', '분류', '분류명', '소분류', '품목', '카테고리명'],
+    'category_group'   => ['중분류'],
+    'category_top'     => ['대분류'],
+];
+
+/** 분류 추천에만 쓰는 칸(저장 안 함) */
+const SYC_BULK_AUTO_META_KEYS = ['category_group', 'category_top'];
+
+/** 비교용 글자: 소문자, 글자·숫자만, '블럭' → '블록'. 순수 함수 */
+function syc_bulk_norm_text(string $s): string
+{
+    $s = mb_strtolower(str_replace(['블럭', '휀스'], ['블록', '펜스'], $s));
+    return (string) preg_replace('/[^\p{L}\p{N}]+/u', '', $s);
+}
+
+/** 머리글 한 칸 → [칸 이름, 방법('exact'|'alias'|'')]. '[칸 이름]'·칸 이름이 먼저, 그다음 [] 앞 한글 이름의 별칭 */
+function syc_bulk_header_guess(string $h): array
+{
+    $meta = array_merge(SYC_BULK_META_KEYS, SYC_BULK_AUTO_META_KEYS);
+    $k = syc_bulk_header_key($h, null, $meta);
+    if ($k !== '') { return [$k, 'exact']; }
+    $label = syc_bulk_norm_text((string) preg_replace('/\[[^\]]*\]\s*$/', '', $h));
+    if ($label === '') { return ['', '']; }
+    foreach (SYC_BULK_HEADER_ALIASES as $key => $aliases) {
+        if (in_array($label, $aliases, true)) { return [$key, 'alias']; }
+    }
+    return ['', ''];
+}
+
+/** 칸 맞추기에서 고를 수 있는 칸(출처 칸 제외 — 고른 업체로 정해짐) */
+function syc_bulk_mappable_keys(): array
+{
+    return array_merge(array_values(array_diff(array_keys(syc_bulk_columns()), ['external_source'])), SYC_BULK_META_KEYS, SYC_BULK_AUTO_META_KEYS);
+}
+
+/** 짐작한 칸의 값 검사: 앞 행 값 중 절반 넘게 칸 규칙에 안 맞으면 false(그 칸은 쓰지 않음) */
+function syc_bulk_samples_fit(string $key, array $values, array $catIds): bool
+{
+    $vals = array_values(array_filter(array_map(static fn($v) => trim((string) $v), $values), static fn($v) => $v !== ''));
+    if (!$vals) { return true; }
+    $bad = 0;
+    foreach ($vals as $v) {
+        $ok = match (true) {
+            isset(SYC_BULK_IMAGE_COLUMNS[$key]) => syc_bulk_image_path($v)[1] === null,
+            $key === 'source_url'               => (bool) preg_match('#^https?://#i', $v),
+            $key === 'category_slug'            => isset($catIds[$v]),
+            isset(syc_bulk_columns()[$key])     => syc_bulk_cell($key, $v)[1] === null,
+            default                             => true,
+        };
+        if (!$ok) { $bad++; }
+    }
+    return $bad * 2 <= count($vals);
+}
+
+/**
+ * 머리글 + 앞 행 → 칸 맞추기 결과(화면 표). manual = [머리글 글자 => 칸 이름 또는 ''(쓰지 않음)] 이 짐작보다 우선.
+ * @return list<array{i:int, header:string, key:string, how:string, note:string}> how: exact|alias|manual|none
+ */
+function syc_bulk_columns_auto(array $head, array $samples, array $manual, array $catIds): array
+{
+    $allowed = syc_bulk_mappable_keys();
+    $out = [];
+    $used = [];
+    foreach ($head as $i => $h) {
+        $h = trim((string) $h);
+        $note = '';
+        if ($h !== '' && array_key_exists($h, $manual)) {
+            $key = (string) $manual[$h];
+            if ($key !== '' && !in_array($key, $allowed, true)) { throw new InvalidArgumentException("칸 맞추기 값이 올바르지 않습니다('{$key}')."); }
+            if ($key !== '' && isset($used[$key])) { throw new InvalidArgumentException("'{$h}' 와 '{$used[$key]}' 를 같은 칸으로 골랐습니다. 하나만 고르세요."); }
+            $how = 'manual';
+        } else {
+            [$key, $how] = $h === '' ? ['', ''] : syc_bulk_header_guess($h);
+            if ($key !== '' && isset($used[$key])) { $note = "'{$used[$key]}' 와 같은 칸이라 쓰지 않음"; $key = ''; }
+            elseif ($key !== '' && $how === 'alias' && !syc_bulk_samples_fit($key, array_column($samples, $i), $catIds)) { $note = '값이 이 칸 형식과 맞지 않아 쓰지 않음'; $key = ''; }
+            if ($key === '') { $how = 'none'; }
+        }
+        if ($key !== '') { $used[$key] = $h; }
+        $out[] = ['i' => (int) $i, 'header' => $h, 'key' => $key, 'how' => $key === '' && $how !== 'manual' ? 'none' : $how, 'note' => $note];
+    }
+    return $out;
+}
+
+/** 엑셀 머리글과 앞 20행(칸 짐작 검사용) */
+function syc_bulk_read_head(string $file, string $ext): array
+{
+    $head = null; $samples = [];
+    foreach (syc_bulk_iter_raw($file, $ext) as $raw) {
+        if ($head === null) { $head = $raw; continue; }
+        if (implode('', array_map(static fn($v) => trim((string) $v), $raw)) === '') { continue; }
+        $samples[] = $raw;
+        if (count($samples) >= 20) { break; }
+    }
+    if ($head === null) { throw new InvalidArgumentException('엑셀이 비어 있습니다.'); }
+    return [$head, $samples];
+}
+
+/** 분류 추천 색인: 공통 분류(syc_bulk_std_categories) → 끝 단계 이름·중간 이름(정리한 글자) */
+function syc_bulk_suggest_index(array $std): array
+{
+    $idx = [];
+    foreach ($std as $slug => $c) {
+        $parts = array_map('trim', explode('>', (string) $c['path']));
+        $idx[] = ['slug' => (string) $slug, 'leaf' => syc_bulk_norm_text((string) end($parts)),
+                  'mid' => syc_bulk_norm_text(count($parts) > 2 ? $parts[count($parts) - 2] : ''), 'path' => (string) $c['path']];
+    }
+    return $idx;
+}
+
+/** 두 글자 묶음(bigram) 유사도 0~1. 순수 함수 */
+function syc_bulk_dice(string $a, string $b): float
+{
+    $bg = static function (string $s): array {
+        $c = mb_str_split($s); $o = [];
+        for ($i = 0, $n = count($c) - 1; $i < $n; $i++) { $k = $c[$i] . $c[$i + 1]; $o[$k] = ($o[$k] ?? 0) + 1; }
+        return $o;
+    };
+    $x = $bg($a); $y = $bg($b);
+    $tot = array_sum($x) + array_sum($y);
+    if ($tot === 0) { return $a !== '' && $a === $b ? 1.0 : 0.0; }
+    $hit = 0;
+    foreach ($x as $k => $n) { $hit += min($n, $y[$k] ?? 0); }
+    return 2 * $hit / $tot;
+}
+
+/**
+ * 업체 분류명·중분류·상품명 → 고객 화면 분류 추천. 순수 함수.
+ * @return array{slug:?string, sure:bool} sure = 이름이 같음(확실). slug null = 비슷한 분류 없음
+ */
+function syc_bulk_suggest_category(string $cat, string $grp, string $name, array $index): array
+{
+    $c = syc_bulk_norm_text($cat); $g = syc_bulk_norm_text($grp); $n = syc_bulk_norm_text($name);
+    $best = null; $bestScore = 0.0; $sure = false;
+    foreach ($index as $e) {
+        $leaf = $e['leaf'];
+        if ($leaf === '') { continue; }
+        $midHit = $g !== '' && $e['mid'] !== '' && ($g === $e['mid'] || str_contains($g, $e['mid']) || str_contains($e['mid'], $g));
+        if (($c !== '' && $c === $leaf) || ($c === '' && $n === $leaf)) { $s = 100.0; }
+        elseif ($n !== '' && $n === $leaf) { $s = 90.0; }
+        elseif (mb_strlen($leaf) >= 2 && (($c !== '' && str_contains($c, $leaf)) || ($n !== '' && str_contains($n, $leaf)))) { $s = 60.0 + mb_strlen($leaf); }
+        elseif ($c !== '' && mb_strlen($c) >= 2 && str_contains($leaf, $c)) { $s = 55.0 + mb_strlen($c); }
+        else { $s = 50.0 * max($c !== '' ? syc_bulk_dice($c, $leaf) : 0.0, $n !== '' ? syc_bulk_dice($n, $leaf) : 0.0); }
+        if ($midHit) { $s += 5.0; }
+        if ($s > $bestScore) { $bestScore = $s; $best = $e['slug']; $sure = $s >= 100.0; }
+        elseif ($s === $bestScore && $s >= 100.0) { $sure = false; }   // 이름이 같은 분류가 둘(중분류도 같음) → 확인 필요
+    }
+    return $bestScore < 15.0 ? ['slug' => null, 'sure' => false] : ['slug' => $best, 'sure' => $sure];
+}
+
+/** 분류 묶음 열쇠: 업체 분류명(+중분류), 없으면 상품명 */
+function syc_bulk_cat_group_key(string $cat, string $grp, string $name): string
+{
+    $cat = trim($cat); $grp = trim($grp);
+    return $cat !== '' ? ($grp !== '' ? $grp . ' › ' . $cat : $cat) : ($grp !== '' ? $grp . ' › ' . trim($name) : trim($name));
 }
