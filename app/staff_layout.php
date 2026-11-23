@@ -112,11 +112,34 @@ function render_staff_header(string $title, string $activeMenu = ''): void
     .kpi-val{font-size:26px;font-weight:800;color:#1a2035;line-height:1.1}
     .kpi-label{font-size:11px;color:#888;margin-top:4px}
     .kpi-val.urgent{color:#c62828}
+    /* 폰·태블릿(900px 이하, 2026-11-17): 왼쪽 메뉴를 숨기고 위쪽 '메뉴' 버튼으로 여닫는다. 표는 카드 안에서 가로로 밀어 본다 */
+    .stf-menu-btn{display:none}
+    .stf-backdrop{display:none}
+    @media (max-width:900px){
+        .stf-sidebar{position:fixed;left:0;top:0;bottom:0;width:230px;max-width:82vw;z-index:9500;transform:translateX(-100%);transition:transform .2s;visibility:hidden}
+        body.stf-nav-open .stf-sidebar{transform:none;visibility:visible}
+        body.stf-nav-open .stf-backdrop{display:block;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9400}
+        body.stf-nav-open{overflow:hidden}
+        .stf-menu-btn{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;margin-left:-8px;border:none;background:none;color:#1a2035;cursor:pointer;border-radius:6px;flex-shrink:0}
+        .stf-menu-btn:focus-visible{outline:2px solid #003580}
+        .stf-topbar-l{display:flex;align-items:center;gap:4px;min-width:0}
+        .stf-content{padding:16px}
+        .card{overflow-x:auto}
+        .toolbar input,.toolbar select{min-width:0;max-width:100%;flex:1 1 140px}
+        .form-2col,.form-3col{grid-template-columns:1fr}
+        .modal-box{padding:22px 18px}
+    }
+    @media (max-width:640px){
+        .stf-topbar{height:auto;min-height:50px;flex-wrap:wrap;padding:6px 16px;gap:4px 10px}
+        .stf-user-tag{max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .tab-bar{overflow-x:auto;scrollbar-width:none}
+        .tab-btn{flex-shrink:0;padding:10px 12px}
+    }
     </style>
 </head>
 <body>
 <div class="stf-layout">
-    <aside class="stf-sidebar">
+    <aside class="stf-sidebar" id="stf-sidebar">
         <div class="stf-logo">
             <div class="stf-logo-mark">비엠아이</div>
             <div class="stf-logo-sub">Staff Panel</div>
@@ -138,7 +161,7 @@ function render_staff_header(string $title, string $activeMenu = ''): void
     </aside>
     <main class="stf-main">
         <div class="stf-topbar">
-            <span class="stf-topbar-title"><?= htmlspecialchars($title, ENT_QUOTES) ?></span>
+            <div class="stf-topbar-l"><button type="button" class="stf-menu-btn" aria-label="메뉴 열기" aria-expanded="false" aria-controls="stf-sidebar" onclick="stfNav(true)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><span class="stf-topbar-title"><?= htmlspecialchars($title, ENT_QUOTES) ?></span></div>
             <div class="stf-topbar-right">
                 <?php if ($user): ?>
                 <span class="stf-user-tag"><?= htmlspecialchars($user['name'], ENT_QUOTES) ?></span>
@@ -166,6 +189,13 @@ function render_staff_footer(): void
         </div><!-- /.stf-content -->
     </main>
 </div>
+<div class="stf-backdrop" onclick="stfNav(false)"></div>
+<script>
+// 폰·태블릿 왼쪽 메뉴 여닫기(900px 이하에서만 버튼이 보임)
+function stfNav(open){document.body.classList.toggle('stf-nav-open',open);var b=document.querySelector('.stf-menu-btn');if(b)b.setAttribute('aria-expanded',open?'true':'false');}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')stfNavClose();});
+function stfNavClose(){if(document.body.classList.contains('stf-nav-open')){stfNav(false);var b=document.querySelector('.stf-menu-btn');if(b)b.focus();}}
+</script>
 </body>
 </html>
 <?php
