@@ -1427,13 +1427,15 @@ require_once __DIR__ . '/../app/work_types.php';
 eq('공통 분류 매핑: 모델 코드 줄이 전부 줄보다 먼저(측구수로관 A형 → 33, Z형 → 36)', [catalog_std_category('syc-s1', ['spec_code' => 'A형'], []), catalog_std_category('syc-s1', ['spec_code' => 'Z형'], [])], [33, 36]);
 eq('공통 분류 매핑: 옵션 줄(원심력수로관 무개 → 48, 유개 → 49)', [catalog_std_category('syc-s79', ['spec_option' => '무개'], []), catalog_std_category('syc-s79', ['spec_option' => '유개'], [])], [48, 49]);
 eq('공통 분류 매핑: 새 품명 slug 는 id 로(std-006 2련암거), 매핑 없는 분류는 null', [catalog_std_category('syc-s22', [], ['std-006' => 9001]), catalog_std_category('syc-zz', [], [])], [9001, null]);
-eq('2026-11-16 확인 반영: 사각수로관 → 중분류 258, 인조화강블록 → 71(투수·불투수 합침), I형 호안 → 저류용 95, 수공 사각뚜껑 → 108, 보강토 → 줄무늬 83, 흄관 → B형 50',
-    array_map(static fn($s) => catalog_std_category($s, ['spec_code' => 'A형', 'spec_option' => '투수/불투수'], []), ['syc-s16', 'syc-s54', 'syc-s55', 'syc-s68', 'syc-s52', 'syc-s63', 'syc-s19']), [258, 71, 71, 95, 108, 83, 50]);
-preg_match_all("/'(std-\d+)'/", (string) file_get_contents(__DIR__ . '/../database/20261116_std_categories.sql'), $stdM);
+eq('2026-11-16 확인 반영: 사각수로관 → 중분류 258, 인조화강블록 → 71(투수·불투수 합침), I형 호안 → 저류용 95, 보강토 → 줄무늬 83, 흄관 → B형 50',
+    array_map(static fn($s) => catalog_std_category($s, ['spec_code' => 'A형', 'spec_option' => '투수/불투수'], []), ['syc-s16', 'syc-s54', 'syc-s55', 'syc-s68', 'syc-s63', 'syc-s19']), [258, 71, 71, 95, 83, 50]);
+eq('2026-11-23 모양별 나누기(S26): 사각 주철뚜껑(s52·s53) → 주철뚜껑(사각) std-023, 원형(s51·s85) → 108 그대로, 일자형 스텐볼라드(w2) → std-026, U형(w5) → 148 그대로',
+    array_map(static fn($s) => catalog_std_category($s, [], ['std-023' => 9023, 'std-026' => 9026]), ['syc-s52', 'syc-s53', 'syc-s51', 'syc-s85', 'syc-w2', 'syc-w5']), [9023, 9023, 108, 108, 9026, 148]);
+preg_match_all("/'(std-\d+)'/", (string) file_get_contents(__DIR__ . '/../database/20261116_std_categories.sql') . (string) file_get_contents(__DIR__ . '/../database/20261123_std_split_categories.sql'), $stdM);
 $stdFake = array_combine(array_values(array_unique($stdM[1])), range(90001, 90000 + count(array_unique($stdM[1]))));
 $pjRows = json_decode((string) file_get_contents(__DIR__ . '/../data/syccrt/products.json'), true)['rows'] ?? [];
 $unm = array_values(array_filter($pjRows, static fn($r) => catalog_std_category($r['category_slug'], $r, $stdFake) === null));
-eq('공통 분류 매핑: 상용콘크리트 704개 모두 공통 분류에 들어감(새 품명 slug 는 마이그레이션에 있음)', [count($pjRows), count($unm), count($stdFake)], [704, 0, 19]);
+eq('공통 분류 매핑: 상용콘크리트 704개 모두 공통 분류에 들어감(새 품명 slug 는 마이그레이션 2개에 있음)', [count($pjRows), count($unm), count($stdFake)], [704, 0, 24]);
 $pdm = syc_publish_dims(['dim_w' => 300.0, 'dim_w1' => 600.0, 'dim_l' => null], [
     ['axis_key' => 'w', 'label' => '폭', 'symbol' => 'W', 'unit' => 'mm', 'in_list' => true], ['axis_key' => 'w1', 'label' => '세부', 'symbol' => 'w1', 'unit' => 'mm', 'in_list' => false],
     ['axis_key' => 'l', 'label' => '길이', 'symbol' => 'L', 'unit' => 'mm', 'in_list' => true]]);
