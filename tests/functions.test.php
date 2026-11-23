@@ -1531,13 +1531,13 @@ eq('다른 업체의 표기 없는 그레이팅: 차량 통행이면 확인 필�
     ai_load_status($kg, 'car')['status'], ai_load_class_of($kg), ai_row_tiered(['name' => 'x'])], ['unverified', 'na', '', 'lighter', 'pedestrian', null]);
 eq('업체 연결 상품 줄(link-, 원래 상품 이름 복사)은 원래 상품처럼 이름 기준', [ai_load_class_of($vg + ['external_id' => 'link-123']), ai_load_class_of($vg + ['external_id' => 'V-1'])], ['pedestrian', '']);
 eq('상담 품목 → 공통 분류 품명(일반 명칭 규칙, 몰드·집게·부속 제외)', [
-    consult_kind_matches('grating', '중하중그레이팅수로용'), consult_kind_matches('grating', '알루미늄트렌치'), consult_kind_matches('grating', '사각주철(수로용/닥타일)'),
+    consult_kind_matches('grating', '중하중그레이팅수로용'), consult_kind_matches('grating', '알루미늄트렌치'), consult_kind_matches('grating', '사각주철(수로용/닥타일)'), consult_kind_matches('grating', '알루미늄트렌치 소켓'),
     consult_kind_matches('grating', '낙엽방지덮개'), consult_kind_matches('culvert', '수로관(벤치3종)몰드'), consult_kind_matches('culvert', '측구수로관A형(앵글미부착)'),
     consult_kind_matches('pe_pipe', 'PE이중벽관1종'), consult_kind_matches('pe_pipe', 'PE이경소켓'), consult_kind_matches('pe_pipe', '측구수로관유공(앵글부착)'),
     consult_kind_matches('manhole', '사각맨홀(집수정)'), consult_kind_matches('manhole', '주철뚜껑(우수/오수/전기/통신)'),
     consult_kind_matches('pavement', '인조화강블록(투수)'), consult_kind_matches('pavement', '보강토블록(줄무늬)'), consult_kind_matches('pavement', '콘크리트경계석'),
     consult_kind_matches('없는품목', '그레이팅')],
-    [true, true, true, false, false, true, true, false, false, true, false, true, false, true, false]);
+    [true, true, true, false, false, false, true, true, false, false, true, false, true, false, true, false]);
 $cr = [
     ['category_id' => 7, 'category_name' => '그레이팅수로용', 'parent_name' => '스틸제품', 'name' => '그레이팅수로용', 'spec' => '', 'external_source' => 'ktomok'],
     ['category_id' => 7, 'category_name' => '그레이팅수로용', 'parent_name' => '스틸제품', 'name' => '스틸그레이팅', 'spec' => '', 'external_source' => 'vendor-3'],
