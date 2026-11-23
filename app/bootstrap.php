@@ -95,6 +95,7 @@ require_once __DIR__ . '/search_correct.php';
 // 화물 운임 견적 엔진 + 제품군별 출하 권역 매핑
 require_once __DIR__ . '/freight.php';
 require_once __DIR__ . '/freight-origins.php';
+require_once __DIR__ . '/features.php';   // 기능 스위치(운영 반영 후 되돌리기용)
 
 // 회원 등급별 차등 가격 유틸(계산·표시)
 require_once __DIR__ . '/pricing.php';

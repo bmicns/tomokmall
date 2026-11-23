@@ -23,7 +23,7 @@ declare(strict_types=1);
  */
 function ai_tool_definitions(): array
 {
-    return [
+    $defs = [
         [
             'type'     => 'function',
             'function' => [
@@ -131,6 +131,29 @@ function ai_tool_definitions(): array
             ],
         ],
     ];
+    return ai_quote_card_enabled() ? $defs : ai_tool_definitions_legacy_cart($defs);
+}
+
+/**
+ * 견적 카드 스위치를 끈 상태(FEATURE_AI_QUOTE_CARD=false)의 도구 정의 — 반영 전과 같은 담기·조회 설명, update_cart 없음.
+ */
+function ai_tool_definitions_legacy_cart(array $defs): array
+{
+    $out = [];
+    foreach ($defs as $d) {
+        $name = $d['function']['name'] ?? '';
+        if ($name === 'update_cart') { continue; }
+        if ($name === 'add_to_cart') {
+            $d['function']['description'] = '고객이 선택한 상품을 견적서에 담습니다.';
+            unset($d['function']['parameters']['properties']['region']);
+        }
+        if ($name === 'get_cart') {
+            $d['function']['description'] = '현재 견적서에 담긴 상품 목록과 합계를 조회합니다.';
+            $d['function']['parameters'] = ['type' => 'object', 'properties' => new \stdClass()];
+        }
+        $out[] = $d;
+    }
+    return $out;
 }
 
 // ─── 디스패처 ─────────────────────────────────────────────────────────────────
@@ -147,7 +170,7 @@ function ai_tool_dispatch(string $toolName, array $input, string $sid): string
         'search_products' => tool_search_products($input),
         'add_to_cart'     => tool_add_to_cart($input, $sid),
         'get_cart'        => tool_get_cart($sid, $input),
-        'update_cart'     => tool_update_cart($input, $sid),
+        'update_cart'     => ai_quote_card_enabled() ? tool_update_cart($input, $sid) : json_encode(['error' => '알 수 없는 도구입니다: update_cart']),
         'create_estimate' => tool_create_estimate($input, $sid),
         'material_info'   => tool_material_info($input),
         default           => json_encode(['error' => '알 수 없는 도구입니다: ' . htmlspecialchars($toolName, ENT_QUOTES, 'UTF-8')]),
@@ -2309,6 +2332,17 @@ function tool_add_to_cart(array $input, string $sid): string
     cart_session_write($cart);
 
     [$count, $total] = cart_summary($cart);
+    if (!ai_quote_card_enabled()) {   // 견적 카드 스위치 끔 — 반영 전 결과 그대로
+        return json_encode([
+            'ok'         => true,
+            'product_id' => $productId,
+            'name'       => $product['name'],
+            'quantity'   => $cart[$productId],
+            '_sse'       => [
+                ['type' => 'cart_update', 'count' => $count, 'total' => $total],
+            ],
+        ], JSON_UNESCAPED_UNICODE);
+    }
     [$region, $regionError] = quote_region_resolve($input);
     $quote = quote_draft_current($region);
 
@@ -2333,6 +2367,13 @@ function tool_get_cart(string $sid, array $input = []): string
     $cart  = cart_session_read();
     $items = items_with_display_prices(cart_fetch_items($cart));   // 견적서 패널·견적 저장과 같은 회원 등급별 단가
     [$count, $total] = cart_summary_from_items($items);
+    if (!ai_quote_card_enabled()) {   // 견적 카드 스위치 끔 — 반영 전 결과 그대로
+        return json_encode([
+            'items' => $items,
+            'count' => $count,
+            'total' => $total,
+        ], JSON_UNESCAPED_UNICODE);
+    }
     [$region, $regionError] = quote_region_resolve($input);
     $quote = quote_draft_current($region);
 

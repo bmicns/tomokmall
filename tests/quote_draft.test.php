@@ -138,6 +138,24 @@ ok('충남 선택됨', (bool) preg_match('/<option value="충남" selected>/u', 
 ok('다른 지역은 선택 안 됨', !preg_match('/<option value="서울" selected>/u', $html));
 ok('미리 고른 지역이면 바로 운임 계산', str_contains($html, "getElementById('ship-region')?.value) refreshFreight(0)"));
 
+echo "[스위치 끔(app/features.php FEATURE_AI_QUOTE_CARD=false) = 반영 전 동작]\n";
+ai_quote_card_enabled(false);
+$defs = [];
+foreach (ai_tool_definitions() as $t) { $defs[$t['function']['name']] = $t['function']; }
+ok('도구: update_cart 없음, 담기·조회 설명·입력 반영 전과 같음',
+    !isset($defs['update_cart']) && $defs['add_to_cart']['description'] === '고객이 선택한 상품을 견적서에 담습니다.'
+    && array_keys($defs['add_to_cart']['parameters']['properties']) === ['product_id', 'quantity']
+    && $defs['get_cart']['description'] === '현재 견적서에 담긴 상품 목록과 합계를 조회합니다.'
+    && json_encode($defs['get_cart']['parameters']) === '{"type":"object","properties":{}}');
+$d = json_decode(tool_add_to_cart(['product_id' => $b, 'quantity' => 1, 'region' => '서울'], 'test'), true);
+ok('담기 결과: 견적 카드·금액 없음(장바구니 갱신만), 지역 저장 안 함',
+    !empty($d['ok']) && !isset($d['quote']) && count($d['_sse']) === 1 && $d['_sse'][0]['type'] === 'cart_update' && quote_region_get() === '충남');
+$d = json_decode(tool_get_cart('test', ['region' => '서울']), true);
+ok('조회 결과: items·count·total 만', array_keys($d) === ['items', 'count', 'total']);
+$d = json_decode(ai_tool_dispatch('update_cart', ['product_id' => $b, 'quantity' => 0], 'test'), true);
+ok('update_cart 는 알 수 없는 도구', isset($d['error']) && isset(cart_session_read()[$b]));
+ai_quote_card_enabled(true);
+
 session_start();
 $_SESSION = [];
 session_write_close();

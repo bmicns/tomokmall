@@ -82,7 +82,7 @@ $golden = __DIR__ . '/fixtures/prompts/golden';
 $rule80 = '★차량이 올라가면 두께 80mm 이상(80T) 제품, 사람만 다니면 60mm(60T)도 가능 → [참조 문서] 기준.';
 
 $scoped = $pdo->query("SELECT id, is_active, review_status FROM rag_documents WHERE author = '검증 조문(2-1단계)' AND tags LIKE '@scope:public_road%'")->fetchAll(PDO::FETCH_ASSOC);
-$prompts = [];
+$prompts = []; $promptsOff = [];
 try {
     foreach (['inactive', 'active'] as $state) {
         if ($state === 'inactive') {
@@ -93,6 +93,11 @@ try {
         }
         foreach ($scenarios as $key => $s) {
             $prompts[$state][$key] = rag_build_prompt($s['messages']);
+        }
+        if ($state === 'active') {   // 견적 카드 스위치를 끈 프롬프트(반영 전과 같아야 함, 2026-11-23)
+            ai_quote_card_enabled(false);
+            foreach ($scenarios as $key => $s) { $promptsOff[$key] = rag_build_prompt($s['messages']); }
+            ai_quote_card_enabled(true);
         }
     }
 } finally {
@@ -109,6 +114,16 @@ foreach ($prompts as $state => $byKey) {
         $norm = static fn(string $x): string => (string) preg_replace('/\[L\d+\]/', '[L#]', rag_prompt_strip_catalog($x));   // 근거 문서 ID 는 DB 마다 다름 — 번호만 빼고 비교, 현재 등록 상품 구역(판매 데이터)은 따로 검사
         ok("{$key} ({$state}) 시스템 프롬프트 = 분리 전", $g !== '' && $norm($p['system']) === $norm($g));
     }
+}
+echo "[견적 카드 스위치 끔(app/features.php) = 반영 전 3단계 문장]\n";
+$quoteOn  = "【3단계: 견적 안내】\n- 고객이 표에서 제품을 고르면";
+$quoteOff = "【3단계: 견적 안내】\n- 고객이 담기 원하면 add_to_cart 호출. quantity 는 답변에서 안내한 권장 수량(suggested_qty)을 쓰고, 고객이 다른 수량을 말하면 그 수량.\n- 완료 후: '견적요청하기 버튼을 눌러 신청해 주세요.' 한 줄만 출력.\n- 연관 제품이 더 필요할 것 같으면 추가 검색 제안.";
+foreach ($promptsOff as $key => $p) {
+    $on = $prompts['active'][$key]['system'];
+    $i  = strpos($on, $quoteOn);
+    $j  = strpos($on, '- 연관 제품이 더 필요할 것 같으면 추가 검색 제안.', (int) $i);
+    $expect = $i === false || $j === false ? '' : substr($on, 0, $i) . $quoteOff . substr($on, $j + strlen('- 연관 제품이 더 필요할 것 같으면 추가 검색 제안.'));
+    ok("{$key}: 끄면 3단계만 반영 전 문장(나머지 같음)", $expect !== '' && $p['system'] === $expect);
 }
 ok('rag_process 가 rag_build_prompt 결과를 그대로 사용', (bool) preg_match('/\$prompt\s*=\s*rag_build_prompt\(\$messages(?:,\s*(?:rag_recent_cards\(\$sid\)|\$recentCards))?\);\s*\$system\s*=\s*\$prompt\[\'system\'\];/', (string) file_get_contents(__DIR__ . '/../app/rag.php')));
 

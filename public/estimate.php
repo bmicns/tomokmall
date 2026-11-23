@@ -35,7 +35,7 @@ $totalText = $cartTotal > 0 ? number_format($cartTotal).'원'.($hasInquiry ? ' +
 $sum0      = estimate_amount_summary($cartTotal, null); // 초기 상태: 배송 지역 미선택 → 운임 미포함
 // 수량 상한 = 저장 API 상한(장바구니 api/cart.php·즉시견적 quick-items.php 모두 999)
 $qtyMax    = 999;
-$shipRegion = quote_region_get();   // 상담에서 말한 배송 지역(목록에 있는 시·도만, 없으면 null)
+$shipRegion = ai_quote_card_enabled() ? quote_region_get() : null;   // 상담에서 말한 배송 지역(목록에 있는 시·도만, 없으면 null)
 $user  = current_user();
 $nowMin = date('Y-m-d\TH:i');
 
