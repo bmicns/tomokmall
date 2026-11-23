@@ -99,7 +99,7 @@ function syc_publish_plan(PDO $pdo): array
     $prods = (int) $pdo->query("SELECT COUNT(*) FROM syc_products WHERE external_source = 'syccrt'")->fetchColumn();   // 상용콘크리트 원본만(S16)
     $prodsNew = (int) $pdo->query("SELECT COUNT(*) FROM syc_products s WHERE s.external_source = 'syccrt' AND NOT EXISTS (SELECT 1 FROM products p WHERE p.external_source = s.external_source AND p.external_id = s.external_id)")->fetchColumn();
     $stale = (int) $pdo->query("SELECT COUNT(*) FROM products p JOIN categories c ON c.id = p.category_id
-                                 WHERE c.slug LIKE 'syc-%' AND p.is_active = 1
+                                 WHERE c.slug LIKE 'syc-%' AND p.is_active = 1 AND (p.external_id IS NULL OR p.external_id NOT LIKE 'link-%')
                                    AND NOT EXISTS (SELECT 1 FROM syc_products s WHERE s.external_source = p.external_source AND s.external_id = p.external_id)")->fetchColumn();
     return ['mode' => syc_catalog_mode(true), 'categories' => $cats, 'categories_new' => $catsNew, 'products' => $prods, 'products_new' => $prodsNew,
             'products_active' => (int) $pdo->query("SELECT COUNT(*) FROM syc_products WHERE is_active = 1 AND external_source = 'syccrt'")->fetchColumn(), 'stale' => $stale];
@@ -185,7 +185,7 @@ function syc_publish_apply(PDO $pdo, string $mode): array
     }
     // 4) 원본에서 빠진 반영본 상품은 숨김(지우지 않음 — 견적·주문 기록이 가리킬 수 있음)
     $stale = $pdo->exec("UPDATE products p JOIN categories c ON c.id = p.category_id SET p.is_active = 0
-                          WHERE c.slug LIKE 'syc-%' AND p.is_active = 1
+                          WHERE c.slug LIKE 'syc-%' AND p.is_active = 1 AND (p.external_id IS NULL OR p.external_id NOT LIKE 'link-%')
                             AND NOT EXISTS (SELECT 1 FROM syc_products s WHERE s.external_source = p.external_source AND s.external_id = p.external_id)");
     $pdo->prepare('INSERT INTO syc_catalog_state (id, mode, published_at) VALUES (1, ?, NOW()) AS n ON DUPLICATE KEY UPDATE published_at = n.published_at')->execute([$mode]);
     return ['categories' => count($catId), 'axes' => $axCount, 'products' => $n, 'stale' => (int) $stale];
@@ -332,9 +332,11 @@ function syc_publish_std_apply(PDO $pdo): array
         $pins->execute($vals);
         $n++;
     }
-    // 원본에서 빠진 업체 상품은 숨김(지우지 않음 — 견적·주문 기록이 가리킬 수 있음). 케이토목 행은 건드리지 않음
+    // 원본에서 빠진 업체 상품은 숨김(지우지 않음 — 견적·주문 기록이 가리킬 수 있음). 케이토목 행은 건드리지 않음.
+    // 업체 연결 상품 줄(출처ID link-…, app/vendors.php — 원본 없이 products 에만 있음)도 건드리지 않음
     $stale = $pdo->exec("UPDATE products p SET p.is_active = 0
                           WHERE (p.external_source = 'syccrt' OR p.external_source LIKE 'vendor-%') AND p.is_active = 1
+                            AND (p.external_id IS NULL OR p.external_id NOT LIKE 'link-%')
                             AND NOT EXISTS (SELECT 1 FROM syc_products s WHERE s.external_source = p.external_source AND s.external_id = p.external_id)");
     // 처음 공통 분류로 바꿀 때 한 번: 새 품명(std-…, 숨긴 채 들어옴)과 전환(2026-11-12) 때 숨긴 케이토목 분류를 보이게 —
     // 상품 활성 여부는 그대로(케이토목 상품은 비활성이면 안 보임). 이후 반영에서는 관리자가 바꾼 분류 활성 여부를 건드리지 않음

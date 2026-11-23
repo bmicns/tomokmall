@@ -8,6 +8,8 @@ declare(strict_types=1);
  * 검증: category_id 양의 정수 + is_active=1 카테고리만 허용
  * 보안: 기업회원만 price_b2b 노출, 미로그인/일반회원은 price_b2c만 반환
  * 성능: 필요한 컬럼만 SELECT, 단일 쿼리
+ * 규격 필터(기업회원 메인 빠른 견적, 2026-11-17): 상품마다 spec_main(규격 — 치수)·spec_info(규격외정보 — 모델 코드·옵션 등)를 함께 보냄.
+ *   고객 상품 목록 표와 같은 나누기(product_list_spec_split, 사용자 결정 S17) — 업체·분류가 달라도 같은 기준
  * 오류 응답: 입력 검증 실패(category_id·비활성 카테고리)도 HTTP 200 + {"ok":false,"error":…}
  *           (닷홈 Apache 가 4xx 본문을 HTML 오류 페이지로 바꿔 JSON 문구가 사라짐 — quote.php 와 같은 방식)
  *           405(메서드)·503(DB 연결 실패)은 상태 코드 유지
@@ -49,8 +51,10 @@ if (!$cat) {
 
 // 상용콘크리트 반영 카테고리(app/syc_publish.php): 규격 필터를 이름표(폭 W·높이 H…)와 치수 칸 값으로 — 규격 원문 끝에 예전 코드가 붙어 있어
 // 글자 나누기로는 이름을 못 붙임(추가 필드 axes·ax·opt, 케이토목 카테고리는 응답 그대로)
-$sycAxes = (str_starts_with((string) ($cat['slug'] ?? ''), 'syc-') && spec_axes_ready()) ? spec_axes_for_category($categoryId) : [];
-$axCols  = $sycAxes ? ', ' . implode(', ', array_unique(array_merge(SPEC_AXES_NEW_COLUMNS, spec_axes_extra_ready() ? SPEC_AXES_EXTRA_COLUMNS : []))) : '';
+// 공통 분류(2026-11-17): 모든 카테고리에서 이름표가 있으면 같은 방식 — 축 값은 지금 규격 기준인 행만(spec_axes_row_fresh)
+$sycAxes = spec_axes_ready() ? spec_axes_for_category($categoryId) : [];
+$axCols  = $sycAxes ? ', ' . implode(', ', array_unique(array_merge(SPEC_AXES_NEW_COLUMNS, spec_axes_extra_ready() ? SPEC_AXES_EXTRA_COLUMNS : [])))
+         : (spec_axes_ready() ? ', ' . implode(', ', SPEC_AXES_NEW_COLUMNS) : '');   // 규격외정보(모델 코드·옵션)는 축 값이 지금 규격 기준일 때만
 
 $stmt = $pdo->prepare(
     'SELECT id, category_id, name, spec, price_b2c, price_b2b, cost_price, stock_qty, image_url' . $axCols . '
@@ -78,7 +82,16 @@ $products = array_map(function ($row) use ($isCorporate, $sycAxes) {
         'price_list'   => (int) $row['price_b2c'],
         'price_member' => display_unit_price($row),
     ];
-    if ($sycAxes) {
+    $fresh = spec_axes_ready() && spec_axes_row_fresh($row);
+    // 케이토목 규격 끝 '_옵션'(예: 150*170*200(A)_곡선, 220*220*80T_녹/백/황)은 치수가 아니므로 규격외정보로
+    $raw = parse_spec_field((string) $row['spec'])['spec'];
+    $under = '';
+    if (preg_match('/^([^_]+)_(.+)$/u', $raw, $um)) { $raw = trim($um[1]); $under = trim(str_replace('_', ' / ', $um[2])); }
+    $split = product_list_spec_split($raw, $fresh ? ($row['spec_code'] ?? null) : null, $fresh ? ($row['spec_option'] ?? null) : null);
+    if ($under !== '' && !str_contains($split['info'], $under)) { $split['info'] = trim($split['info'] . ($split['info'] !== '' ? ' / ' : '') . $under); }
+    $item['spec_main'] = (string) preg_replace('/(?<=\d)\s*[*xX]\s*(?=\d)/u', '×', $split['spec']);   // 화면 규격 표기(×)와 같게
+    $item['spec_info'] = $split['info'];
+    if ($sycAxes && $fresh) {
         $item['ax'] = [];
         foreach ($sycAxes as $a) {
             $v = spec_axes_row_value($row, (string) $a['axis_key']);

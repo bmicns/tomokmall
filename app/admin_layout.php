@@ -107,11 +107,39 @@ function render_admin_header(string $title, string $activeMenu = ''): void
     .page-btn.page-nav{padding:0 12px}
     .page-btn:disabled{opacity:.4;cursor:default}
     .page-gap{align-self:center;padding:0 2px;color:#aaa;font-size:13px}
+    /* 숫자 카드(대시보드·통계 공통) — 2026-11-17 admin.php 에서 옮김(통계 화면에 스타일이 없어 깨져 보였음) */
+    .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(200px,100%),1fr));gap:14px;margin-bottom:24px}   /* 좁은 화면에서도 화면 폭을 넘지 않게 */
+    .kpi-card{background:#fff;border-radius:10px;padding:18px 20px;display:flex;align-items:center;gap:14px;border:1px solid #e8eaed}
+    .kpi-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .kpi-icon.blue{background:#e8f0fe;color:#004EA1}
+    .kpi-icon.green{background:#e8f5e9;color:#2e7d32}
+    .kpi-icon.orange{background:#fff3e0;color:#e65100}
+    .kpi-icon.purple{background:#f3e8ff;color:#6d28d9}
+    .kpi-icon.red{background:#fce4ec;color:#c62828}
+    .kpi-val{font-size:26px;font-weight:800;color:#1a2035;line-height:1}
+    .kpi-label{font-size:11px;color:#888;margin-top:3px}
+    /* 폰·태블릿(900px 이하, 2026-11-17): 왼쪽 메뉴를 숨기고 위쪽 '메뉴' 버튼으로 여닫는다. 표는 카드 안에서 가로로 밀어 본다 */
+    .adm-menu-btn{display:none}
+    .adm-backdrop{display:none}
+    @media (max-width:900px){
+        .adm-sidebar{position:fixed;left:0;top:0;bottom:0;width:240px;max-width:82vw;z-index:9500;transform:translateX(-100%);transition:transform .2s;visibility:hidden}
+        body.adm-nav-open .adm-sidebar{transform:none;visibility:visible}
+        body.adm-nav-open .adm-backdrop{display:block;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9400}
+        body.adm-nav-open{overflow:hidden}
+        .adm-menu-btn{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;margin-left:-8px;border:none;background:none;color:#1a2035;cursor:pointer;border-radius:6px;flex-shrink:0}
+        .adm-menu-btn:focus-visible{outline:2px solid #004EA1}
+        .adm-topbar-l{display:flex;align-items:center;gap:4px;min-width:0}
+        .adm-content{padding:16px}
+        .card{overflow-x:auto}
+        .toolbar input,.toolbar select{min-width:0;max-width:100%;flex:1 1 140px}
+        .form-2col,.form-3col{grid-template-columns:1fr}
+        .modal-box{padding:22px 18px}
+    }
     </style>
 </head>
 <body>
 <div class="adm-layout">
-    <aside class="adm-sidebar">
+    <aside class="adm-sidebar" id="adm-sidebar">
         <div class="adm-logo">
             <div class="adm-logo-mark">비엠아이</div>
             <div class="adm-logo-sub">Admin Panel</div>
@@ -136,7 +164,7 @@ function render_admin_header(string $title, string $activeMenu = ''): void
     </aside>
     <main class="adm-main">
         <div class="adm-topbar">
-            <span class="adm-topbar-title"><?= htmlspecialchars($title, ENT_QUOTES) ?></span>
+            <div class="adm-topbar-l"><button type="button" class="adm-menu-btn" aria-label="메뉴 열기" aria-expanded="false" aria-controls="adm-sidebar" onclick="admNav(true)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button><span class="adm-topbar-title"><?= htmlspecialchars($title, ENT_QUOTES) ?></span></div>
             <?php // 사이트 보기 출처(이 관리자 세션에만): 케이토목 = 기존 화면, 상용콘크리트 = 상용콘크리트 목록·상세 미리보기(app/syc_catalog.php)
             // 고객 화면을 상용콘크리트로 전환한 뒤(app/syc_publish.php)에는 미리보기가 필요 없어 버튼을 숨긴다
             require_once __DIR__ . '/syc_catalog.php';
@@ -175,6 +203,13 @@ function render_admin_footer(): void
         </div>
     </main>
 </div>
+<div class="adm-backdrop" onclick="admNav(false)"></div>
+<script>
+// 폰·태블릿 왼쪽 메뉴 여닫기(900px 이하에서만 버튼이 보임)
+function admNav(open){document.body.classList.toggle('adm-nav-open',open);var b=document.querySelector('.adm-menu-btn');if(b)b.setAttribute('aria-expanded',open?'true':'false');}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')admNavClose();});
+function admNavClose(){if(document.body.classList.contains('adm-nav-open')){admNav(false);var b=document.querySelector('.adm-menu-btn');if(b)b.focus();}}
+</script>
 </body>
 </html>
 <?php

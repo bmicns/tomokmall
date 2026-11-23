@@ -42,6 +42,31 @@ function cart_session_write(array $cart): void
 }
 
 /**
+ * 장바구니에 담겨 있지만 지금은 팔지 않는 상품(비활성·없어짐) — 견적 요청 화면에 회색 '지금은 없는 상품입니다' 줄로 보여 주고
+ * X 로 빼게 한다(사용자 결정 2026-11-17). 금액·접수(cart_fetch_items)에는 원래대로 들어가지 않는다.
+ *
+ * @param  array<int,int> $cart
+ * @return list<array{product_id:int,name:string,spec:string,quantity:int}>
+ */
+function cart_fetch_gone_items(array $cart): array
+{
+    if (empty($cart) || !db()) return [];
+    $ids = array_map('intval', array_keys($cart));
+    $ph  = implode(',', array_fill(0, count($ids), '?'));
+    $stmt = db()->prepare("SELECT id, name, spec, is_active FROM products WHERE id IN ({$ph})");
+    $stmt->execute($ids);
+    $found = [];
+    foreach ($stmt->fetchAll() as $r) { $found[(int) $r['id']] = $r; }
+    $out = [];
+    foreach ($ids as $pid) {
+        $r = $found[$pid] ?? null;
+        if ($r !== null && (int) $r['is_active'] === 1) { continue; }
+        $out[] = ['product_id' => $pid, 'name' => $r['name'] ?? '삭제된 상품', 'spec' => (string) ($r['spec'] ?? ''), 'quantity' => (int) ($cart[$pid] ?? 0)];
+    }
+    return $out;
+}
+
+/**
  * 장바구니 items 배열 반환 — product_id IN (...) 단일 쿼리로 N+1 방지
  * B2C 단가 기준 (일반 장바구니 / AI 상담 경로용)
  *

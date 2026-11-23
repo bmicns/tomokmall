@@ -6,7 +6,9 @@ declare(strict_types=1);
  * 책임: 업체 코드 ↔ 저장 위치를 정한다.
  *   - 케이토목(ktomok)   : 고객용 상품 표 products 의 상용콘크리트 반영본이 아닌 행(출처 ktomok·dacity·없음)
  *   - 상용콘크리트(syccrt): 원본 표 syc_products 의 출처 syccrt
- *   - 업체 목록(vendors)의 활성 업체: syc_products 의 출처 'vendor-<업체 id>'(DB 구조 변경 없이 출처로 구분)
+ *   - 업체 목록(vendors)의 업체: syc_products 의 출처 'vendor-<업체 id>'(DB 구조 변경 없이 출처로 구분)
+ *     비활성 업체도 드롭다운에 '(비활성)' 으로 남아 원본을 고칠 수 있지만, 그 업체 상품은 활성으로 바꿀 수 없다
+ *     (사용자 결정 2026-11-17: 업체를 끄면 그 업체 상품 전부 비활성, 다시 켜도 상품은 직접 활성으로 — public/api/staff/vendors.php)
  *   덮어쓰기(일괄 등록)는 같은 업체(출처) 안에서만 일어난다 — 다른 업체 상품은 건드리지 않는다.
  * 금지: 고객 화면 출처 바꾸기(고객 화면은 상용콘크리트 고정 — app/syc_publish.php 기능은 화면에서 뺐고 코드만 둠).
  * 사용: public/admin-products.php, public/api/admin/syc-products.php, public/api/admin/products.php
@@ -22,33 +24,124 @@ const PRODUCT_SOURCE_SYC    = 'syccrt';
 const PRODUCT_ACTIVE_TOGGLE_ENABLED = true;
 const PRODUCT_ACTIVE_TOGGLE_OFF_MSG = '활성/비활성 변경은 추후 지원 예정입니다.';
 
-/** 업체 목록 업체의 출처 코드 */
+/** 업체 목록 업체의 출처 코드(출처 코드 칸이 빈 업체) */
 function product_source_vendor_code(int $vendorId): string
 {
     return 'vendor-' . $vendorId;
 }
 
+/*
+ * 업체 표의 '출처 코드' 칸(vendors.source_code, 사용자 결정 2026-11-17 가안 — S25): 상용콘크리트(syccrt)·케이토목(ktomok)처럼
+ * 이미 다른 출처 코드로 저장된 상품을 가진 업체를 업체 목록에 넣는다. 비면 'vendor-<id>'. 상품 데이터의 출처 코드는 바꾸지 않는다.
+ * 칸이 아직 없는 DB(마이그레이션 database/20261117_vendors_source_code.sql 전)에서는 예전처럼 'vendor-<id>' 만.
+ */
+
+/** vendors.source_code 칸이 있는가(요청당 1회) */
+function vendors_has_source_code(PDO $pdo): bool
+{
+    static $has = null;
+    if ($has === null) {
+        try { $has = (bool) $pdo->query("SHOW COLUMNS FROM vendors LIKE 'source_code'")->fetch(); }
+        catch (PDOException $e) { $has = false; }
+    }
+    return $has;
+}
+
+/** 업체 행(id, source_code?) → 출처 코드. 순수 함수 */
+function vendor_row_source_code(array $v): string
+{
+    $c = trim((string) ($v['source_code'] ?? ''));
+    return $c !== '' ? $c : product_source_vendor_code((int) ($v['id'] ?? 0));
+}
+
+/** SQL 식: 업체 표 별칭 $a 의 출처 코드 */
+function vendor_source_sql(PDO $pdo, string $a = 'v'): string
+{
+    return vendors_has_source_code($pdo) ? "COALESCE(NULLIF({$a}.source_code, ''), CONCAT('vendor-', {$a}.id))" : "CONCAT('vendor-', {$a}.id)";
+}
+
+/** 업체 id → 출처 코드. 업체가 없으면 InvalidArgumentException */
+function vendor_source_code(PDO $pdo, int $vendorId): string
+{
+    $st = $pdo->prepare('SELECT ' . vendor_source_sql($pdo) . ' FROM vendors v WHERE v.id = :id');
+    $st->execute(['id' => $vendorId]);
+    $c = $st->fetchColumn();
+    if ($c === false) { throw new InvalidArgumentException('업체를 찾지 못했습니다.'); }
+    return (string) $c;
+}
+
 /**
- * 드롭다운 순서대로: 케이토목 → 상용콘크리트 → 업체 목록의 활성 업체(등록 순).
- * @return list<array{code:string,name:string,store:string}> store = 'products'(케이토목) | 'syc'(syc_products)
+ * 고객용 상품 표(products)에서 출처 코드 $code 의 상품 줄 조건. 케이토목 = 예전 출처(dacity·출처 없음)까지(제품관리 '케이토목'과 같은 범위).
+ * 그 밖은 출처 = $code(바인딩 :$param). @return array{0:string,1:array<string,string>}
+ */
+function product_source_rows_sql(string $code, string $col, string $param): array
+{
+    if ($code === PRODUCT_SOURCE_KTOMOK) {
+        return ["({$col} IS NULL OR ({$col} <> '" . PRODUCT_SOURCE_SYC . "' AND {$col} NOT LIKE 'vendor-%'))", []];
+    }
+    return ["{$col} = :{$param}", [$param => $code]];
+}
+
+/**
+ * 드롭다운 순서대로: 케이토목 → 상용콘크리트 → 업체 목록의 활성 업체(등록 순) → 비활성 업체(등록 순).
+ * @return list<array{code:string,name:string,store:string,active:bool}> store = 'products'(케이토목) | 'syc'(syc_products)
  */
 function product_sources(PDO $pdo): array
 {
+    // 케이토목·상용콘크리트는 늘 맨 앞. 업체 목록에 출처 코드로 등록돼 있으면 그 업체의 이름·활성 상태를 쓴다(S25)
     $out = [
-        ['code' => PRODUCT_SOURCE_KTOMOK, 'name' => '케이토목', 'store' => 'products'],
-        ['code' => PRODUCT_SOURCE_SYC,    'name' => '상용콘크리트', 'store' => 'syc'],
+        PRODUCT_SOURCE_KTOMOK => ['code' => PRODUCT_SOURCE_KTOMOK, 'name' => '케이토목', 'store' => 'products', 'active' => true],
+        PRODUCT_SOURCE_SYC    => ['code' => PRODUCT_SOURCE_SYC,    'name' => '상용콘크리트', 'store' => 'syc', 'active' => true],
     ];
     try {
-        foreach ($pdo->query('SELECT id, name FROM vendors WHERE is_active = 1 ORDER BY id') as $v) {
-            $out[] = ['code' => product_source_vendor_code((int) $v['id']), 'name' => (string) $v['name'], 'store' => 'syc'];
+        $sc = vendors_has_source_code($pdo) ? ', source_code' : '';
+        foreach ($pdo->query("SELECT id, name, is_active{$sc} FROM vendors ORDER BY is_active DESC, id") as $v) {
+            $code = vendor_row_source_code($v);
+            if (isset($out[$code])) {
+                $out[$code]['name'] = (string) $v['name'];
+                $out[$code]['active'] = (int) $v['is_active'] === 1;
+                continue;
+            }
+            $out[$code] = ['code' => $code, 'name' => (string) $v['name'], 'store' => 'syc', 'active' => (int) $v['is_active'] === 1];
         }
     } catch (PDOException $e) {
         error_log('[product_sources] vendors 표를 읽지 못함: ' . $e->getCode());   // 표가 없으면 기본 2개만
     }
-    return $out;
+    return array_values($out);
 }
 
-/** 코드로 업체 찾기(활성 업체만). 없으면 null */
+/** 비활성 업체의 출처 코드 목록('vendor-<id>'). 표가 없으면 빈 목록 */
+function product_inactive_source_codes(PDO $pdo): array
+{
+    return array_values(array_map(static fn($s) => $s['code'], array_filter(product_sources($pdo), static fn($s) => !$s['active'])));
+}
+
+/** 비활성 업체 상품을 활성으로 바꾸려 할 때 보여 줄 문구 */
+function product_inactive_vendor_msg(int $n): string
+{
+    return "비활성 업체의 상품 {$n}개가 들어 있어 활성으로 바꿀 수 없습니다. 품목별 업체정보 → 업체 목록에서 업체를 먼저 다시 활성으로 바꿔 주세요.";
+}
+
+/**
+ * 활성으로 바꾸기 전 확인: $table 의 $where(바인딩 $params) 에 맞는 행 중 비활성 업체 상품이 있으면 InvalidArgumentException.
+ * $srcCol = 출처 칸(예: 'p.external_source'). 비활성 업체가 없으면 쿼리 없이 통과
+ */
+function product_assert_no_inactive_vendor(PDO $pdo, string $from, string $where, array $params, string $srcCol): void
+{
+    $codes = product_inactive_source_codes($pdo);
+    if (!$codes) { return; }
+    $conds = []; $ph = [];
+    foreach ($codes as $i => $c) {
+        [$sql, $p] = product_source_rows_sql($c, $srcCol, 'ivc' . $i);   // 케이토목 = 예전 출처 상품까지
+        $conds[] = $sql; $ph += $p;
+    }
+    $st = $pdo->prepare("SELECT COUNT(*) FROM {$from} WHERE ({$where}) AND (" . implode(' OR ', $conds) . ')');
+    $st->execute($params + $ph);
+    $n = (int) $st->fetchColumn();
+    if ($n > 0) { throw new InvalidArgumentException(product_inactive_vendor_msg($n)); }
+}
+
+/** 코드로 업체 찾기(비활성 업체 포함 — 'active' 로 구분). 없으면 null */
 function product_source_find(PDO $pdo, string $code): ?array
 {
     foreach (product_sources($pdo) as $s) {

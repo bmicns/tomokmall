@@ -23,7 +23,23 @@ $st = db()->prepare(
 );
 $st->execute([$id]);
 $p = $st->fetch();
-if (!$p) { header('Location: /index.php'); exit; }
+if (!$p) {
+    // 지금은 팔지 않는 상품(비활성 — 업체 연결 삭제·업체 비활성 등): 견적·주문 기록에서 눌러도 상세를 보여 주지 않고 안내만(2026-11-17).
+    // 없는 id 는 예전처럼 메인으로. 상태 코드는 200(닷홈이 4xx 본문을 오류 페이지로 바꿈)
+    $gone = db()->prepare('SELECT name FROM products WHERE id = ? AND is_active = 0');
+    $gone->execute([$id]);
+    $goneName = $gone->fetchColumn();
+    if ($goneName === false) { header('Location: /index.php'); exit; }
+    header('X-Robots-Tag: noindex');
+    render_header('지금은 없는 상품');
+    echo '<section class="section narrow" style="text-align:center;padding:64px 16px">'
+       . '<p style="font-size:15px;color:#9aa0a6;text-decoration:line-through;margin-bottom:8px">' . e((string) $goneName) . '</p>'
+       . '<h1 style="font-size:20px;margin-bottom:12px">지금은 없는 상품입니다</h1>'
+       . '<p style="font-size:13.5px;color:#666;margin-bottom:24px">이 상품은 현재 판매하지 않습니다. 비슷한 상품은 상품 목록에서 찾아 주세요.</p>'
+       . '<a class="button" href="/products.php">상품 목록 보기</a></section>';
+    render_footer();
+    exit;
+}
 
 $sp       = parse_spec_field($p['spec'] ?? '');
 $sp['unit'] = unit_display_label($sp['unit']);   // 표시용 단위(m 2 → ㎡)
@@ -106,7 +122,8 @@ render_header($p['name']);
 .pd-body{display:grid;grid-template-columns:1fr 420px;gap:0;border:1px solid var(--color-border);border-radius:10px;overflow:hidden}
 /* 이미지 영역 */
 .pd-img-area{background:#f7f7f7;display:flex;align-items:center;justify-content:center;min-height:420px;padding:32px}
-.pd-img-area img{width:100%;max-height:400px;object-fit:contain;display:block}
+/* 상세 이미지: 세로로 긴 이미지(제조사 소개 이미지 등)도 영역을 채우게 높이 한도 840px(예전 400px — 작게 보였음, 2026-11-17) */
+.pd-img-area img{width:100%;height:auto;max-height:840px;object-fit:contain;display:block}
 .pd-img-empty-msg{color:var(--color-text-secondary);font-size:14px}
 /* 정보 영역 */
 .pd-info-area{border-left:1px solid var(--color-border);padding:32px 28px;display:flex;flex-direction:column;gap:0}
@@ -214,7 +231,7 @@ render_header($p['name']);
 @media(max-width:800px){
   .pd-body{grid-template-columns:1fr}
   .pd-img-area{min-height:280px;padding:20px}
-  .pd-img-area img{max-height:260px}
+  .pd-img-area img{max-height:560px}
   .pd-info-area{border-left:none;border-top:1px solid var(--color-border)}
   .pd-price-val{font-size:24px}
   .pd-price-grade .pd-price-val{font-size:15px}
@@ -230,7 +247,7 @@ render_header($p['name']);
   .pd-breadcrumb > *{min-width:0;overflow-wrap:anywhere}
   .pd-body{grid-template-columns:minmax(0,1fr)}
   .pd-img-area{min-height:220px;padding:16px}
-  .pd-img-area img{max-height:220px}
+  .pd-img-area img{max-height:440px}
   .pd-info-area{min-width:0;padding:20px 16px}
   .pd-product-name{font-size:21px}
   .pd-fav-btn{min-width:0}
@@ -440,7 +457,7 @@ render_header($p['name']);
                 <?php if (!$loggedIn): ?>
                 <button class="btn-pd-action" onclick="openAuthModal('login')">견적에 넣기</button>
                 <button class="btn-pd-action" onclick="openAuthModal('login')">견적 요청</button>
-                <div class="pd-login-notice">견적·주문은 로그인 후 이용 가능합니다 (기업회원가 추가 공개)</div>
+                <div class="pd-login-notice">견적·주문은 로그인 후 이용 가능합니다</div>
                 <?php else: ?>
                 <button class="btn-pd-action" onclick="addCart(<?= (int)$p['id'] ?>)">견적에 넣기</button>
                 <button class="btn-pd-action" onclick="location.href='/estimate.php'">견적 요청</button>

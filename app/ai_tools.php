@@ -998,10 +998,12 @@ function ai_tiered_load_sources(?array $set = null, bool $reset = false): ?array
     return $cache;
 }
 
-/** 행의 업체가 상품명 하중 단계 규칙을 쓰는지 — 출처 칸이 없거나 업체 목록을 못 읽으면 null(기존 판정) */
+/** 행의 업체가 상품명 하중 단계 규칙을 쓰는지 — 출처 칸이 없거나 업체 목록을 못 읽으면 null(기존 판정).
+ *  업체 연결 상품 줄(S24, 출처ID 'link-<원래 상품 id>')은 원래 상품의 이름을 복사한 줄이라 원래 상품과 같게(null — 이름 기준) 본다. */
 function ai_row_tiered(array $row): ?bool
 {
-    if (!array_key_exists('external_source', $row) || $row['external_source'] === null || $row['external_source'] === '') {
+    if (!array_key_exists('external_source', $row) || $row['external_source'] === null || $row['external_source'] === ''
+        || str_starts_with((string) ($row['external_id'] ?? ''), 'link-')) {
         return null;
     }
     $set = ai_tiered_load_sources();

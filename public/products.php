@@ -450,7 +450,6 @@ render_header($pageTitle);
                 <p class="empty-hint">잠시 후 다시 시도해 주세요.</p>
             <?php elseif ($inStock && !$demoMode): ?>
                 <p class="empty-title">조건에 맞는 재고 있는 상품이 없습니다.</p>
-                <p class="empty-hint">'재고 있는 상품만 보기'를 해제하면 재고와 관계없이 전체 상품을 볼 수 있습니다.</p>
                 <div class="empty-suggest">
                     <a class="empty-chip" href="<?= e(product_list_url($_GET, ['instock' => null])) ?>">전체 상품 보기</a>
                 </div>

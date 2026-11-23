@@ -16,6 +16,8 @@ require __DIR__ . '/../app/work_types.php';
 require __DIR__ . '/../app/corp_home.php';
 require_once __DIR__ . '/../app/rag.php';
 require_once __DIR__ . '/../app/auth.php';
+require_once __DIR__ . '/../app/layout.php';
+require_once __DIR__ . '/../app/product_images.php';
 
 $pass = 0; $fail = 0;
 function ok(string $name, bool $cond): void {
@@ -1527,6 +1529,7 @@ $kg = ['name' => '그레이팅수로용', 'spec' => '규격: W300*L1000', 'exter
 eq('다른 업체의 표기 없는 그레이팅: 차량 통행이면 확인 필요(낮은 등급으로 버리지 않음), 보행자면 판정 안 함 / 케이토목은 그대로', [
     ai_load_status($vg, 'car')['status'], ai_load_status($vg, 'pedestrian')['status'], ai_load_class_of($vg),
     ai_load_status($kg, 'car')['status'], ai_load_class_of($kg), ai_row_tiered(['name' => 'x'])], ['unverified', 'na', '', 'lighter', 'pedestrian', null]);
+eq('업체 연결 상품 줄(link-, 원래 상품 이름 복사)은 원래 상품처럼 이름 기준', [ai_load_class_of($vg + ['external_id' => 'link-123']), ai_load_class_of($vg + ['external_id' => 'V-1'])], ['pedestrian', '']);
 eq('상담 품목 → 공통 분류 품명(일반 명칭 규칙, 몰드·집게·부속 제외)', [
     consult_kind_matches('grating', '중하중그레이팅수로용'), consult_kind_matches('grating', '알루미늄트렌치'), consult_kind_matches('grating', '사각주철(수로용/닥타일)'),
     consult_kind_matches('grating', '낙엽방지덮개'), consult_kind_matches('culvert', '수로관(벤치3종)몰드'), consult_kind_matches('culvert', '측구수로관A형(앵글미부착)'),
@@ -1554,6 +1557,29 @@ eq('조회 실패면 구역 없음, 판매 상품이 없으면 없다고 안내(
     consult_catalog_prompt('grating', null), str_contains(consult_catalog_prompt('pe_pipe', []), '판매 중인 배수관·관류 상품이 없다'), consult_catalog_prompt('etc', $cs)], ['', true, '']);
 ok('하중 표기 없음 규칙은 그런 상품이 있을 때만', !str_contains(consult_catalog_prompt('grating', [$cs[0]]), '하중 표기 없음'));
 ai_tiered_load_sources(null, true);
+
+// 메가 메뉴 '기타' 묶음(화면 표시만): 정한 순서대로 묶음 칸, 묶음에 없는 중분류는 '그 밖의 자재', 빈 묶음은 뺌
+$gm = fn(int $id, string $slug, string $n) => ['mid' => ['id' => $id, 'slug' => $slug, 'name' => $n, 'thumb' => null], 'subs' => []];
+$gc = mega_menu_grouped_cols([$gm(2, 'insulation', '단열재'), $gm(5, 'tile-supplies', '타일 부자재'), $gm(205, 'ktomok-7750', '과속방지턱'), $gm(999, 'std-099', '새 분류')],
+    ['건축 부자재' => ['tile-supplies', 'tile', 'insulation'], '설비·전기' => ['plumbing'], '도로 안전' => ['ktomok-7750']]);
+eq('메가 메뉴 묶음: 제목·순서·남은 분류', array_map(fn($c) => [$c[0]['mid']['name'], array_column($c[0]['subs'], 'id'), $c[0]['group']], $gc),
+    [['건축 부자재', [5, 2], true], ['도로 안전', [205], true], ['그 밖의 자재', [999], true]]);
+eq('메가 메뉴 묶음: 기타(16) 묶음 id 중복 없음', count(array_merge(...array_values(MEGA_MENU_GROUPS[16]))), count(array_unique(array_merge(...array_values(MEGA_MENU_GROUPS[16])))));
+
+// 상품 이미지 낱장(수정 창): 업체 폴더 이름·경로 칸 확인(빈칸 = 비우기, 서버 경로는 실제 이미지 파일이 있어야, 외부 주소는 그대로)
+$bad = function (callable $f): bool { try { $f(); return false; } catch (InvalidArgumentException $e) { return true; } };
+eq('이미지 폴더: 업체 코드만', [product_image_dir_name('ktomok'), product_image_dir_name('syccrt'), product_image_dir_name('vendor-12')], ['ktomok', 'syccrt', 'vendor-12']);
+ok('이미지 폴더: 그 밖(../·빈칸·vendor-0) 거부', $bad(fn() => product_image_dir_name('../x')) && $bad(fn() => product_image_dir_name('')) && $bad(fn() => product_image_dir_name('vendor-0')));
+$wr = sys_get_temp_dir() . '/pimg_' . bin2hex(random_bytes(4));
+mkdir($wr . '/uploads/products/ktomok', 0777, true);
+$png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=');
+file_put_contents($wr . '/uploads/products/ktomok/a.png', $png);
+file_put_contents($wr . '/uploads/products/ktomok/fake.png', '<?php echo 1;');
+eq('이미지 경로 칸: 빈칸·서버 파일·외부 주소', [product_image_path_input('', $wr, '썸네일'), product_image_path_input(' /uploads/products/ktomok/a.png ', $wr, '썸네일'),
+    product_image_path_input('https://ex.com/a.jpg', $wr, '썸네일')], [null, '/uploads/products/ktomok/a.png', 'https://ex.com/a.jpg']);
+ok('이미지 경로 칸: 없는 파일·이미지 아닌 파일·../ 거부', $bad(fn() => product_image_path_input('/uploads/products/ktomok/none.png', $wr, 'x'))
+    && $bad(fn() => product_image_path_input('/uploads/products/ktomok/fake.png', $wr, 'x')) && $bad(fn() => product_image_path_input('/uploads/../a.png', $wr, 'x')));
+array_map('unlink', glob($wr . '/uploads/products/ktomok/*')); rmdir($wr . '/uploads/products/ktomok'); rmdir($wr . '/uploads/products'); rmdir($wr . '/uploads'); rmdir($wr);
 
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
