@@ -46,7 +46,20 @@ function vendor_names_subquery(): string
              JOIN vendors v ON v.id = pv.vendor_id
              WHERE pv.product_id = p.id AND v.is_active = 1
                AND NOT EXISTS (SELECT 1 FROM products lp WHERE lp.external_source = " . vendor_source_sql(db(), 'v') . "
-                                                           AND lp.external_id = CONCAT('link-', p.id))), NULLIF(p.brand, ''))";
+                                                           AND lp.external_id = CONCAT('link-', p.id))), NULLIF(p.brand, '')" . vendor_names_ktomok_fallback() . ")";
+}
+
+/**
+ * 연결 업체·brand 가 모두 없는 케이토목 상품 → 업체 목록의 케이토목(출처 코드 ktomok) 업체명(활성일 때만, S25).
+ * 케이토목 상품은 brand 가 비어 있어, 임시 업체 연결을 끄면 '-' 로 보이던 문제(2026-11-23).
+ */
+function vendor_names_ktomok_fallback(): string
+{
+    if (!vendors_has_source_code(db())) {
+        return '';
+    }
+    [$cond] = product_source_rows_sql(PRODUCT_SOURCE_KTOMOK, 'p.external_source', 'src');
+    return ", CASE WHEN {$cond} THEN (SELECT kv.name FROM vendors kv WHERE kv.source_code = '" . PRODUCT_SOURCE_KTOMOK . "' AND kv.is_active = 1 LIMIT 1) END";
 }
 
 /**
