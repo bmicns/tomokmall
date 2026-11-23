@@ -1434,6 +1434,11 @@ $stdFake = array_combine(array_values(array_unique($stdM[1])), range(90001, 9000
 $pjRows = json_decode((string) file_get_contents(__DIR__ . '/../data/syccrt/products.json'), true)['rows'] ?? [];
 $unm = array_values(array_filter($pjRows, static fn($r) => catalog_std_category($r['category_slug'], $r, $stdFake) === null));
 eq('공통 분류 매핑: 상용콘크리트 704개 모두 공통 분류에 들어감(새 품명 slug 는 마이그레이션에 있음)', [count($pjRows), count($unm), count($stdFake)], [704, 0, 19]);
+// 동아산업(S29, 2026-11-23): dac-<번호> → 같은 번호 케이토목 분류, 예외표(불투수 → 71), 같은 번호 없으면 null, 매핑 줄이 있으면 그 줄
+eq('동아산업 분류 → 공통 분류: 번호 연결·예외표·없는 번호·syc 분류는 기존대로',
+    [catalog_std_category('dac-1060', [], ['ktomok-1060' => 21]), catalog_std_category('dac-3426', [], ['ktomok-3425' => 71, 'ktomok-3426' => 72]),
+     catalog_std_category('dac-2620', [], ['ktomok-1060' => 21]), catalog_std_category('syc-s21', [], ['ktomok-1010' => 9]), catalog_dac_std_slug('syc-s1'), catalog_dac_std_slug('dac-x1')],
+    [21, 71, null, 9, null, null]);
 $pdm = syc_publish_dims(['dim_w' => 300.0, 'dim_w1' => 600.0, 'dim_l' => null], [
     ['axis_key' => 'w', 'label' => '폭', 'symbol' => 'W', 'unit' => 'mm', 'in_list' => true], ['axis_key' => 'w1', 'label' => '세부', 'symbol' => 'w1', 'unit' => 'mm', 'in_list' => false],
     ['axis_key' => 'l', 'label' => '길이', 'symbol' => 'L', 'unit' => 'mm', 'in_list' => true]]);

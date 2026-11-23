@@ -112,3 +112,20 @@ const CATALOG_STD_MAP = [
     ['syc-s54', 'all', '', 71, '결정'],   // 2026-11-16 결정: 품명 인조화강블록(71 을 이름 바꿔 투수·불투수 합침), 투수/불투수는 규격외정보(옵션)
     ['syc-s55', 'all', '', 71, '결정'],   // 2026-11-16 결정: 위와 같음
 ];
+
+/**
+ * 동아산업(업체 목록 업체) 분류 → 공통 분류 — 사용자 결정 2026-11-23(S29 '분류 추가 + 번호 자동 연결').
+ * 동아산업(dacity)과 케이토목(ktomok)은 같은 상품 DB 를 써서 분류번호가 같다: syc_categories.slug 'dac-<번호>' → categories.slug 'ktomok-<번호>'.
+ * 위 CATALOG_STD_MAP 에 그 slug 줄이 있으면 그 줄이 먼저(catalog_std_category). 번호만으로 안 되는 분류는 아래 예외표.
+ * 예외표에 없고 같은 번호의 케이토목 분류도 없는 분류(휀스기초·야자매트 등)는 반영하지 않는다(unmapped — 사용자 결정 대기).
+ */
+const CATALOG_DAC_STD_EXCEPTIONS = [
+    'dac-3426' => 'ktomok-3425',   // 인조화강블록(불투수) → 71 인조화강블록(S20 — 72 는 숨김, 투수/불투수는 규격외정보)
+];
+
+/** 동아산업 분류 slug → 공통 분류 slug(categories.slug). 동아산업 분류가 아니면 null. 순수 함수 */
+function catalog_dac_std_slug(string $vendorSlug): ?string
+{
+    if (isset(CATALOG_DAC_STD_EXCEPTIONS[$vendorSlug])) { return CATALOG_DAC_STD_EXCEPTIONS[$vendorSlug]; }
+    return preg_match('/^dac-(\d+)$/', $vendorSlug, $m) ? 'ktomok-' . $m[1] : null;
+}
