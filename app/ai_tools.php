@@ -57,12 +57,13 @@ function ai_tool_definitions(): array
             'type'     => 'function',
             'function' => [
                 'name'        => 'add_to_cart',
-                'description' => '고객이 선택한 상품을 견적서에 담습니다.',
+                'description' => '고객이 담아 달라고 한 상품을 견적서에 담습니다(고객이 원하기 전에는 호출하지 않음). 결과의 견적 카드(품목·상품 합계·예상 운임·부가세·최종 예상 금액)가 화면에 보입니다.',
                 'parameters'  => [
                     'type'       => 'object',
                     'properties' => [
                         'product_id' => ['type' => 'integer', 'description' => '상품 ID'],
                         'quantity'   => ['type' => 'integer', 'description' => '수량 (기본 1)'],
+                        'region'     => ['type' => 'string', 'description' => QUOTE_REGION_PARAM_DESC],
                     ],
                     'required' => ['product_id'],
                 ],
@@ -72,8 +73,28 @@ function ai_tool_definitions(): array
             'type'     => 'function',
             'function' => [
                 'name'        => 'get_cart',
-                'description' => '현재 견적서에 담긴 상품 목록과 합계를 조회합니다.',
-                'parameters'  => ['type' => 'object', 'properties' => new \stdClass()],
+                'description' => '현재 견적서에 담긴 상품 목록과 견적 카드(상품 합계·예상 운임·부가세·최종 예상 금액)를 조회해 화면에 보여 줍니다. 고객이 견적서를 보여 달라고 하거나, 담은 뒤 배송 지역(시·도)을 알려 줄 때 region 과 함께 호출합니다.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'region' => ['type' => 'string', 'description' => QUOTE_REGION_PARAM_DESC],
+                    ],
+                ],
+            ],
+        ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'update_cart',
+                'description' => "견적서에 이미 담긴 상품의 수량을 바꾸거나 뺍니다(고객이 '빼 줘'·'수량을 30개로' 처럼 말한 상품만). quantity 0 = 견적서에서 빼기.",
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'product_id' => ['type' => 'integer', 'description' => '견적서에 담긴 상품 ID'],
+                        'quantity'   => ['type' => 'integer', 'description' => '새 수량(1~999), 0 이면 빼기'],
+                    ],
+                    'required' => ['product_id', 'quantity'],
+                ],
             ],
         ],
         [
@@ -125,7 +146,8 @@ function ai_tool_dispatch(string $toolName, array $input, string $sid): string
     return match ($toolName) {
         'search_products' => tool_search_products($input),
         'add_to_cart'     => tool_add_to_cart($input, $sid),
-        'get_cart'        => tool_get_cart($sid),
+        'get_cart'        => tool_get_cart($sid, $input),
+        'update_cart'     => tool_update_cart($input, $sid),
         'create_estimate' => tool_create_estimate($input, $sid),
         'material_info'   => tool_material_info($input),
         default           => json_encode(['error' => '알 수 없는 도구입니다: ' . htmlspecialchars($toolName, ENT_QUOTES, 'UTF-8')]),
@@ -2287,32 +2309,124 @@ function tool_add_to_cart(array $input, string $sid): string
     cart_session_write($cart);
 
     [$count, $total] = cart_summary($cart);
+    [$region, $regionError] = quote_region_resolve($input);
+    $quote = quote_draft_current($region);
 
     return json_encode([
         'ok'         => true,
         'product_id' => $productId,
         'name'       => $product['name'],
         'quantity'   => $cart[$productId],
+    ] + quote_tool_result($quote, $regionError) + [
         '_sse'       => [
             ['type' => 'cart_update', 'count' => $count, 'total' => $total],
+            $quote,
         ],
     ], JSON_UNESCAPED_UNICODE);
 }
 
 /**
- * 장바구니 조회
+ * 장바구니 조회 + 견적 카드(배송 지역이 있으면 예상 운임까지) — 2026-11-23 A8
  */
-function tool_get_cart(string $sid): string
+function tool_get_cart(string $sid, array $input = []): string
 {
     $cart  = cart_session_read();
     $items = items_with_display_prices(cart_fetch_items($cart));   // 견적서 패널·견적 저장과 같은 회원 등급별 단가
     [$count, $total] = cart_summary_from_items($items);
+    [$region, $regionError] = quote_region_resolve($input);
+    $quote = quote_draft_current($region);
 
     return json_encode([
         'items' => $items,
         'count' => $count,
         'total' => $total,
+    ] + quote_tool_result($quote, $regionError) + [
+        '_sse'  => $items ? [$quote] : [],
     ], JSON_UNESCAPED_UNICODE);
+}
+
+/**
+ * 견적서에 담긴 상품 수량 바꾸기·빼기(quantity 0) — 2026-11-23 A8. 담기지 않은 상품은 바꾸지 않는다.
+ */
+function tool_update_cart(array $input, string $sid): string
+{
+    $productId = (int) ($input['product_id'] ?? 0);
+    $quantity  = (int) ($input['quantity'] ?? -1);
+    if ($productId <= 0) {
+        return json_encode(['error' => 'product_id 가 유효하지 않습니다.']);
+    }
+    if ($quantity < 0 || $quantity > 999) {
+        return json_encode(['error' => '수량은 0(빼기) 또는 1~999 범위여야 합니다.'], JSON_UNESCAPED_UNICODE);
+    }
+    $cart = cart_session_read();
+    if (!isset($cart[$productId])) {
+        return json_encode(['error' => '견적서에 담긴 상품이 아닙니다. get_cart 로 담긴 상품 id 를 확인하세요.', 'product_id' => $productId], JSON_UNESCAPED_UNICODE);
+    }
+    if ($quantity === 0) {
+        unset($cart[$productId]);
+    } else {
+        $cart[$productId] = $quantity;
+    }
+    cart_session_write($cart);
+
+    [$count, $total] = cart_summary($cart);
+    $quote = quote_draft_current(quote_region_get());
+
+    return json_encode([
+        'ok'         => true,
+        'product_id' => $productId,
+        'removed'    => $quantity === 0,
+        'quantity'   => $quantity,
+    ] + quote_tool_result($quote, null) + [
+        '_sse'       => [
+            ['type' => 'cart_update', 'count' => $count, 'total' => $total],
+            $quote,
+        ],
+    ], JSON_UNESCAPED_UNICODE);
+}
+
+/**
+ * 도구 입력의 region → [시·도 키|null, 오류 문장|null]. 알아들은 지역은 세션에 기억, 없으면 세션 값.
+ * 모르는 이름이면 세션 값을 쓰고 오류 문장으로 시·도를 다시 묻게 한다(추측하지 않음).
+ */
+function quote_region_resolve(array $input): array
+{
+    $raw = trim((string) ($input['region'] ?? ''));
+    if ($raw === '') {
+        return [quote_region_get(), null];
+    }
+    $region = freight_region_normalize($raw);
+    if ($region === null) {
+        return [quote_region_get(), "배송 지역 '{$raw}'을(를) 시·도로 알 수 없습니다. 어느 시·도인지 고객에게 확인하세요."];
+    }
+    quote_region_set($region);
+    return [$region, null];
+}
+
+/** AI 에게 돌려줄 견적 카드 요약 — 금액은 이 값만 말하게(카드가 화면에 보이므로 다시 나열하지 않음) */
+function quote_tool_result(array $quote, ?string $regionError): array
+{
+    $f = $quote['freight'];
+    $out = [
+        'quote' => [
+            'region'       => $quote['region'],
+            'goods_total'  => $quote['goods_total'],
+            'freight'      => $f['status'] === 'ok' ? $f['amount'] : null,
+            'freight_text' => $f['text'],
+            'vat'          => $quote['vat'],
+            'final'        => $quote['final'],
+            'final_suffix' => $quote['final_suffix'],
+            'has_inquiry'  => $quote['has_inquiry'],
+        ],
+        'quote_note' => '견적 카드가 화면에 보인다. 금액을 다시 나열하지 말 것.'
+            . ($quote['region'] === null ? ' 배송 지역이 없으니 시·도를 알려 주면 예상 운임까지 계산해 준다고 한 줄 안내.' : '')
+            . ($f['status'] === 'missing_weight' ? ' 중량 정보가 없는 품목이 있어 운임은 담당자가 따로 확인한다.' : '')
+            . ($f['status'] === 'negotiate' ? ' 이 지역 운임은 담당자와 별도 협의.' : ''),
+    ];
+    if ($regionError !== null) {
+        $out['region_error'] = $regionError;
+    }
+    return $out;
 }
 
 /**
@@ -2348,4 +2462,5 @@ function tool_create_estimate(array $input, string $sid): string
 // app/estimate.php — estimate_create() (cart.php 자동 로드)
 
 require_once __DIR__ . '/estimate.php';
+require_once __DIR__ . '/quote_draft.php';   // AI 상담 견적 카드(2026-11-23 A8)
 require_once __DIR__ . '/external_products.php';
