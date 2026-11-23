@@ -83,3 +83,51 @@ function tdb_read_csv(string $path): array
     }
     return $out;
 }
+
+/**
+ * 운영 → 테스트 DB 내보내기 대상 표와 칸별 처리 (2026-11-23 — 02 SQL 을 운영 구조(10 결과 A3)에서 만들도록 바꿈).
+ * 블록 키 → [표, 반드시 있어야 하는 칸]. 칸 목록은 운영 A3 에서 읽고(새 칸이 생겨도 SQL 을 손으로 고치지 않음), 처리 규칙은 tdb_export_policy.
+ * 회원·견적·주문·상담 기록 표는 내보내지 않는다(구조만 복제). syc_* 원본 표는 공통 분류(S20) 반영본이 products 에 있어 내보내지 않는다.
+ */
+const TDB_EXPORT_TABLES = [
+    'E1' => ['categories', ['id', 'parent_id', 'name']],
+    'E2' => ['products', ['id', 'category_id', 'name']],
+    'E3' => ['category_relations', ['id']],
+    'E4' => ['vendors', ['id', 'name']],
+    'E5' => ['product_vendors', ['id', 'product_id', 'vendor_id']],
+    'E6' => ['category_gallery', ['id']],
+    'E9' => ['category_spec_axes', ['id', 'category_id']],
+];
+/** 업체 표에서 그대로 내보내는 칸(나머지 — 담당자·전화·팩스·이메일·주소·메모 등 — 는 NULL) */
+const TDB_VENDOR_KEEP = ['id', 'name', 'region', 'is_active', 'created_at', 'updated_at'];
+/** 가격 이름 칸 중 그대로 내보내는 칸(2026-10-23 승인 범위 — 판매가). 그 밖의 가격 이름 칸(매입가·마진율·공급가 등)은 0 */
+const TDB_PRICE_KEEP = ['products.price_b2c', 'products.price_b2b'];
+
+/** 칸 처리 (순수 함수) — 'raw' 그대로 · 'zero' 0 · 'null' NULL. 가격 이름 규칙은 CLAUDE.md P0-4 와 같다 */
+function tdb_export_policy(string $table, string $col): string
+{
+    if ($table === 'vendors') {
+        return in_array($col, TDB_VENDOR_KEEP, true) ? 'raw' : 'null';
+    }
+    if ($table === 'product_vendors' && $col === 'memo') {
+        return 'null';
+    }
+    if (preg_match('/price|cost|discount|margin|markup|fee|amount|amt|tax|vat|surcharge/i', $col) && !in_array("{$table}.{$col}", TDB_PRICE_KEEP, true)) {
+        return 'zero';
+    }
+    return 'raw';
+}
+
+/** 10(또는 01) 결과 CSV 의 A3 → ['표' => [칸 이름…(운영 순서)]] */
+function tdb_schema_columns(array $checks): array
+{
+    if (!isset($checks['A3 컬럼']['data']) || !is_array($checks['A3 컬럼']['data'])) {
+        tdb_stop('점검 CSV 에 A3 컬럼 결과가 없습니다(10_refresh_checks.sql 결과인지 확인).');
+    }
+    $cols = [];
+    foreach ($checks['A3 컬럼']['data'] as $c) {
+        $cols[(string) $c['t']][(int) $c['pos']] = (string) $c['col'];
+    }
+    foreach ($cols as &$list) { ksort($list); $list = array_values($list); }
+    return $cols;
+}
