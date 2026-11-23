@@ -610,6 +610,7 @@ function bkOpen() {
     document.getElementById('bk-title').textContent = `${bk.srcName} 일괄 등록`;
     document.getElementById('bk-note').innerHTML = `엑셀을 올리면 <strong>${x(bk.srcName)}</strong> 상품을 한 번에 등록합니다. 새 상품은 <strong>비활성</strong>으로 저장됩니다.`
         + ` 이미 있는 상품은 엑셀 값으로 고칩니다(활성 상태 그대로) — 같은 상품 = 출처ID, 출처ID가 없으면 제품명·규격${bk.syc ? '·옵션' : ''}이 같은 상품. <strong>다른 업체 상품은 바뀌지 않습니다.</strong>`
+        + (bk.syc ? `<br>분류코드: <strong>분류코드 목록</strong>의 '고객 화면 분류' 코드를 적으면 그 분류에 바로 들어갑니다(업체 분류를 따로 만들 필요 없음).` : '')
         + `<br>이미지: 엑셀의 <strong>썸네일·상세·규격 이미지 url 경로</strong> 칸에 서버에 올려 둔 파일 경로(/로 시작) 또는 외부 주소를 적습니다. 서버에서 못 찾은 이미지는 빈칸으로 두고(기존 이미지는 그대로) 알려 드립니다.`;
     ['bk-running','bk-done'].forEach(id => document.getElementById(id).classList.add('bk-hide'));
     document.getElementById('bk-form').classList.remove('bk-hide');
@@ -790,11 +791,14 @@ async function bkCatCodes() {
     if (bk.syc) {
         const d = await fetch(`${SYC_API}?action=categories`).then(r => r.json()).catch(() => ({ok:false}));
         if (!d.ok) { alert('분류 목록을 불러오지 못했습니다.'); return; }
-        rows = d.categories.map(c => [c.slug, c.group_name, c.name]);
+        // 공통 분류(고객 화면 분류, 권장 — S30) 먼저, 그다음 업체 원본 분류(같은 slug 는 한 번)
+        const seen = new Set((d.std || []).map(c => c.slug));
+        rows = (d.std || []).map(c => [c.slug, '고객 화면 분류(권장)', c.path])
+            .concat(d.categories.filter(c => !seen.has(c.slug)).map(c => [c.slug, '업체 원본 분류 · ' + c.group_name, c.name]));
     } else {
         rows = [...document.querySelectorAll('#filter-cat option[data-slug]')].map(o => [o.dataset.slug, o.parentElement.label, o.textContent.trim()]);
     }
-    bkCsv(`category-codes-${bk.syc ? 'vendor' : 'ktomok'}.csv`, [['분류코드 [category_slug]', '대분류', '카테고리']].concat(rows));
+    bkCsv(`category-codes-${bk.syc ? 'vendor' : 'ktomok'}.csv`, [['분류코드 [category_slug]', bk.syc ? '종류' : '대분류', bk.syc ? '분류' : '카테고리']].concat(rows));
 }
 
 // 제품 등록: 케이토목 = 기존 등록 창(고객용 상품 표), 그 밖 = 원본 표 등록 창. 모두 비활성으로 저장

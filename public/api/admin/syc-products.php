@@ -139,7 +139,9 @@ try {
             foreach (syc_axes_rows() as $cid => $list) {
                 $axes[$cid] = array_map(static fn($a) => ['key' => $a['axis_key'], 'label' => $a['label'], 'symbol' => $a['symbol'], 'unit' => $a['unit']], $list);
             }
-            syc_api_out(['ok' => true, 'categories' => $rows, 'axes' => $axes]);
+            $std = [];   // 공통 분류(고객 화면 분류) — 일괄 등록 엑셀 분류코드에 바로 적을 수 있음(S30)
+            foreach (syc_bulk_std_categories($pdo) as $slug => $c) { $std[] = ['slug' => $slug, 'path' => $c['path']]; }
+            syc_api_out(['ok' => true, 'categories' => $rows, 'axes' => $axes, 'std' => $std]);
         }
         if ($action === 'progress') {
             $file = syc_api_progress_file((string) ($_GET['job'] ?? ''));
@@ -198,7 +200,7 @@ try {
         [$path, $name, $ext] = syc_api_take_upload(['xlsx', 'csv'], SYC_BULK_MAX_EXCEL_BYTES);
         try {
             // 자동 정리 미리보기: 등록 때와 같은 함수·규칙(app/syc_normalize.php) — 화면에 바뀌는 곳을 보여 주고 등록 때 다시 적용
-            $r = syc_bulk_read_excel($path, $ext, syc_bulk_category_ids($pdo), true, syc_bulk_category_active($pdo), $src['code']);
+            $r = syc_bulk_read_excel($path, $ext, syc_bulk_upload_category_ids($pdo), true, syc_bulk_category_active($pdo), $src['code']);
         } catch (Throwable $e) {
             unlink($path);
             throw $e;
@@ -232,7 +234,7 @@ try {
 
         try {
             $norm = ($body['normalize'] ?? true) !== false;      // 자동 정리(기본 켬). 창에서 끄면 엑셀 그대로
-            $r = syc_bulk_read_excel((string) $ex['path'], (string) $ex['ext'], syc_bulk_category_ids($pdo), $norm, syc_bulk_category_active($pdo), $src['code']);
+            $r = syc_bulk_read_excel((string) $ex['path'], (string) $ex['ext'], syc_bulk_upload_category_ids($pdo), $norm, syc_bulk_category_active($pdo), $src['code']);
             if ($r['error_count'] > 0) { throw new InvalidArgumentException('엑셀에 오류가 있는 행이 있어 등록하지 않았습니다. 고친 뒤 다시 올려 주세요.'); }
             // 업체명 = brand(S9): 엑셀에 업체명이 비어 있으면 고른 업체 이름
             if (!in_array('brand', $r['present'], true)) { $r['present'][] = 'brand'; }
@@ -244,6 +246,10 @@ try {
             file_put_contents($progress, json_encode(['done' => 0, 'total' => $total, 'finished' => false]));
             $pdo->beginTransaction();
             try {
+                // 공통 분류를 바로 적은 행(S30): 같은 slug 의 원본 분류를 만들고(없을 때만) 그 id 로
+                $mirror = syc_bulk_std_mirror_ids($pdo, $r['rows']);
+                foreach ($r['rows'] as &$mr) { if ((int) $mr['category_id'] < 0) { $mr['category_id'] = $mirror[$mr['_category_slug']]; } }
+                unset($mr);
                 foreach ($r['rows'] as $i => $row) {
                     // 이미지 경로 3칸 → syc_products 칸. 빈칸·못 찾은 이미지는 null(기존 값 유지)
                     $imgs = [];

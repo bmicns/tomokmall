@@ -117,15 +117,22 @@ const CATALOG_STD_MAP = [
  * 동아산업(업체 목록 업체) 분류 → 공통 분류 — 사용자 결정 2026-11-23(S29 '분류 추가 + 번호 자동 연결').
  * 동아산업(dacity)과 케이토목(ktomok)은 같은 상품 DB 를 써서 분류번호가 같다: syc_categories.slug 'dac-<번호>' → categories.slug 'ktomok-<번호>'.
  * 위 CATALOG_STD_MAP 에 그 slug 줄이 있으면 그 줄이 먼저(catalog_std_category). 번호만으로 안 되는 분류는 아래 예외표.
- * 예외표에 없고 같은 번호의 케이토목 분류도 없는 분류(휀스기초·야자매트 등)는 반영하지 않는다(unmapped — 사용자 결정 대기).
+ * 예외표의 '' 와 같은 번호의 케이토목 분류가 없는 분류는 반영하지 않는다(unmapped). 예외표의 새 품명(std-020~022)은 SQL 실행 전까지 unmapped.
  */
 const CATALOG_DAC_STD_EXCEPTIONS = [
     'dac-3426' => 'ktomok-3425',   // 인조화강블록(불투수) → 71 인조화강블록(S20 — 72 는 숨김, 투수/불투수는 규격외정보)
+    // 2026-11-23 사용자 결정(추천안대로): 같은 번호 없는 분류
+    'dac-5422' => 'ktomok-5420',   // 라인잔디블록 → 99 조경잔디블록
+    'dac-7616' => 'std-020',       // 맨홀분기구 → 새 품명(철근콘크리트제품 › 기타, 흄관분기구 옆) — database/20261123b_dacity_std_categories_phpmyadmin.sql
+    'dac-2620' => 'std-021',       // 휀스기초 → 새 품명(콘크리트제품 › 기타, 가로등기초 옆) — 같은 SQL
+    'dac-8010' => 'std-022',       // 야자매트 → 새 품명(기타 아래) — 같은 SQL
+    'dac-7410' => '',              // 레미콘(콘크리트 포장) — '자재 단독 납품 불가 / 시공 포함' → 고객 화면에 올리지 않음
+    'dac-7420' => '',              // 아스콘(아스콘 포장) — 위와 같음
 ];
 
 /** 동아산업 분류 slug → 공통 분류 slug(categories.slug). 동아산업 분류가 아니면 null. 순수 함수 */
 function catalog_dac_std_slug(string $vendorSlug): ?string
 {
-    if (isset(CATALOG_DAC_STD_EXCEPTIONS[$vendorSlug])) { return CATALOG_DAC_STD_EXCEPTIONS[$vendorSlug]; }
+    if (isset(CATALOG_DAC_STD_EXCEPTIONS[$vendorSlug])) { return CATALOG_DAC_STD_EXCEPTIONS[$vendorSlug]; }   // '' = 반영 안 함
     return preg_match('/^dac-(\d+)$/', $vendorSlug, $m) ? 'ktomok-' . $m[1] : null;
 }

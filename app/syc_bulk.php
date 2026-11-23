@@ -401,6 +401,70 @@ function syc_bulk_category_active(PDO $pdo): array
     return $out;
 }
 
+/**
+ * 공통 분류(고객 화면 분류 — categories, 재질 6개 대분류 아래 끝 단계 품명) 목록: slug => [id, 경로].
+ * 사용자 결정 2026-11-23(S30): 새 업체 엑셀은 분류코드에 공통 분류 slug 를 바로 적을 수 있다(업체별 분류 SQL·매핑 코드 없이).
+ * 보이는(is_active 1) 품명만, 상용콘크리트 반영본 옛 분류(syc-…)·동아산업 분류(dac-…)는 뺀다.
+ */
+function syc_bulk_std_categories(PDO $pdo): array
+{
+    $roots = implode(',', array_map('intval', CATALOG_ROOT_IDS));
+    $sql = "WITH RECURSIVE t AS (
+                SELECT id, parent_id, name, slug, is_active, CAST(name AS CHAR(400)) AS path FROM categories WHERE id IN ({$roots})
+                UNION ALL
+                SELECT c.id, c.parent_id, c.name, c.slug, c.is_active, CONCAT(t.path, ' > ', c.name) FROM categories c JOIN t ON c.parent_id = t.id
+                 WHERE c.is_active = 1 AND c.slug NOT LIKE 'syc-%' AND c.slug NOT LIKE 'dac-%')
+            SELECT t.id, t.slug, t.path FROM t
+             WHERE t.id NOT IN ({$roots}) AND NOT EXISTS (SELECT 1 FROM categories k WHERE k.parent_id = t.id AND k.is_active = 1)
+             ORDER BY t.path";
+    $out = [];
+    foreach ($pdo->query($sql) as $r) { $out[(string) $r['slug']] = ['id' => (int) $r['id'], 'path' => (string) $r['path']]; }
+    return $out;
+}
+
+/**
+ * 업체 일괄 등록에서 받는 분류코드 => id: 업체 원본 분류(syc_categories 품목) + 공통 분류(아직 원본 분류가 없으면 음수 = -categories.id).
+ * 음수 id 는 등록 때 syc_bulk_std_mirror_ids 로 원본 분류(같은 slug)를 만들어 바꾼다. 미리보기(검사)는 음수 그대로.
+ */
+function syc_bulk_upload_category_ids(PDO $pdo): array
+{
+    $ids = syc_bulk_category_ids($pdo);
+    foreach (syc_bulk_std_categories($pdo) as $slug => $c) { $ids[$slug] ??= -$c['id']; }
+    return $ids;
+}
+
+/** 공통 분류 원본 분류(syc_categories)의 묶음(대분류) slug — 공통 분류를 바로 적은 업체 상품이 여기 아래 같은 slug 품목으로 들어간다 */
+const SYC_BULK_STD_GROUP_SLUG = 'common-std';
+
+/**
+ * 엑셀 행 중 공통 분류(음수 id)를 쓴 slug 에 원본 분류 품목(syc_categories, 같은 slug·이름, 마진율 칸 없음 — 고객 가격은 공통 분류 마진율)을
+ * 없으면 만들고, slug => 원본 분류 id 를 돌려준다. 반영(syc_publish_std_apply)은 같은 slug 의 공통 분류로 넣는다(catalog_std_category).
+ * 호출측 트랜잭션 안에서 부른다. @param list<array> $rows syc_bulk_read_excel 의 rows
+ */
+function syc_bulk_std_mirror_ids(PDO $pdo, array $rows): array
+{
+    $need = [];
+    foreach ($rows as $r) { if ((int) ($r['category_id'] ?? 0) < 0) { $need[(string) $r['_category_slug']] = -(int) $r['category_id']; } }
+    if (!$need) { return []; }
+    $pdo->prepare("INSERT INTO syc_categories (parent_id, name, description, slug, sort_order, is_active)
+                   SELECT NULL, '공통 분류', '엑셀에 공통 분류(고객 화면 분류)를 바로 적은 업체 상품', ?, 9000, 1 FROM DUAL
+                    WHERE NOT EXISTS (SELECT 1 FROM syc_categories WHERE slug = ?)")->execute([SYC_BULK_STD_GROUP_SLUG, SYC_BULK_STD_GROUP_SLUG]);
+    $gid = (int) $pdo->query("SELECT id FROM syc_categories WHERE slug = '" . SYC_BULK_STD_GROUP_SLUG . "'")->fetchColumn();
+    $ins = $pdo->prepare("INSERT INTO syc_categories (parent_id, name, description, slug, sort_order, is_active)
+                          SELECT ?, c.name, CONCAT('공통 분류 ', c.id), c.slug, c.id, 1 FROM categories c
+                           WHERE c.id = ? AND NOT EXISTS (SELECT 1 FROM syc_categories x WHERE x.slug = c.slug)");
+    $get = $pdo->prepare('SELECT id FROM syc_categories WHERE slug = ? AND parent_id IS NOT NULL');
+    $out = [];
+    foreach ($need as $slug => $cid) {
+        $ins->execute([$gid, $cid]);
+        $get->execute([$slug]);
+        $id = $get->fetchColumn();
+        if ($id === false) { throw new RuntimeException("공통 분류 원본 분류를 만들지 못했습니다({$slug})."); }
+        $out[$slug] = (int) $id;
+    }
+    return $out;
+}
+
 function syc_bulk_category_ids(PDO $pdo): array
 {
     $out = [];
