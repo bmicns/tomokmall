@@ -293,6 +293,9 @@ body.mode-corp .footer-inner { max-width: 1360px; padding: 28px 24px 32px; }
   body.mode-corp .header-nav > .btn-header-est, body.mode-corp .header-nav > .nav-link {
     flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; height: 40px; padding: 0 4px; font-size: 13px; white-space: nowrap;
   }
+  /* 검색·AI 상담·견적보기 버튼: 늘어나지 않고 글자 크기만큼(높이 32px) — 사용자 요청 2026-11-20(일반 화면과 같게) */
+  body.mode-corp .header-nav > .btn-header-search, body.mode-corp .header-nav > .btn-header-ai,
+  body.mode-corp .header-nav > .btn-header-est { flex: 0 0 auto; height: 32px; padding: 0 10px; }
   /* 검색 줄: 헤더가 고정되지 않고(여러 줄) 높이가 --header-h(66px)보다 커서 메뉴 줄을 가리던 것 → 화면 맨 위에 띄움(X·바깥 누르면 닫힘) */
   body.mode-corp .header-search-wrap, body.mode-corp .header-search-dim { top: 0; }
   body.mode-corp main { padding: 0 16px 48px; }
