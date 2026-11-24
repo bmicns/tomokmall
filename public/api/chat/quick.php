@@ -44,6 +44,47 @@ function quick_chat_key_issue(): string
     return $key;
 }
 
+/**
+ * 견적 표 품목에 케이토목 1분 자동견적처럼 상품 사진·상품목록(분류)·도면자료(규격 이미지) 연결을 붙인다 — 화면 표시용 읽기만(A11).
+ * 가격·수량 값은 건드리지 않는다. 조회가 안 되면 그대로 돌려준다.
+ */
+function quick_chat_quote_media(array $events): array
+{
+    $ids = [];
+    foreach ($events as $e) {
+        if (($e['type'] ?? '') !== 'quote_draft') { continue; }
+        foreach ((array) ($e['items'] ?? []) as $it) { $ids[] = (int) ($it['product_id'] ?? 0); }
+    }
+    $ids = array_values(array_unique(array_filter($ids)));
+    $pdo = $ids ? db() : null;
+    if (!$pdo) {
+        return $events;
+    }
+    $ph   = implode(',', array_fill(0, count($ids), '?'));
+    $cols = $pdo->query('SHOW COLUMNS FROM products')->fetchAll(PDO::FETCH_COLUMN);
+    $sel  = ['id', 'category_id', 'image_url'];
+    foreach (['image_thumb_url', 'image_spec_url'] as $c) { if (in_array($c, $cols, true)) { $sel[] = $c; } }
+    $st = $pdo->prepare('SELECT ' . implode(', ', $sel) . " FROM products WHERE id IN ({$ph})");
+    $st->execute($ids);
+    $media = [];
+    foreach ($st->fetchAll() as $r) {
+        $media[(int) $r['id']] = [
+            'image'       => (string) (($r['image_url'] ?? '') ?: ($r['image_thumb_url'] ?? '')),   // 케이토목처럼 큰 사진: 상세, 없으면 썸네일(S18)
+            'category_id' => (int) ($r['category_id'] ?? 0),
+            'spec_image'  => (string) ($r['image_spec_url'] ?? ''),
+        ];
+    }
+    foreach ($events as &$e) {
+        if (($e['type'] ?? '') !== 'quote_draft') { continue; }
+        foreach ($e['items'] as &$it) {
+            $it += $media[(int) ($it['product_id'] ?? 0)] ?? [];
+        }
+        unset($it);
+    }
+    unset($e);
+    return $events;
+}
+
 $body   = json_decode((string) file_get_contents('php://input'), true);
 $body   = is_array($body) ? $body : [];
 $action = (string) ($body['action'] ?? '');
@@ -127,6 +168,11 @@ rag_log_chat($sid, $userMsg, (string) ($result['text'] ?? ''), $result['events']
 // 창에 쓰는 이벤트만(견적 표·장바구니·추천 제품 이름)
 $events = array_values(array_filter($result['events'] ?? [], static fn($e) =>
     in_array($e['type'] ?? '', ['quote_draft', 'cart_update', 'product_cards'], true)));
+try {
+    $events = quick_chat_quote_media($events);
+} catch (Throwable $e) {
+    error_log('quick chat media: ' . $e->getMessage());   // 사진·연결이 없어도 견적 표는 그대로
+}
 $out = ['ok' => true, 'sid' => $sid, 'text' => (string) ($result['text'] ?? ''), 'events' => $events];
 if ($action === 'photo') {
     $out['asked'] = $userMsg;   // 창의 '나' 말풍선에 사진에서 읽은 품목을 보여 줌

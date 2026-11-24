@@ -8,6 +8,7 @@ declare(strict_types=1);
  *  - 프롬프트: 기본 상담은 그대로, 빠른 창은 기본 + '빠른 견적 창 답변 방식' 구역만 덧붙음
  *  - API(/api/chat/quick.php): 비로그인 403, 직원 → 질문 → 검색·담기 도구 실행 → 견적 표(quote_draft) 돌려줌, 상담 키 'qc…', 대화 저장, 200자 초과 거부
  *  - 화면: 직원에게만 버튼·창 출력, AI 상담 화면(chat)에는 없음
+ *  - 케이토목처럼 바로 담기(A11): 찾고도 '골라 주세요'로 끝나면 담기 1회 강제, 확인 질문('?')이면 강제 안 함, 견적 표에 사진·상품목록·도면자료 연결
  *  - 견적서 사진 첨부(A10): 사진 확인(jpg·png·10MB)·개인정보 모양 지우기·품목 글 만들기, 동의 없으면 거부(OpenAI 호출 없음),
  *    사진 → 목업 비전 → 품목 글로 검색·담기 → 견적 표, 사진·개인정보는 대화·상담 로그에 남지 않음
  * 테스트가 만든 행: 로컬 테스트 DB 의 ai_sessions·chat_logs(상담 키 'qc…') — 끝에 지운다.
@@ -182,6 +183,37 @@ header("Content-Type: application/json"); echo json_encode($r[$n - 1] ?? end($r)
     [$st, $d] = $post(['action' => 'ask', 'sid' => 'qc' . str_repeat('0', 30), 'msg' => '안녕하세요'], $cookie);
     ok('남의(허용 안 된) 키로 물으면 새 키로', ($d['sid'] ?? '') !== 'qc' . str_repeat('0', 30) && str_starts_with((string) ($d['sid'] ?? ''), 'qc'));
 
+    echo "[API — 케이토목처럼 항상 바로 담기(A11, 운영 상담 #260)]\n";
+    $mockSeq = static function (array $responses) use ($tmp): void {
+        file_put_contents("{$tmp}/responses.json", json_encode($responses, JSON_UNESCAPED_UNICODE));
+        @unlink("{$tmp}/n");
+        array_map('unlink', glob("{$tmp}/req-*.json") ?: []);
+    };
+    $mockSeq([
+        $call('search_products', ['query' => '경계석'], 21),
+        $say('[테스트] 조건에 맞는 경계석입니다. 원하시는 제품을 선택해 주세요.'),
+        $call('add_to_cart', ['product_id' => $pid, 'quantity' => 10], 22),
+        $say('[테스트] 일반 경계석을 담았습니다.'),
+    ]);
+    [$st, $d] = $post(['action' => 'new'], $cookie);
+    $fsid = (string) ($d['sid'] ?? '');
+    [$st, $d] = $post(['action' => 'ask', 'sid' => $fsid, 'msg' => '경계석 10개'], $cookie);
+    $r3 = json_decode((string) @file_get_contents("{$tmp}/req-3.json"), true);
+    $q = null;
+    foreach ($d['events'] ?? [] as $e) { if (($e['type'] ?? '') === 'quote_draft') { $q = $e; } }
+    ok("'골라 주세요'로 끝나면 담기 1회 강제(tool_choice add_to_cart)", ($r3['tool_choice']['function']['name'] ?? '') === 'add_to_cart', $r3['tool_choice'] ?? null);
+    ok('강제 후 답 = 담은 뒤 답(골라 달라는 글은 버림)', ($d['ok'] ?? false) && str_contains((string) $d['text'], '담았습니다') && !str_contains((string) $d['text'], '선택해 주세요'), $d['text'] ?? null);
+    $qtyBefore = (int) ($q['items'][0]['quantity'] ?? 0);
+    ok('견적 표 + 상품 사진·상품목록 연결(화면 표시용)', $q !== null && array_key_exists('image', $q['items'][0] ?? []) && ($q['items'][0]['category_id'] ?? 0) > 0
+        && array_key_exists('spec_image', $q['items'][0]), $q['items'][0] ?? null);
+    $mockSeq([
+        $call('search_products', ['query' => '그레이팅'], 31),
+        $say('[테스트] 차량이 다니는 곳인가요?'),
+    ]);
+    [$st, $d] = $post(['action' => 'ask', 'sid' => $fsid, 'msg' => '그레이팅 폭 300 20m'], $cookie);
+    ok("확인 질문('?')으로 끝나면 강제하지 않음", ($d['ok'] ?? false) && str_contains((string) $d['text'], '차량이 다니는') && !is_file("{$tmp}/req-3.json"), $d);
+    ok('기본 AI 상담(consult)은 강제 담기 없음 — 코드상 style 조건', str_contains((string) file_get_contents(__DIR__ . '/../app/rag.php'), "\$style === 'quick' && !\$forcedAdd"));
+
     echo "[API — 견적서 사진 첨부]\n";
     file_put_contents("{$tmp}/responses.json", json_encode([
         $say(json_encode(['items' => [
@@ -206,7 +238,7 @@ header("Content-Type: application/json"); echo json_encode($r[$n - 1] ?? end($r)
     foreach ($d['events'] ?? [] as $e) { if (($e['type'] ?? '') === 'quote_draft') { $q = $e; } }
     ok('사진 → 읽은 품목 글(asked) + 답변 + 같은 상담 키', ($d['ok'] ?? false) && ($d['sid'] ?? '') === $psid
         && str_starts_with((string) ($d['asked'] ?? ''), QUICK_PHOTO_PREFIX) && str_contains((string) $d['text'], '확인 필요'), $d);
-    ok('견적 표: 사진 품목 30개 더 담김(같은 장바구니 30 → 60)', $q !== null && ($q['items'][0]['product_id'] ?? 0) === $pid && ($q['items'][0]['quantity'] ?? 0) === 60, $q);
+    ok('견적 표: 사진 품목 30개 더 담김(같은 장바구니)', $q !== null && ($q['items'][0]['product_id'] ?? 0) === $pid && ($q['items'][0]['quantity'] ?? 0) === $qtyBefore + 30, $q);
     $v = json_decode((string) @file_get_contents("{$tmp}/req-1.json"), true);
     $vc = $v['messages'][0]['content'] ?? [];
     ok('비전 요청: gpt-4o · 사진 data URL · 품목만 읽는 지시', ($v['model'] ?? '') === 'gpt-4o' && str_starts_with((string) ($vc[1]['image_url']['url'] ?? ''), 'data:image/png;base64,')
