@@ -1440,6 +1440,11 @@ require_once __DIR__ . '/../app/work_types.php';
 // 공통 분류 반영(2026-11-16 A안): 업체 분류 → 공통 분류 매핑, 상세 치수 주요/세부, 재질 대분류 6개
 eq('공통 분류 매핑: 모델 코드 줄이 전부 줄보다 먼저(측구수로관 A형 → 33, Z형 → 36)', [catalog_std_category('syc-s1', ['spec_code' => 'A형'], []), catalog_std_category('syc-s1', ['spec_code' => 'Z형'], [])], [33, 36]);
 eq('공통 분류 매핑: 옵션 줄(원심력수로관 무개 → 48, 유개 → 49)', [catalog_std_category('syc-s79', ['spec_option' => '무개'], []), catalog_std_category('syc-s79', ['spec_option' => '유개'], [])], [48, 49]);
+$dcIds = ['std-023' => 1060, 'std-024' => 1061, 'ktomok-2810' => 108, 'ktomok-2870' => 111];
+eq('공통 분류 매핑: 동아산업 사각 뚜껑만 사각 분류로(주철뚜껑 사각 → 1060, 멀티맨홀사각·멀티수공 → 1061), 원형은 같은 번호',
+   [catalog_std_category('dac-2810', ['spec_option' => '사각_B.S_보도용_전기'], $dcIds), catalog_std_category('dac-2810', ['spec_option' => '오수'], $dcIds),
+    catalog_std_category('dac-2870', ['spec_option' => '멀티맨홀사각_보도_오수'], $dcIds), catalog_std_category('dac-2870', ['spec_option' => '멀티수공맨홀_전기'], $dcIds),
+    catalog_std_category('dac-2870', ['spec_option' => '멀티맨홀원형_보도_오수'], $dcIds)], [1060, 108, 1061, 1061, 111]);
 eq('공통 분류 매핑: 새 품명 slug 는 id 로(std-006 2련암거), 매핑 없는 분류는 null', [catalog_std_category('syc-s22', [], ['std-006' => 9001]), catalog_std_category('syc-zz', [], [])], [9001, null]);
 eq('2026-11-16 확인 반영: 사각수로관 → 중분류 258, 인조화강블록 → 71(투수·불투수 합침), I형 호안 → 저류용 95, 보강토 → 줄무늬 83, 흄관 → B형 50',
     array_map(static fn($s) => catalog_std_category($s, ['spec_code' => 'A형', 'spec_option' => '투수/불투수'], []), ['syc-s16', 'syc-s54', 'syc-s55', 'syc-s68', 'syc-s63', 'syc-s19']), [258, 71, 71, 95, 83, 50]);
@@ -1576,6 +1581,17 @@ eq('기준 상품 ② 괄호 형식: 옵션 (원문)', $rfPick(catalog_axis_from
 eq('기준 상품 ④ 끝 두께 → 앞부분 읽고 두께는 옵션', $rfPick(catalog_axis_from_ref('300*400*1000*200T', null, $fsAx(['w', 'h', 'l']), [], $fsCols)),
    [['dim_w' => '300', 'dim_h' => '400', 'dim_l' => '1000'], null, '200T', '300*400*1000*200T', 'trailing_t']);
 eq('기준 상품 ④ 앞부분이 이름표 칸을 다 못 채우면 안 씀', catalog_axis_from_ref('300*400*200T', null, $fsAx(['w', 'h', 'l']), [], $fsCols), null);
+eq('기준 상품 ⑤ 분기구: 끝 숫자 = 가지관 내경, 앞은 옵션(본관·가지관)', $rfPick(catalog_axis_from_ref('흄관*PVC이중벽관D150', '고무형', $fsAx(['d_i']), [], $fsCols)),
+   [['dim_d_i' => '150'], null, '본관 흄관_가지관 PVC이중벽관_고무형', '흄관*PVC이중벽관D150', 'branch']);
+eq('기준 상품 ⑤ 분기구: 이름표가 가지관 내경 하나가 아니면 안 씀', catalog_axis_from_ref('흄관*PVC이중벽관D150', '고무형', $fsAx(['d_i', 'h']), [], $fsCols), null);
+eq('기준 상품 ⑥ 범위 값: 옵션 형식_숫자-숫자 → 모델 코드·적용 크기', $rfPick(catalog_axis_from_ref('', '걸이복합형2호_300-1000', $fsAx(['d_base']), [], $fsCols)),
+   [['dim_d_base' => '300~1000'], '걸이복합형2호', null, '걸이복합형2호_300-1000', 'range']);
+eq('기준 상품 ⑥ 범위 값: 앞 숫자가 더 크면 안 씀', catalog_axis_from_ref('', '토탈형_2000-1500', $fsAx(['d_base']), [], $fsCols), null);
+eq('기준 상품 ⑦ 구분 기호: D200용 → 적용 관경 200', $rfPick(catalog_axis_from_ref('D200용', '코너집수정', $fsAx(['d_i']), [], $fsCols)),
+   [['dim_d_i' => '200'], null, '코너집수정', 'D200용', 'separator']);
+eq('기준 상품 ② 보완: 괄호 형식 옵션 6T_1롤 → 6T (2m*50m 1롤)', $rfPick(catalog_axis_from_ref('2m*50m', '6T_1롤', $fsAx(['ts', 'w', 'l'], 'paren', ['ts' => 't/m', 'w' => 'm', 'l' => 'm']), [], $fsCols))[4] ?? null, 'format');
+eq('기준 상품 ⑦ 구분 기호: *h80 → 80H 로 읽기', $rfPick(catalog_axis_from_ref('1120*620*h80', '사각_보도용', $fsAx(['w', 'v', 'h']), [], $fsCols))[0] ?? null, ['dim_w' => '1120', 'dim_v' => '620', 'dim_h' => '80']);
+eq('기준 상품 ⑦ 사각 상품이 원형 이름표(직경) 분류에 있으면 안 씀', catalog_axis_from_ref('711*60T*h80', '멀티맨홀사각_보도_오수', $fsAx(['d', 't', 'h']), [], $fsCols), null);
 eq('기준 상품 없음·이름표 없음 → null', catalog_axis_from_ref('300*300*2000', null, [], [], $fsCols), null);
 // 목록 공통 칸(S26): 업체 둘 이상이면 모든 업체에 값 있는 칸만, 측구 두께·PE 가로세로 제외, 축 값 못 쓰는 행은 업체 판단에서 뺌
 $lcDefs = [['axis_key' => 'w', 'label' => '폭'], ['axis_key' => 'depth', 'label' => '깊이'], ['axis_key' => 'l', 'label' => '길이'], ['axis_key' => 't', 'label' => '두께']];
