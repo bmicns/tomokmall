@@ -95,6 +95,41 @@ const CATALOG_AXIS_DETAIL_LABEL = [
 ];
 
 /**
+ * 업체 칸 값이 하나도 없는 업체 상품(동아산업 등 — 원본 분류에 이름표·대응표가 없음)의 규격 원문을 반영할 공통 분류(케이토목)
+ * 이름표로 읽어 케이토목 칸에 담는다(사용자 결정 2026-11-24 — 업체와 관계없이 등록만 하면 규격 정리, S33). 케이토목 상품과
+ * 같은 규칙(spec_axes_parse). 업체 엑셀은 규격·옵션을 나눠 적는 경우가 많아 원문만 → '원문_옵션' → '옵션_원문'(모델 코드가
+ * 앞에 오는 형식) 순서로 읽어 본다. 치수를 하나도 못 읽으면 null(목록은 지금처럼 원문 한 줄). 순수 함수
+ * @param list<array> $axes    공통 분류 이름표(spec_axes_for_category)
+ * @param list<string> $dimCols products 에 있는 치수 칸 이름들
+ * @return ?array{cols: array<string, ?string>, code: ?string, option: ?string}
+ */
+function catalog_axis_from_spec(string $spec, ?string $option, array $axes, array $dimCols): ?array
+{
+    $spec = trim($spec);
+    $opt  = trim((string) $option);
+    if ($spec === '' || !$axes) { return null; }
+    $tries = $opt === '' ? [[$spec, true]] : [[$spec, true], [$spec . '_' . $opt, false], [$opt . '_' . $spec, false]];
+    foreach ($tries as [$value, $keepOpt]) {
+        $parsed = spec_axes_parse($value, $axes);
+        if ($parsed === null) { continue; }
+        $cols = array_fill_keys($dimCols, null);
+        foreach ($parsed['dims'] as $k => $v) {
+            $c = SPEC_AXIS_COLUMNS[$k] ?? null;
+            if ($c === null || !array_key_exists($c, $cols)) { continue; }
+            $cols[$c] = in_array($k, SPEC_AXIS_TEXT, true) ? (string) $v : spec_axis_num((float) $v);
+        }
+        if (!array_filter($cols, static fn($v) => $v !== null && $v !== '')) { continue; }
+        // 원문만 읽었으면 업체 옵션을 뒤에 이어 붙임(같은 글자는 한 번). 옵션까지 함께 읽었으면 읽은 옵션이 곧 업체 옵션 포함
+        $po    = trim((string) ($parsed['option'] ?? ''));
+        $parts = $keepOpt ? array_values(array_unique(array_filter([$po, $opt], static fn($x) => $x !== ''))) : ($po !== '' ? [$po] : []);
+        $code  = trim((string) ($parsed['spec_code'] ?? ''));
+        if ($code !== '' && $parts) { $parts = array_values(array_filter($parts, static fn($x) => $x !== $code)); }
+        return ['cols' => $cols, 'code' => $code !== '' ? $code : null, 'option' => $parts ? implode('_', $parts) : null];
+    }
+    return null;
+}
+
+/**
  * 업체 상품 1행의 치수를 products 치수 칸 값으로 바꿈. 순수 함수
  * @param string        $vendorSlug syc_categories.slug
  * @param array         $p          syc_products 행
