@@ -64,22 +64,39 @@ function quick_match_pick(string $name, string $spec, array $rows): ?array
     $want = quick_match_nums($spec);
     if (!$want || trim($name) === '') { return null; }
     $best = null;
-    $bestScore = 0;
+    $bestKey = [0, 0];
     foreach ($rows as $r) {
-        $have = quick_match_nums(quick_match_spec_text((string) ($r['spec'] ?? '')));
+        $specText = quick_match_spec_text((string) ($r['spec'] ?? ''));
+        $have = quick_match_nums($specText);
         if (count($have) < count($want) || array_slice($have, 0, count($want)) !== $want) { continue; }
         $score = quick_match_name_score($name, (string) ($r['name'] ?? ''));
-        if ($score > $bestScore) { $best = $r; $bestScore = $score; }
+        if ($score === 0) { continue; }
+        // 품명이 더 닮은 것, 같으면 규격 글이 짧은 것(덧붙인 '_국산'·형식 글 없는 일반 제품 — 케이토목 '일반 제품' 담기)
+        $key = [$score, -mb_strlen($specText)];
+        if ($best === null || $key > $bestKey) { $best = $r; $bestKey = $key; }
     }
     return $best;
 }
 
-/** 판매 중 상품에서 품명+규격이 맞는 상품 (DB 조회만) */
+/** 규격 숫자 차례를 찾는 MySQL REGEXP (순수 함수): [300,1000,32] → (^|[^0-9.])300[^0-9.]+1000[^0-9.]+32([^0-9.]|$) */
+function quick_match_spec_regexp(array $nums): string
+{
+    $parts = array_map(static fn($n) => str_replace('.', '[.]', (string) $n), $nums);
+    return '(^|[^0-9.])' . implode('[^0-9.]+', $parts) . '([^0-9.]|$)';
+}
+
+/**
+ * 판매 중 상품에서 품명+규격이 맞는 상품 (DB 조회만).
+ * 규격 숫자 차례로 먼저 좁힌 뒤 품명으로 찾는다 — 같은 이름 상품이 많으면(운영 그레이팅 1,400여 개) 이름 검색 앞 60개에 그 규격이 없어 못 찾던 문제(운영 시험 11-24).
+ */
 function quick_match_find(string $name, string $spec): ?array
 {
-    $q = trim((string) preg_replace('/\d+(?:\.\d+)?/', ' ', $name));
-    if (mb_strlen($q) < 2) { return null; }
-    return quick_match_pick($name, $spec, search_products($q, 60));
+    $q    = trim((string) preg_replace('/\d+(?:\.\d+)?/', ' ', $name));
+    $nums = quick_match_nums($spec);
+    if (mb_strlen($q) < 2 || !$nums) { return null; }
+    $total = null;
+    $rows  = search_products($q, 60, 0, $total, ' AND p.spec REGEXP :qm_spec', [':qm_spec' => quick_match_spec_regexp($nums)]);
+    return quick_match_pick($name, $spec, $rows);
 }
 
 /**
