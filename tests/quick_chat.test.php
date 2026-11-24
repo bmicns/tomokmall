@@ -76,6 +76,7 @@ $pok('규격이 다르거나 없으면 고르지 않음(크기 짐작 안 함)',
 $pok('고객 말에서 품명+규격', quick_match_named('그레이팅수로용 300*1000*32 얼마에요?') === ['name' => '그레이팅수로용', 'spec' => '300*1000*32']
     && quick_match_named('안녕하세요. 경계석 150x170x1000 30개요') === ['name' => '경계석', 'spec' => '150x170x1000']
     && quick_match_named('마당 경계석 30m 필요해요') === null);
+$pok('규격 숫자 차례 REGEXP', quick_match_spec_regexp([300.0, 1000.0, 32.0]) === '(^|[^0-9.])300[^0-9.]+1000[^0-9.]+32([^0-9.]|$)' && quick_match_spec_regexp([2.5]) === '(^|[^0-9.])2[.]5([^0-9.]|$)');
 $pitems = quick_photo_items(json_encode(['items' => [
     ['name' => '사각보도블록', 'spec' => '300×300×60', 'qty' => 50, 'unit' => 'm²'],
     ['name' => 'EX메탈망그레이팅', 'spec' => '300×1000×50', 'qty' => 2.5, 'unit' => '개'],
@@ -275,6 +276,11 @@ header("Content-Type: application/json"); echo json_encode($r[$n - 1] ?? end($r)
     }
     ok("품명+규격을 말하면 묻기 전에 그 상품을 담기 강제(질문 '?'로 끝나도)", $forced && ($sess()['qc_list_' . $nsid][$pid] ?? -1) === 0
         && str_contains((string) ($d['text'] ?? ''), '목록에 담았습니다'), ['text' => $d['text'] ?? null, 'list' => $sess()['qc_list_' . $nsid] ?? null]);
+    $broad = $pdo->query("SELECT id, name, spec FROM products WHERE is_active = 1 AND name LIKE '%그레이팅%' AND spec LIKE '%*1000*%' ORDER BY id DESC LIMIT 1")->fetch();
+    if ($broad) {
+        $bf = quick_match_find('그레이팅', quick_match_spec_text((string) $broad['spec']));
+        ok('넓은 품명(그레이팅)이어도 규격 숫자로 먼저 좁혀 찾음(이름 검색 앞 60개 밖이어도)', $bf !== null && quick_match_spec_text((string) $bf['spec']) === quick_match_spec_text((string) $broad['spec']), [$broad['id'], $bf['id'] ?? null]);
+    }
     $mockSeq([$call('add_to_cart', ['product_id' => $pid, 'quantity' => 20], 62), $say('[테스트] 20개로 담았습니다.')]);
     $post(['action' => 'ask', 'sid' => $nsid, 'msg' => '20개요'], $cookie);
     $mockSeq([$call('add_to_cart', ['product_id' => $pid, 'quantity' => 20, 'region' => '경기'], 63), $say('[테스트] 경기 운반비를 계산했습니다.')]);
