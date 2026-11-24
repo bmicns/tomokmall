@@ -669,7 +669,6 @@ function render_quick_chat(): void
     if (($GLOBALS['__layout_mode'] ?? '') === 'chat' || !ai_quick_chat_visible($user)) {
         return;
     }
-    $trial = FEATURE_AI_QUICK_CHAT === 'staff';
     // 캐시버스팅: 운영은 app/ 과 웹루트(/html)가 떨어져 있어 __DIR__ 기준 경로로는 파일을 못 찾는다(빈 버전 → 옛 JS 캐시, 2026-11-24) — 웹루트 기준
     $root  = (string) ($_SERVER['DOCUMENT_ROOT'] ?? '') ?: __DIR__ . '/../public';
     $v     = (string) @filemtime($root . '/assets/quick-chat.js') . '-' . (string) @filemtime($root . '/assets/quick-chat.css');
@@ -683,10 +682,7 @@ function render_quick_chat(): void
 </button>
 <section class="qc-panel" id="qc-panel" data-phone="<?= e(SITE_CONTACT_PHONE) ?>" role="dialog" aria-labelledby="qc-title" hidden>
     <header class="qc-head">
-        <div>
-            <h2 class="qc-title" id="qc-title">AI 빠른 견적</h2>
-            <p class="qc-sub"><?= $trial ? '관리자·직원 시험 중 · ' : '' ?>자재·규격·수량을 한 번에 적어 주세요</p>
-        </div>
+        <h2 class="qc-title" id="qc-title">AI 빠른 견적</h2>
         <div class="qc-head-btns">
             <button type="button" class="qc-icon-btn" id="qc-help-btn" aria-expanded="false" aria-controls="qc-help">사용방법</button>
             <button type="button" class="qc-icon-btn" id="qc-new" title="새 대화">새 대화</button>

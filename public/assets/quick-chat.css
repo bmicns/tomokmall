@@ -33,11 +33,10 @@
 }
 
 .qc-head {
-  display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
-  padding: 12px 14px; background: var(--color-primary); color: #fff;
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  padding: 8px 10px 8px 14px; background: var(--color-primary); color: #fff;
 }
-.qc-title { font-size: 15px; font-weight: 700; line-height: 1.3; }
-.qc-sub { margin-top: 2px; font-size: 11.5px; opacity: .85; }
+.qc-title { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.3; }
 .qc-head-btns { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .qc-icon-btn {
   min-height: 32px; padding: 0 10px; border: 1px solid rgba(255, 255, 255, .5); border-radius: 4px;
