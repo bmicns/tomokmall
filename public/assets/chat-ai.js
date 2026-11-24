@@ -188,8 +188,11 @@ async function addToEstimate(productId, qty, btn) {
     });
     const data = await res.json();
     if (data.ok) {
-      btn.textContent = '담김 ✓';
-      btn.classList.add('added');
+      // 항상 파란 버튼 그대로, 누를 때마다 그 수량만큼 더 담김(사용자 요청 2026-11-24 — 초록 '담김 ✓'·비활성 없앰). 잠깐 '추가됨 ✓'만 보임
+      btn.disabled    = false;
+      btn.textContent = '추가됨 ✓';
+      clearTimeout(btn._addedTimer);
+      btn._addedTimer = setTimeout(() => { btn.textContent = '견적추가'; }, 1200);
       await refreshEstPanel();
     } else {
       btn.disabled    = false;
