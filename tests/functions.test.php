@@ -657,6 +657,9 @@ eq('옵션 표시: 밑줄 → 슬래시', [spec_option_display('하부구체_KS'
 eq('규격 두 칸: 끝 괄호 형식 → 규격외', product_list_spec_split('200*180*2000*95T (A형)', 'A형', null), ['spec' => '200*180*2000*95T', 'info' => 'A형']);
 eq('규격 두 칸: 괄호 안 치수 목록은 규격에 그대로', product_list_spec_split('600*600 (320*320*2000*60T)', null, null), ['spec' => '600*600 (320*320*2000*60T)', 'info' => '']);
 eq('규격 두 칸: 모델 코드 + 옵션(표시 형식), 옵션에 있는 괄호 글자는 한 번', product_list_spec_split('D150*750 (앙카식)', 'B형', 'HK_앙카식'), ['spec' => 'D150*750', 'info' => 'B형 / HK/앙카식']);
+eq('규격 두 칸: 옵션과 표시 형식만 다른 괄호 글자는 한 번', product_list_spec_split('300*300*60T(고강도콘크리트_점형_KS)', null, '(고강도콘크리트_점형_KS)'), ['spec' => '300*300*60T', 'info' => '고강도콘크리트/점형/KS']);
+eq('규격 두 칸: 3단으로 나눈 괄호(옵션으로 시작)는 다시 안 붙임', product_list_spec_split('SUS_M형클립(중형30_40피치)', 'M형클립', 'SUS_중형'), ['spec' => 'SUS_M형클립', 'info' => 'M형클립 / SUS/중형']);
+eq('규격 두 칸: 옵션에 없는 괄호 글자는 그대로 규격외', product_list_spec_split('Φ600*50H (외경635·내경590)', 'Φ600', null), ['spec' => 'Φ600*50H', 'info' => 'Φ600 / 외경635·내경590']);
 eq('규격 두 칸: 케이토목 원문·정보 없음', product_list_spec_split('1.5*1.5*2.0_160T*140T', null, null), ['spec' => '1.5*1.5*2.0_160T*140T', 'info' => '']);
 eq('규격 두 칸: 괄호뿐인 규격은 그대로', product_list_spec_split('(주문제작)', null, ''), ['spec' => '(주문제작)', 'info' => '']);
 eq('흄관(B형) D600*2500*50T → 내경·길이·두께', spec_axes_parse('D600*2500*50T', $AX([['d_i', '내경', 'D'], ['l', '길이', 'L'], ['t', '두께', 'T']])),
@@ -711,6 +714,12 @@ ok('갱신 계획: 규격이 바뀌고 못 읽으면 모두 비움', ($p2 = spec
 $pManual = ['spec' => '규격: 수로관 특수규격 | 단위: 본', 'dim_w' => '900.0', 'spec_dims_src' => '수로관 특수규격'];
 ok('갱신 계획: 못 읽어도 원문이 같으면 사람이 넣은 값 유지(null)', spec_axes_plan($pManual, $axFlume) === null);
 ok('갱신 계획: 이름표 없고 값 남음 → 비움 / 값 없음 → null', spec_axes_plan($pSame, []) !== null && spec_axes_plan($pRow, []) === null);
+$pNamed = ['spec' => '규격: 5호사(백규사)_1.0톤 | 단위: 포', 'spec_code' => '5호사', 'spec_option' => '백규사_1.0톤', 'spec_dims_src' => '5호사(백규사)_1.0톤'];
+ok('갱신 계획: 이름표 없어도 치수 없는 3단 값(원문 같음)은 유지', spec_axes_plan($pNamed, []) === null);
+ok('갱신 계획: 3단 값이라도 원문이 바뀌면 비움', ($p3 = spec_axes_plan(['spec' => '규격: 5호사_2.0톤'] + $pNamed, [])) !== null && $p3['spec_code'] === null);
+ok('3단(치수 없음) 행: named 참·fresh 거짓 / 치수 있으면 named 거짓 / 원문 다르면 거짓',
+    spec_axes_row_named($pNamed) && !spec_axes_row_fresh($pNamed) && !spec_axes_row_named($pSame) && !spec_axes_row_named(['spec' => '규격: 5호사_2.0톤'] + $pNamed)
+    && !spec_axes_row_named(['spec_code' => null, 'spec_option' => null] + $pNamed));
 ok('신선도: 채운 원문 = 지금 원문일 때만', spec_axes_row_fresh($pSame) && !spec_axes_row_fresh($pChanged) && !spec_axes_row_fresh($pRow));
 eq('행 값: 폭 900.0 → 900, 형식 B, 없는 축 null', [spec_axes_row_value($pSame, 'w'), spec_axes_row_value($pSame, 'type'), spec_axes_row_value($pSame, 'd_i')], ['900', 'B', null]);
 

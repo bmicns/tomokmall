@@ -385,7 +385,11 @@ function product_list_spec_split(string $specRaw, ?string $code, ?string $option
         $x = trim($m[2]);
         if (substr_count($x, '*') < 2 && !preg_match('/^[\d.*]+T?$/u', $x)) {
             $spec = trim($m[1]);
-            if (!str_contains($opt, $x)) { $add($x); }      // 옵션에 이미 있는 글자('앙카식')는 한 번만
+            // 옵션에 이미 있는 글자('앙카식')는 한 번만. 표시 형식이 같은 글자('고강도콘크리트_점형_KS' = '고강도콘크리트/점형/KS'),
+            // 옵션 조각으로 시작하는 글자(3단으로 나눈 'M형클립(소형30피치)' → 피치 칸 30 + 옵션 '소형', 2026-11-24)도 이미 나눈 것으로 봄
+            $done = str_contains($opt, $x) || ($opt !== '' && str_contains($opt, spec_option_display($x)));
+            foreach ($opt !== '' ? explode('/', $opt) : [] as $part) { if (trim($part) !== '' && str_starts_with($x, trim($part))) { $done = true; } }
+            if (!$done) { $add($x); }
         }
     }
     $add($opt);
@@ -452,9 +456,20 @@ function spec_axes_plan(array $p, array $axes): ?array
         return $new === $cur ? null : $new;
     }
     if (!$axes || $cur['spec_dims_src'] !== $value) {
+        // 치수 없이 모델 코드·옵션만 넣은 행(spec_axes_row_named)은 이름표가 없는 분류라도 원문이 같으면 그대로(규사 등, 2026-11-24)
+        if ($cur['spec_dims_src'] === $value && spec_axes_dims_empty($cur)) { return null; }
         return $hasAny ? $empty : null;
     }
     return null;
+}
+
+/** 새 칸 값 배열(SPEC_AXES_NEW_COLUMNS 이름)에서 치수 칸(SPEC_AXIS_COLUMNS)이 모두 비었는지 */
+function spec_axes_dims_empty(array $p): bool
+{
+    foreach (SPEC_AXIS_COLUMNS as $col) {
+        if (($p[$col] ?? null) !== null && $p[$col] !== '') { return false; }
+    }
+    return true;
 }
 
 /** 새 칸·이름표 표가 모두 있는지(요청당 1회 확인). 없으면 목록·필터는 기존 방식 */
@@ -590,6 +605,18 @@ function spec_axes_row_value(array $p, string $key): ?string
     $v   = $col !== null ? ($p[$col] ?? null) : null;
     if ($v === null || $v === '') { return null; }
     return in_array($key, SPEC_AXIS_TEXT, true) ? (string) $v : spec_axis_num((float) $v);
+}
+
+/**
+ * 치수 없이 모델 코드·옵션만 나눠 넣은 행인지(사용자 요청 2026-11-24 — 숫자가 없는 규격도 밑줄을 없애 3단으로 정리: 규사·노아클립 등).
+ * 채운 기준 원문 = 지금 규격 원문, 치수 칸은 모두 비고 모델 코드나 옵션이 있음. 목록에서 규격 칸은 '-', 규격외정보 = 코드 + 옵션
+ */
+function spec_axes_row_named(array $p): bool
+{
+    $src = $p['spec_dims_src'] ?? null;
+    if ($src === null || $src === '' || (string) $src !== parse_spec_field((string) ($p['spec'] ?? ''))['spec']) { return false; }
+    if (!spec_axes_dims_empty($p)) { return false; }
+    return trim((string) ($p['spec_code'] ?? '')) !== '' || trim((string) ($p['spec_option'] ?? '')) !== '';
 }
 
 /** 화면에 축 값을 써도 되는 행인지: 채운 기준 원문 = 지금 규격 원문, 값 1개 이상 */
