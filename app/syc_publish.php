@@ -28,6 +28,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/syc_catalog.php';   // SYC_AXIS_KEYS · syc_axis_column · syc_axis_row_value
 require_once __DIR__ . '/catalog_map.php';   // CATALOG_STD_MAP — 업체 분류 → 공통 분류(2026-11-16)
+require_once __DIR__ . '/catalog_axis_map.php';   // CATALOG_AXIS_MAP — 업체 칸 → 케이토목 칸(S26, 2026-11-24)
 
 /** 상용콘크리트 대분류 slug → 기존 재질 대분류 categories.id */
 const SYC_PUBLISH_GROUP_ROOT = [
@@ -325,7 +326,9 @@ function syc_publish_std_apply(PDO $pdo): array
         if ($cid === null) { $unmapped++; continue; }      // 매핑 없는 분류(새 분류를 만든 경우) — 반영하지 않고 알림
         $dims = syc_publish_dims($p, $axesBySyc[$sid] ?? []);
         $vals = [$cid, $p['name'], $p['brand'], syc_publish_spec_text($p), $p['spec_code']];
-        foreach ($dimCols as $dc) { $vals[] = $p[$dc] ?? null; }
+        // 업체 칸 → 케이토목 칸(S26 대응표, app/catalog_axis_map.php). 표에 없는 분류는 같은 키 칸 그대로
+        $remap = catalog_axis_remap((string) ($sycSlug[$sid] ?? ''), $p, $dimCols, 'syc_axis_column');
+        foreach ($dimCols as $dc) { $vals[] = $remap[$dc]; }
         array_push($vals, $p['spec_option'], $p['spec'], $dims ? json_encode($dims, JSON_UNESCAPED_UNICODE) : null, $p['unit'], $p['weight_kg'], $p['description'],
                    (int) $p['price_b2c'], (int) $p['price_b2b'], (int) $p['cost_price'], (int) $p['stock_qty'],
                    $p['external_source'], $p['external_id'], $p['source_url'], $p['image_file'] ?: $p['image_thumb_file'], (int) $p['is_active']);

@@ -1449,6 +1449,31 @@ eq('공통 분류를 바로 적은 업체 상품(S30): 원본 분류 slug = 공�
     [catalog_std_category('ktomok-1060', [], ['ktomok-1060' => 21]), catalog_std_category('std-004', [], ['std-004' => 9004]), catalog_std_category('mid12--40', [], ['mid12--40' => 264]),
      catalog_std_category('syc-s21', [], ['syc-s21' => 351, 'ktomok-1010' => 9]), catalog_std_category('common-std', [], [])],
     [21, 9004, 264, 9, null]);
+// 업체 칸 → 케이토목 칸 대응표(S26, app/catalog_axis_map.php, 2026-11-24)
+$axBad = [];
+foreach (CATALOG_AXIS_MAP as $slug => $m) {
+    foreach ($m as $from => $to) {
+        if (!in_array($from, SYC_AXIS_KEYS, true)) { $axBad[] = "{$slug}:{$from}"; }
+        if (!isset(SPEC_AXIS_COLUMNS[$to])) { $axBad[] = "{$slug}->{$to}"; }
+    }
+    if (count(array_unique($m)) !== count($m)) { $axBad[] = "{$slug}: 같은 케이토목 칸에 두 칸"; }
+}
+eq('칸 대응표: 업체 칸 키·케이토목 칸 키가 모두 있는 키, 한 케이토목 칸에 두 업체 칸 없음', $axBad, []);
+$axCols = ['dim_w', 'dim_h', 'dim_depth', 'dim_l', 'dim_t', 'dim_v', 'dim_d', 'dim_d_i', 'dim_d_o', 'dim_t_tb', 'dim_t_wall', 'dim_h_high', 'dim_h_low'];
+$axPick = static fn(array $r) => array_filter($r, static fn($v) => $v !== null);
+eq('칸 대응표: 측구 높이 → 깊이·바닥두께 t3 → 두께(윗면 T 는 안 옮김), 보강토 두께 → 높이·세로 → 깊이, PE 빗물받이는 높이만, 표에 없는 분류는 그대로',
+    [$axPick(catalog_axis_remap('syc-s1', ['dim_w' => 300, 'dim_h' => 300, 'dim_l' => 2000, 'dim_t' => 95, 'dim_t3' => 80], $axCols, 'syc_axis_column')),
+     $axPick(catalog_axis_remap('syc-s63', ['dim_w' => 500, 'dim_v' => 420, 'dim_t' => 200], $axCols, 'syc_axis_column')),
+     $axPick(catalog_axis_remap('syc-s41', ['dim_w' => 410, 'dim_v' => 510, 'dim_h' => 640], $axCols, 'syc_axis_column')),
+     $axPick(catalog_axis_remap('syc-s14', ['dim_d' => 200, 'dim_w' => 320, 'dim_h' => 360, 'dim_l' => 2000], $axCols, 'syc_axis_column')),
+     $axPick(catalog_axis_remap('syc-s87', ['dim_w' => 180, 'dim_h' => 200, 'dim_h1' => 100, 'dim_l' => 1000], $axCols, 'syc_axis_column')),
+     $axPick(catalog_axis_remap('syc-s9', ['dim_w' => 300, 'dim_h' => 250], $axCols, 'syc_axis_column'))],
+    [['dim_w' => 300, 'dim_depth' => 300, 'dim_l' => 2000, 'dim_t' => 80],
+     ['dim_w' => 500, 'dim_h' => 200, 'dim_depth' => 420],
+     ['dim_h' => 640],
+     ['dim_d_i' => 200, 'dim_d_o' => 320, 'dim_depth' => 360, 'dim_l' => 2000],
+     ['dim_w' => 180, 'dim_h_high' => 200, 'dim_h_low' => 100, 'dim_l' => 1000],
+     ['dim_w' => 300, 'dim_h' => 250]]);
 $pdm = syc_publish_dims(['dim_w' => 300.0, 'dim_w1' => 600.0, 'dim_l' => null], [
     ['axis_key' => 'w', 'label' => '폭', 'symbol' => 'W', 'unit' => 'mm', 'in_list' => true], ['axis_key' => 'w1', 'label' => '세부', 'symbol' => 'w1', 'unit' => 'mm', 'in_list' => false],
     ['axis_key' => 'l', 'label' => '길이', 'symbol' => 'L', 'unit' => 'mm', 'in_list' => true]]);
