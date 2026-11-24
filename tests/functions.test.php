@@ -1449,6 +1449,40 @@ eq('공통 분류를 바로 적은 업체 상품(S30): 원본 분류 slug = 공�
     [catalog_std_category('ktomok-1060', [], ['ktomok-1060' => 21]), catalog_std_category('std-004', [], ['std-004' => 9004]), catalog_std_category('mid12--40', [], ['mid12--40' => 264]),
      catalog_std_category('syc-s21', [], ['syc-s21' => 351, 'ktomok-1010' => 9]), catalog_std_category('common-std', [], [])],
     [21, 9004, 264, 9, null]);
+// 업체 엑셀 자동 정리(2026-11-23): 칸 맞추기(별칭·값 검사·직접 고름)·분류 추천(이름 같음 = 확실)·묶음별 고르기·등록 안 함
+eq('칸 짐작: [칸 이름] 먼저, 한글 이름 별칭, 가격 칸은 짐작 안 함',
+    array_map(fn($h) => syc_bulk_header_guess($h), ['품명 [name]', '제품명', '중량(kg)', '대분류 [top]', '규격외정보 [spec_extra]', '단가', '판매가', '아무거나']),
+    [['name', 'exact'], ['name', 'alias'], ['weight_kg', 'alias'], ['category_top', 'alias'], ['spec_option', 'alias'], ['', ''], ['', ''], ['', '']]);
+$acols = syc_bulk_columns_auto(['품명', '사진', '상품명', '단가'], [['가', '사진 보기', '나', '100'], ['다', '사진 보기', '라', '200']], [], []);
+eq('칸 맞추기: 값이 이미지 주소가 아니면 안 씀, 같은 칸 두 번째는 안 씀, 가격은 안 씀',
+    array_map(fn($c) => [$c['key'], $c['how']], $acols), [['name', 'alias'], ['', 'none'], ['', 'none'], ['', 'none']]);
+$acols = syc_bulk_columns_auto(['품명', '단가'], [], ['단가' => 'cost_price', '품명' => ''], []);
+eq('칸 맞추기: 관리자가 고른 칸이 우선(가격 칸도 직접 고르면 씀, 빈 값 = 쓰지 않음)', array_map(fn($c) => [$c['key'], $c['how']], $acols), [['', 'manual'], ['cost_price', 'manual']]);
+ok('칸 맞추기: 같은 칸을 두 번 고르면 오류', str_contains($thrown(fn() => syc_bulk_columns_auto(['a', 'b'], [], ['a' => 'name', 'b' => 'name'], [])), '같은 칸'));
+ok('칸 맞추기: 없는 칸 이름은 오류', str_contains($thrown(fn() => syc_bulk_columns_auto(['a'], [], ['a' => 'is_active'], [])), '올바르지'));
+$aidx = syc_bulk_suggest_index(['ktomok-1210' => ['id' => 1, 'path' => '철근콘크리트제품 > 플륨관/수로관 > U형플륨관(벤치1종)'],
+    'ktomok-5410' => ['id' => 2, 'path' => '콘크리트제품 > 잔디블록 > 잔디블록'], 'ktomok-5420' => ['id' => 3, 'path' => '콘크리트제품 > 잔디블록 > 조경잔디블록'],
+    'ktomok-3610' => ['id' => 4, 'path' => '석재제품 > 경계석 > 화강경계석']]);
+eq('분류 추천: 이름 같음 = 확실(띄어쓰기·블럭/블록 무시), 비슷함 = 확인 필요, 전혀 다름 = 못 정함',
+    [syc_bulk_suggest_category('U형 플륨관(벤치1종)', '', '', $aidx), syc_bulk_suggest_category('잔디블럭', '조경블럭', '', $aidx),
+     syc_bulk_suggest_category('라인잔디블록', '', '', $aidx), syc_bulk_suggest_category('', '', '화강 경계석 300', $aidx), syc_bulk_suggest_category('전선', '', '케이블', $aidx)],
+    [['slug' => 'ktomok-1210', 'sure' => true], ['slug' => 'ktomok-5410', 'sure' => true], ['slug' => 'ktomok-5410', 'sure' => false],
+     ['slug' => 'ktomok-3610', 'sure' => false], ['slug' => null, 'sure' => false]]);
+$acsv = tempnam(sys_get_temp_dir(), 'syca') . '.csv';
+file_put_contents($acsv, "\xEF\xBB\xBF품명,카테고리,규격,사진,단가\nU형플륨관,U형플륨관(벤치1종),300,사진 보기,1000\nU형플륨관,U형플륨관(벤치1종),400,사진 보기,1000\n잔디,라인잔디블록,1,,\n전선,케이블,1,,\n");
+$astd = ['ktomok-1210' => ['id' => 1, 'path' => '철근콘크리트제품 > 플륨관/수로관 > U형플륨관(벤치1종)'], 'ktomok-5410' => ['id' => 2, 'path' => '콘크리트제품 > 잔디블록 > 잔디블록']];
+$acat = ['ktomok-1210' => -1, 'ktomok-5410' => -2];
+$ar = syc_bulk_read_excel($acsv, 'csv', $acat, false, null, 'vendor-9', ['std' => $astd]);
+eq('업체 엑셀 그대로: 확실 2행 통과, 확인 필요도 추천으로 통과, 못 정함 1행은 오류, 묶음 순서 = 못 정함 → 확인 필요 → 확실',
+    [count($ar['rows']), $ar['error_count'], $ar['rows'][0]['category_id'], array_map(fn($g) => [$g['key'], $g['how'], $g['count']], $ar['cat_groups']), $ar['present']],
+    [3, 1, -1, [['케이블', 'none', 1], ['라인잔디블록', 'check', 1], ['U형플륨관(벤치1종)', 'sure', 2]], ['name', 'spec']]);
+$ar = syc_bulk_read_excel($acsv, 'csv', $acat, false, null, 'vendor-9', ['std' => $astd, 'cats' => ['케이블' => '-', '라인잔디블록' => 'ktomok-1210', 'U형플륨관(벤치1종)' => '없는코드'], 'manual' => ['단가' => 'cost_price']]);
+eq('묶음별 고르기: 등록 안 함 = 건너뜀(오류 아님), 고른 분류 적용, 없는 코드는 무시(추천대로), 직접 고른 가격 칸은 엑셀 값',
+    [count($ar['rows']), $ar['error_count'], $ar['skipped'], $ar['rows'][2]['category_id'], array_map(fn($g) => $g['how'], $ar['cat_groups']), $ar['rows'][0]['cost_price']],
+    [3, 0, 1, -1, ['manual', 'skip', 'sure'], 1000]);
+$ar = syc_bulk_read_excel($acsv, 'csv', $acat, false, null, 'vendor-9', ['std' => $astd, 'manual' => ['품명' => '']]);
+eq('상품명 칸이 없으면 등록 안 되고 칸 맞추기 안내', [$ar['error_count'], str_contains($ar['errors'][0], '상품명'), count($ar['columns'])], [1, true, 5]);
+unlink($acsv);
 // 업체 칸 → 케이토목 칸 대응표(S26, app/catalog_axis_map.php, 2026-11-24)
 $axBad = [];
 foreach (CATALOG_AXIS_MAP as $slug => $m) {

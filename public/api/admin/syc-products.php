@@ -9,6 +9,7 @@ declare(strict_types=1);
  * GET  ?action=progress&job=…            등록 진행률(등록 요청이 처리되는 동안 화면이 읽음)
  * POST multipart action=stage_excel, source  엑셀(xlsx·csv) 올리기 → 검증 결과(행 수·오류) + 자동 정리 미리보기(normalize). 파일은 웹 밖 임시 폴더에 보관
  *      이미지: ZIP 업로드 없음(2026-11-13) — 엑셀 '썸네일·상세·규격 이미지 url 경로' 칸, 서버 경로는 웹루트에서 파일 확인(못 찾으면 그 이미지만 빈칸 + 경고)
+ * POST JSON {action:'restage', mapping:{머리글: 칸 이름|''}, cats:{분류 묶음: slug|'-'}}  올린 엑셀을 칸 맞추기·분류를 고쳐 다시 검사(업체 엑셀 자동 정리, 2026-11-23)
  * POST JSON {action:'commit', job, normalize} 올린 엑셀로 등록: 새 상품 비활성, 같은 업체 안에서 같은 상품은 덮어쓰기(활성 상태 유지)
  *                                        — 같은 상품 = 출처ID, 출처ID가 없으면 제품명+규격+옵션(사용자 결정 2026-11-13)
  *                                        normalize(기본 true) = 자동 정리(app/syc_normalize.php) 적용 — 올릴 때 미리보기와 같은 결과
@@ -68,6 +69,42 @@ function syc_api_dims_input(mixed $dims): array
         $out[$col] = $v;
     }
     return $out;
+}
+
+/** 칸 맞추기·분류 고른 값: [글자 => 글자] 만(각 300자, 2,000개까지). 그 밖은 버림 */
+function syc_api_auto_input(mixed $v): array
+{
+    $out = [];
+    foreach (is_array($v) ? $v : [] as $k => $val) {
+        if (count($out) >= 2000) { break; }
+        if (!is_string($k) && !is_int($k)) { continue; }
+        if (!is_string($val) || mb_strlen((string) $k) > 300 || mb_strlen($val) > 300) { continue; }
+        $out[(string) $k] = $val;
+    }
+    return $out;
+}
+
+/** 업체 엑셀 자동 정리 옵션(syc_bulk_read_excel $auto): 세션에 둔 칸 맞추기·고른 분류 + 고객 화면 분류 */
+function syc_api_auto_opts(PDO $pdo, array $ex): array
+{
+    return ['manual' => (array) ($ex['manual'] ?? []), 'cats' => (array) ($ex['cats'] ?? []), 'std' => syc_bulk_std_categories($pdo)];
+}
+
+/** 올린 엑셀 검사 결과(등록 전 미리보기) — 등록 때와 같은 함수·옵션 */
+function syc_api_stage_out(PDO $pdo, array $src): never
+{
+    $ex = $_SESSION['syc_bulk']['excel'];
+    // 자동 정리 미리보기: 등록 때와 같은 함수·규칙(app/syc_normalize.php) — 화면에 바뀌는 곳을 보여 주고 등록 때 다시 적용
+    $r = syc_bulk_read_excel((string) $ex['path'], (string) $ex['ext'], syc_bulk_upload_category_ids($pdo), true, syc_bulk_category_active($pdo), $src['code'],
+                             syc_api_auto_opts($pdo, $ex));
+    $_SESSION['syc_bulk']['excel']['rows'] = count($r['rows']);
+    $_SESSION['syc_bulk']['excel']['error_count'] = $r['error_count'];
+    $iw = syc_bulk_image_warnings($r['rows'], SYC_WEBROOT);   // 서버에서 못 찾은 이미지(등록은 되고 그 이미지만 빈칸)
+    syc_api_out(['ok' => true, 'name' => $ex['name'], 'rows' => count($r['rows']), 'data_rows' => $r['data_rows'],
+                 'error_count' => $r['error_count'], 'errors' => $r['errors'], 'normalize' => $r['normalize'],
+                 'image_warnings' => $iw['warnings'], 'image_warning_count' => $iw['count'],
+                 'columns' => $r['columns'], 'cat_groups' => array_slice($r['cat_groups'], 0, 500), 'cat_group_count' => count($r['cat_groups']),
+                 'skipped' => $r['skipped']]);
 }
 
 function syc_api_out(array $d): never
@@ -197,23 +234,30 @@ try {
     if ($action === 'stage_excel') {
         syc_api_drop_stage('excel');
         $src = product_source_syc_or_fail($pdo, (string) ($_POST['source'] ?? ''));
+        $manual = syc_api_auto_input(json_decode((string) ($_POST['mapping'] ?? ''), true));   // 화면이 업체별로 기억한 칸 맞추기
         [$path, $name, $ext] = syc_api_take_upload(['xlsx', 'csv'], SYC_BULK_MAX_EXCEL_BYTES);
+        $cats = syc_api_auto_input(json_decode((string) ($_POST['cats'] ?? ''), true));        // 화면이 업체별로 기억한 분류 고르기
+        $_SESSION['syc_bulk']['excel'] = ['path' => $path, 'ext' => $ext, 'name' => $name, 'source' => $src['code'], 'manual' => $manual, 'cats' => $cats];
         try {
-            // 자동 정리 미리보기: 등록 때와 같은 함수·규칙(app/syc_normalize.php) — 화면에 바뀌는 곳을 보여 주고 등록 때 다시 적용
-            $r = syc_bulk_read_excel($path, $ext, syc_bulk_upload_category_ids($pdo), true, syc_bulk_category_active($pdo), $src['code']);
+            syc_api_stage_out($pdo, $src);
         } catch (Throwable $e) {
-            unlink($path);
+            syc_api_drop_stage('excel');
             throw $e;
         }
-        $_SESSION['syc_bulk']['excel'] = ['path' => $path, 'ext' => $ext, 'name' => $name, 'rows' => count($r['rows']), 'error_count' => $r['error_count'], 'source' => $src['code']];
-        $iw = syc_bulk_image_warnings($r['rows'], SYC_WEBROOT);   // 서버에서 못 찾은 이미지(등록은 되고 그 이미지만 빈칸)
-        syc_api_out(['ok' => true, 'name' => $name, 'rows' => count($r['rows']), 'data_rows' => $r['data_rows'],
-                     'error_count' => $r['error_count'], 'errors' => $r['errors'], 'normalize' => $r['normalize'],
-                     'image_warnings' => $iw['warnings'], 'image_warning_count' => $iw['count']]);
     }
 
     $body = json_decode((string) file_get_contents('php://input'), true) ?? [];
     $action = (string) ($body['action'] ?? $action);
+
+    // 올린 엑셀을 칸 맞추기·분류를 고쳐 다시 검사(파일은 다시 올리지 않음)
+    if ($action === 'restage') {
+        $ex = $_SESSION['syc_bulk']['excel'] ?? null;
+        if (!is_array($ex) || !is_file((string) $ex['path'])) { throw new InvalidArgumentException('엑셀 파일을 먼저 올려 주세요.'); }
+        $src = product_source_syc_or_fail($pdo, (string) ($ex['source'] ?? ''));
+        $_SESSION['syc_bulk']['excel']['manual'] = syc_api_auto_input($body['mapping'] ?? []);
+        $_SESSION['syc_bulk']['excel']['cats']   = syc_api_auto_input($body['cats'] ?? []);
+        syc_api_stage_out($pdo, $src);
+    }
 
     if ($action === 'clear') {
         $slot = (string) ($body['slot'] ?? '');
@@ -234,7 +278,8 @@ try {
 
         try {
             $norm = ($body['normalize'] ?? true) !== false;      // 자동 정리(기본 켬). 창에서 끄면 엑셀 그대로
-            $r = syc_bulk_read_excel((string) $ex['path'], (string) $ex['ext'], syc_bulk_upload_category_ids($pdo), $norm, syc_bulk_category_active($pdo), $src['code']);
+            $r = syc_bulk_read_excel((string) $ex['path'], (string) $ex['ext'], syc_bulk_upload_category_ids($pdo), $norm, syc_bulk_category_active($pdo), $src['code'],
+                                     syc_api_auto_opts($pdo, $ex));   // 미리보기와 같은 칸 맞추기·분류
             if ($r['error_count'] > 0) { throw new InvalidArgumentException('엑셀에 오류가 있는 행이 있어 등록하지 않았습니다. 고친 뒤 다시 올려 주세요.'); }
             // 업체명 = brand(S9): 엑셀에 업체명이 비어 있으면 고른 업체 이름
             if (!in_array('brand', $r['present'], true)) { $r['present'][] = 'brand'; }
@@ -275,7 +320,7 @@ try {
             if (is_file((string) $ex['path'])) { unlink((string) $ex['path']); }   // 성공·실패 모두 임시 파일 삭제
         }
         $result = ['done' => $total, 'total' => $total, 'finished' => true,
-                   'normalized_rows' => $norm ? (int) ($r['normalize']['changed_rows'] ?? 0) : 0] + $count;
+                   'normalized_rows' => $norm ? (int) ($r['normalize']['changed_rows'] ?? 0) : 0, 'skipped' => (int) ($r['skipped'] ?? 0)] + $count;
         $result += syc_api_publish($pdo);
         file_put_contents($progress, json_encode($result));
         syc_api_out(['ok' => true] + $result);
