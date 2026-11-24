@@ -6,6 +6,7 @@
  *   사진은 브라우저에도 남기지 않음(sessionStorage 에는 읽은 품목 글만)
  * - 케이토목 1분 자동견적 그대로(A11, 2026-11-24): 품목마다 가격·수량·합계·상품 사진·[상품목록][상품보기][도면자료],
  *   부가세·총합계, 오류 안내 + 고객상담 전화. 사용방법, 이전 대화내용(새 대화 전 대화 5개, 이 탭 동안)
+ * - 담는 곳 = 창 안 목록(사이트 견적서 아님, 수량 미정 0 허용). '견적서 만들어줘'·[견적 요청하기] 때 견적서로 옮김
  */
 (function () {
   'use strict';
@@ -82,7 +83,8 @@
     body.textContent = '';
     if (!state.msgs.length) {
       const intro = addBubble('ai', '현장·자재·규격·수량을 한 번에 적어 주세요. 알맞은 제품을 골라 견적에 바로 담고, 현장 지역(시·도)을 알려 주시면 운반비까지 계산해 드립니다.'
-        + (attach ? '\n견적서·자재 목록 사진을 올려도 됩니다.' : ''));
+        + (attach ? '\n견적서·자재 목록 사진을 올려도 됩니다.' : '')
+        + '\n정리된 목록으로 견적서를 만들려면 \'견적서 만들어줘\'라고 입력해 주세요.');
       const ex = document.createElement('div');
       ex.className = 'qc-examples';
       EXAMPLES.forEach(t => {
@@ -119,6 +121,7 @@
   function renderEvent(ev, wrap) {
     if (ev.type === 'quote_draft') renderQuote(ev, wrap);
     if (ev.type === 'product_cards') renderPicks(ev.products || [], wrap);
+    if (ev.type === 'estimate_moved') renderMoved(ev, wrap);
   }
 
   // 담지 않고 추천만 한 경우: 제품 이름 링크(최대 3개)
@@ -157,7 +160,7 @@
           <dl class="qc-q-list">
             <div><dt>상품명</dt><dd>${esc(it.name)}${it.spec ? ' ' + esc(it.spec) : ''}</dd></div>
             <div><dt>가격</dt><dd>${unit > 0 ? won(unit) : '가격 문의'}</dd></div>
-            <div><dt>수량</dt><dd>${parseInt(it.quantity, 10) || 0}</dd></div>
+            <div><dt>수량</dt><dd>${parseInt(it.quantity, 10) || 0}${(parseInt(it.quantity, 10) || 0) === 0 ? ' (미정)' : ''}</dd></div>
             <div><dt>합계</dt><dd>${unit > 0 ? won(it.subtotal) : '문의'}</dd></div>
           </dl>
           ${img ? `<div class="qc-q-img"><img src="${esc(img)}" alt="${esc(it.name)} 사진" loading="lazy"></div>` : ''}
@@ -176,8 +179,42 @@
         <div class="qc-quote-row qc-quote-total"><span>총합계</span>
           <span class="qc-quote-val">${q.final === null || q.final === undefined ? '담당자 문의' : won(q.final)}${q.final_suffix ? `<small>${esc(q.final_suffix.replace(/^\s*\+\s*/, '+ '))}</small>` : ''}</span></div>
       </div>
-      <a class="qc-quote-btn" href="/estimate.php">견적 요청하기</a>`;
+      <button type="button" class="qc-quote-btn">견적 요청하기</button>`;
+    box.querySelector('.qc-quote-btn').addEventListener('click', toEstimate);
     wrap.appendChild(box);
+  }
+
+  // '견적서 만들어줘' 결과 — 사이트 견적서로 옮긴 뒤 견적 요청 화면 바로가기
+  function renderMoved(ev, wrap) {
+    if (wrap.querySelector('.qc-quote')) return;   // 견적 표의 [견적 요청하기]가 같은 일
+    const a = document.createElement('a');
+    a.className = 'qc-quote-btn qc-moved-btn';
+    a.href = safeUrl(ev.url) || '/estimate.php';
+    a.textContent = '견적서 보기 · 견적 요청하기';
+    wrap.appendChild(a);
+  }
+
+  // [견적 요청하기]: 창 안 목록을 사이트 견적서로 옮기고(수량 미정 품목 제외) 견적 요청 화면으로
+  async function toEstimate() {
+    if (busy) return;
+    busy = true;
+    let d = null;
+    try {
+      const r = await fetch('/api/chat/quick.php', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'to_estimate', sid: state.sid }) });
+      d = await r.json();
+    } catch (e) {}
+    busy = false;
+    if (d && d.ok) {
+      if ((d.skipped || []).length) {
+        state.msgs.push({ role: 'ai', text: '수량이 정해지지 않아 견적서로 옮기지 않은 품목: ' + d.skipped.join(', '), error: true });
+        save();
+      }
+      location.href = safeUrl(d.url) || '/estimate.php';
+      return;
+    }
+    state.msgs.push({ role: 'ai', text: (d && d.error) || '견적서로 옮기지 못했습니다. 다시 시도해 주세요.', error: true });
+    save(); render();
   }
 
   // 답변 끝 안내(케이토목처럼 답마다) — 견적 표가 있으면 운반비·전화 상담 안내까지
