@@ -322,7 +322,7 @@ function syc_publish_std_apply(PDO $pdo): array
     $pins = $pdo->prepare('INSERT INTO products (' . implode(', ', $cols) . ') VALUES (' . implode(', ', array_fill(0, count($cols), '?')) . ') AS n ON DUPLICATE KEY UPDATE ' . $upd);
     $axesBySyc = syc_axes_rows();
     $sycDimCols = array_values(array_intersect(array_filter(array_map('syc_axis_column', SYC_AXIS_KEYS)), $sycCols));   // 업체 원본 치수 칸(S33 판단용)
-    $n = 0; $unmapped = 0; $specRead = 0; $specMiss = [];
+    $n = 0; $unmapped = 0; $specRead = 0; $specMiss = []; $refIdx = null;
     foreach ($pdo->query('SELECT * FROM syc_products ORDER BY id') as $p) {
         $sid = (int) $p['category_id'];
         $cid = catalog_std_category((string) ($sycSlug[$sid] ?? ''), $p, $stdIds);
@@ -331,15 +331,22 @@ function syc_publish_std_apply(PDO $pdo): array
         $vals = [$cid, $p['name'], $p['brand'], syc_publish_spec_text($p), $p['spec_code']];
         // 업체 칸 → 케이토목 칸(S26 대응표, app/catalog_axis_map.php). 표에 없는 분류는 같은 키 칸 그대로
         $remap = catalog_axis_remap((string) ($sycSlug[$sid] ?? ''), $p, $dimCols, 'syc_axis_column');
-        $code = $p['spec_code']; $opt = $p['spec_option'];
+        $code = $p['spec_code']; $opt = $p['spec_option']; $specSrc = null;
         // 업체 칸 값이 하나도 없고 모델 코드도 없으면(동아산업 등 이름표 없는 업체 분류) 공통 분류 이름표로 규격 원문을 읽어 담음(S33, 2026-11-24).
         // 모델 코드만 나눠 둔 행(규사 등 spec_axes_row_named)은 정리된 것으로 보고 그대로
         if (trim((string) $code) === '' && !array_filter($sycDimCols, static fn($c) => ($p[$c] ?? null) !== null && $p[$c] !== '')) {
-            $fs = catalog_axis_from_spec((string) $p['spec'], $p['spec_option'], spec_axes_for_category($cid), $dimCols);
+            $cax = spec_axes_for_category($cid);
+            $fs  = catalog_axis_from_spec((string) $p['spec'], $p['spec_option'], $cax, $dimCols)
+                ?? catalog_axis_from_ref((string) $p['spec'], $p['spec_option'], $cax, ($refIdx ??= syc_publish_ref_index($pdo, $pcols))[$cid] ?? ['exact' => [], 'sig' => []], $dimCols);
             if ($fs !== null) {
                 $remap = $fs['cols'];
                 $code  = $fs['code'];
                 $opt   = $fs['option'];
+                // 원문이 비고 옵션에 규격을 적은 업체 상품(집게·클립 등): 같은 규격의 케이토목 상품처럼 그 글자를 규격 원문으로
+                if (trim((string) $p['spec']) === '' && ($fs['src'] ?? '') !== '') {
+                    $specSrc = $fs['src'];
+                    $vals[3] = syc_publish_spec_text(['spec' => $specSrc] + $p);
+                }
                 $specRead++;
             } else {
                 $specMiss[$cid] = ($specMiss[$cid] ?? 0) + 1;
@@ -347,7 +354,7 @@ function syc_publish_std_apply(PDO $pdo): array
         }
         $vals[4] = $code;
         foreach ($dimCols as $dc) { $vals[] = $remap[$dc]; }
-        array_push($vals, $opt, $p['spec'], $dims ? json_encode($dims, JSON_UNESCAPED_UNICODE) : null, $p['unit'], $p['weight_kg'], $p['description'],
+        array_push($vals, $opt, $specSrc ?? $p['spec'], $dims ? json_encode($dims, JSON_UNESCAPED_UNICODE) : null, $p['unit'], $p['weight_kg'], $p['description'],
                    (int) $p['price_b2c'], (int) $p['price_b2b'], (int) $p['cost_price'], (int) $p['stock_qty'],
                    $p['external_source'], $p['external_id'], $p['source_url'], $p['image_file'] ?: $p['image_thumb_file'], (int) $p['is_active']);
         foreach ($imgExtra as $c) {
@@ -382,6 +389,19 @@ function syc_publish_std_apply(PDO $pdo): array
     }
     return ['products' => $n, 'unmapped' => $unmapped, 'stale' => (int) $stale, 'categories_opened' => $opened,
             'spec_read' => $specRead, 'spec_unread' => array_sum($specMiss), 'spec_unread_top' => $missNames];
+}
+
+/**
+ * 업체 상품 규격 읽기의 기준 상품 색인(S33 보완): 케이토목 상품(업체 반영본 — 출처 syccrt·vendor-… 제외, 비활성 포함)의
+ * 규격 원문·칸 값 → catalog_ref_index. 반영 1회에 한 번
+ */
+function syc_publish_ref_index(PDO $pdo, array $pcols): array
+{
+    $cols = array_values(array_intersect(SPEC_AXES_NEW_COLUMNS, $pcols));
+    $rs = $pdo->query('SELECT category_id, spec, ' . implode(', ', $cols) . " FROM products
+                        WHERE category_id IS NOT NULL AND spec_dims_src IS NOT NULL AND spec_dims_src <> ''
+                          AND (external_source IS NULL OR (external_source <> 'syccrt' AND external_source NOT LIKE 'vendor-%'))");
+    return catalog_ref_index($rs);
 }
 
 /** 공통 분류 반영 실행(트랜잭션). 실패하면 되돌리고 예외 */
