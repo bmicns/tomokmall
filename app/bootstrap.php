@@ -612,6 +612,7 @@ function product_facets(?int $categoryId, ?string $query, array $active = []): a
         $spec = (string) ($p['spec'] ?? '');
         $root = category_root_of((int) ($p['category_id'] ?? 0));
         $sv   = product_list_spec_split(parse_spec_field($spec)['spec'], null, null)['spec'];   // 목록 '규격'(치수) 칸과 같은 값(S17)
+        if (spec_axes_ready() && spec_axes_row_named($p)) { $sv = ''; }   // 치수 없는 3단 행(규사 등)은 목록 규격 칸이 '-' → 규격 필터 값 없음(2026-11-24)
 
         $mMat   = !$selMat  || ($root !== null && in_array($root, $selMat, true));
         $mSpec  = !$selSpec || ($sv !== '' && in_array($sv, $selSpec, true));
