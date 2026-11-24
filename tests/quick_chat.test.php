@@ -318,14 +318,15 @@ header("Content-Type: application/json"); echo json_encode($r[$n - 1] ?? end($r)
                 [, $d] = $post(['action' => 'ask', 'sid' => $ssid, 'msg' => $msg2], $cookie);
                 return [$sess()['qc_list_' . $ssid] ?? [], (string) ($d['text'] ?? '')];
             }
-            $mockSeq([$call('add_to_cart', ['product_id' => $sa, 'quantity' => 0], 73), $say('[테스트] 말씀하신 규격으로 우선 목록에 담았습니다. 차량이 다니나요?')]);
+            // 수량을 빠뜨려도 창 안 목록은 0(미정) — 운영 시험 11-24
+            $mockSeq([$call('add_to_cart', ['product_id' => $sa], 73), $say('[테스트] 말씀하신 규격으로 우선 목록에 담았습니다. 차량이 다니나요?')]);
             $post(['action' => 'ask', 'sid' => $ssid, 'msg' => '중하중그레이팅수로용 300*1000*65 얼마에요?'], $cookie);
             $mockSeq([$call('add_to_cart', ['product_id' => $sb, 'quantity' => 20], 74), $say('[테스트] 조건에 맞춰 안전중하중으로 바꿔 담았습니다. 견적서는 화면에 이미 표시되고 있으며, 운임은 별도로 확인됩니다.')]);
             [, $d] = $post(['action' => 'ask', 'sid' => $ssid, 'msg' => $msg2], $cookie);
             return [$sess()['qc_list_' . $ssid] ?? [], (string) ($d['text'] ?? '')];
         };
         [$l1, $t1] = $swapRun('아파트 주차장이고 차 다녀요. 20m요');
-        ok('차량 조건을 듣고 안전중하중을 담으면 0개였던 같은 크기 줄은 빠지고 새 제품 20개만', !isset($l1[$sa]) && ($l1[$sb] ?? 0) === 20, $l1);
+        ok('수량 없이 담은 줄은 0(미정) · 차량 조건을 듣고 안전중하중을 담으면 0개였던 같은 크기 줄은 빠지고 새 제품 20개만', !isset($l1[$sa]) && ($l1[$sb] ?? 0) === 20, $l1);
         ok("답 글에서 '견적서는 화면에 이미 표시되고 있으며' 빠짐", !str_contains($t1, '화면에') && str_contains($t1, '운임은 별도로 확인됩니다'), $t1);
         [$l2] = $swapRun('75mm 짜리도 같이 넣어줘');
         ok("'같이 넣어줘'면 0개 줄도 그대로", ($l2[$sa] ?? -1) === 0 && ($l2[$sb] ?? 0) === 20, $l2);
