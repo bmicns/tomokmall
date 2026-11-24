@@ -20,7 +20,7 @@ render_admin_header('카테고리 관리', 'categories');
 .sub-row:last-child{border-bottom:none}
 .sub-name{font-size:13px;flex:1;color:#444}
 .sort-in{width:52px;height:28px;border:1px solid #e8eaed;border-radius:4px;padding:0 6px;font-size:12px;text-align:center}
-.inactive .mid-name,.inactive .sub-name{color:#bbb;text-decoration:line-through}
+.inactive .mid-name,.inactive .sub-name{color:#bbb}
 .btn-xs{height:26px;padding:0 9px;font-size:11px;font-weight:600;border:none;border-radius:4px;cursor:pointer}
 .btn-xs-add{background:#e8f0fe;color:#004EA1}
 .btn-xs-edit{background:#f0f0f0;color:#555}
