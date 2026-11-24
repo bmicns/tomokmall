@@ -28,6 +28,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/ai_tools.php';
 require_once __DIR__ . '/consult_catalog.php';
+require_once __DIR__ . '/quick_match.php';   // 빠른 견적 창: 고객이 말한 품명+규격 상품 바로 담기(A11)
 
 /**
  * MySQL FULLTEXT 검색으로 관련 상품 최대 $limit개 반환
@@ -983,8 +984,9 @@ const RAG_QUICK_STYLE_PROMPT = "\n\n=== 빠른 견적 창 답변 방식 (이 구
     . "- 고객이 자재를 말하면 되묻지 말고 search_products 로 찾고, 같은 응답에서 조건에 가장 알맞은 1개를 add_to_cart 로 바로 담는다. quantity = 고객이 말한 개수, 설치 길이·면적만 말했으면 권장 수량 suggested_qty, 수량·길이·면적이 하나도 없으면 0(수량 미정 — 답 끝에서 필요한 수량을 묻는다). 담기 전에 묻지 않는다.\n"
     . "- 담는 곳은 이 창의 견적 목록이다(사이트 견적서가 아님). 담은 제품은 대화 동안 쌓이고, 고객이 '견적서 만들어줘'라고 하거나 [견적 요청하기]를 누르면 견적서로 옮겨진다. 처음 담을 때 이 사실을 한 줄로 알려도 된다.\n"
     . "- 담은 뒤 첫 줄: 무엇을 왜 골랐는지 한 줄('차량이 다니는 주차장 배수로라 중하중 300×1000 규격을 담았습니다.'), 이어서 수량 근거 한 줄('20m ÷ 1m = 20개'). 일반 규격으로 골랐으면 '우선 가장 일반적인 규격으로 담아 드렸습니다.'\n"
-    . "- 안전에 꼭 필요한 조건(그레이팅·블록의 차량 통행 여부 등 필수 항목)이 말에 없으면 담기 전에 그 하나만 한 줄로 묻는다. 차량·하중·두께·공공도로 규칙은 위 규칙 그대로 지킨다.\n"
-    . "- 고객이 '같이 넣어줘'·'추가'라고 하면 이미 담긴 것은 두고 더 담는다. 빼기·수량 바꾸기는 update_cart.\n"
+    . "- 안전에 꼭 필요한 조건(그레이팅·블록의 차량 통행 여부 등 필수 항목)이 말에 없을 때: 고객이 품명과 규격을 직접 말했으면 그 상품을 먼저 담고(수량 모르면 0) 그 조건 하나만 한 줄로 묻는다 — 답을 듣고 맞지 않으면 update_cart 로 빼고 맞는 제품을 담는다. 품명만 말했으면 담기 전에 그 하나만 한 줄로 묻는다. 차량·하중·두께·공공도로 규칙은 위 규칙 그대로 지킨다.\n"
+    . "- 고객이 '같이 넣어줘'·'추가'라고 하면 이미 담긴 것은 두고 새 제품만 더 담는다. 이미 목록에 있는 제품은 다시 add_to_cart 하지 않는다(다시 담으면 더해지지 않고 그 수량으로 맞춰짐 — '10개 더'는 합친 총 수량). 빼기·수량 바꾸기는 update_cart.\n"
+    . "- 글에서는 '견적서에 담았습니다'가 아니라 '목록에 담았습니다'라고 쓴다. 운반비를 계산하지 않았으면 운반비가 포함됐다고 쓰지 않는다.\n"
     . "- 배송 지역(시·도)을 고객이 말하면 add_to_cart·get_cart 의 region 에 넣는다. 아직 모르면 마지막 줄에 '현재는 상품 금액만 먼저 계산했습니다. 정확한 견적을 위해 수량 확인과 현장 지역(시·도)을 알려 주시면 운반비까지 계산해 드립니다.' 한 줄.\n"
     . "- 금액(단가·합계·운반비·부가세)은 창의 견적 표가 보여 주므로 글에 쓰지 않는다.\n"
     . "- 맞는 제품이 없거나 가격 문의 상품이면 그 사실을 한 줄로 말하고 다른 규격을 지어내지 않는다.\n"
@@ -2399,7 +2401,8 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
     $forceSearch  = false;   // '찾아 드릴게요'만 하고 끝난 응답 → 1회 검색 재요청
     $forceAdd     = false;   // 빠른 견적 창: 찾고도 담지 않고 '골라 주세요'로 끝난 응답 → 1회 담기 재요청
     $forcedAdd    = false;
-    $cartTouched  = false;   // 이번 턴에 담기·빼기·수량 바꾸기를 했는지
+    $cartTouched  = false;   // 이번 턴에 빼기·수량 바꾸기(update_cart)를 했는지
+    $addedIds     = [];      // 이번 턴에 add_to_cart 로 담은 상품 id
     $chatUrl      = $config['openai']['chat_url'] ?? 'https://api.openai.com/v1/chat/completions';
     $answered     = false;   // 도구 없이 끝난(최종 답을 받은) 응답이 있었는지
     $promised     = '';      // 검색 약속 문장(강제 검색 재요청 때 버림 — 도구가 안 불리면 되살림)
@@ -2428,6 +2431,12 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
     }
     // 고객이 이번에 말한 형태 말 중 카탈로그에 실제로 있는 것(날개형 등) — 검색어에 없으면 서버가 더함
     $formTerms = ($ft = rag_form_terms($lastUser)) ? array_keys(ai_missing_terms_registered($ft)) : [];
+    // 빠른 견적 창: 고객이 품명+규격을 직접 말했고 같은 상품이 있으면(아직 목록에 없을 때) 케이토목처럼 그 상품을 바로 담는다(A11, 운영 시험 11-24)
+    $namedRow = null;
+    if ($style === 'quick' && ($named = quick_match_named($lastUser)) !== null) {
+        $namedRow = quick_match_find($named['name'], $named['spec']);
+        if ($namedRow && isset(cart_session_read()[(int) $namedRow['id']])) { $namedRow = null; }
+    }
     $mustSearch = rag_must_search($lastUser, $explicit, $formTerms, (bool) $recentCards, (string) (($recentCards ? rag_recent_cond($sid) : [])['query'] ?? ''), $alreadyLowest && !$wantsAlt);
     $forcedMust = false;
     $wantsCheap  = $recentCards && rag_wants_cheaper($lastUser);
@@ -2511,7 +2520,18 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
 
         // 빠른 견적 창(케이토목 1분 자동견적 그대로 — A9·A11): 찾은 제품을 담지 않고 '원하시는 제품을 선택해 주세요'로 끝난 답은 버리고
         // add_to_cart 를 1회 강제(운영 상담 #260). 확인 질문('?')으로 끝난 답(안전 필수 조건 묻기)은 그대로 둔다.
-        if ($noTool && $style === 'quick' && !$forcedAdd && $turnCards && !$cartTouched && !str_contains((string) $content, '?')) {
+        if ($noTool && $style === 'quick' && !$forcedAdd && $namedRow && !in_array((int) $namedRow['id'], $addedIds, true) && !$cartTouched) {
+            // 고객이 말한 품명·규격 그대로의 상품 — 확인 질문('?')으로 끝났어도 먼저 수량 0(또는 말한 수량)으로 담고, 질문은 담은 뒤에
+            $forcedAdd = true;
+            $promised  = (string) $content;
+            $label     = $namedRow['name'] . ' ' . quick_match_spec_text((string) $namedRow['spec']);
+            $oaiMessages[] = ['role' => 'system', 'content' => "빠른 견적 창이다. 고객이 직접 말한 품명·규격과 같은 상품(id {$namedRow['id']}, {$label})을 지금 add_to_cart 로 담는다(product_id {$namedRow['id']}, quantity = 고객이 말한 개수, 설치 길이만 말했으면 그 길이로 계산한 개수, 없으면 0). 담은 뒤 '말씀하신 규격으로 우선 목록에 담았습니다' 한 줄, 그리고 안전에 꼭 필요한 조건(차량 통행 등)이 아직 없으면 그 하나만 한 줄로 묻는다(조건에 맞지 않으면 맞는 제품으로 바꿔 드린다고)."];
+            $forceAdd = true;
+            $maxIter++;
+            continue;
+        }
+        if ($noTool && $style === 'quick' && !$forcedAdd && $turnCards && !$cartTouched
+            && !array_intersect(array_map(static fn($c) => (int) ($c['id'] ?? 0), $turnCards), $addedIds) && !str_contains((string) $content, '?')) {
             $forcedAdd = true;
             $promised  = (string) $content;   // 강제해도 도구를 안 부르면 이 답이라도 돌려준다
             $oaiMessages[] = ['role' => 'system', 'content' => '빠른 견적 창이다. 고객에게 고르라고 하지 말고, 방금 찾은 제품 중 고객 조건에 가장 알맞은 1개를 지금 add_to_cart 로 담는다(quantity = 고객이 말한 개수, 설치 길이·면적만 말했으면 suggested_qty, 수량 정보가 없으면 0). 담은 뒤 빠른 견적 창 답변 방식대로 짧게 답한다.'];
@@ -2544,7 +2564,8 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
                 [$input, $fills, $clarify] = rag_prepare_search_input($input, $searchCtx);
             }
             $output   = ai_tool_dispatch($tc['function']['name'] ?? '', $input, $sid);
-            if (in_array($tc['function']['name'] ?? '', ['add_to_cart', 'update_cart'], true)) { $cartTouched = true; }
+            if (($tc['function']['name'] ?? '') === 'update_cart') { $cartTouched = true; }
+            if (($tc['function']['name'] ?? '') === 'add_to_cart') { $addedIds[] = (int) ($input['product_id'] ?? 0); }
             $toolData = json_decode($output, true) ?? [];
             if ($clarify !== '') { $toolData['clarify'] = $clarify; }   // 모호한 고객 말 — GPT 가 확인 질문을 하게(서버가 해석을 정하지 않음)
             if (($tc['function']['name'] ?? '') === 'search_products') {

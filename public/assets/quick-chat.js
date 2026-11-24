@@ -124,13 +124,16 @@
     if (ev.type === 'estimate_moved') renderMoved(ev, wrap);
   }
 
+  // 규격 묶음 글('규격: 300*1000*50 | 중량: 18kg | 단위: 개')에서 규격 값만
+  const specOf = s => { const t = String(s || ''); const m = /규격:\s*([^|]+)/.exec(t); return (m ? m[1] : t.split('|')[0]).trim(); };
+
   // 담지 않고 추천만 한 경우: 제품 이름 링크(최대 3개)
   function renderPicks(products, wrap) {
     if (!products.length || wrap.querySelector('.qc-quote')) return;
     const box = document.createElement('div');
     box.className = 'qc-picks';
     box.innerHTML = '추천 제품: ' + products.slice(0, 3).map(p =>
-      `<a href="/product.php?id=${parseInt(p.id, 10)}" target="_blank" rel="noopener">${esc(p.name)}${p.spec ? ' ' + esc(p.spec) : ''}</a>`).join(', ');
+      `<a href="/product.php?id=${parseInt(p.id, 10)}" target="_blank" rel="noopener">${esc(p.name)}${specOf(p.spec) ? ' ' + esc(specOf(p.spec)) : ''}</a>`).join(', ');
     wrap.appendChild(box);
   }
 

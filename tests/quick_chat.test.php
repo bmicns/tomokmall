@@ -58,6 +58,36 @@ $pok('최대 ' . QUICK_PHOTO_MAX_ITEMS . '개', $many['count'] === QUICK_PHOTO_M
 $pok('프롬프트: 개인정보·가격 읽지 않게', str_contains(QUICK_PHOTO_PROMPT, '전화번호') && str_contains(QUICK_PHOTO_PROMPT, '단가'));
 $mg = cart_merge_quick_list([7 => 2, 9 => 1], [7 => 5, 8 => 0, 10 => 3]);
 $pok('목록 → 견적서: 같은 상품은 목록 수량으로·수량 0 은 빼고 따로', $mg['cart'] === [7 => 5, 9 => 1, 10 => 3] && $mg['moved'] === [7, 10] && $mg['skipped'] === [8]);
+// 품명+규격으로 같은 상품 찾기(app/quick_match.php — 운영 시험 11-24: 사진 6개 중 1개만 담기던 문제, 첫 질문에 바로 담기)
+$pok('규격 숫자 읽기', quick_match_nums('D150×6000') === [150.0, 6000.0] && quick_match_nums('300*275*120T') === [300.0, 275.0, 120.0]);
+$pok('품명: 같음 3 · 띄어쓰기·괄호만 다름 3 · 품음 2 · 사진 오타 1 · 다름 0',
+    quick_match_name_score('사각보도블록', '사각보도블록') === 3 && quick_match_name_score('안전중하중그레이팅 맨홀(집수정)용', '안전중하중그레이팅맨홀(집수정)용') === 3
+    && quick_match_name_score('HDPE이중벽관', 'HDPE이중벽관(유공관)') === 2 && quick_match_name_score('그레이팅 높이조절용 축구수로관', '그레이팅 높이조절용 측구수로관') === 1
+    && quick_match_name_score('사각보도블록', '점자유도 블록') === 0);
+$rows = [
+    ['id' => 1, 'name' => '점자유도 블록', 'spec' => '규격: 300*300*60 | 단위: m²'],
+    ['id' => 2, 'name' => '사각보도블록', 'spec' => '규격: 300*300*60 | 단위: m²'],
+    ['id' => 3, 'name' => 'EX메탈망그레이팅', 'spec' => '규격: 300*1000*50(5*3)_국산 | 단위: 개'],
+    ['id' => 4, 'name' => 'EX메탈망그레이팅', 'spec' => '규격: 300*400*50(5*3)_국산 | 단위: 개'],
+];
+$pok('규격이 앞에서부터 같고 품명이 가장 닮은 상품', (quick_match_pick('사각보도블록', '300×300×60', $rows)['id'] ?? 0) === 2
+    && (quick_match_pick('EX메탈망그레이팅', '300×1000×50', $rows)['id'] ?? 0) === 3);
+$pok('규격이 다르거나 없으면 고르지 않음(크기 짐작 안 함)', quick_match_pick('EX메탈망그레이팅', '300×1000×75', $rows) === null && quick_match_pick('EX메탈망그레이팅', '', $rows) === null);
+$pok('고객 말에서 품명+규격', quick_match_named('그레이팅수로용 300*1000*32 얼마에요?') === ['name' => '그레이팅수로용', 'spec' => '300*1000*32']
+    && quick_match_named('안녕하세요. 경계석 150x170x1000 30개요') === ['name' => '경계석', 'spec' => '150x170x1000']
+    && quick_match_named('마당 경계석 30m 필요해요') === null);
+$pitems = quick_photo_items(json_encode(['items' => [
+    ['name' => '사각보도블록', 'spec' => '300×300×60', 'qty' => 50, 'unit' => 'm²'],
+    ['name' => 'EX메탈망그레이팅', 'spec' => '300×1000×50', 'qty' => 2.5, 'unit' => '개'],
+    ['name' => '없는자재', 'spec' => '10×10', 'qty' => 3, 'unit' => '개'],
+    ['name' => '사각보도블록', 'spec' => '300×300×60', 'qty' => null, 'unit' => '', 'unclear' => true],
+]], JSON_UNESCAPED_UNICODE));
+$pmatch = quick_photo_match($pitems, static fn($n, $sp) => quick_match_pick($n, $sp, $rows));
+$pok('사진 품목 전부 찾아 담기: 사진 수량(소수 올림) · 못 찾은 줄·읽기 애매한 줄은 확인 필요', $pmatch['add'] === [2 => 50, 3 => 3]
+    && count($pmatch['missing']) === 2 && str_contains($pmatch['missing'][0], '없는자재') && str_contains($pmatch['missing'][1], '읽기 애매함'));
+$ptext = quick_photo_reply_text(4, 2, $pmatch['missing'], false);
+$pok('사진 안내 글: 목록에 담음 · 사진 단가 안 씀 · 확인 필요 · 지역 묻기', str_contains($ptext, '4개 품목을 읽어 2개를 이 창의 목록에 담았습니다')
+    && str_contains($ptext, '사진 속 단가가 아닌') && str_contains($ptext, "확인 필요") && str_contains($ptext, '현장 지역(시·도)') && !str_contains($ptext, '견적서에 담'));
 $pok('운영 기본값: 사진 첨부 켬', FEATURE_AI_QUICK_PHOTO === true && ai_quick_photo_enabled());
 
 $dbName = (string) ($config['db']['name'] ?? '');
@@ -226,6 +256,35 @@ header("Content-Type: application/json"); echo json_encode($r[$n - 1] ?? end($r)
     ok("확인 질문('?')으로 끝나면 강제하지 않음", ($d['ok'] ?? false) && str_contains((string) $d['text'], '차량이 다니는') && !is_file("{$tmp}/req-3.json"), $d);
     ok('기본 AI 상담(consult)은 강제 담기 없음 — 코드상 style 조건', str_contains((string) file_get_contents(__DIR__ . '/../app/rag.php'), "\$style === 'quick' && !\$forcedAdd"));
 
+    echo "[API — 고객이 품명+규격을 말하면 바로 담기 · 같은 상품 다시 담아도 늘지 않음(운영 시험 11-24)]\n";
+    $pr = $pdo->query("SELECT name, spec FROM products WHERE id = {$pid}")->fetch();
+    $pName = (string) $pr['name'];
+    $pSpec = implode('*', array_map(static fn($n) => (string) $n, array_slice(quick_match_nums(quick_match_spec_text((string) $pr['spec'])), 0, 3)));
+    $mockSeq([
+        $say('[테스트] 설치 장소에 차량이 다니나요?'),
+        $call('add_to_cart', ['product_id' => $pid, 'quantity' => 0], 61),
+        $say('[테스트] 말씀하신 규격으로 우선 목록에 담았습니다. 차량이 다니나요?'),
+    ]);
+    [$st, $d] = $post(['action' => 'new'], $cookie);
+    $nsid = (string) ($d['sid'] ?? '');
+    [$st, $d] = $post(['action' => 'ask', 'sid' => $nsid, 'msg' => "{$pName} {$pSpec} 얼마에요?"], $cookie);
+    $forced = false;
+    foreach (glob("{$tmp}/req-*.json") ?: [] as $f) {
+        $rq = json_decode((string) file_get_contents($f), true);
+        if (($rq['tool_choice']['function']['name'] ?? '') === 'add_to_cart' && str_contains((string) json_encode($rq['messages'], JSON_UNESCAPED_UNICODE), "id {$pid}")) { $forced = true; }
+    }
+    ok("품명+규격을 말하면 묻기 전에 그 상품을 담기 강제(질문 '?'로 끝나도)", $forced && ($sess()['qc_list_' . $nsid][$pid] ?? -1) === 0
+        && str_contains((string) ($d['text'] ?? ''), '목록에 담았습니다'), ['text' => $d['text'] ?? null, 'list' => $sess()['qc_list_' . $nsid] ?? null]);
+    $mockSeq([$call('add_to_cart', ['product_id' => $pid, 'quantity' => 20], 62), $say('[테스트] 20개로 담았습니다.')]);
+    $post(['action' => 'ask', 'sid' => $nsid, 'msg' => '20개요'], $cookie);
+    $mockSeq([$call('add_to_cart', ['product_id' => $pid, 'quantity' => 20, 'region' => '경기'], 63), $say('[테스트] 경기 운반비를 계산했습니다.')]);
+    $post(['action' => 'ask', 'sid' => $nsid, 'msg' => '경기도예요'], $cookie);
+    $after = $sess()['qc_list_' . $nsid][$pid] ?? 0;
+    $mockSeq([$call('add_to_cart', ['product_id' => $pid, 'quantity' => 0], 64), $say('[테스트] 그대로 두었습니다.')]);
+    $post(['action' => 'ask', 'sid' => $nsid, 'msg' => '그대로요'], $cookie);
+    ok('같은 상품을 다시 담으면 그 수량으로 맞춤(20 → 40 으로 늘지 않음) · 0 으로 다시 담으면 그대로', $after === 20 && ($sess()['qc_list_' . $nsid][$pid] ?? 0) === 20,
+        ['after_region' => $after, 'final' => $sess()['qc_list_' . $nsid][$pid] ?? null]);
+
     echo "[API — 창 안 목록(케이토목식): 수량 미정 0 · '견적서 만들어줘' · [견적 요청하기]]\n";
     $mockSeq([
         $call('search_products', ['query' => '경계석'], 41),
@@ -257,15 +316,15 @@ header("Content-Type: application/json"); echo json_encode($r[$n - 1] ?? end($r)
     [$st, $d] = $post(['action' => 'to_estimate', 'sid' => $lsid], $cookie);
     ok('[견적 요청하기] 다시 눌러도 두 배가 되지 않음(목록 수량으로 맞춤)', ($d['ok'] ?? false) && ($d['url'] ?? '') === '/estimate.php' && ($sess()['cart'][$pid] ?? 0) === 25, $d);
 
-    echo "[API — 견적서 사진 첨부]\n";
+    echo "[API — 견적서 사진 첨부: 읽은 품목을 바로 목록에(GPT 상담 호출 없음)]\n";
+    $pr = $pdo->query("SELECT name, spec FROM products WHERE id = {$pid}")->fetch();
+    $pName = (string) $pr['name'];
+    $pSpec = implode('×', array_map(static fn($n) => (string) $n, array_slice(quick_match_nums(quick_match_spec_text((string) $pr['spec'])), 0, 3)));
     file_put_contents("{$tmp}/responses.json", json_encode([
         $say(json_encode(['items' => [
-            ['name' => '경계석', 'spec' => '150×170×1000', 'qty' => 30, 'unit' => '개'],
+            ['name' => $pName, 'spec' => $pSpec, 'qty' => 30, 'unit' => '개'],
             ['name' => '홍길동 010-9876-5432 맨홀뚜껑', 'spec' => '', 'qty' => null, 'unit' => '', 'unclear' => true],
         ]], JSON_UNESCAPED_UNICODE)),
-        $call('search_products', ['query' => '경계석 150×170×1000'], 11),
-        $call('add_to_cart', ['product_id' => $pid, 'quantity' => 30], 12),
-        $say("[테스트] 사진의 경계석을 담았습니다.\n확인 필요:\n맨홀뚜껑"),
     ], JSON_UNESCAPED_UNICODE));
     @unlink("{$tmp}/n");
     array_map('unlink', glob("{$tmp}/req-*.json") ?: []);
@@ -279,17 +338,16 @@ header("Content-Type: application/json"); echo json_encode($r[$n - 1] ?? end($r)
     [$st, $d] = $post(['action' => 'photo', 'sid' => $psid, 'image' => $img, 'consent' => true], $cookie);
     $q = null;
     foreach ($d['events'] ?? [] as $e) { if (($e['type'] ?? '') === 'quote_draft') { $q = $e; } }
-    ok('사진 → 읽은 품목 글(asked) + 답변 + 같은 상담 키', ($d['ok'] ?? false) && ($d['sid'] ?? '') === $psid
-        && str_starts_with((string) ($d['asked'] ?? ''), QUICK_PHOTO_PREFIX) && str_contains((string) $d['text'], '확인 필요'), $d);
-    ok('견적 표: 사진 품목 30개(이 대화의 창 안 목록)', $q !== null && ($q['items'][0]['product_id'] ?? 0) === $pid && ($q['items'][0]['quantity'] ?? 0) === 30, $q);
+    ok('사진 → 읽은 품목 글(asked) + 담은 결과·확인 필요 안내 + 같은 상담 키', ($d['ok'] ?? false) && ($d['sid'] ?? '') === $psid
+        && str_starts_with((string) ($d['asked'] ?? ''), QUICK_PHOTO_PREFIX) && str_contains((string) $d['text'], '1개를 이 창의 목록에 담았습니다')
+        && str_contains((string) $d['text'], '확인 필요') && !str_contains((string) $d['text'], '9876'), $d);
+    ok('견적 표: 사진 품목 30개(이 대화의 창 안 목록, 사이트 견적서 아님)', $q !== null && ($q['items'][0]['product_id'] ?? 0) === $pid && ($q['items'][0]['quantity'] ?? 0) === 30
+        && ($sess()['qc_list_' . $psid][$pid] ?? 0) === 30, $q);
     $v = json_decode((string) @file_get_contents("{$tmp}/req-1.json"), true);
     $vc = $v['messages'][0]['content'] ?? [];
     ok('비전 요청: gpt-4o · 사진 data URL · 품목만 읽는 지시', ($v['model'] ?? '') === 'gpt-4o' && str_starts_with((string) ($vc[1]['image_url']['url'] ?? ''), 'data:image/png;base64,')
         && ($vc[0]['text'] ?? '') === QUICK_PHOTO_PROMPT);
-    $r2 = json_decode((string) @file_get_contents("{$tmp}/req-2.json"), true);
-    $lastUserMsg = (string) (end($r2['messages'])['content'] ?? '');
-    ok('상담 요청: 품목 글로 질문 · 전화번호 지움 · 사진 없음', str_starts_with($lastUserMsg, QUICK_PHOTO_PREFIX) && !str_contains($lastUserMsg, '9876')
-        && !str_contains((string) json_encode($r2), 'base64'));
+    ok('사진 담기는 GPT 상담을 부르지 않음(OpenAI 1회 = 사진 읽기만)', !is_file("{$tmp}/req-2.json"));
     $saved->execute([$psid]);
     $ph = (string) $saved->fetchColumn();
     $lg = $pdo->prepare('SELECT CONCAT(user_msg, assistant_txt, COALESCE(tools_json, "")) FROM chat_logs WHERE session_key = ?');

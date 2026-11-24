@@ -191,7 +191,8 @@ if ($action === 'photo') {
         echo json_encode(['ok' => false, 'sid' => $sid, 'error' => $items['error']], JSON_UNESCAPED_UNICODE);
         exit;
     }
-    $userMsg = $items['text'];
+    $userMsg    = $items['text'];
+    $photoItems = $items['items'];
 } else {
     $userMsg = trim((string) ($body['msg'] ?? ''));
     if ($userMsg === '' || mb_strlen($userMsg) > QUICK_CHAT_MAX_LEN) {
@@ -202,6 +203,27 @@ if ($action === 'photo') {
 }
 
 $history  = rag_load_session($sid);
+
+// 견적서 사진 — 케이토목처럼 읽은 품목을 바로 목록에 담는다(GPT 없이: 품명+규격이 같은 상품, 사진 수량, 못 찾은 줄은 '확인 필요')
+if ($action === 'photo') {
+    $pm   = quick_photo_match($photoItems, 'quick_match_find');
+    $list = cart_session_read();
+    foreach ($pm['add'] as $pid => $q) {
+        $list[$pid] = $q > 0 ? $q : ($list[$pid] ?? 0);   // 이미 담긴 상품은 사진 수량으로 맞춤(수량 모름이면 그대로)
+    }
+    if ($pm['add']) { cart_session_write($list); }
+    $region = quote_region_get();
+    $text   = quick_photo_reply_text(count($photoItems), count($pm['add']), $pm['missing'], $region !== null);
+    $events = $list ? [quote_draft_current($region)] : [];
+    if (session_status() === PHP_SESSION_ACTIVE) { session_write_close(); }
+    $history[] = ['role' => 'user',      'content' => $userMsg];
+    $history[] = ['role' => 'assistant', 'content' => $text];
+    rag_save_session($sid, array_slice($history, -40));
+    rag_log_chat($sid, $userMsg, $text, $events, '', $uid);
+    try { $events = quick_chat_quote_media($events); } catch (Throwable $e) { error_log('quick chat media: ' . $e->getMessage()); }
+    echo json_encode(['ok' => true, 'sid' => $sid, 'asked' => $userMsg, 'text' => $text, 'events' => $events], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 // '견적서 만들어줘' — 케이토목처럼 모아 둔 목록으로 견적서를 만든다(GPT 없이 바로: 사이트 견적서로 옮기고 견적 표·버튼)
 if ($action === 'ask' && quick_chat_wants_estimate($userMsg)) {

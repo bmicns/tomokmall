@@ -2326,10 +2326,18 @@ function tool_add_to_cart(array $input, string $sid): string
     }
 
     $cart = cart_session_read();
-    if (($cart[$productId] ?? 0) + $quantity > 999) {
-        return json_encode(['error' => '수량은 1~999 범위여야 합니다.'], JSON_UNESCAPED_UNICODE);
+    $setNote = null;
+    if (cart_store_is_quick_list() && isset($cart[$productId])) {
+        // 빠른 견적 창 목록: 이미 있는 상품을 다시 담으면 더하지 않고 그 수량으로 맞춘다(운영 시험 11-24 — 지역만 말했는데 20개 → 40개로 늘던 문제).
+        // 수량 0(미정)으로 다시 담으면 있던 수량을 그대로 둔다. '10개 더'는 GPT 가 합친 총 수량을 넣는다(빠른 견적 창 답변 방식).
+        if ($quantity > 0) { $cart[$productId] = $quantity; }
+        $setNote = '이미 목록에 있던 상품이라 수량을 ' . $cart[$productId] . '(으)로 맞췄습니다(더하지 않음).';
+    } else {
+        if (($cart[$productId] ?? 0) + $quantity > 999) {
+            return json_encode(['error' => '수량은 1~999 범위여야 합니다.'], JSON_UNESCAPED_UNICODE);
+        }
+        $cart[$productId] = ($cart[$productId] ?? 0) + $quantity;
     }
-    $cart[$productId] = ($cart[$productId] ?? 0) + $quantity;
     cart_session_write($cart);
 
     [$count, $total] = cart_summary($cart);
@@ -2352,7 +2360,7 @@ function tool_add_to_cart(array $input, string $sid): string
         'product_id' => $productId,
         'name'       => $product['name'],
         'quantity'   => $cart[$productId],
-    ] + quote_tool_result($quote, $regionError) + [
+    ] + ($setNote !== null ? ['note' => $setNote] : []) + quote_tool_result($quote, $regionError) + [
         '_sse'       => [
             ['type' => 'cart_update', 'count' => $count, 'total' => $total],
             $quote,
