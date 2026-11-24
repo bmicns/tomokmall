@@ -95,6 +95,13 @@ $pok('금액은 글에서 빼고 견적 표에만(케이토목처럼): 마디·�
     && quick_reply_tidy('6만 6천원입니다.') === '' && quick_reply_tidy('원형 맨홀 D600을 담았습니다.') === '원형 맨홀 D600을 담았습니다.');
 $pok('상품 사진: 케이토목 40×40 썸네일 → 같은 파일 450×450(그 밖의 주소는 그대로)', quick_chat_big_image('https://ktomok.com/data/item/10/1060/1581990666/thumb-pcbox_o_1_40x40.jpg') === 'https://ktomok.com/data/item/10/1060/1581990666/thumb-pcbox_o_1_450x450.jpg'
     && quick_chat_big_image('/uploads/products/a/b_40x40.jpg') === '/uploads/products/a/b_40x40.jpg' && quick_chat_big_image('http://www.dacity.co.kr/x/thumb-a_450x450.jpg') === 'http://www.dacity.co.kr/x/thumb-a_450x450.jpg');
+$pok('답 글 단위는 m 기준(사용자 피드백 11-24): mm → m, 규격 표기·호칭은 그대로', quick_reply_units('조건(폭 150mm, 길이 1000mm)과 설치 길이 10m') === '조건(폭 0.15m, 길이 1m)과 설치 길이 10m'
+    && quick_reply_units('높이는 50 mm, 길이 1,500mm') === '높이는 0.05m, 길이 1.5m' && quick_reply_units('300×1000×50mm·300*1000*32mm·D150mm') === '300×1000×50mm·300*1000*32mm·D150mm'
+    && quick_reply_tidy('폭 300mm 제품을 담았습니다.') === '폭 0.3m 제품을 담았습니다.');
+$pok('설치 길이·면적만 말한 말 읽기(개수·폭·제품 길이·규격 표기·값 둘은 아님)', quick_install_amount('10미터쯤 설치할거야') === ['length_m' => 10.0] && quick_install_amount('20m요') === ['length_m' => 20.0]
+    && quick_install_amount('30㎡ 정도 깔 거예요') === ['area_m2' => 30.0] && quick_install_amount('설치 길이 15m') === ['length_m' => 15.0] && quick_install_amount('폭 0.3m 20m') === ['length_m' => 20.0]
+    && quick_install_amount('10개요') === null && quick_install_amount('길이 1m 그레이팅') === null && quick_install_amount('개거 1.5*1.5*2.0m') === null && quick_install_amount('10m 30m') === null);
+$pok('수량을 맞출 줄: 수량 미정 줄, 없으면 한 줄뿐일 때만', quick_qty_targets([5 => 0, 6 => 3]) === [5] && quick_qty_targets([6 => 3]) === [6] && quick_qty_targets([6 => 3, 7 => 2]) === []);
 $pok('천 단위 쉼표 숫자는 그대로(1,200 → \'1, 200\' 안 됨 — 운영 시험 11-24)', quick_reply_tidy('설치 길이 1,200m, 수량 1,200개를 담았습니다.') === '설치 길이 1,200m, 수량 1,200개를 담았습니다.');
 $pok('화면 안내 말이 아니면 그대로(수량·지역 묻기·확인 필요·견적서 만들기 안내)', ($keepTxt = "말씀하신 규격으로 우선 목록에 담았습니다. 차량이 다니는 곳인지 알려 주세요.\n확인 필요:\n경계석 150×170\n'견적서 만들어줘'라고 하시면 견적서로 옮겨 드립니다.") === quick_reply_tidy($keepTxt)
     && quick_reply_tidy('수량 확인과 현장 지역(시·도)을 알려 주시면 화면에 운반비까지 표시해 드립니다.') === '수량 확인과 현장 지역(시·도)을 알려 주시면 화면에 운반비까지 표시해 드립니다.');
@@ -339,6 +346,38 @@ header("Content-Type: application/json"); echo json_encode($r[$n - 1] ?? end($r)
         ok("'같이 넣어줘'면 0개 줄도 그대로", ($l2[$sa] ?? -1) === 0 && ($l2[$sb] ?? 0) === 20, $l2);
         [$l3] = $swapRun('300*1000*65 와 75 얼마예요', true);
         ok('같은 턴에 함께 담은 0개 줄은 빼지 않음', ($l3[$sa] ?? -1) === 0 && ($l3[$sb] ?? -1) === 0, $l3);
+
+        echo "[API — 수량 추천: 설치 길이를 말하면 담긴 제품을 권장 수량으로(사용자 피드백 11-24)]\n";
+        [$sq, $sbasis] = tool_cart_suggest_qty($sa, 20.0, 0.0);
+        ok('담긴 제품 권장 수량 = 검색 표와 같은 계산(20m ÷ 1m = 20개)', $sq === 20 && str_contains($sbasis, '20m ÷ 1m = 20'), [$sq, $sbasis]);
+        [, $d] = $post(['action' => 'new'], $cookie);
+        $qsid = (string) ($d['sid'] ?? '');
+        $mockSeq([$call('add_to_cart', ['product_id' => $sa], 81), $say('[테스트] 목록에 담았습니다.')]);
+        $post(['action' => 'ask', 'sid' => $qsid, 'msg' => '중하중그레이팅수로용 300*1000*65 얼마에요?'], $cookie);
+        $reqs = implode('', array_map(static fn($f) => (string) json_encode(json_decode((string) file_get_contents($f), true), JSON_UNESCAPED_UNICODE), glob("{$tmp}/req-*.json") ?: []));
+        ok('0개로 담으면 결과에 수량 예시(qty_hint — 10m면 10개)', str_contains($reqs, 'qty_hint') && str_contains($reqs, '10m ÷ 1m = 10'), mb_substr($reqs, 0, 200));
+        $mockSeq([$call('update_cart', ['product_id' => $sa, 'length_m' => 20], 82), $say('[테스트] 20m 설치면 1m 제품 20개 정도 필요합니다. 폭 300mm, 길이 1000mm 제품입니다.')]);
+        [, $d] = $post(['action' => 'ask', 'sid' => $qsid, 'msg' => '20미터쯤 설치할건데 몇 개 사면 돼?'], $cookie);
+        $reqs = implode('', array_map('file_get_contents', glob("{$tmp}/req-*.json") ?: []));
+        ok('개수 대신 설치 길이 → 서버가 권장 수량 20개로 맞추고 계산식(qty_basis)을 돌려줌', ($sess()['qc_list_' . $qsid][$sa] ?? 0) === 20 && str_contains($reqs, 'qty_basis'), $sess()['qc_list_' . $qsid] ?? null);
+        ok('답 글의 mm 는 m 로(폭 0.3m·길이 1m)', str_contains((string) ($d['text'] ?? ''), '폭 0.3m, 길이 1m') && !str_contains((string) ($d['text'] ?? ''), 'mm'), $d['text'] ?? null);
+        echo "[API — 개수 없이 '10미터쯤 설치할거야'만 말해도 권장 수량(사용자 피드백 11-24)]\n";
+        $zeroRun = static function (array $seq, string $msg2) use ($mockSeq, $call, $say, $post, $sess, $cookie, $sa): array {
+            [, $d] = $post(['action' => 'new'], $cookie);
+            $zsid = (string) ($d['sid'] ?? '');
+            $mockSeq([$call('add_to_cart', ['product_id' => $sa], 91), $say('[테스트] 목록에 담았습니다.')]);
+            $post(['action' => 'ask', 'sid' => $zsid, 'msg' => '중하중그레이팅수로용 300*1000*65 얼마에요?'], $cookie);
+            $mockSeq($seq);
+            [, $d] = $post(['action' => 'ask', 'sid' => $zsid, 'msg' => $msg2], $cookie);
+            return [$sess()['qc_list_' . $zsid] ?? [], (string) ($d['text'] ?? '')];
+        };
+        [$z1, $zt1] = $zeroRun([$say('[테스트] 10m 설치하시는군요. 필요한 수량을 알려 주세요.'), $call('update_cart', ['product_id' => $sa, 'length_m' => 10], 92), $say('[테스트] 설치 길이 10m이면 10개 정도 필요합니다. 수량을 맞춰 두었습니다.')], '10미터쯤 설치할거야');
+        $reqs = implode('', array_map(static fn($f) => (string) json_encode(json_decode((string) file_get_contents($f), true), JSON_UNESCAPED_UNICODE), glob("{$tmp}/req-*.json") ?: []));
+        ok('GPT 가 수량을 안 맞추고 답하면 update_cart(length_m 10)를 강제 → 10개', ($z1[$sa] ?? 0) === 10 && str_contains($reqs, '개수 없이 설치 길이 10m만') && str_contains($zt1, '10개 정도'), [$z1, $zt1]);
+        [$z2, $zt2] = $zeroRun([$say('[테스트] 10m 설치하시는군요. 몇 개 필요하신지 알려 주세요.'), $say('[테스트] 10m 설치하시는군요. 몇 개 필요하신지 알려 주세요.')], '10미터쯤 설치할거야');
+        ok('강제해도 안 맞추면 서버가 맞추고 한 줄을 앞에(개수 묻는 문장은 뺌)', ($z2[$sa] ?? 0) === 10 && str_starts_with($zt2, '설치 길이 10m이면') && str_contains($zt2, '10개 정도') && !str_contains($zt2, '몇 개'), [$z2, $zt2]);
+        [$z3] = $zeroRun([$say('[테스트] 알겠습니다.')], '10개요');
+        ok("개수를 말하면 서버가 길이로 바꾸지 않음('10개요')", ($z3[$sa] ?? -1) === 0, $z3);
     } else {
         echo "  (건너뜀: 테스트 DB 에 중하중·안전중하중 그레이팅수로용 300*1000 없음)\n";
     }

@@ -989,6 +989,8 @@ const RAG_QUICK_STYLE_PROMPT = "\n\n=== 빠른 견적 창 답변 방식 (이 구
     . "- 글에서는 '견적서에 담았습니다'가 아니라 '목록에 담았습니다'라고 쓴다. 운반비를 계산하지 않았으면 운반비가 포함됐다고 쓰지 않는다. '견적서는 화면에 표시되고 있습니다'·'화면에서 확인해 주세요' 같은 화면 안내 말은 쓰지 않는다.\n"
     . "- 조건(차량 통행 등)을 듣고 다른 제품으로 바꿔 담을 때: 수량 0 으로 담겨 있던 같은 크기 제품은 서버가 목록에서 뺀다(결과 note). 글은 '조건에 맞춰 ○○로 바꿔 담았습니다' 한 줄.\n"
     . "- 배송 지역(시·도)을 고객이 말하면 add_to_cart·get_cart 의 region 에 넣는다. 아직 모르면 마지막 줄에 '현재는 상품 금액만 먼저 계산했습니다. 정확한 견적을 위해 수량 확인과 현장 지역(시·도)을 알려 주시면 운반비까지 계산해 드립니다.' 한 줄.\n"
+    . "- 수량 추천(기존 상담처럼): 고객이 설치 길이·면적을 말하거나('10m 설치할거야'·'20m요'처럼 묻지 않고 말만 해도) '몇 개 필요해?'라고 물으면 목록에 이미 담긴 제품은 update_cart 에 product_id 와 length_m(또는 area_m2)만 넣어 서버가 계산한 권장 수량으로 맞추고, 결과 qty_basis 로 '10m 설치면 1m 제품 10개 정도 필요합니다'처럼 한 줄로 권한다. 길이·면적을 아직 모르고 0개로 담았으면 결과 qty_hint 로 '1개가 1m라 설치 길이 10m면 10개 정도 필요합니다. 설치 길이를 알려 주시면 수량을 맞춰 드립니다' 한 줄. 계산할 수 없다는 결과면 개수를 묻는다. 수량을 지어내지 않는다.\n"
+    . "- 단위는 m 기준: 답 글의 치수·길이는 m 로 쓴다(1000mm → 1m, 300mm → 0.3m, 설치 길이 20m). mm 와 m 를 섞지 않는다. 상품 규격 표기(300×1000×32)는 그대로.\n"
     . "- 금액(단가·합계·운반비·부가세·최종 금액)은 창의 견적 표가 보여 주므로 글에 쓰지 않는다('66,000원'·'약 13만 원' 같은 금액 표현 없이 — 케이토목처럼 표에만).\n"
     . "- 맞는 제품이 없거나 가격 문의 상품이면 그 사실을 한 줄로 말하고 다른 규격을 지어내지 않는다.\n"
     . "- 질문이 '[견적서 사진에서 읽은 품목]' 으로 시작하면 고객이 올린 견적서·자재 목록 사진에서 읽은 줄이다: 줄마다 search_products 로 찾아(한 응답에 여러 도구 호출 가능) 품명·규격이 맞는 상품을 그 줄의 수량으로 add_to_cart 한다(수량 모름이면 0). "
@@ -2439,6 +2441,11 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
         $namedRow = quick_match_find($named['name'], $named['spec']);
         if ($namedRow && isset(cart_session_read()[(int) $namedRow['id']])) { $namedRow = null; }
     }
+    // 빠른 견적 창: 개수 없이 설치 길이·면적만 말함('10미터쯤 설치할거야') → 목록의 수량 미정 줄을 권장 수량으로(사용자 피드백 11-24)
+    //   이번 말에 자재 이름이 있으면('그레이팅 폭 300 20m') 다른 제품 이야기일 수 있어 서버가 정하지 않는다(GPT 가 프롬프트대로)
+    $qInstall  = $style === 'quick' && rag_detect_category([['role' => 'user', 'content' => $lastUser]]) === '' && quick_match_named($lastUser) === null ? quick_install_amount($lastUser) : null;
+    $forcedQty = false;
+    $forceUpdate = false;
     $mustSearch = rag_must_search($lastUser, $explicit, $formTerms, (bool) $recentCards, (string) (($recentCards ? rag_recent_cond($sid) : [])['query'] ?? ''), $alreadyLowest && !$wantsAlt);
     $forcedMust = false;
     $wantsCheap  = $recentCards && rag_wants_cheaper($lastUser);
@@ -2468,11 +2475,13 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
             'stream'      => false,
             'tools'       => ai_tool_definitions(),
             'tool_choice' => $forceSearch ? ['type' => 'function', 'function' => ['name' => 'search_products']]
-                : ($forceAdd ? ['type' => 'function', 'function' => ['name' => 'add_to_cart']] : 'auto'),
+                : ($forceAdd ? ['type' => 'function', 'function' => ['name' => 'add_to_cart']]
+                : ($forceUpdate ? ['type' => 'function', 'function' => ['name' => 'update_cart']] : 'auto')),
             'messages'    => $oaiMessages,
         ]);
         $forceSearch = false;
         $forceAdd    = false;
+        $forceUpdate = false;
 
         $raw = rag_curl_post(
             $chatUrl,
@@ -2542,6 +2551,19 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
             continue;
         }
 
+        // 빠른 견적 창: 고객이 개수 없이 설치 길이·면적만 말했는데 수량을 맞추지 않고 답함 → update_cart(length_m·area_m2)를 1회 강제(사용자 피드백 11-24)
+        if ($noTool && $qInstall && !$forcedQty && !$cartTouched && !$addedIds && !$trafficInfo['last_strong'] && !$turnCards && ($qTargets = quick_qty_targets(cart_session_read()))) {
+            $forcedQty = true;
+            $promised  = (string) $content;
+            [$qk, $qv] = [array_key_first($qInstall), spec_axis_num((float) reset($qInstall))];
+            $what = $qk === 'length_m' ? "설치 길이 {$qv}m" : "면적 {$qv}㎡";
+            $oaiMessages[] = ['role' => 'system', 'content' => "빠른 견적 창이다. 고객이 개수 없이 {$what}만 말했다. 목록의 수량을 정할 제품(product_id " . implode(', ', $qTargets) . ")을 지금 update_cart 에 product_id 와 {$qk} {$qv} 로 넣어 권장 수량으로 맞춘다(quantity 는 넣지 않음, 제품마다 한 번씩). "
+                . "그다음 결과 qty_basis 로 '{$what}이면 ○○ N개 정도 필요합니다. 수량을 맞춰 두었습니다' 한 줄로 답하고 개수를 다시 묻지 않는다. 계산할 수 없다는 결과면 그 제품만 개수를 묻는다."];
+            $forceUpdate = true;
+            $maxIter++;
+            continue;
+        }
+
         // 도구 호출과 함께 온 글('찾아볼게요·잠시만요', 검색 전 추측성 종류 설명, '오류가 발생' 등)은 최종 답이 오면 버린다 — 손님에게는 도구 결과를 본 뒤의 답만.
         // 최종 답이 끝내 비면 이 글을 대신 쓴다(빈 답변 방지).
         if ($content !== '' && $content !== null) {
@@ -2605,6 +2627,16 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
             $responseText .= ($responseText !== '' ? "\n" : '') . $content;
         } elseif ($responseText === '' && $preToolText === '') {
             return ['ok' => false, 'text' => '', 'events' => $events, 'tools' => $toolLog, 'error' => '답변을 만들지 못했습니다. 다시 시도해 주세요.'];
+        }
+    }
+
+    // 빠른 견적 창: 강제해도 수량을 맞추지 않았으면 서버가 맞추고 한 줄을 앞에(같은 계산 — 개수를 묻는 문장은 뺌, 사용자 피드백 11-24)
+    if ($qInstall && !$cartTouched && !$addedIds && !$trafficInfo['last_strong'] && !$turnCards && ($qTargets = quick_qty_targets(cart_session_read()))) {
+        $qa = tool_quick_install_qty($qTargets, $qInstall, $sid);
+        if ($qa['text'] !== '') {
+            $responseText = $qa['text'] . "\n" . (string) preg_replace('/[^.?!\n]*(?:몇\s*개|수량|개수)[^.?!\n]*(?:알려|말씀|필요하신|정해)[^.?!\n]*[.?!]\s*/u', '', $responseText);
+            array_push($events, ...$qa['events']);
+            $toolLog[] = ['name' => 'update_cart', 'input' => $qInstall + ['product_ids' => $qTargets], 'raw_input' => [], 'fills' => ['server_install_qty'], 'clarify' => '', 'result_ids' => [], 'summary' => '서버 수량 맞춤: ' . $qa['text']];
         }
     }
 

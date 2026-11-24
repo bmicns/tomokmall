@@ -210,7 +210,30 @@ function quick_reply_tidy(string $text): string
     }
     $text = implode("\n", $lines);
     $text = (string) preg_replace('/견적서에\s*(담았|담아|넣었|넣어)/u', '목록에 $1', $text);   // 담는 곳은 창 안 목록(사이트 견적서가 아님)
+    $text = quick_reply_units($text);
     return trim((string) preg_replace("/\n{3,}/", "\n\n", $text));
+}
+
+/**
+ * 빠른 견적 창 답 글의 mm 치수를 m 로 (순수 함수): '폭 150mm, 길이 1000mm … 10m' 처럼 단위가 섞이던 문제(사용자 피드백 11-24 — m 기준).
+ * 1000mm → 1m, 300mm → 0.3m, 1,500mm → 1.5m. 상품 규격 표기(300×1000×32, '×50mm' 처럼 곱하기 뒤 숫자)는 그대로 둔다.
+ */
+function quick_reply_units(string $text): string
+{
+    return (string) preg_replace_callback(
+        '/(?<![\d.,])(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?\s*(?:mm|㎜)(?![a-zA-Z])/u',
+        static function (array $m) use ($text): string {
+            $before = rtrim(substr($text, 0, $m[0][1]));
+            if ($before !== '' && preg_match('/[×*xX]$|[A-Za-z]$/u', $before)) { return $m[0][0]; }   // 규격 표기의 일부(곱하기 뒤 숫자·D150mm 같은 호칭)
+            $mm = (float) (str_replace(',', '', $m[1][0]) . (isset($m[2]) && $m[2][1] >= 0 ? '.' . $m[2][0] : ''));
+            if ($mm <= 0) { return $m[0][0]; }
+            return rtrim(rtrim(sprintf('%.4f', $mm / 1000), '0'), '.') . 'm';
+        },
+        $text,
+        -1,
+        $count,
+        PREG_OFFSET_CAPTURE
+    );
 }
 
 /**
@@ -220,4 +243,43 @@ function quick_reply_tidy(string $text): string
 function quick_chat_big_image(string $url): string
 {
     return (string) preg_replace('#^(https?://(?:www\.)?ktomok\.com/data/item/.+/thumb-[^/]+)_40x40(\.(?:jpe?g|png|gif))$#i', '$1_450x450$2', $url);
+}
+
+/**
+ * 빠른 견적 창: 고객 말의 설치 길이·면적(개수 없이) — '10미터쯤 설치할거야'·'20m요'·'30㎡ 정도' (순수 함수, 사용자 피드백 11-24 — 말만 해도 권장 수량).
+ * 개수(개·본·장…)를 말했거나 값이 둘 이상이면 null. 폭·높이·두께·제품 길이 칸 이름이 붙은 값, '짜리'(1개 길이), 규격 표기(×·*)의 숫자는 뺀다.
+ * @return array{length_m?:float, area_m2?:float}|null
+ */
+function quick_install_amount(string $msg): ?array
+{
+    if (preg_match('/\d\s*(?:개|본|장|매|세트|ea\b)/iu', $msg)) { return null; }
+    $found = [];
+    foreach (['area_m2' => '/(?<![\d.,×*])(\d+(?:\.\d+)?)\s*(?:㎡|m2|m²|제곱\s*미터|평방\s*미터|헤베)/u',
+              'length_m' => '/(?<![\d.,×*])(\d+(?:\.\d+)?)\s*(?:m|M|미터)(?![mM²2a-zA-Z])/u'] as $k => $re) {
+        if (!preg_match_all($re, $msg, $mm, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) { continue; }
+        foreach ($mm as $x) {
+            $before = substr($msg, max(0, $x[0][1] - 30), min(30, $x[0][1]));
+            $after  = substr($msg, $x[0][1] + strlen($x[0][0]), 12);
+            if (preg_match('/[×*xX]\s*$/u', $before) || preg_match('/^\s*[×*xX]/u', $after) || preg_match('/^\s*짜리/u', $after)) { continue; }   // 규격 표기·1개 길이
+            if (preg_match('/(?:폭|너비|높이|두께|깊이|지름|관경|개당|제품\s*길이)\s*(?:은|는|이|가|:)?\s*(?:약\s*)?$/u', $before)) { continue; }
+            if (preg_match('/길이\s*(?:은|는|이|가|:)?\s*(?:약\s*)?$/u', $before) && !preg_match('/(?:설치|시공|총|전체)\s*길이\s*(?:은|는|이|가|:)?\s*(?:약\s*)?$/u', $before)) { continue; }   // '길이 1m'(어느 길이인지 모름)
+            $v = (float) $x[1][0];
+            if ($v > 0) { $found[$k][(string) $v] = $v; }
+        }
+    }
+    if (count($found) !== 1) { return null; }
+    $k = array_key_first($found);
+    return count($found[$k]) === 1 ? [$k => array_values($found[$k])[0]] : null;
+}
+
+/**
+ * 설치 길이·면적으로 수량을 맞출 목록 줄 (순수 함수): 수량 미정(0) 줄, 없으면 목록이 한 줄뿐일 때 그 줄. 그 밖은 [](고객이 정한 수량을 서버가 바꾸지 않음).
+ * @param array<int,int> $cart 상품 id => 수량
+ * @return list<int>
+ */
+function quick_qty_targets(array $cart): array
+{
+    $zero = array_values(array_map('intval', array_keys(array_filter($cart, static fn($q) => (int) $q === 0))));
+    if ($zero) { return $zero; }
+    return count($cart) === 1 ? [(int) array_key_first($cart)] : [];
 }
