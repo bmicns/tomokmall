@@ -7,6 +7,8 @@ declare(strict_types=1);
  * 금지: UI 렌더링, AI Tool 정의
  *
  * 제공 함수:
+ *  cart_store_key()             — 담는 세션 칸(기본 사이트 견적서, 빠른 견적 창은 창 안 목록)
+ *  cart_merge_quick_list()      — 창 안 목록 → 사이트 견적서(순수)
  *  cart_session_read()          — 세션 장바구니 읽기
  *  cart_session_write()         — 세션 장바구니 저장 + 세션 잠금 해제
  *  cart_fetch_items()           — product_id IN(...) 단일 쿼리 (B2C 단가)
@@ -14,6 +16,48 @@ declare(strict_types=1);
  *  cart_summary()               — cart 배열로 count/total 계산
  *  quick_items_fetch()          — quick_items 세션 품목 조회 (B2B 단가 우선)
  */
+
+/**
+ * 장바구니를 읽고 쓰는 세션 칸 — 기본 'cart'(사이트 견적서).
+ * 우측 하단 빠른 견적 창은 케이토목 1분 자동견적처럼 '창 안 목록'(대화마다 'qc_list_<상담 키>')에 담고,
+ * '견적서 만들어줘'·[견적 요청하기] 때만 사이트 견적서로 옮긴다(사용자 결정 2026-11-24, A11).
+ * 이 요청 동안만 바뀐다(public/api/chat/quick.php 가 설정).
+ */
+function cart_store_key(?string $set = null): string
+{
+    static $key = 'cart';
+    if ($set !== null) { $key = $set; }
+    return $key;
+}
+
+/** 지금 담는 곳이 빠른 견적 창 목록인지(수량 0 = '수량 미정' 허용) */
+function cart_store_is_quick_list(): bool
+{
+    return str_starts_with(cart_store_key(), 'qc_list_');
+}
+
+/**
+ * 창 안 목록 → 사이트 견적서 (순수 함수). 같은 상품은 목록 수량으로 맞춘다(여러 번 눌러도 두 배가 되지 않음).
+ * 수량 0(미정) 품목은 옮기지 않고 따로 돌려준다.
+ *
+ * @param array<int,int> $cart  사이트 견적서
+ * @param array<int,int> $list  창 안 목록
+ * @return array{cart:array<int,int>, moved:list<int>, skipped:list<int>}
+ */
+function cart_merge_quick_list(array $cart, array $list): array
+{
+    $moved = [];
+    $skipped = [];
+    foreach ($list as $pid => $qty) {
+        $pid = (int) $pid;
+        $qty = (int) $qty;
+        if ($pid <= 0) { continue; }
+        if ($qty < 1) { $skipped[] = $pid; continue; }
+        $cart[$pid] = min(999, $qty);
+        $moved[] = $pid;
+    }
+    return ['cart' => $cart, 'moved' => $moved, 'skipped' => $skipped];
+}
 
 /**
  * 세션 장바구니 읽기 (세션이 닫혀 있으면 재개)
@@ -25,7 +69,7 @@ function cart_session_read(): array
     if (session_status() !== PHP_SESSION_ACTIVE) {
         session_start();
     }
-    return $_SESSION['cart'] ?? [];
+    return $_SESSION[cart_store_key()] ?? [];
 }
 
 /**
@@ -37,7 +81,7 @@ function cart_session_write(array $cart): void
     if (session_status() !== PHP_SESSION_ACTIVE) {
         session_start();
     }
-    $_SESSION['cart'] = $cart;
+    $_SESSION[cart_store_key()] = $cart;
     session_write_close();
 }
 

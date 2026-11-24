@@ -9,6 +9,7 @@ declare(strict_types=1);
  *  - API(/api/chat/quick.php): 비로그인 403, 직원 → 질문 → 검색·담기 도구 실행 → 견적 표(quote_draft) 돌려줌, 상담 키 'qc…', 대화 저장, 200자 초과 거부
  *  - 화면: 직원에게만 버튼·창 출력, AI 상담 화면(chat)에는 없음
  *  - 케이토목처럼 바로 담기(A11): 찾고도 '골라 주세요'로 끝나면 담기 1회 강제, 확인 질문('?')이면 강제 안 함, 견적 표에 사진·상품목록·도면자료 연결
+ *  - 창 안 목록(A11 11-24 결정): 담기·수량은 대화별 목록에만, 수량 미정 0, '견적서 만들어줘'·[견적 요청하기] 때 사이트 견적서로(두 배 안 됨)
  *  - 견적서 사진 첨부(A10): 사진 확인(jpg·png·10MB)·개인정보 모양 지우기·품목 글 만들기, 동의 없으면 거부(OpenAI 호출 없음),
  *    사진 → 목업 비전 → 품목 글로 검색·담기 → 견적 표, 사진·개인정보는 대화·상담 로그에 남지 않음
  * 테스트가 만든 행: 로컬 테스트 DB 의 ai_sessions·chat_logs(상담 키 'qc…') — 끝에 지운다.
@@ -55,6 +56,8 @@ $pok('품목 없음·JSON 아님 → 안내', !quick_photo_items_text('{"items":
 $many = quick_photo_items_text(json_encode(['items' => array_fill(0, 15, ['name' => '블록', 'qty' => 1])]));
 $pok('최대 ' . QUICK_PHOTO_MAX_ITEMS . '개', $many['count'] === QUICK_PHOTO_MAX_ITEMS);
 $pok('프롬프트: 개인정보·가격 읽지 않게', str_contains(QUICK_PHOTO_PROMPT, '전화번호') && str_contains(QUICK_PHOTO_PROMPT, '단가'));
+$mg = cart_merge_quick_list([7 => 2, 9 => 1], [7 => 5, 8 => 0, 10 => 3]);
+$pok('목록 → 견적서: 같은 상품은 목록 수량으로·수량 0 은 빼고 따로', $mg['cart'] === [7 => 5, 9 => 1, 10 => 3] && $mg['moved'] === [7, 10] && $mg['skipped'] === [8]);
 $pok('운영 기본값: 사진 첨부 켬', FEATURE_AI_QUICK_PHOTO === true && ai_quick_photo_enabled());
 
 $dbName = (string) ($config['db']['name'] ?? '');
@@ -170,7 +173,17 @@ header("Content-Type: application/json"); echo json_encode($r[$n - 1] ?? end($r)
     ok('답변 + 같은 상담 키', ($d['ok'] ?? false) && ($d['sid'] ?? '') === $sid && str_contains((string) $d['text'], '[테스트]'), $d);
     ok('견적 표: 담은 상품 30개 · 경기 운임 계산', $q !== null && ($q['items'][0]['product_id'] ?? 0) === $pid && ($q['items'][0]['quantity'] ?? 0) === 30
         && ($q['region'] ?? '') === '경기' && in_array($q['freight']['status'] ?? '', ['ok', 'missing_weight', 'negotiate'], true), $q);
-    ok('창에 쓰는 이벤트만(견적 표·장바구니·추천 제품)', !array_diff(array_column($d['events'] ?? [], 'type'), ['quote_draft', 'cart_update', 'product_cards']));
+    ok('창에 쓰는 이벤트만(견적 표·추천 제품 — 사이트 견적서 갱신 없음)', !array_diff(array_column($d['events'] ?? [], 'type'), ['quote_draft', 'product_cards']));
+    // 세션 다시 읽기(테스트 서버가 쓴 세션 파일)
+    $sess = static function () use ($cookie): array {
+        session_id(explode('=', $cookie, 2)[1]);
+        session_start();
+        $v = $_SESSION;
+        session_write_close();
+        return $v;
+    };
+    $sv = $sess();
+    ok('담은 곳 = 창 안 목록(사이트 견적서는 그대로 비어 있음)', ($sv['qc_list_' . $sid][$pid] ?? 0) === 30 && empty($sv['cart']), ['list' => $sv['qc_list_' . $sid] ?? null, 'cart' => $sv['cart'] ?? null]);
     $req1 = json_decode((string) @file_get_contents("{$tmp}/req-1.json"), true);
     ok('OpenAI 로 보낸 시스템 프롬프트에 빠른 견적 창 구역', str_contains((string) ($req1['messages'][0]['content'] ?? ''), '빠른 견적 창 답변 방식'));
     $saved = $pdo->prepare('SELECT messages FROM ai_sessions WHERE session_key = ?');
@@ -203,7 +216,6 @@ header("Content-Type: application/json"); echo json_encode($r[$n - 1] ?? end($r)
     foreach ($d['events'] ?? [] as $e) { if (($e['type'] ?? '') === 'quote_draft') { $q = $e; } }
     ok("'골라 주세요'로 끝나면 담기 1회 강제(tool_choice add_to_cart)", ($r3['tool_choice']['function']['name'] ?? '') === 'add_to_cart', $r3['tool_choice'] ?? null);
     ok('강제 후 답 = 담은 뒤 답(골라 달라는 글은 버림)', ($d['ok'] ?? false) && str_contains((string) $d['text'], '담았습니다') && !str_contains((string) $d['text'], '선택해 주세요'), $d['text'] ?? null);
-    $qtyBefore = (int) ($q['items'][0]['quantity'] ?? 0);
     ok('견적 표 + 상품 사진·상품목록 연결(화면 표시용)', $q !== null && array_key_exists('image', $q['items'][0] ?? []) && ($q['items'][0]['category_id'] ?? 0) > 0
         && array_key_exists('spec_image', $q['items'][0]), $q['items'][0] ?? null);
     $mockSeq([
@@ -213,6 +225,37 @@ header("Content-Type: application/json"); echo json_encode($r[$n - 1] ?? end($r)
     [$st, $d] = $post(['action' => 'ask', 'sid' => $fsid, 'msg' => '그레이팅 폭 300 20m'], $cookie);
     ok("확인 질문('?')으로 끝나면 강제하지 않음", ($d['ok'] ?? false) && str_contains((string) $d['text'], '차량이 다니는') && !is_file("{$tmp}/req-3.json"), $d);
     ok('기본 AI 상담(consult)은 강제 담기 없음 — 코드상 style 조건', str_contains((string) file_get_contents(__DIR__ . '/../app/rag.php'), "\$style === 'quick' && !\$forcedAdd"));
+
+    echo "[API — 창 안 목록(케이토목식): 수량 미정 0 · '견적서 만들어줘' · [견적 요청하기]]\n";
+    $mockSeq([
+        $call('search_products', ['query' => '경계석'], 41),
+        $call('add_to_cart', ['product_id' => $pid, 'quantity' => 0], 42),
+        $say('[테스트] 경계석을 목록에 담았습니다. 필요한 수량을 알려 주세요.'),
+    ]);
+    [$st, $d] = $post(['action' => 'new'], $cookie);
+    $lsid = (string) ($d['sid'] ?? '');
+    [$st, $d] = $post(['action' => 'ask', 'sid' => $lsid, 'msg' => '경계석 얼마에요?'], $cookie);
+    $q = null;
+    foreach ($d['events'] ?? [] as $e) { if (($e['type'] ?? '') === 'quote_draft') { $q = $e; } }
+    ok('수량 미정이면 0개로 목록에 담김', ($d['ok'] ?? false) && ($q['items'][0]['quantity'] ?? -1) === 0 && ($q['items'][0]['product_id'] ?? 0) === $pid, $q);
+    [$st, $d] = $post(['action' => 'ask', 'sid' => $lsid, 'msg' => '견적서 만들어줘'], $cookie);
+    ok("'견적서 만들어줘' + 수량 미정만 → 옮기지 않고 수량을 물음(GPT 호출 없음)", ($d['ok'] ?? false) && str_contains((string) $d['text'], '옮기지 못했습니다')
+        && !is_file("{$tmp}/req-4.json") && empty($sess()['cart']), $d['text'] ?? null);
+    [$st, $d] = $post(['action' => 'to_estimate', 'sid' => $lsid], $cookie);
+    ok('[견적 요청하기] + 수량 미정만 → 거부 안내', ($d['ok'] ?? null) === false && str_contains((string) ($d['error'] ?? ''), '수량'), $d);
+    $mockSeq([
+        $call('update_cart', ['product_id' => $pid, 'quantity' => 25], 51),
+        $say('[테스트] 25개로 바꿨습니다.'),
+    ]);
+    [$st, $d] = $post(['action' => 'ask', 'sid' => $lsid, 'msg' => '25개로 해 주세요'], $cookie);
+    ok('수량 바꾸기도 목록에서', ($sess()['qc_list_' . $lsid][$pid] ?? 0) === 25 && empty($sess()['cart']));
+    [$st, $d] = $post(['action' => 'ask', 'sid' => $lsid, 'msg' => '견적서 만들어줘'], $cookie);
+    $types = array_column($d['events'] ?? [], 'type');
+    $sv = $sess();
+    ok("'견적서 만들어줘' → 사이트 견적서로 옮김 + 견적 표·바로가기", ($d['ok'] ?? false) && str_contains((string) $d['text'], '1개 품목을 견적서로 옮겼습니다')
+        && ($sv['cart'][$pid] ?? 0) === 25 && in_array('estimate_moved', $types, true) && in_array('quote_draft', $types, true), ['text' => $d['text'] ?? null, 'types' => $types, 'cart' => $sv['cart'] ?? null]);
+    [$st, $d] = $post(['action' => 'to_estimate', 'sid' => $lsid], $cookie);
+    ok('[견적 요청하기] 다시 눌러도 두 배가 되지 않음(목록 수량으로 맞춤)', ($d['ok'] ?? false) && ($d['url'] ?? '') === '/estimate.php' && ($sess()['cart'][$pid] ?? 0) === 25, $d);
 
     echo "[API — 견적서 사진 첨부]\n";
     file_put_contents("{$tmp}/responses.json", json_encode([
@@ -238,7 +281,7 @@ header("Content-Type: application/json"); echo json_encode($r[$n - 1] ?? end($r)
     foreach ($d['events'] ?? [] as $e) { if (($e['type'] ?? '') === 'quote_draft') { $q = $e; } }
     ok('사진 → 읽은 품목 글(asked) + 답변 + 같은 상담 키', ($d['ok'] ?? false) && ($d['sid'] ?? '') === $psid
         && str_starts_with((string) ($d['asked'] ?? ''), QUICK_PHOTO_PREFIX) && str_contains((string) $d['text'], '확인 필요'), $d);
-    ok('견적 표: 사진 품목 30개 더 담김(같은 장바구니)', $q !== null && ($q['items'][0]['product_id'] ?? 0) === $pid && ($q['items'][0]['quantity'] ?? 0) === $qtyBefore + 30, $q);
+    ok('견적 표: 사진 품목 30개(이 대화의 창 안 목록)', $q !== null && ($q['items'][0]['product_id'] ?? 0) === $pid && ($q['items'][0]['quantity'] ?? 0) === 30, $q);
     $v = json_decode((string) @file_get_contents("{$tmp}/req-1.json"), true);
     $vc = $v['messages'][0]['content'] ?? [];
     ok('비전 요청: gpt-4o · 사진 data URL · 품목만 읽는 지시', ($v['model'] ?? '') === 'gpt-4o' && str_starts_with((string) ($vc[1]['image_url']['url'] ?? ''), 'data:image/png;base64,')
