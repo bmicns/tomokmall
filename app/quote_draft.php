@@ -19,13 +19,22 @@ const QUOTE_REGION_PARAM_DESC = "배송 지역 시·도(서울·경기·인천·
 
 const QUOTE_DRAFT_NOTE = '예상 금액입니다. 실제 금액은 담당자 확인 후 확정됩니다.';
 
+/**
+ * 배송 지역을 기억하는 세션 칸 — 기본 AI 상담·견적 요청 화면은 'quote_region'(사이트 공통),
+ * 빠른 견적 창은 대화마다 'qc_region_<상담 키>'([새 대화]면 새 지역 — 사용자 결정 11-24). 견적서로 옮길 때 공통 칸으로 복사(quick.php).
+ */
+function quote_region_key(): string
+{
+    return cart_store_is_quick_list() ? 'qc_region_' . substr(cart_store_key(), strlen('qc_list_')) : 'quote_region';
+}
+
 /** 세션의 상담 배송 지역(시·도 키) — 없거나 목록에 없는 값이면 null */
 function quote_region_get(): ?string
 {
     if (session_status() !== PHP_SESSION_ACTIVE) {
         session_start();
     }
-    $r = $_SESSION['quote_region'] ?? null;
+    $r = $_SESSION[quote_region_key()] ?? null;
     return is_string($r) && isset(FREIGHT_SIDO_COORDS[$r]) ? $r : null;
 }
 
@@ -36,7 +45,7 @@ function quote_region_set(string $region): void
     if (session_status() !== PHP_SESSION_ACTIVE) {
         session_start();
     }
-    $_SESSION['quote_region'] = $region;
+    $_SESSION[quote_region_key()] = $region;
     session_write_close();
 }
 

@@ -5,6 +5,8 @@ declare(strict_types=1);
  *   {action:'ask', sid, msg}  → {ok, sid, text, events}   (대화 저장까지 서버에서 — 페이지를 옮겨도 이어짐)
  *   {action:'new'}            → {ok, sid}                  (새 대화)
  *   {action:'to_estimate', sid} → {ok, moved, skipped, url} (창 안 목록 → 사이트 견적서, [견적 요청하기])
+ *   {action:'history', sid}   → {ok, server, list:[{sid, at, first}]} (이전 대화내용 — 로그인 본인 빠른 창 대화 5개, 다른 탭·기기에서도)
+ *   {action:'load', sid}      → {ok, sid, msgs}            (이전 대화 다시 열기 — 본인 대화만, 창 안 목록·지역도 되살림)
  * 담는 곳(A11, 사용자 결정 2026-11-24): 케이토목처럼 '창 안 목록'(대화마다 세션 'qc_list_<키>', app/cart.php cart_store_key)에만 담고,
  *   수량을 모르면 0(미정)으로 담아 묻는다. '견적서 만들어줘' 또는 [견적 요청하기] 때 사이트 견적서로 옮긴다(수량 0 품목은 빼고).
  *   {action:'photo', sid, image, consent:true} → {ok, sid, asked, text, events}
@@ -72,7 +74,8 @@ function quick_chat_quote_media(array $events): array
     $media = [];
     foreach ($st->fetchAll() as $r) {
         $media[(int) $r['id']] = [
-            'image'       => (string) (($r['image_url'] ?? '') ?: ($r['image_thumb_url'] ?? '')),   // 케이토목처럼 큰 사진: 상세, 없으면 썸네일(S18)
+            'image'       => quick_chat_big_image($img = (string) (($r['image_url'] ?? '') ?: ($r['image_thumb_url'] ?? ''))),   // 케이토목처럼 큰 사진: 상세, 없으면 썸네일(S18), 40×40 → 450×450
+            'image_small' => $img,   // 큰 사진이 없으면 화면이 이 주소로 되돌림
             'category_id' => (int) ($r['category_id'] ?? 0),
             'spec_image'  => (string) ($r['image_spec_url'] ?? ''),
         ];
@@ -107,6 +110,8 @@ function quick_chat_list_to_estimate(string $sid): array
     cart_store_key('cart');
     $merged = cart_merge_quick_list(cart_session_read(), $list);
     if ($merged['moved']) {
+        $qr = $_SESSION['qc_region_' . $sid] ?? null;   // 이 대화에서 말한 배송 지역 → 견적 요청 화면이 미리 고르게(공통 칸)
+        if (is_string($qr) && isset(FREIGHT_SIDO_COORDS[$qr])) { $_SESSION['quote_region'] = $qr; }
         cart_session_write($merged['cart']);
     } elseif (session_status() === PHP_SESSION_ACTIVE) {
         session_write_close();
@@ -119,6 +124,88 @@ function quick_chat_list_to_estimate(string $sid): array
         }
     }
     return ['moved' => count($merged['moved']), 'skipped' => $skipped, 'empty' => !$list];
+}
+
+/** 저장된 질문 글 → 창의 '나' 말풍선 글(사진은 '견적서 사진 — 읽은 품목') */
+function quick_chat_user_text(string $content): string
+{
+    $c = trim($content);
+    return str_starts_with($c, QUICK_PHOTO_PREFIX) ? "견적서 사진 — 읽은 품목\n" . trim(substr($c, strlen(QUICK_PHOTO_PREFIX))) : $c;
+}
+
+/**
+ * 이전 대화내용 목록 — 로그인 본인의 빠른 창 대화 최근 5개(지금 대화 제외). 질문이 없는 대화는 뺀다.
+ * @return list<array{sid:string, at:int, first:string}>
+ */
+function quick_chat_history(int $uid, string $current): array
+{
+    $st = db()->prepare("SELECT session_key, updated_at, messages FROM ai_sessions
+                          WHERE user_id = :uid AND session_key LIKE 'qc%' AND session_key <> :cur
+                          ORDER BY updated_at DESC LIMIT 10");
+    $st->execute(['uid' => $uid, 'cur' => $current]);
+    $out = [];
+    foreach ($st->fetchAll() as $r) {
+        $first = '';
+        foreach ((array) json_decode((string) $r['messages'], true) as $m) {
+            if (is_array($m) && ($m['role'] ?? '') === 'user' && is_string($m['content'] ?? null) && trim($m['content']) !== '') {
+                $first = strtok(quick_chat_user_text($m['content']), "\n") ?: '';
+                break;
+            }
+        }
+        if ($first === '') { continue; }
+        $ts = strtotime((string) $r['updated_at']);
+        $out[] = ['sid' => (string) $r['session_key'], 'at' => $ts ? $ts * 1000 : 0, 'first' => mb_substr($first, 0, 60)];
+        if (count($out) >= 5) { break; }
+    }
+    return $out;
+}
+
+/**
+ * 이전 대화 다시 열기 — 본인 대화만(rag_load_owned_session). 답마다 그때의 견적 표·추천 제품(chat_logs)을 붙이고,
+ * 이 브라우저 세션에 창 안 목록·배송 지역이 없으면(다른 기기) 마지막 견적 표의 품목·지역으로 되살린다. 가격·수량 계산은 그대로.
+ * @return list<array{role:string, text:string, events:list<array>}>|null
+ */
+function quick_chat_load(string $sid, int $uid): ?array
+{
+    $messages = rag_load_owned_session($sid, $uid);
+    if ($messages === null) { return null; }
+    $turnEvents = rag_load_turn_events($sid, $uid, $messages);
+    $msgs = [];
+    $lastQuote = null;
+    foreach ($messages as $i => $m) {
+        $role = is_array($m) ? ($m['role'] ?? '') : '';
+        $text = is_string($m['content'] ?? null) ? $m['content'] : '';
+        if ($role === 'user') {
+            if (trim($text) !== '') { $msgs[] = ['role' => 'user', 'text' => quick_chat_user_text($text), 'events' => []]; }
+            continue;
+        }
+        if ($role !== 'assistant') { continue; }
+        $ev = array_values(array_filter($turnEvents[$i] ?? [], static fn($e) =>
+            in_array($e['type'] ?? '', ['quote_draft', 'product_cards', 'estimate_moved'], true)));
+        foreach ($ev as $e) { if (($e['type'] ?? '') === 'quote_draft') { $lastQuote = $e; } }
+        if (trim($text) === '' && !$ev) { continue; }
+        $msgs[] = ['role' => 'ai', 'text' => $text, 'events' => $ev];
+    }
+    if (session_status() !== PHP_SESSION_ACTIVE) { session_start(); }
+    rag_chat_key_allow($sid);
+    if (!isset($_SESSION['qc_list_' . $sid]) && $lastQuote) {
+        $list = [];
+        foreach ((array) ($lastQuote['items'] ?? []) as $it) {
+            $pid = (int) ($it['product_id'] ?? 0);
+            if ($pid > 0) { $list[$pid] = max(0, min(999, (int) ($it['quantity'] ?? 0))); }
+        }
+        $_SESSION['qc_list_' . $sid] = $list;
+    }
+    $reg = (string) ($lastQuote['region'] ?? '');
+    if (!isset($_SESSION['qc_region_' . $sid]) && isset(FREIGHT_SIDO_COORDS[$reg])) { $_SESSION['qc_region_' . $sid] = $reg; }
+    session_write_close();
+    foreach ($msgs as &$mm) {
+        if ($mm['events']) {
+            try { $mm['events'] = quick_chat_quote_media($mm['events']); } catch (Throwable $e) { error_log('quick chat media: ' . $e->getMessage()); }
+        }
+    }
+    unset($mm);
+    return $msgs;
 }
 
 /** 옮긴 결과 → 안내 글 */
@@ -141,6 +228,22 @@ $action = (string) ($body['action'] ?? '');
 
 if ($action === 'new') {
     echo json_encode(['ok' => true, 'sid' => quick_chat_key_issue()]);
+    exit;
+}
+// 이전 대화내용: 로그인 사용자 본인의 빠른 창 대화(상담 키 'qc…')만 — 비로그인은 server:false(창이 이 탭 기록을 씀)
+if ($action === 'history' || $action === 'load') {
+    $uid = isset($user['id']) ? (int) $user['id'] : 0;
+    $req = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) ($body['sid'] ?? '')) ?? '';
+    if ($uid <= 0 || !db()) {
+        echo json_encode(['ok' => true, 'server' => false, 'list' => []]);
+        exit;
+    }
+    if ($action === 'history') {
+        echo json_encode(['ok' => true, 'server' => true, 'list' => quick_chat_history($uid, $req)], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    $loaded = str_starts_with($req, 'qc') ? quick_chat_load($req, $uid) : null;
+    echo json_encode($loaded === null ? ['ok' => false, 'error' => '대화를 찾을 수 없습니다.'] : ['ok' => true, 'sid' => $req, 'msgs' => $loaded], JSON_UNESCAPED_UNICODE);
     exit;
 }
 if (!in_array($action, ['ask', 'photo', 'to_estimate'], true)) {

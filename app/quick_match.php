@@ -153,10 +153,31 @@ function quick_turn_state(?string $msg = null, ?int $added = null): array
     return $s;
 }
 
+/** 글 속 금액(원) 표현이 있는지 — '66,000원'·'약 13만 원'·'6만 6천원' (순수 함수). '원형'·'원문'은 금액이 아님 */
+function quick_reply_has_money(string $s): bool
+{
+    return (bool) preg_match('/\d[\d,]*\s*(?:만\s*(?:\d[\d,]*\s*천\s*)?|천\s*)?원(?!형|문|목|단|추|기|칙|래|활)/u', $s);
+}
+
+/**
+ * 마디를 뺀 뒤 앞 마디를 문장으로 끝맺기 (순수 함수): '필요하고,' → '필요합니다.' — 맺을 수 없으면 null(문장째 뺌)
+ */
+function quick_reply_close_clause(string $c): ?string
+{
+    $c = rtrim($c, " ,");
+    $map = ['/(하고|하며|하여)$/u' => '합니다.', '/(이고|이며)$/u' => '입니다.', '/(있고|있으며)$/u' => '있습니다.', '/(되고|되며)$/u' => '됩니다.', '/(했고|했으며)$/u' => '했습니다.'];
+    foreach ($map as $re => $end) {
+        if (preg_match($re, $c)) { return (string) preg_replace($re, $end, $c); }
+    }
+    return null;
+}
+
 /**
  * 빠른 견적 창 답 글 정리 (순수 함수): '견적서는 화면에 이미 표시되고 있으며'·'견적 카드에 … 표시되어 있습니다' 같은 화면 안내 말을 뺀다(운영 시험 11-24 — 어색한 문구).
+ * 금액(원)이 든 마디도 뺀다 — 케이토목처럼 금액은 창의 견적 표에만(사용자 요청 11-24).
  * '견적서에 담았습니다'는 '목록에 담았습니다'로(담는 곳은 창 안 목록).
- * 문장 안의 앞쪽 마디(… 며, / … 시고,)면 그 마디만, 마디가 하나뿐인 문장이면 문장째 뺀다. 수량·지역을 묻는 말이 섞인 마디는 두고, 문장 끝 마디는 손대지 않는다.
+ * 문장 안의 앞쪽 마디(… 며, / … 시고,)면 그 마디만, 마디가 하나뿐인 문장이면 문장째 뺀다. 수량·지역을 묻는 말이 섞인 화면 안내 마디는 둔다.
+ * 문장 끝 마디는 화면 안내면 그대로 두고, 금액이면 빼고 앞 마디를 맺는다('필요하고,' → '필요합니다.' — 맺을 수 없으면 문장째).
  */
 function quick_reply_tidy(string $text): string
 {
@@ -167,14 +188,22 @@ function quick_reply_tidy(string $text): string
         $sentences = preg_split('/(?<=[.!?])\s+/u', $line) ?: [$line];
         $kept = [];
         foreach ($sentences as $sen) {
-            $clauses = preg_split('/(?<=,)\s*/u', $sen) ?: [$sen];
+            $clauses = preg_split('/(?<=,)\s+/u', $sen) ?: [$sen];
             $last    = count($clauses) - 1;
             $out     = [];
+            $whole   = false;
             foreach ($clauses as $i => $c) {
+                if (quick_reply_has_money($c)) {
+                    if ($i === $last && $out) {
+                        $closed = quick_reply_close_clause(array_pop($out));
+                        if ($closed === null) { $whole = true; } else { $out[] = $closed; }
+                    }
+                    continue;
+                }
                 $drop = preg_match($screen, $c) && !preg_match($keep, $c) && ($i < $last || $last === 0);
                 if (!$drop) { $out[] = $c; }
             }
-            $s = trim(implode(' ', $out));
+            $s = $whole ? '' : trim(implode(' ', $out));
             if ($s !== '') { $kept[] = $s; }
         }
         $lines[] = implode(' ', $kept);
@@ -182,4 +211,13 @@ function quick_reply_tidy(string $text): string
     $text = implode("\n", $lines);
     $text = (string) preg_replace('/견적서에\s*(담았|담아|넣었|넣어)/u', '목록에 $1', $text);   // 담는 곳은 창 안 목록(사이트 견적서가 아님)
     return trim((string) preg_replace("/\n{3,}/", "\n\n", $text));
+}
+
+/**
+ * 빠른 견적 창 상품 사진: 케이토목 썸네일 주소의 40×40 을 같은 파일의 450×450 으로 (순수 함수, DB 값은 그대로).
+ * 운영 상품 1,315개가 ktomok.com/…/thumb-…_40x40.jpg (견적 표에서 흐리게 보임) — 450×450 이 없으면 화면이 원래 주소로 되돌린다.
+ */
+function quick_chat_big_image(string $url): string
+{
+    return (string) preg_replace('#^(https?://(?:www\.)?ktomok\.com/data/item/.+/thumb-[^/]+)_40x40(\.(?:jpe?g|png|gif))$#i', '$1_450x450$2', $url);
 }

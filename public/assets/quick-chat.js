@@ -1,7 +1,7 @@
 /**
  * 우측 하단 'AI 빠른 견적' 창 (app/layout.php render_quick_chat, 사용자 결정 2026-11-23 — 지금 AI 상담과 비교용)
  * - 질문 → /api/chat/quick.php (상담 엔진·도구·가격 계산은 AI 상담과 같고 답변만 짧게)
- * - 견적 표(quote_draft)는 서버 계산 그대로 표시. 대화는 이 탭 동안(sessionStorage) 페이지를 옮겨도 이어짐
+ * - 견적 표(quote_draft)는 서버 계산 그대로 표시. 대화는 이 탭 동안(sessionStorage) 페이지를 옮겨도 이어짐, 이전 대화내용은 로그인하면 서버(다른 탭·기기)
  * - 견적서 사진 첨부(A10, 2026-11-24): 안내·동의 체크 후 사진(긴 변 1600px JPEG 로 줄임)을 보내면 서버가 품목만 읽어 답함.
  *   사진은 브라우저에도 남기지 않음(sessionStorage 에는 읽은 품목 글만)
  * - 케이토목 1분 자동견적 그대로(A11, 2026-11-24): 품목마다 가격·수량·합계·상품 사진·[상품목록][상품보기][도면자료],
@@ -166,7 +166,7 @@
             <div><dt>수량</dt><dd>${parseInt(it.quantity, 10) || 0}${(parseInt(it.quantity, 10) || 0) === 0 ? ' (미정)' : ''}</dd></div>
             <div><dt>합계</dt><dd>${unit > 0 ? won(it.subtotal) : '문의'}</dd></div>
           </dl>
-          ${img ? `<div class="qc-q-img"><img src="${esc(img)}" alt="${esc(it.name)} 사진" loading="lazy"></div>` : ''}
+          ${img ? `<div class="qc-q-img"><img src="${esc(img)}"${safeUrl(it.image_small) && it.image_small !== it.image ? ` data-small="${esc(safeUrl(it.image_small))}"` : ''} alt="${esc(it.name)} 사진" loading="lazy"></div>` : ''}
           ${btns ? `<div class="qc-q-btns">${btns}</div>` : ''}
         </div>`;
     }).join('');
@@ -184,6 +184,12 @@
       </div>
       <button type="button" class="qc-quote-btn">견적 요청하기</button>`;
     box.querySelector('.qc-quote-btn').addEventListener('click', toEstimate);
+    // 큰 사진(450×450)이 없으면 원래 작은 사진으로
+    box.querySelectorAll('img[data-small]').forEach(im => {
+      const back = () => { const u = im.dataset.small; im.removeAttribute('data-small'); if (u) im.src = u; };
+      im.addEventListener('error', back, { once: true });
+      if (im.complete && im.naturalWidth === 0 && im.currentSrc) back();
+    });
     wrap.appendChild(box);
   }
 
@@ -356,31 +362,60 @@
     save(); render(); input.focus();
   }
 
-  // ── 이전 대화내용(새 대화 전 대화 5개, 이 탭 동안) ──────────────
-  function showPrev(open) {
+  // ── 이전 대화내용: 로그인하면 서버의 내 빠른 창 대화 5개(다른 탭·기기에서도), 비로그인은 이 탭의 [새 대화] 전 대화 5개 ──
+  async function post(payload) {
+    const r = await fetch('/api/chat/quick.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    return r.json();
+  }
+  const timeText = at => {
+    const d = new Date(at || Date.now()), now = new Date();
+    const hm = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+    return d.toDateString() === now.toDateString() ? hm : `${d.getMonth() + 1}/${d.getDate()} ${hm}`;
+  };
+  function prevItem(first, at, onClick) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'qc-prev-item';
+    b.innerHTML = `<span class="qc-prev-q">${esc(String(first || '').split('\n')[0])}</span><span class="qc-prev-at">${esc(timeText(at))}</span>`;
+    b.addEventListener('click', onClick);
+    prevBox.appendChild(b);
+  }
+  function prevEmpty(text) {
+    const p = document.createElement('p');
+    p.className = 'qc-prev-empty';
+    p.textContent = text;
+    prevBox.appendChild(p);
+  }
+  async function showPrev(open) {
     if (!prevBtn) return;
     prevBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
     prevBox.hidden = !open;
     if (!open) return;
     prevBox.textContent = '';
-    const list = state.prev || [];
-    if (!list.length) {
-      const p = document.createElement('p');
-      p.className = 'qc-prev-empty';
-      p.textContent = '이전 대화가 없습니다. [새 대화]를 누르면 지금 대화가 여기에 남습니다.';
-      prevBox.appendChild(p);
+    prevEmpty('불러오는 중…');
+    let d = null;
+    try { d = await post({ action: 'history', sid: state.sid }); } catch (e) {}
+    if (prevBox.hidden) return;
+    prevBox.textContent = '';
+    if (d && d.ok && d.server) {
+      if (!(d.list || []).length) { prevEmpty('이전 대화가 없습니다. [새 대화]를 누르면 지금 대화가 여기에 남습니다.'); return; }
+      d.list.forEach(c => prevItem(c.first, c.at, () => restoreServer(c.sid)));
       return;
     }
-    list.forEach((c, i) => {
-      const first = (c.msgs.find(m => m.role === 'user') || {}).text || '';
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'qc-prev-item';
-      const d = new Date(c.at || Date.now());
-      b.innerHTML = `<span class="qc-prev-q">${esc(first.split('\n')[0])}</span><span class="qc-prev-at">${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}</span>`;
-      b.addEventListener('click', () => restorePrev(i));
-      prevBox.appendChild(b);
-    });
+    const list = state.prev || [];
+    if (!list.length) { prevEmpty('이전 대화가 없습니다. [새 대화]를 누르면 지금 대화가 여기에 남습니다.'); return; }
+    list.forEach((c, i) => prevItem((c.msgs.find(m => m.role === 'user') || {}).text || '', c.at, () => restorePrev(i)));
+  }
+
+  async function restoreServer(sid) {
+    if (busy) return;
+    busy = true;
+    let d = null;
+    try { d = await post({ action: 'load', sid }); } catch (e) {}
+    busy = false;
+    if (!d || !d.ok) { prevBox.textContent = ''; prevEmpty((d && d.error) || '대화를 불러오지 못했습니다.'); return; }
+    state = { sid: d.sid, open: true, msgs: d.msgs || [], prev: state.prev || [] };
+    save(); showPrev(false); render(); input.focus();
   }
 
   function restorePrev(i) {
