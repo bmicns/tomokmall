@@ -89,7 +89,13 @@ $pok("화면 안내 말 빼기('견적서는 화면에 이미 표시되고 있�
     && quick_reply_tidy('20개를 담았습니다. 견적 카드에 상품과 운임 금액이 표시되어 있습니다.') === '20개를 담았습니다.'
     && quick_reply_tidy('현재 상품 금액은 화면에 보이며, 정확한 운임 계산을 위해 배송 지역(시·도)을 알려 주세요.') === '정확한 운임 계산을 위해 배송 지역(시·도)을 알려 주세요.'
     && quick_reply_tidy('경계석을 견적서에 담았습니다. 견적서에서 확인해 주세요.') === '경계석을 목록에 담았습니다.');
-$pok('천 단위 쉼표 숫자는 그대로(66,000원 → \'66, 000원\' 안 됨 — 운영 시험 11-24)', quick_reply_tidy('상품 금액은 약 66,000원, 운임은 60,000원입니다.') === '상품 금액은 약 66,000원, 운임은 60,000원입니다.');
+$pok('금액은 글에서 빼고 견적 표에만(케이토목처럼): 마디·문장, 앞 마디는 맺음', quick_reply_tidy('20m 설치 기준으로 20개가 필요하고, 상품 금액은 약 66,000원입니다. 현재 예상 운임은 60,000원이며, 부가세 포함 최종 금액은 약 138,600원입니다. 정확한 견적을 위해 더 필요한 사항이 있으면 말씀해 주세요.')
+    === '20m 설치 기준으로 20개가 필요합니다. 정확한 견적을 위해 더 필요한 사항이 있으면 말씀해 주세요.'
+    && quick_reply_tidy('상품 합계는 약 13만 원이며, 배송 지역을 알려 주시면 운반비를 계산해 드립니다.') === '배송 지역을 알려 주시면 운반비를 계산해 드립니다.'
+    && quick_reply_tidy('6만 6천원입니다.') === '' && quick_reply_tidy('원형 맨홀 D600을 담았습니다.') === '원형 맨홀 D600을 담았습니다.');
+$pok('상품 사진: 케이토목 40×40 썸네일 → 같은 파일 450×450(그 밖의 주소는 그대로)', quick_chat_big_image('https://ktomok.com/data/item/10/1060/1581990666/thumb-pcbox_o_1_40x40.jpg') === 'https://ktomok.com/data/item/10/1060/1581990666/thumb-pcbox_o_1_450x450.jpg'
+    && quick_chat_big_image('/uploads/products/a/b_40x40.jpg') === '/uploads/products/a/b_40x40.jpg' && quick_chat_big_image('http://www.dacity.co.kr/x/thumb-a_450x450.jpg') === 'http://www.dacity.co.kr/x/thumb-a_450x450.jpg');
+$pok('천 단위 쉼표 숫자는 그대로(1,200 → \'1, 200\' 안 됨 — 운영 시험 11-24)', quick_reply_tidy('설치 길이 1,200m, 수량 1,200개를 담았습니다.') === '설치 길이 1,200m, 수량 1,200개를 담았습니다.');
 $pok('화면 안내 말이 아니면 그대로(수량·지역 묻기·확인 필요·견적서 만들기 안내)', ($keepTxt = "말씀하신 규격으로 우선 목록에 담았습니다. 차량이 다니는 곳인지 알려 주세요.\n확인 필요:\n경계석 150×170\n'견적서 만들어줘'라고 하시면 견적서로 옮겨 드립니다.") === quick_reply_tidy($keepTxt)
     && quick_reply_tidy('수량 확인과 현장 지역(시·도)을 알려 주시면 화면에 운반비까지 표시해 드립니다.') === '수량 확인과 현장 지역(시·도)을 알려 주시면 화면에 운반비까지 표시해 드립니다.');
 $pitems = quick_photo_items(json_encode(['items' => [
@@ -407,6 +413,35 @@ header("Content-Type: application/json"); echo json_encode($r[$n - 1] ?? end($r)
     $lgText = (string) $lg->fetchColumn();
     ok('대화·상담 로그에 사진·전화번호 없음(품목 글만)', str_contains($ph, '경계석') && !str_contains($ph, 'base64') && !str_contains($ph, '9876')
         && $lgText !== '' && !str_contains($lgText, 'base64') && !str_contains($lgText, '9876'));
+
+    echo "[API — 새 대화마다 배송 지역 · 이전 대화내용(서버, 다른 기기에서도)(사용자 결정 11-24)]\n";
+    $sv = $sess();
+    ok('배송 지역은 대화마다(qc_region_<키>) — 사이트 공통 칸은 그대로', ($sv['qc_region_' . $sid] ?? '') === '경기' && !isset($sv['quote_region']), array_intersect_key($sv, array_flip(['quote_region', 'qc_region_' . $sid])));
+    [, $d] = $post(['action' => 'new'], $cookie);
+    $rsid = (string) ($d['sid'] ?? '');
+    $mockSeq([$call('add_to_cart', ['product_id' => $pid, 'quantity' => 5], 81), $say('[테스트] 목록에 담았습니다.')]);
+    [, $d] = $post(['action' => 'ask', 'sid' => $rsid, 'msg' => '경계석 5개'], $cookie);
+    $q = null;
+    foreach ($d['events'] ?? [] as $e) { if (($e['type'] ?? '') === 'quote_draft') { $q = $e; } }
+    ok('[새 대화]의 견적 표는 앞 대화의 지역(경기) 없이', $q !== null && ($q['region'] ?? null) === null, $q['region'] ?? null);
+    [, $d] = $post(['action' => 'history', 'sid' => $rsid], $cookie);
+    $hs = array_column($d['list'] ?? [], 'first', 'sid');
+    $atSorted = static function (array $a): array { sort($a); return $a; };
+    ok('이전 대화내용: 서버의 내 빠른 창 대화 최근 5개(지금 대화 제외, 최근 순)·첫 질문(사진은 \'견적서 사진\')', ($d['server'] ?? false) === true && count($hs) === 5 && !isset($hs[$rsid])
+        && !in_array('', $hs, true) && !array_filter($hs, static fn($f) => str_starts_with($f, '[견적서 사진')) && array_column($d['list'], 'at') === array_reverse($atSorted(array_column($d['list'], 'at'))), $d);
+    // 다른 기기처럼: 이 세션의 창 안 목록·지역을 지운 뒤 다시 열기
+    session_id(explode('=', $cookie, 2)[1]); session_start(); unset($_SESSION['qc_list_' . $sid], $_SESSION['qc_region_' . $sid]); session_write_close();
+    [, $d] = $post(['action' => 'load', 'sid' => $sid], $cookie);
+    $types = array_merge(...array_map(static fn($m) => array_column($m['events'] ?? [], 'type'), $d['msgs'] ?? [[]]));
+    $sv = $sess();
+    ok('다시 열기: 질문·답 + 그때 견적 표, 창 안 목록(30개)·지역(경기)도 되살림', ($d['ok'] ?? false) && count($d['msgs'] ?? []) >= 2 && in_array('quote_draft', $types, true)
+        && ($sv['qc_list_' . $sid][$pid] ?? 0) === 30 && ($sv['qc_region_' . $sid] ?? '') === '경기', ['msgs' => count($d['msgs'] ?? []), 'list' => $sv['qc_list_' . $sid] ?? null]);
+    $pdo->prepare('UPDATE ai_sessions SET user_id = ? WHERE session_key = ?')->execute([$staffId + 100000, $psid]);
+    [, $d] = $post(['action' => 'load', 'sid' => $psid], $cookie);
+    [, $h2] = $post(['action' => 'history', 'sid' => $rsid], $cookie);
+    ok('다른 회원 대화는 목록에도 없고 열 수도 없음', ($d['ok'] ?? true) === false && !in_array($psid, array_column($h2['list'] ?? [], 'sid'), true));
+    [, $d] = $post(['action' => 'to_estimate', 'sid' => $sid], $cookie);
+    ok('견적서로 옮기면 그 대화의 지역이 견적 요청 화면용 공통 칸으로', ($d['ok'] ?? false) && ($sess()['quote_region'] ?? '') === '경기', $d);
 
     // 정리: 이 테스트가 만든 상담 행(로컬 테스트 DB)
     $pdo->exec("DELETE FROM chat_logs WHERE session_key LIKE 'qc%'");
