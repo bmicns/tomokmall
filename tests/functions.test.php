@@ -1592,6 +1592,27 @@ eq('기준 상품 ⑦ 구분 기호: D200용 → 적용 관경 200', $rfPick(cat
 eq('기준 상품 ② 보완: 괄호 형식 옵션 6T_1롤 → 6T (2m*50m 1롤)', $rfPick(catalog_axis_from_ref('2m*50m', '6T_1롤', $fsAx(['ts', 'w', 'l'], 'paren', ['ts' => 't/m', 'w' => 'm', 'l' => 'm']), [], $fsCols))[4] ?? null, 'format');
 eq('기준 상품 ⑦ 구분 기호: *h80 → 80H 로 읽기', $rfPick(catalog_axis_from_ref('1120*620*h80', '사각_보도용', $fsAx(['w', 'v', 'h']), [], $fsCols))[0] ?? null, ['dim_w' => '1120', 'dim_v' => '620', 'dim_h' => '80']);
 eq('기준 상품 ⑦ 사각 상품이 원형 이름표(직경) 분류에 있으면 안 씀', catalog_axis_from_ref('711*60T*h80', '멀티맨홀사각_보도_오수', $fsAx(['d', 't', 'h']), [], $fsCols), null);
+$fxAx = static fn(array $ks, array $fx = []) => array_map(static fn($i, $k) => ['seq' => $i + 1, 'axis_key' => $k[0], 'label' => $k[1], 'symbol' => $k[2], 'unit' => 'mm', 'parse_fmt' => 'default', 'fixed_value' => null, 'fixed_text' => $fx[$k[0]] ?? ''], array_keys($ks), $ks);
+$wvh = $fxAx([['w', '가로', 'W'], ['v', '세로', 'V'], ['h', '높이', 'H']]);
+eq('기준 상품 ⑧ 앞에서부터: 1120*620 → 가로·세로, 높이 비움', $rfPick(catalog_axis_from_ref('1120*620', '사각_수공인상링', $wvh, [], $fsCols)),
+   [['dim_w' => '1120', 'dim_v' => '620'], null, '사각_수공인상링', '1120*620', 'partial']);
+eq('기준 상품 ⑧ 80T 는 두께 표시라 높이 칸에 안 넣음 / 조경잔디블록(T = 높이)만 넣음',
+   [catalog_axis_from_ref('300*300*80T', '회색', $wvh, [], $fsCols), $rfPick(catalog_axis_from_ref('300*300*80T', '회색', $wvh, [], $fsCols, true))[0] ?? null],
+   [null, ['dim_w' => '300', 'dim_v' => '300', 'dim_h' => '80']]);
+eq('기준 상품 ⑧ 고정값 칸 자리 값은 상세 화면으로(우레탄볼라드 바닥직경)',
+   (static function () use ($fxAx, $fsCols) { $r = catalog_axis_from_ref('D116_D142*H850', '매립식', $fxAx([['d', '직경', 'D'], ['d_base', '바닥직경', 'D'], ['h', '높이', 'H']], ['d_base' => '142~145']), [], $fsCols);
+       return [array_filter($r['cols'], static fn($v) => $v !== null), $r['detail']]; })(),
+   [['dim_d' => '116', 'dim_h' => '850'], [['label' => '바닥직경', 'symbol' => 'D', 'value' => '142', 'unit' => 'mm', 'main' => false]]]);
+eq('기준 상품 ⑧ 옵션의 50T 하나 → 남은 두께 칸(옵션에서 뺌)', $rfPick(catalog_axis_from_ref('D500', '현무암디딤석 원형_50T_빗살', $fxAx([['d', '직경', 'D'], ['t', '두께', 'T']]), [], $fsCols)),
+   [['dim_d' => '500', 'dim_t' => '50'], null, '현무암디딤석 원형_빗살', 'D500', 'partial']);
+eq('기준 상품 ⑧ 안 씀: 조각이 칸보다 많음·D 표시가 가로 칸·사각인데 직경 이름표',
+   [catalog_axis_from_ref('800*800*648*h55', '칼라', $fxAx([['d', '직경', 'D'], ['h', '높이', 'H']]), [], $fsCols),
+    catalog_axis_from_ref('D500', '원형', $fxAx([['w', '가로', 'W'], ['v', '세로', 'V'], ['t', '두께', 'T']]), [], $fsCols),
+    catalog_axis_from_ref('1120*620', '사각_수공프레임', $fxAx([['d', '직경', 'D'], ['h', '높이', 'H']]), [], $fsCols)], [null, null, null]);
+eq('기준 상품 ⑨ 치수 없는 상품: 옵션 = 규격외정보', $rfPick(catalog_axis_from_ref('', '주문제작품', [], [], $fsCols)), [[], null, '주문제작품', '주문제작품', 'nodims']);
+eq('공통 분류 매핑: 칼라맨홀뚜껑 → 131, 화산석 원형 → std-028',
+   [catalog_std_category('dac-2880', ['spec_option' => '주철용칼라맨홀뚜껑_오수'], ['ktomok-2880' => 112]), catalog_std_category('dac-4260', ['spec_option' => '현무암디딤석 원형_50T'], ['std-028' => 1066, 'ktomok-4260' => 158]),
+    catalog_std_category('dac-4260', ['spec_option' => '현무암판석 부정형'], ['std-028' => 1066, 'ktomok-4260' => 158])], [131, 1066, 158]);
 eq('기준 상품 없음·이름표 없음 → null', catalog_axis_from_ref('300*300*2000', null, [], [], $fsCols), null);
 // 목록 공통 칸(S26): 업체 둘 이상이면 모든 업체에 값 있는 칸만, 측구 두께·PE 가로세로 제외, 축 값 못 쓰는 행은 업체 판단에서 뺌
 $lcDefs = [['axis_key' => 'w', 'label' => '폭'], ['axis_key' => 'depth', 'label' => '깊이'], ['axis_key' => 'l', 'label' => '길이'], ['axis_key' => 't', 'label' => '두께']];

@@ -337,7 +337,8 @@ function syc_publish_std_apply(PDO $pdo): array
         if (trim((string) $code) === '' && !array_filter($sycDimCols, static fn($c) => ($p[$c] ?? null) !== null && $p[$c] !== '')) {
             $cax = spec_axes_for_category($cid);
             $fs  = catalog_axis_from_spec((string) $p['spec'], $p['spec_option'], $cax, $dimCols)
-                ?? catalog_axis_from_ref((string) $p['spec'], $p['spec_option'], $cax, ($refIdx ??= syc_publish_ref_index($pdo, $pcols))[$cid] ?? ['exact' => [], 'sig' => []], $dimCols);
+                ?? catalog_axis_from_ref((string) $p['spec'], $p['spec_option'], $cax, ($refIdx ??= syc_publish_ref_index($pdo, $pcols))[$cid] ?? ['exact' => [], 'sig' => []], $dimCols,
+                                         in_array($cid, CATALOG_T_AS_HEIGHT, true));
             if ($fs !== null) {
                 $remap = $fs['cols'];
                 $code  = $fs['code'];
@@ -347,6 +348,8 @@ function syc_publish_std_apply(PDO $pdo): array
                     $specSrc = $fs['src'];
                     $vals[3] = syc_publish_spec_text(['spec' => $specSrc] + $p);
                 }
+                // 이름표 칸에 넣지 않은 값(고정값 칸 자리 — 우레탄볼라드 바닥직경 등)은 상세 화면 '세부 치수'로(product.php)
+                if (!$dims && !empty($fs['detail'])) { $dims = $fs['detail']; }
                 $specRead++;
             } else {
                 $specMiss[$cid] = ($specMiss[$cid] ?? 0) + 1;

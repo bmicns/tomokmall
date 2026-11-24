@@ -78,6 +78,21 @@ if ($p['mid_id'] && db()) {
 $dimMain = $dimDetail = [];
 // 공통 분류 반영(2026-11-16, app/syc_publish.php syc_publish_dims): 상용콘크리트·업체 상품은 spec_detail 에 업체 칸 이름 그대로 주요(main)·세부를 함께 담음
 $pdDims = (array) json_decode((string) ($p['spec_detail'] ?? ''), true);
+// 케이토목 상품(규격 통일 S26, 2026-11-24): 이름표 칸 값을 '주요 치수'로 — 목록에서 뺀 칸(측구 두께 = 바닥두께 등)도 여기서 보임.
+// 칸 이름은 케이토목 이름표 그대로, 상세에서 바꿔 보여 주기로 한 칸만 바꿈(CATALOG_AXIS_DETAIL_LABEL). 고정값 칸은 행에 값이 있을 때만
+$pdLabelDims = static function (array $p): array {
+    $out = [];
+    $relabel = CATALOG_AXIS_DETAIL_LABEL[(int) $p['cat_id']] ?? [];
+    foreach (spec_axes_for_category((int) $p['cat_id']) as $a) {
+        $k = (string) $a['axis_key'];
+        if ($k === SPEC_AXIS_SKIP) { continue; }
+        $v = spec_axes_row_value($p, $k);
+        if ($v === null) { continue; }
+        if (isset($relabel[$k])) { $a['label'] = $relabel[$k]; }
+        $out[] = [spec_axis_title($a), spec_axis_value_display($a, $v) . (in_array($k, SPEC_AXIS_TEXT, true) || $a['unit'] === 'no' ? '' : ' ' . $a['unit'])];
+    }
+    return $out;
+};
 $pdStd  = !str_starts_with((string) ($p['cat_slug'] ?? ''), 'syc-') && $pdDims && array_key_exists('main', (array) ($pdDims[0] ?? []));
 if ($pdStd) {
     foreach ($pdDims as $d) {
@@ -85,6 +100,8 @@ if ($pdStd) {
         $row = [trim((string) $d['label'] . ' ' . (string) ($d['symbol'] ?? '')), (string) $d['value'] . (($d['unit'] ?? '') !== '' ? ' ' . $d['unit'] : '')];
         if (!empty($d['main'])) { $dimMain[] = $row; } else { $dimDetail[] = $row; }
     }
+    // 업체 상품 규격 읽기(S33 ⑧, 2026-11-24): spec_detail 에 이름표에 못 넣은 값(세부)만 있으면 주요 치수는 이름표 칸 값
+    if (!$dimMain && spec_axes_ready() && spec_axes_row_fresh($p)) { $dimMain = $pdLabelDims($p); }
 } elseif (str_starts_with((string) ($p['cat_slug'] ?? ''), 'syc-')) {
     foreach (spec_axes_ready() ? spec_axes_for_category((int) $p['cat_id']) : [] as $a) {
         $v = spec_axes_row_value($p, (string) $a['axis_key']);
@@ -97,17 +114,7 @@ if ($pdStd) {
         $dimDetail[] = [$title, (string) $d['value'] . (($d['unit'] ?? '') !== '' ? ' ' . $d['unit'] : '')];
     }
 } elseif (spec_axes_ready() && spec_axes_row_fresh($p)) {
-    // 케이토목 상품(규격 통일 S26, 2026-11-24): 이름표 칸 값을 '주요 치수'로 — 목록에서 뺀 칸(측구 두께 = 바닥두께 등)도 여기서 보임.
-    // 칸 이름은 케이토목 이름표 그대로, 상세에서 바꿔 보여 주기로 한 칸만 바꿈(CATALOG_AXIS_DETAIL_LABEL)
-    $relabel = CATALOG_AXIS_DETAIL_LABEL[(int) $p['cat_id']] ?? [];
-    foreach (spec_axes_for_category((int) $p['cat_id']) as $a) {
-        $k = (string) $a['axis_key'];
-        if ($k === SPEC_AXIS_SKIP) { continue; }
-        $v = spec_axes_row_value($p, $k);
-        if ($v === null) { continue; }
-        if (isset($relabel[$k])) { $a['label'] = $relabel[$k]; }
-        $dimMain[] = [spec_axis_title($a), spec_axis_value_display($a, $v) . (in_array($k, SPEC_AXIS_TEXT, true) || $a['unit'] === 'no' ? '' : ' ' . $a['unit'])];
-    }
+    $dimMain = $pdLabelDims($p);
 }
 
 // 동일 소분류 다른 규격 (최대 8개)
