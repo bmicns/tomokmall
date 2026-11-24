@@ -110,21 +110,187 @@ function catalog_axis_from_spec(string $spec, ?string $option, array $axes, arra
     if ($spec === '' || !$axes) { return null; }
     $tries = $opt === '' ? [[$spec, true]] : [[$spec, true], [$spec . '_' . $opt, false], [$opt . '_' . $spec, false]];
     foreach ($tries as [$value, $keepOpt]) {
-        $parsed = spec_axes_parse($value, $axes);
-        if ($parsed === null) { continue; }
-        $cols = array_fill_keys($dimCols, null);
-        foreach ($parsed['dims'] as $k => $v) {
-            $c = SPEC_AXIS_COLUMNS[$k] ?? null;
-            if ($c === null || !array_key_exists($c, $cols)) { continue; }
-            $cols[$c] = in_array($k, SPEC_AXIS_TEXT, true) ? (string) $v : spec_axis_num((float) $v);
-        }
-        if (!array_filter($cols, static fn($v) => $v !== null && $v !== '')) { continue; }
+        $r = catalog_axis_parse_try($value, $axes, $dimCols);
+        if ($r === null) { continue; }
         // 원문만 읽었으면 업체 옵션을 뒤에 이어 붙임(같은 글자는 한 번). 옵션까지 함께 읽었으면 읽은 옵션이 곧 업체 옵션 포함
-        $po    = trim((string) ($parsed['option'] ?? ''));
-        $parts = $keepOpt ? array_values(array_unique(array_filter([$po, $opt], static fn($x) => $x !== ''))) : ($po !== '' ? [$po] : []);
-        $code  = trim((string) ($parsed['spec_code'] ?? ''));
-        if ($code !== '' && $parts) { $parts = array_values(array_filter($parts, static fn($x) => $x !== $code)); }
-        return ['cols' => $cols, 'code' => $code !== '' ? $code : null, 'option' => $parts ? implode('_', $parts) : null];
+        $parts = $keepOpt ? array_values(array_unique(array_filter([(string) $r['option'], $opt], static fn($x) => $x !== ''))) : ($r['option'] !== null ? [$r['option']] : []);
+        if ($r['code'] !== null) { $parts = array_values(array_filter($parts, static fn($x) => $x !== $r['code'])); }
+        return ['cols' => $r['cols'], 'code' => $r['code'], 'option' => $parts ? implode('_', $parts) : null];
+    }
+    return null;
+}
+
+/** spec_axes_parse 한 번 → 칸 값(치수 1개 이상일 때만). 순수 함수 @return ?array{cols: array<string, ?string>, code: ?string, option: ?string} */
+function catalog_axis_parse_try(string $value, array $axes, array $dimCols): ?array
+{
+    $parsed = spec_axes_parse($value, $axes);
+    if ($parsed === null) { return null; }
+    $cols = array_fill_keys($dimCols, null);
+    foreach ($parsed['dims'] as $k => $v) {
+        $c = SPEC_AXIS_COLUMNS[$k] ?? null;
+        if ($c === null || !array_key_exists($c, $cols)) { continue; }
+        $cols[$c] = in_array($k, SPEC_AXIS_TEXT, true) ? (string) $v : spec_axis_num((float) $v);
+    }
+    if (!array_filter($cols, static fn($v) => $v !== null && $v !== '')) { return null; }
+    $code = trim((string) ($parsed['spec_code'] ?? ''));
+    $po   = trim((string) ($parsed['option'] ?? ''));
+    return ['cols' => $cols, 'code' => $code !== '' ? $code : null, 'option' => $po !== '' ? $po : null];
+}
+
+/*
+ * ── 업체 상품 규격 읽기 보완(사용자 요청 2026-11-24 — 원문으로 남는 상품은 줄이되 치수를 잘못 넣지 않게, S33) ──
+ * 기준 상품 = 같은 공통 분류의 케이토목 상품 중 칸 값이 지금 규격 기준인 것(spec_axes_row_fresh·spec_axes_row_named).
+ * 아래 규칙은 확실한 것만 채우고, 조금이라도 맞지 않으면 채우지 않는다(원문 한 줄 그대로).
+ *  ① 같은 규격: 업체 규격('원문', '원문_옵션', '옵션_원문', 원문이 비면 '옵션')이 기준 상품 규격 원문과 글자 그대로 같으면(띄어쓰기·대소문자만 무시)
+ *     그 상품의 칸 값·모델 코드·옵션을 그대로 씀. 같은 규격의 기준 상품끼리 값이 다르면 쓰지 않음
+ *  ② 형식 맞춰 읽기: 이름표 형식이 괄호(paren)면 '옵션 (원문)', 앞 글자(lead_text·shape)면 '옵션 원문',
+ *     접속구(pipe_port)면 '원문*접속관(구 수)나머지'로 붙여 케이토목과 같은 규칙으로 읽음
+ *  ③ 같은 모양에서 배우기: 규격의 숫자 모양(개수와 각 숫자 앞뒤 표시 D·Ø·H·T…)이 기준 상품 2개 이상과 똑같고, 그 기준 상품들이
+ *     '몇 번째 숫자 = 어느 칸'으로 모두 같게(하나로만) 읽힐 때만 그 자리의 숫자를 씀. 단위가 다르거나(m 칸) 자리가 둘 이상이면 배우지 않음
+ *  ④ 끝 두께 떼기: '…*200T' 처럼 끝 숫자 하나가 T 로 끝나 이름표 칸 수보다 숫자가 하나 많으면, 앞부분만 읽고 '200T' 는 옵션으로(값을 버리지 않음)
+ */
+
+/** 규격 글자 비교용(띄어쓰기·대소문자 무시) */
+function catalog_spec_norm(string $s): string
+{
+    return mb_strtolower((string) preg_replace('/\s+/u', '', $s));
+}
+
+/** 규격 글자의 숫자들: [[앞 표시, 숫자, 뒤 표시]…] — 영문·숫자 바로 뒤 숫자(K2·VG150·M16)는 코드라 뺌. 순수 함수 */
+function catalog_spec_numbers(string $s): array
+{
+    preg_match_all('/(?<![A-Za-z0-9.])([DdHhØ]?)(\d+(?:\.\d+)?)(mm|MM|[TtHhMmØ])?/u', $s, $m, PREG_SET_ORDER);
+    $out = [];
+    foreach ($m as $x) {
+        $pre = $x[1] === 'Ø' ? 'Ø' : strtoupper($x[1]);
+        $suf = ($x[3] ?? '') === '' ? '' : (in_array($x[3], ['mm', 'MM'], true) ? 'mm' : ($x[3] === 'Ø' ? 'Ø' : strtoupper($x[3])));
+        $out[] = [$pre, $x[2], $suf];
+    }
+    return $out;
+}
+
+/** 숫자 모양 서명: 'D#|D#|D#', '#|#|#H' … */
+function catalog_spec_signature(array $nums): string
+{
+    return implode('|', array_map(static fn($n) => $n[0] . '#' . $n[2], $nums));
+}
+
+/**
+ * 기준 상품(같은 공통 분류의 케이토목 상품) → 분류별 색인. 순수 함수
+ * @param iterable<array> $rows products 행(category_id·spec·spec_dims_src·spec_code·spec_option·dim_* 포함)
+ * @return array<int, array{exact: array<string, array|false>, sig: array<string, array<string,int>|false>}>
+ */
+function catalog_ref_index(iterable $rows): array
+{
+    $cols = array_values(SPEC_AXIS_COLUMNS);
+    $exact = []; $groups = [];
+    foreach ($rows as $r) {
+        if (!(spec_axes_row_fresh($r) || spec_axes_row_named($r))) { continue; }
+        $cid = (int) $r['category_id'];
+        $vals = [];
+        foreach ($cols as $c) { if (($r[$c] ?? null) !== null && $r[$c] !== '') { $vals[$c] = (string) $r[$c]; } }
+        $code = trim((string) ($r['spec_code'] ?? '')); $opt = trim((string) ($r['spec_option'] ?? ''));
+        $pay  = ['cols' => $vals, 'code' => $code !== '' ? $code : null, 'option' => $opt !== '' ? $opt : null];
+        $k = catalog_spec_norm((string) $r['spec_dims_src']);
+        $exact[$cid][$k] = !isset($exact[$cid][$k]) || $exact[$cid][$k] === $pay ? $pay : false;   // 같은 규격인데 값이 다르면 쓰지 않음
+        if ($vals) {
+            $nums = catalog_spec_numbers((string) $r['spec_dims_src']);
+            $groups[$cid][catalog_spec_signature($nums)][] = [$nums, $vals];
+        }
+    }
+    $out = [];
+    foreach ($exact as $cid => $e) { $out[$cid] = ['exact' => $e, 'sig' => []]; }
+    foreach ($groups as $cid => $sigs) {
+        foreach ($sigs as $sig => $list) {
+            $out[$cid] ??= ['exact' => [], 'sig' => []];
+            $out[$cid]['sig'][$sig] = count($list) >= 2 ? catalog_ref_learn($list) : false;
+        }
+    }
+    return $out;
+}
+
+/**
+ * 같은 숫자 모양의 기준 상품들 → 칸 => 숫자 자리. 모든 상품에서 같은 칸이 차 있고, 칸마다 값이 같은 자리가 모든 상품에서 하나로만
+ * 정해질 때만(정사각 1500*1500 처럼 자리가 둘이면 다른 상품으로 좁힘). 아니면 false. 순수 함수
+ */
+function catalog_ref_learn(array $list): array|false
+{
+    $colSet = null; $cand = [];
+    foreach ($list as [$nums, $vals]) {
+        $keys = array_keys($vals); sort($keys);
+        if ($colSet !== null && $keys !== $colSet) { return false; }
+        $colSet = $keys;
+        foreach ($vals as $c => $v) {
+            if (!is_numeric($v)) { return false; }
+            $idx = [];
+            foreach ($nums as $i => $n) { if (abs((float) $n[1] - (float) $v) < 0.0001) { $idx[] = $i; } }
+            if (!$idx) { return false; }                         // 숫자 그대로가 아닌 값(m → mm 등)은 배우지 않음
+            $cand[$c] = isset($cand[$c]) ? array_values(array_intersect($cand[$c], $idx)) : $idx;
+            if (!$cand[$c]) { return false; }
+        }
+    }
+    $map = [];
+    foreach ($cand as $c => $idx) {
+        if (count($idx) !== 1) { return false; }
+        $map[$c] = $idx[0];
+    }
+    return count(array_unique($map)) === count($map) ? $map : false;
+}
+
+/**
+ * 업체 상품 1행 → 기준 상품·형식 규칙으로 채울 값(규칙 ①~④, 위 설명). 못 정하면 null. 순수 함수
+ * @param array $ref catalog_ref_index()[공통 분류 id] (없으면 [])
+ * @return ?array{cols: array<string, ?string>, code: ?string, option: ?string, src: string, rule: string}
+ *   src = 규격 원문으로 쓸 글자(업체 원문이 비고 옵션에 규격을 적은 경우 그 옵션)
+ */
+function catalog_axis_from_ref(string $spec, ?string $option, array $axes, array $ref, array $dimCols): ?array
+{
+    $spec = trim($spec); $opt = trim((string) $option);
+    if ($spec === '' && $opt === '') { return null; }
+    $texts = $spec === '' ? [$opt] : array_values(array_unique(array_filter([$spec, $opt !== '' ? $spec . '_' . $opt : '', $opt !== '' ? $opt . '_' . $spec : ''])));
+    $src = $spec !== '' ? $spec : $opt;
+    $fill = static function (array $vals) use ($dimCols): array {
+        $cols = array_fill_keys($dimCols, null);
+        foreach ($vals as $c => $v) { if (array_key_exists($c, $cols)) { $cols[$c] = $v; } }
+        return $cols;
+    };
+    // ① 같은 규격
+    foreach ($texts as $t) {
+        $hit = $ref['exact'][catalog_spec_norm($t)] ?? null;
+        if (is_array($hit)) { return ['cols' => $fill($hit['cols']), 'code' => $hit['code'], 'option' => $hit['option'], 'src' => $src, 'rule' => 'same']; }
+    }
+    if ($spec === '') { return null; }                         // 아래 규칙은 원문 치수가 있을 때만
+    // ② 형식 맞춰 읽기
+    $fmt = $axes ? spec_axes_fmt($axes) : '';
+    $alts = [];
+    if ($opt !== '') {
+        if ($fmt === 'paren') { $alts[] = $opt . ' (' . $spec . ')'; }
+        if ($fmt === 'lead_text' || $fmt === 'shape') { $alts[] = $opt . ' ' . $spec; }
+        if ($fmt === 'pipe_port') {
+            $p = explode('_', $opt);
+            if (count($p) >= 2) { $alts[] = $spec . '*' . $p[0] . '(' . $p[1] . ')' . implode('', array_slice($p, 2)); }
+        }
+    }
+    foreach ($alts as $a) {
+        $r = catalog_axis_parse_try($a, $axes, $dimCols);
+        if ($r !== null) { return $r + ['src' => $src, 'rule' => 'format']; }
+    }
+    // ③ 같은 모양에서 배우기
+    foreach ($texts as $t) {
+        $nums = catalog_spec_numbers($t);
+        $map = $nums ? ($ref['sig'][catalog_spec_signature($nums)] ?? null) : null;
+        if (!is_array($map)) { continue; }
+        $vals = [];
+        foreach ($map as $c => $i) { $vals[$c] = in_array($c, spec_axis_text_columns(), true) ? $nums[$i][1] : spec_axis_num((float) $nums[$i][1]); }
+        return ['cols' => $fill($vals), 'code' => null, 'option' => $opt !== '' ? $opt : null, 'src' => $src, 'rule' => 'learned'];
+    }
+    // ④ 끝 두께 떼기
+    if ($axes && preg_match('/^(.+\d[A-Za-z]?)\*(\d+(?:\.\d+)?T)$/u', $spec, $m)) {
+        $r = catalog_axis_parse_try($m[1], $axes, $dimCols);
+        if ($r !== null && count(array_filter($r['cols'], static fn($v) => $v !== null)) === count(array_filter($axes, static fn($a) => isset(SPEC_AXIS_COLUMNS[(string) $a['axis_key']])))) {
+            $parts = array_values(array_unique(array_filter([(string) $r['option'], $m[2], $opt], static fn($x) => $x !== '')));
+            return ['cols' => $r['cols'], 'code' => $r['code'], 'option' => implode('_', $parts), 'src' => $src, 'rule' => 'trailing_t'];
+        }
     }
     return null;
 }

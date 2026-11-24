@@ -1541,6 +1541,42 @@ eq('업체 규격 읽기: 모델 코드가 옵션에 있으면 옵션_원문으�
    [['dim_w' => '390', 'dim_v' => '90', 'dim_depth' => '90'], 'Q2B', null]);
 eq('업체 규격 읽기: 못 읽으면 null(원문 한 줄)', catalog_axis_from_spec('흄관D200~D800*PVC관(VN)D75', '고무형', $fsAx(['d_i']), $fsCols), null);
 eq('업체 규격 읽기: 이름표 없으면 null', catalog_axis_from_spec('300*300*2000', null, [], $fsCols), null);
+// 업체 규격 읽기 보완(S33 보완, 2026-11-24): 같은 분류 케이토목 상품(기준 상품)으로 규칙 ①~④
+$rfRow = static fn(int $cid, string $spec, array $vals, string $code = '', string $opt = '') => ['category_id' => $cid, 'spec' => '규격: ' . $spec, 'spec_dims_src' => $spec, 'spec_code' => $code, 'spec_option' => $opt] + $vals;
+$rfIdx = catalog_ref_index([
+    $rfRow(1, '400*500*660', ['dim_w' => 400, 'dim_v' => 500, 'dim_h' => 660]),
+    $rfRow(1, '규사 0.5~1mm', [], '', '0.5~1mm'),
+    $rfRow(2, '300*300', ['dim_w' => 300, 'dim_h' => 300]),
+    $rfRow(2, '300*300', ['dim_w' => 300, 'dim_h' => 250]),
+    $rfRow(3, 'D648*55', ['dim_d' => 648, 'dim_h' => 55]),
+    $rfRow(3, 'D700*60', ['dim_d' => 700, 'dim_h' => 60]),
+    $rfRow(4, '1000*1000', ['dim_w' => 1000, 'dim_h' => 1000]),
+    $rfRow(4, '1200*1200', ['dim_w' => 1200, 'dim_h' => 1200]),
+    $rfRow(5, '1.5*2', ['dim_w' => 1500, 'dim_l' => 2000]),
+    $rfRow(5, '2*3', ['dim_w' => 2000, 'dim_l' => 3000]),
+    $rfRow(6, 'D100*50', ['dim_d' => 100, 'dim_h' => 50]),
+    ['category_id' => 1, 'spec' => '규격: 999*999*999', 'spec_dims_src' => '111*111*111', 'dim_w' => 111],   // 옛 값(원문이 바뀜) → 기준 아님
+]);
+$rfPick = static fn(?array $r) => $r === null ? null : [array_filter($r['cols'], static fn($v) => $v !== null), $r['code'], $r['option'], $r['src'], $r['rule']];
+$rfAx3 = $fsAx(['w', 'v', 'h']);
+eq('기준 상품 ① 같은 규격 → 그 값 그대로', $rfPick(catalog_axis_from_ref('400*500*660', null, $rfAx3, $rfIdx[1], $fsCols)),
+   [['dim_w' => '400', 'dim_v' => '500', 'dim_h' => '660'], null, null, '400*500*660', 'same']);
+eq('기준 상품 ① 원문이 비고 옵션에 규격 → 옵션을 원문으로(띄어쓰기·대소문자 무시)', $rfPick(catalog_axis_from_ref('', '규사 0.5~1MM', [], $rfIdx[1], $fsCols)),
+   [[], null, '0.5~1mm', '규사 0.5~1MM', 'same']);
+eq('기준 상품 ① 같은 규격인데 기준 값이 다르면 안 씀', catalog_axis_from_ref('300*300', null, $fsAx(['w', 'h']), $rfIdx[2], $fsCols), null);
+eq('기준 상품 옛 값 행은 색인에 없음', isset($rfIdx[1]['exact']['111*111*111']), false);
+eq('기준 상품 ③ 같은 숫자 모양 2개 이상 → 자리대로', $rfPick(catalog_axis_from_ref('D750*65', '원형', [], $rfIdx[3], $fsCols)),
+   [['dim_d' => '750', 'dim_h' => '65'], null, '원형', 'D750*65', 'learned']);
+eq('기준 상품 ③ 숫자 모양이 다르면(앞 D 없음) 안 씀', catalog_axis_from_ref('750*65', null, [], $rfIdx[3], $fsCols), null);
+eq('기준 상품 ③ 정사각처럼 자리가 둘이면 안 씀', catalog_axis_from_ref('900*900', null, [], $rfIdx[4], $fsCols), null);
+eq('기준 상품 ③ m 단위(숫자 그대로 아님)는 안 씀', catalog_axis_from_ref('2.5*4', null, [], $rfIdx[5], $fsCols), null);
+eq('기준 상품 ③ 기준 1개뿐이면 안 씀', catalog_axis_from_ref('D200*80', null, [], $rfIdx[6], $fsCols), null);
+eq('기준 상품 ② 괄호 형식: 옵션 (원문)', $rfPick(catalog_axis_from_ref('400*500*80T', '빗물받이용', $fsAx(['d_o', 'l', 't'], 'paren'), [], $fsCols)),
+   [['dim_d_o' => '400', 'dim_l' => '500', 'dim_t' => '80'], null, '빗물받이용', '400*500*80T', 'format']);
+eq('기준 상품 ④ 끝 두께 → 앞부분 읽고 두께는 옵션', $rfPick(catalog_axis_from_ref('300*400*1000*200T', null, $fsAx(['w', 'h', 'l']), [], $fsCols)),
+   [['dim_w' => '300', 'dim_h' => '400', 'dim_l' => '1000'], null, '200T', '300*400*1000*200T', 'trailing_t']);
+eq('기준 상품 ④ 앞부분이 이름표 칸을 다 못 채우면 안 씀', catalog_axis_from_ref('300*400*200T', null, $fsAx(['w', 'h', 'l']), [], $fsCols), null);
+eq('기준 상품 없음·이름표 없음 → null', catalog_axis_from_ref('300*300*2000', null, [], [], $fsCols), null);
 // 목록 공통 칸(S26): 업체 둘 이상이면 모든 업체에 값 있는 칸만, 측구 두께·PE 가로세로 제외, 축 값 못 쓰는 행은 업체 판단에서 뺌
 $lcDefs = [['axis_key' => 'w', 'label' => '폭'], ['axis_key' => 'depth', 'label' => '깊이'], ['axis_key' => 'l', 'label' => '길이'], ['axis_key' => 't', 'label' => '두께']];
 $lcK = ['external_source' => 'ktomok', 'spec' => '규격: 300*300*2000*120T', 'spec_dims_src' => '300*300*2000*120T', 'dim_w' => 300, 'dim_depth' => 300, 'dim_l' => 2000, 'dim_t' => 120];
