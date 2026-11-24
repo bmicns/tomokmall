@@ -274,8 +274,12 @@
   }
 
   async function photoPicked() {
-    const f = file.files && file.files[0];
-    if (!f) return;
+    usePhoto(file.files && file.files[0]);
+  }
+
+  // 버튼으로 고른 사진·창에 끌어다 놓은 사진 공통
+  async function usePhoto(f) {
+    if (!f || busy) return;
     if (!/^image\/(jpeg|png)$/.test(f.type)) { photoReset(); photoNotice('jpg·png 사진만 올릴 수 있습니다.'); return; }
     if (f.size > PHOTO_MAX_BYTES) { photoReset(); photoNotice('사진은 10MB 이하로 올려 주세요.'); return; }
     try {
@@ -373,6 +377,18 @@
     file.addEventListener('change', photoPicked);
     agree.addEventListener('change', () => { pSend.disabled = !agree.checked; });
     pSend.addEventListener('click', photoSend);
+    // 끌어다 놓기: 창 어디에 놓아도 사진 첨부(안내·동의는 그대로)
+    let dragDepth = 0;
+    const isFileDrag = e => Array.from((e.dataTransfer && e.dataTransfer.types) || []).includes('Files');
+    panel.addEventListener('dragenter', e => { if (!isFileDrag(e)) return; e.preventDefault(); dragDepth++; panel.classList.add('is-drop'); });
+    panel.addEventListener('dragover', e => { if (!isFileDrag(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+    panel.addEventListener('dragleave', e => { if (!isFileDrag(e)) return; if (--dragDepth <= 0) { dragDepth = 0; panel.classList.remove('is-drop'); } });
+    panel.addEventListener('drop', e => {
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      dragDepth = 0; panel.classList.remove('is-drop');
+      usePhoto(e.dataTransfer.files && e.dataTransfer.files[0]);
+    });
     document.getElementById('qc-photo-cancel').addEventListener('click', () => { photoReset(); attach.focus(); });
   }
 
