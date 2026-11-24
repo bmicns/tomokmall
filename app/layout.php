@@ -691,8 +691,30 @@ function render_quick_chat(): void
     <form class="qc-form" id="qc-form">
         <label class="qc-sr" for="qc-input">질문</label>
         <textarea id="qc-input" rows="2" maxlength="200" placeholder="예: 아파트 주차장 배수로 그레이팅 폭 300, 20m, 차가 다녀요"></textarea>
+<?php if (ai_quick_photo_enabled()): ?>
+        <div class="qc-photo" id="qc-photo" hidden>
+            <img class="qc-photo-thumb" id="qc-photo-thumb" alt="올릴 견적서 사진 미리보기">
+            <div class="qc-photo-info">
+                <p class="qc-photo-note">이름·전화번호는 가리고 올려 주세요. 사진은 AI 분석에 쓰이고 저장하지 않습니다.</p>
+                <label class="qc-photo-agree"><input type="checkbox" id="qc-photo-agree"> 위 안내를 확인했고 사진 분석에 동의합니다</label>
+                <div class="qc-photo-btns">
+                    <button type="button" class="qc-photo-cancel" id="qc-photo-cancel">취소</button>
+                    <button type="button" class="qc-send" id="qc-photo-send" disabled>사진 보내기</button>
+                </div>
+            </div>
+        </div>
+<?php endif; ?>
         <div class="qc-form-row">
-            <span class="qc-count" id="qc-count">0 / 200</span>
+            <span class="qc-form-left">
+<?php if (ai_quick_photo_enabled()): ?>
+                <button type="button" class="qc-attach" id="qc-attach">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg>
+                    견적서 사진 첨부
+                </button>
+                <input type="file" id="qc-file" accept="image/jpeg,image/png" hidden>
+<?php endif; ?>
+                <span class="qc-count" id="qc-count">0 / 200</span>
+            </span>
             <button type="submit" class="qc-send" id="qc-send">보내기</button>
         </div>
         <p class="qc-disclaimer">AI 답변에는 오류가 있을 수 있습니다. 금액은 예상이며 담당자 확인 후 확정됩니다.</p>
