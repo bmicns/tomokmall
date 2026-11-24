@@ -57,8 +57,16 @@ function product_filters_visible(array $facets, array $active): array
         $specOpts = array_merge($sel, $rest);
     }
 
-    // 규격 필터는 축별로 나누지 않고 '규격(치수)' 한 그룹(사용자 결정 2026-11-13 S17) — 축별 그룹(product_filter_axis_groups)은 쓰지 않음
+    // 규격 필터: 목록 공통 칸이 있으면 그 칸별 그룹(폭 W·깊이…, S26 2026-11-24 — 목록 머리글과 같은 칸), 모델 코드 그룹은 두지 않음(S10).
+    // 공통 칸이 없으면 '규격(치수)' 한 그룹(S17)
     $axGroups = [];
+    $listAx = $facets['axes']['list'] ?? [];
+    if ($listAx) {
+        $fields = array_map(static fn($a) => 'ax_' . $a['axis_key'], $listAx);
+        $axGroups = array_values(array_filter(product_filter_axis_groups(array_merge($facets['axes'], ['defs' => $listAx]), $active),
+                                              static fn($g) => in_array($g['field'], $fields, true)));
+        if ($axGroups) { $specOpts = []; }
+    }
 
     return [
         'mat'       => $matOpts,

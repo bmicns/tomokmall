@@ -310,6 +310,8 @@ function syc_publish_std_apply(PDO $pdo): array
 
     $pcols = syc_publish_product_columns($pdo);
     $dimCols = array_values(array_filter(array_map('syc_axis_column', SYC_AXIS_KEYS), static fn($c) => $c !== null && in_array($c, $pcols, true)));
+    // 케이토목 칸(대응표가 옮겨 담는 곳 — 상단 높이·상하두께 등 업체 칸에 없는 칸)도 함께 씀(S26)
+    $dimCols = array_values(array_unique(array_merge($dimCols, array_values(array_intersect(array_values(SPEC_AXIS_COLUMNS), $pcols)))));
     $cols = array_merge(['category_id', 'name', 'brand', 'spec', 'spec_code'], $dimCols,
                         ['spec_option', 'spec_dims_src', 'spec_detail', 'unit', 'weight_kg', 'description', 'price_b2c', 'price_b2b', 'cost_price', 'stock_qty',
                          'external_source', 'external_id', 'source_url', 'image_url', 'is_active']);

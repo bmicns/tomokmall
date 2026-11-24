@@ -1474,6 +1474,19 @@ eq('칸 대응표: 측구 높이 → 깊이·바닥두께 t3 → 두께(윗면 T
      ['dim_d_i' => 200, 'dim_d_o' => 320, 'dim_depth' => 360, 'dim_l' => 2000],
      ['dim_w' => 180, 'dim_h_high' => 200, 'dim_h_low' => 100, 'dim_l' => 1000],
      ['dim_w' => 300, 'dim_h' => 250]]);
+// 목록 공통 칸(S26): 업체 둘 이상이면 모든 업체에 값 있는 칸만, 측구 두께·PE 가로세로 제외, 축 값 못 쓰는 행은 업체 판단에서 뺌
+$lcDefs = [['axis_key' => 'w', 'label' => '폭'], ['axis_key' => 'depth', 'label' => '깊이'], ['axis_key' => 'l', 'label' => '길이'], ['axis_key' => 't', 'label' => '두께']];
+$lcK = ['external_source' => 'ktomok', 'spec' => '규격: 300*300*2000*120T', 'spec_dims_src' => '300*300*2000*120T', 'dim_w' => 300, 'dim_depth' => 300, 'dim_l' => 2000, 'dim_t' => 120];
+$lcS = ['external_source' => 'syccrt', 'spec' => '규격: 300*300*2000', 'spec_dims_src' => '300*300*2000', 'dim_w' => 300, 'dim_depth' => 300, 'dim_l' => null, 'dim_t' => 95];
+$lcOld = ['external_source' => 'syccrt', 'spec' => '규격: 1*2', 'spec_dims_src' => '9*9', 'dim_w' => 1];
+$lcKeys = static fn(array $r) => array_column($r, 'axis_key');
+eq('목록 공통 칸: 두 업체 공통만·한 업체면 값 있는 칸 전부·측구(33) 두께 제외·PE(177) 가로세로 제외·옛 값 행 무시',
+    [$lcKeys(catalog_list_common_axes($lcDefs, [$lcK, $lcS], [25, 25])),
+     $lcKeys(catalog_list_common_axes($lcDefs, [$lcK], [25])),
+     $lcKeys(catalog_list_common_axes($lcDefs, [$lcK, $lcS], [33])),
+     $lcKeys(catalog_list_common_axes([['axis_key' => 'w'], ['axis_key' => 'v'], ['axis_key' => 'h']], [['external_source' => '', 'spec' => '규격: 400*500*640', 'spec_dims_src' => '400*500*640', 'dim_w' => 400, 'dim_v' => 500, 'dim_h' => 640]], [177])),
+     $lcKeys(catalog_list_common_axes($lcDefs, [$lcK, $lcOld], [25]))],
+    [['w', 'depth', 't'], ['w', 'depth', 'l', 't'], ['w', 'depth'], ['h'], ['w', 'depth', 'l', 't']]);
 $pdm = syc_publish_dims(['dim_w' => 300.0, 'dim_w1' => 600.0, 'dim_l' => null], [
     ['axis_key' => 'w', 'label' => '폭', 'symbol' => 'W', 'unit' => 'mm', 'in_list' => true], ['axis_key' => 'w1', 'label' => '세부', 'symbol' => 'w1', 'unit' => 'mm', 'in_list' => false],
     ['axis_key' => 'l', 'label' => '길이', 'symbol' => 'L', 'unit' => 'mm', 'in_list' => true]]);

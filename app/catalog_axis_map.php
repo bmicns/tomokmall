@@ -82,10 +82,11 @@ const CATALOG_AXIS_MAP = [
 
 /**
  * 목록 공통 칸에서 빼는 케이토목 칸(공통 분류 id => 칸 키들) — 값은 상세 화면 '세부 치수'로.
- * 측구수로관 A·B·AN·Z형 두께(= 바닥두께, 11-23 사용자 결정 4)
+ * 측구수로관 A·B·AN·Z형 두께(= 바닥두께, 11-23 사용자 결정 4), PE 빗물받이·오수받이 가로·세로(공통 칸은 높이만, 11-23 사용자 결정 6)
  */
 const CATALOG_AXIS_LIST_EXCLUDE = [
     33 => ['t'], 34 => ['t'], 35 => ['t'], 36 => ['t'],
+    177 => ['w', 'v'], 178 => ['w', 'v'],
 ];
 
 /** 상세 화면에서 케이토목 칸 이름을 바꿔 보여 줄 곳(공통 분류 id => [칸 키 => 이름]) — 측구수로관 두께 = 바닥두께(11-23) */
@@ -117,6 +118,53 @@ function catalog_axis_remap(string $vendorSlug, array $p, array $dimCols, callab
         $v = $p[$sc] ?? null;
         if ($v === null || $v === '') { continue; }
         $out[$tc] = $v;
+    }
+    return $out;
+}
+
+/** 상품 행 → 업체 구분 키(목록 공통 칸 판단용). 케이토목 = 출처 ktomok·예전 dacity·출처 없음(S25) */
+function catalog_row_vendor(array $p): string
+{
+    $s = trim((string) ($p['external_source'] ?? ''));
+    return ($s === '' || $s === 'ktomok' || $s === 'dacity') ? 'ktomok' : $s;
+}
+
+/**
+ * 목록 공통 칸(S26): 이름표 칸 중 목록 머리글·필터에 둘 칸. 순수 함수
+ *  - 목록에서 빼기로 한 칸(CATALOG_AXIS_LIST_EXCLUDE — 결과 분류가 모두 그 분류일 때) 제외
+ *  - 업체가 둘 이상이면 모든 업체에 값이 있는 칸만(한쪽이 '-'인 칸은 머리글에 안 둠). 업체 하나면 값 있는 칸 전부
+ *  - 업체 판단은 축 값을 써도 되는 행(spec_axes_row_fresh)만. 나머지 칸은 상세 화면 '세부 치수'
+ * @param list<array> $defs 이름표(skip 제외)
+ * @param list<array> $rows 목록 상품 행
+ * @param list<int>   $categoryIds 결과 상품의 분류 id
+ * @return list<array> 공통 칸 이름표(순서 그대로)
+ */
+function catalog_list_common_axes(array $defs, array $rows, array $categoryIds): array
+{
+    $cats = array_values(array_unique(array_map('intval', $categoryIds)));
+    $excl = [];
+    if ($cats) {
+        $excl = CATALOG_AXIS_LIST_EXCLUDE[$cats[0]] ?? [];
+        foreach ($cats as $c) { $excl = array_intersect($excl, CATALOG_AXIS_LIST_EXCLUDE[$c] ?? []); }
+    }
+    $has = [];   // 업체 => [칸 => true]
+    foreach ($rows as $p) {
+        if (!spec_axes_row_fresh($p)) { continue; }
+        $vk = catalog_row_vendor($p);
+        $has[$vk] ??= [];
+        foreach ($defs as $a) {
+            $k = (string) $a['axis_key'];
+            if (spec_axes_row_value($p, $k) !== null) { $has[$vk][$k] = true; }
+        }
+    }
+    if (!$has) { return []; }
+    $out = [];
+    foreach ($defs as $a) {
+        $k = (string) $a['axis_key'];
+        if (in_array($k, $excl, true)) { continue; }
+        $all = true;
+        foreach ($has as $set) { if (empty($set[$k])) { $all = false; break; } }
+        if ($all) { $out[] = $a; }
     }
     return $out;
 }

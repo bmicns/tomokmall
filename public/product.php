@@ -96,6 +96,18 @@ if ($pdStd) {
         $title = trim((string) $d['label'] . ' ' . (string) ($d['symbol'] ?? ''));
         $dimDetail[] = [$title, (string) $d['value'] . (($d['unit'] ?? '') !== '' ? ' ' . $d['unit'] : '')];
     }
+} elseif (spec_axes_ready() && spec_axes_row_fresh($p)) {
+    // 케이토목 상품(규격 통일 S26, 2026-11-24): 이름표 칸 값을 '주요 치수'로 — 목록에서 뺀 칸(측구 두께 = 바닥두께 등)도 여기서 보임.
+    // 칸 이름은 케이토목 이름표 그대로, 상세에서 바꿔 보여 주기로 한 칸만 바꿈(CATALOG_AXIS_DETAIL_LABEL)
+    $relabel = CATALOG_AXIS_DETAIL_LABEL[(int) $p['cat_id']] ?? [];
+    foreach (spec_axes_for_category((int) $p['cat_id']) as $a) {
+        $k = (string) $a['axis_key'];
+        if ($k === SPEC_AXIS_SKIP) { continue; }
+        $v = spec_axes_row_value($p, $k);
+        if ($v === null) { continue; }
+        if (isset($relabel[$k])) { $a['label'] = $relabel[$k]; }
+        $dimMain[] = [spec_axis_title($a), spec_axis_value_display($a, $v) . (in_array($k, SPEC_AXIS_TEXT, true) || $a['unit'] === 'no' ? '' : ' ' . $a['unit'])];
+    }
 }
 
 // 동일 소분류 다른 규격 (최대 8개)
