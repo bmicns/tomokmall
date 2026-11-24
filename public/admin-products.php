@@ -133,6 +133,18 @@ render_admin_header('제품관리', 'products');
 .bk-norm-tbl td:first-child,.bk-norm-tbl td:nth-child(3){white-space:nowrap}
 .bk-norm-tbl th,.bk-norm-tbl td{padding:5px 8px;border-bottom:1px solid #f0f2f5;text-align:left;vertical-align:top}
 .bk-norm-tbl th{position:sticky;top:0;background:#f8f9fb;font-weight:700;white-space:nowrap}
+/* 고객 화면 규격 정리 상태(업체 상품, 2026-11-24) — 목록 표시·수정 창 */
+.spec-st{display:inline-block;margin-left:4px;padding:1px 6px;border-radius:10px;font-size:10.5px;font-weight:700;vertical-align:1px}
+.spec-st-unread{background:#fdecea;color:#b71c1c}.spec-st-partial{background:#fff8e1;color:#7a5200}
+.sc-std{margin-bottom:14px;padding:12px 14px;border:1px solid #d6e4f5;border-radius:8px;background:#f7faff}
+.sc-std[hidden]{display:none}
+.sc-std-st{font-size:12.5px;line-height:1.6;margin:4px 0 8px}
+.sc-std-read{font-size:12.5px;line-height:1.7;color:#333;margin-top:8px}
+.sc-std-btn{min-height:36px;padding:0 12px;border:1px solid #c5cad3;border-radius:6px;background:#fff;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:8px}
+.bk-spec{margin-top:12px;text-align:left;width:100%}
+.bk-spec .bk-norm-tbl table{min-width:760px}
+.bk-spec .bk-norm-tbl td{white-space:normal!important}
+.bk-spec .bk-norm-tbl td:nth-child(3){white-space:nowrap!important}
 .bk-norm-tbl del{color:#9b1c1c}.bk-norm-tbl ins{color:#1b5e20;text-decoration:none;font-weight:600}
 .bk-norm-warn{margin:0;padding:8px 10px 8px 26px;border-radius:6px;background:#fff8e1;color:#7a5200;font-size:12px;line-height:1.6}
 .bk-auto select{width:100%;min-width:180px;min-height:36px;font-size:12px;font-family:inherit;border:1px solid #c5cad3;border-radius:6px;background:#fff}
@@ -227,6 +239,11 @@ tr.row-busy td:last-child .btn-sm:last-child:disabled{opacity:1;cursor:progress}
         <option value="inactive">비활성 제품</option>
         <option value="all">전체</option>
     </select>
+    <select id="filter-spec" onchange="load(1)" aria-label="규격 정리" class="bk-hide">
+        <option value="">규격: 전체</option>
+        <option value="unread">규격 못 읽음(원문 그대로)</option>
+        <option value="partial">일부는 상세 화면으로</option>
+    </select>
     <select id="filter-syc-cat" onchange="load(1)" aria-label="카테고리" class="bk-hide">
         <option value="">전체 카테고리</option>
     </select>
@@ -309,6 +326,7 @@ tr.row-busy td:last-child .btn-sm:last-child:disabled{opacity:1;cursor:progress}
                 <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="8 12.5 11 15.5 16 9.5"/></svg>
                 <div class="bk-done-t" id="bk-done-t"></div>
                 <div class="bk-done-s" id="bk-done-s"></div>
+                <div class="bk-spec" id="bk-done-spec"></div>
             </div>
             <div class="bk-f" style="justify-content:flex-end;background:transparent">
                 <button type="button" class="btn btn-primary" onclick="bkFinish()">확인</button>
@@ -430,8 +448,16 @@ tr.row-busy td:last-child .btn-sm:last-child:disabled{opacity:1;cursor:progress}
             <div class="form-field"><label for="sc-opt">옵션</label><input type="text" id="sc-opt" maxlength="160"></div>
             <div class="form-field"><label for="sc-unit">단위</label><input type="text" id="sc-unit" maxlength="20" placeholder="예) 본"></div>
         </div>
+        <!-- 고객 화면 규격(2026-11-24): 업체 원본 분류에 이름표가 없는 업체 상품 — 고객 화면 분류 이름표로 어떻게 읽히는지 보고, 못 읽으면 직접 적기 -->
+        <div class="sc-std" id="sc-std" hidden>
+            <div class="img-slots-h">고객 화면 규격</div>
+            <div class="sc-std-st" id="sc-std-st"></div>
+            <div class="sc-dims" id="sc-std-dims"></div>
+            <div class="sc-std-read" id="sc-std-read"></div>
+            <button type="button" class="sc-std-btn" onclick="scStdPreview()">규격 다시 읽기</button>
+        </div>
         <!-- 세부 치수: 고른 분류의 칸(이름표 — 일괄 등록 엑셀의 치수 칸과 같음). 분류를 바꾸면 칸이 바뀌고 같은 칸 값은 그대로 -->
-        <div class="sc-dims-box">
+        <div class="sc-dims-box" id="sc-dims-box">
             <div class="img-slots-h">세부 치수</div>
             <div class="img-slots-note" id="sc-dims-note">분류를 고르면 그 분류의 치수 칸이 나옵니다. 상세 화면 '세부 치수'와 목록 '규격(치수)' 필터에 쓰입니다.</div>
             <div class="sc-dims" id="sc-dims"></div>
@@ -488,6 +514,8 @@ async function sourceChanged() {
     const syc = isSyc();
     document.getElementById('filter-cat').classList.toggle('bk-hide', syc);
     document.getElementById('filter-syc-cat').classList.toggle('bk-hide', !syc);
+    document.getElementById('filter-spec').classList.toggle('bk-hide', !syc);
+    if (!syc) document.getElementById('filter-spec').value = '';
     // 모든 업체: 일괄 등록·제품 등록은 업체를 고른 뒤(덮어쓰기는 업체 안에서만)
     ['btn-bulk', 'btn-create'].forEach(id => {
         const b = document.getElementById(id);
@@ -514,13 +542,14 @@ async function load(page) {
     const status = document.getElementById('filter-status').value;
     const catId  = document.getElementById(syc ? 'filter-syc-cat' : 'filter-cat').value;
     const q      = document.getElementById('filter-q').value;
+    const spec   = syc ? document.getElementById('filter-spec').value : '';
     document.getElementById('prod-tbody').innerHTML = '<tr><td colspan="12" class="empty-row">불러오는 중...</td></tr>';
-    const r = await fetch(`${syc ? SYC_API : API}?source=${encodeURIComponent(srcCode())}&status=${status}&cat_id=${catId}&q=${encodeURIComponent(q)}&page=${page}`);
+    const r = await fetch(`${syc ? SYC_API : API}?source=${encodeURIComponent(srcCode())}&status=${status}&cat_id=${catId}&q=${encodeURIComponent(q)}&spec=${spec}&page=${page}`);
     // 오류는 200 + ok:false + error 로 온다(닷홈 4xx 본문 교체 회피). 본문이 JSON 이 아니면 일반 문구
     const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
     if (!d.ok) { alert(d.error); return; }
     sycTotal = d.total; sycAllMatching = false;
-    sycFilter = {source: srcCode(), status, cat_id: catId, q};
+    sycFilter = {source: srcCode(), status, cat_id: catId, q, spec};
     if (syc) renderSyc(d.products); else render(d.products);
     sycSelCount();
     renderPaging(d.total, d.limit, page);
@@ -543,7 +572,7 @@ function renderSyc(rows) {
             <td style="font-weight:600;color:#1a2035">${x(p.name)}${p.brand ? `<span class="syc-brand">${x(p.brand)}</span>` : ''}</td>
             <td style="font-size:12px;white-space:nowrap">${x(srcName())}</td>
             <td style="font-size:12px;color:#888">${x(p.cat_name)}</td>
-            <td style="font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${x(p.spec)}">${x(p.spec || '-')}</td>
+            <td style="font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${x(p.spec)}">${x(p.spec || '-')}${SPEC_ST[p.spec_state] ? `<br><span class="spec-st spec-st-${p.spec_state}">${SPEC_ST[p.spec_state]}</span>` : ''}</td>
             <td style="font-size:13px;color:#004EA1">${+p.cost_price ? Number(p.cost_price).toLocaleString()+'원' : '-'}</td>
             <td style="font-size:13px">${+p.price_b2c ? Number(p.price_b2c).toLocaleString()+'원' : '-'}</td>
             ${memberCells(p)}
@@ -868,9 +897,10 @@ async function bkRegister() {
     if (d.normalized_rows) parts.push(`자동 정리: 상품 ${d.normalized_rows.toLocaleString()}건의 품명·모델 코드·옵션·치수·분류를 사이트 표기로 고쳐 저장했습니다.`);
     parts.push(ACTIVE_TOGGLE ? '제품관리에서 내용을 확인한 뒤 활성으로 바꾸면 고객 화면에 보입니다.' : '활성/비활성 변경은 추후 지원 예정입니다.');
     if (d.publish) parts.push(`고객 화면 반영: 상품 ${Number(d.publish.products).toLocaleString()}건` + (d.publish.unmapped ? ` · 공통 분류 매핑 없음 ${d.publish.unmapped}건(반영 안 됨)` : ''));
-    if (d.publish && d.publish.spec_unread) parts.push(`규격을 칸별로 못 읽은 업체 상품 ${Number(d.publish.spec_unread).toLocaleString()}건은 고객 목록에 규격 원문 한 줄로 보입니다` + (d.publish.spec_unread_top ? ` (${Object.entries(d.publish.spec_unread_top).map(([k, v]) => `${x(k)} ${v}`).join(', ')})` : '') + '.');
+    if (d.publish && d.publish.spec_unread && !(d.publish.spec_status || {})[bk.src]) parts.push(`규격을 칸별로 못 읽은 업체 상품 ${Number(d.publish.spec_unread).toLocaleString()}건은 고객 목록에 규격 원문 한 줄로 보입니다` + (d.publish.spec_unread_top ? ` (${Object.entries(d.publish.spec_unread_top).map(([k, v]) => `${x(k)} ${v}`).join(', ')})` : '') + '.');
     if (d.publish_error) parts.push(`<b style="color:#c62828">고객 화면 반영 안 됨:</b> ${x(d.publish_error)}`);
     document.getElementById('bk-done-s').innerHTML = parts.join('<br>');
+    document.getElementById('bk-done-spec').innerHTML = bkSpecHtml(d.publish, bk.src);
     document.getElementById('bk-done').classList.remove('bk-hide');
     bk.last = d;
     if (!document.getElementById('bk-modal').classList.contains('open')) bkFinish();   // 창을 닫은 뒤 끝나면 안내 띠만
@@ -929,6 +959,11 @@ function scNum(v) { if (v === null || v === undefined || v === '') return ''; co
 // 고른 분류의 치수 칸 그리기 — 분류를 바꿔도 같은 축 키 값은 그대로(scDimVals)
 function scDimsRender() {
     const axes = sycAxes[document.getElementById('sc-cat').value] || [];
+    // 업체 원본 분류에 이름표가 없으면(새 업체·동아산업) 기존 세부 치수 칸 대신 '고객 화면 규격'
+    const std = !!document.getElementById('sc-cat').value && !axes.length;
+    document.getElementById('sc-dims-box').hidden = std;
+    document.getElementById('sc-std').hidden = !std;
+    if (std && scStdReady) scStdPreview();
     const box = document.getElementById('sc-dims');
     document.getElementById('sc-dims-note').textContent = !document.getElementById('sc-cat').value
         ? '분류를 고르면 그 분류의 치수 칸이 나옵니다.'
@@ -976,7 +1011,7 @@ async function sycCreateOpen() {
     document.getElementById('sc-id').value = '';
     [...Object.keys(SC_FIELDS), ...Object.keys(SC_IMGS)].forEach(id => { document.getElementById(id).value = ''; });
     document.getElementById('sc-brand').value = srcName();
-    scDimVals = {};
+    scDimVals = {}; scStd = null; scStdVals = {}; scStdReady = true;
     scDimsRender();
     sycModalShow(false, `${srcName()} 제품 등록`);
 }
@@ -994,8 +1029,73 @@ async function sycEditOpen(source, srcLabel, ref) {
     document.getElementById('sc-active').value = String(+p.is_active === 1 ? 1 : 0);
     scDimVals = {};
     Object.values(sycAxes).flat().forEach(a => { const v = p[scAxisCol(a.key)]; if (v !== null && v !== undefined) scDimVals[a.key] = scNum(v); });
+    scStd = d.std_spec || null; scStdVals = {}; scStdReady = false;
+    if (scStd && scStd.manual) Object.entries(scStd.values || {}).forEach(([k, v]) => { scStdVals[k] = scNum(v); });
     scDimsRender();
+    scStdRender();
+    scStdReady = true;
     sycModalShow(true, `${srcLabel} 제품 수정`);
+}
+/* ── 고객 화면 규격(업체 원본 분류에 이름표가 없는 업체 상품, 2026-11-24): 고객 화면 분류 이름표로 읽은 결과 + 못 읽으면 직접 적기 ── */
+const SPEC_ST = {unread: '규격 못 읽음', partial: '일부 상세로'};
+const SPEC_ST_LONG = {full: '정리됨', partial: '일부만 정리', nodims: '치수 없음 — 규격외정보로 보임', unread: '못 읽음 — 고객 목록에 규격 원문 한 줄로 보임'};
+let scStd = null, scStdVals = {}, scStdReady = false;
+function scStdRender() {
+    const st = document.getElementById('sc-std-st'), box = document.getElementById('sc-std-dims'), rd = document.getElementById('sc-std-read');
+    if (!scStd) { st.textContent = '규격 다시 읽기를 누르면 고객 화면에서 어떻게 보이는지 나옵니다.'; box.innerHTML = ''; rd.innerHTML = ''; return; }
+    if (!scStd.category) { st.innerHTML = `<b style="color:#b71c1c">${x(scStd.reason)}</b>`; box.innerHTML = ''; rd.innerHTML = ''; return; }
+    const color = {full: '#1b5e20', partial: '#7a5200', nodims: '#555', unread: '#b71c1c'}[scStd.status] || '#555';
+    st.innerHTML = `고객 화면 분류 <b>${x(scStd.category.name)}</b> · <b style="color:${color}">${x(scStd.manual ? '직접 적은 치수' : (SPEC_ST_LONG[scStd.status] || scStd.status))}</b>${scStd.reason && !scStd.manual ? ` (${x(scStd.reason)})` : ''}`
+        + (scStd.editable ? '<br>흐린 숫자는 규격 원문에서 자동으로 읽은 값입니다. 칸을 고치거나 채우면 저장할 때 적은 값(빈칸은 흐린 값)으로 고정되고, 모든 칸을 비우면 다시 자동으로 읽습니다.'
+                          : '<br>이 분류는 칸을 직접 적을 수 없어 규격 원문을 고쳐 주세요(예: W300*H200*L1000, 폭300 높이200). 고친 뒤 [규격 다시 읽기].');
+    const auto = scStd.values || {};   // 자동으로 읽은 값(빈칸일 때 흐리게)
+    box.innerHTML = (scStd.axes || []).filter(a => !a.fixed).map(a => {
+        const id = 'sc-std-' + a.key;
+        const unit = a.unit && a.unit !== 'no' ? a.unit : '';
+        const dis = !scStd.editable || !a.storable;
+        return `<div class="form-field"><label for="${id}">${x(a.label)}${a.symbol ? ' ' + x(a.symbol) : ''}${unit ? ` <small>(${x(unit)})</small>` : ''}</label>`
+             + `<input type="number" id="${id}" data-key="${x(a.key)}" step="0.1" min="0" value="${x(scStdVals[a.key] ?? '')}" placeholder="${x(auto[a.key] ?? '')}"${dis ? ' disabled' : ''} oninput="scStdVals[this.dataset.key]=this.value"></div>`;
+    }).join('');
+    const info = [scStd.code, scStd.option ? String(scStd.option).split('_').join(' / ') : ''].filter(Boolean).join(' / ');
+    const det = (scStd.detail || []).map(e => `${x(e.label)}${e.symbol ? ' ' + x(e.symbol) : ''} ${x(e.value)}${e.unit ? ' ' + x(e.unit) : ''}`).join(', ');
+    rd.innerHTML = (info ? `규격외정보: ${x(info)}` : '') + (det ? `${info ? '<br>' : ''}상세 화면 세부 치수: ${det}` : '');
+}
+async function scStdPreview() {
+    const v = id => document.getElementById(id).value.trim();
+    const body = {action: 'spec_preview', source: sycEdit ? sycEdit.source : srcCode(), id: +v('sc-id') || 0, category_id: +v('sc-cat'),
+                  name: v('sc-name'), spec: v('sc-spec'), spec_code: v('sc-code'), spec_option: v('sc-opt')};
+    if (!body.category_id) return;
+    const d = await fetch(SYC_API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}).then(r => r.json()).catch(() => ({ok:false}));
+    if (!d.ok) { document.getElementById('sc-std-st').textContent = '규격을 읽지 못했습니다. 잠시 후 다시 시도해 주세요.'; return; }
+    const typed = Object.values(scStdVals).some(val => String(val).trim() !== '');
+    scStd = d.std_spec ? Object.assign(d.std_spec, {manual: typed}) : null;
+    scStdRender();
+}
+function scStdPayload() {
+    if (document.getElementById('sc-std').hidden || !scStd || !scStd.editable) return {};
+    const ins = [...document.querySelectorAll('#sc-std-dims input[data-key]:not([disabled])')];
+    const typed = ins.some(i => i.value.trim() !== '');   // 하나라도 적으면 빈칸은 자동으로 읽은 값으로 채워 함께 저장
+    const out = {};
+    ins.forEach(i => { out[i.dataset.key] = typed ? (i.value.trim() || i.placeholder || '') : ''; });
+    return out;
+}
+// 일괄 등록 결과: 이 업체 상품의 규격 정리 결과(개수 + 일부만·못 읽은 상품 목록)
+function bkSpecHtml(pub, src) {
+    const c = pub && pub.spec_status ? pub.spec_status[src] : null;
+    if (!c) return '';
+    const n = k => Number(c[k] || 0).toLocaleString();
+    const rows = (pub.spec_rows || []).map(r => `<tr><td>${x(r.name)}</td><td>${x(r.spec || '-')}</td><td>${r.status === 'unread' ? '<b style="color:#b71c1c">못 읽음</b>' : '일부만'}</td><td>${x(r.reason)}</td><td>${x(r.option || '')}</td><td>${x(r.category || '')}</td></tr>`).join('');
+    const unread = +c.unread || 0;
+    return `<div class="bk-norm"><b>규격 정리 결과</b><div class="bk-norm-chips"><span>정리됨 ${n('full')}</span><span>일부만 ${n('partial')}</span><span>치수 없음 ${n('nodims')}</span><span style="${unread ? 'background:#fdecea;color:#b71c1c' : ''}">못 읽음 ${n('unread')}</span></div>`
+        + (rows ? `<div class="bk-norm-tbl"><table><thead><tr><th>제품명</th><th>규격</th><th>결과</th><th>이유</th><th>옵션</th><th>고객 화면 분류</th></tr></thead><tbody>${rows}</tbody></table></div>` : '')
+        + (unread ? `<div>못 읽은 상품은 고객 목록에 규격 원문 한 줄로 보입니다. 제품관리 '규격 못 읽음'에서 찾아 [수정]으로 고칠 수 있습니다.</div><button type="button" class="bk-norm-dl" onclick="bkShowUnread()">못 읽은 상품 보기</button>` : '')
+        + '</div>';
+}
+function bkShowUnread() {
+    document.getElementById('bk-modal').classList.remove('open');
+    if (bk.src) document.getElementById('filter-source').value = bk.src;
+    document.getElementById('filter-status').value = 'all';
+    sourceChanged().then(() => { document.getElementById('filter-spec').value = 'unread'; load(1); });
 }
 function sycCreateClose() { document.getElementById('syc-modal').classList.remove('open'); }
 async function sycCreateSave() {
@@ -1005,7 +1105,7 @@ async function sycCreateSave() {
     Object.entries(SC_FIELDS).forEach(([id, k]) => { payload[k] = v(id); });
     Object.entries(SC_IMGS).forEach(([id, k]) => { payload[k] = v(id); });
     payload.category_id = +payload.category_id;
-    payload.dims = scDimsPayload();   // 고른 분류의 치수 칸만
+    payload.dims = Object.assign(scDimsPayload(), scStdPayload());   // 고른 분류의 치수 칸만(이름표 없는 업체 분류는 고객 화면 규격 칸)
     if (edit) { payload.id = +v('sc-id'); if (ACTIVE_TOGGLE) payload.is_active = +v('sc-active'); }
     if (!payload.category_id) { alert('카테고리를 선택해 주세요.'); return; }
     if (!payload.name) { alert('제품명을 입력해 주세요.'); return; }
