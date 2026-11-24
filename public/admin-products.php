@@ -186,6 +186,16 @@ render_admin_header('제품관리', 'products');
 .img-slot-msg{font-size:12px;color:#666}
 .img-slot-msg.err{color:#c62828}   /* 모든 업체: 일괄 등록·제품 등록은 업체를 고른 뒤 */
 @media (max-width:640px){.bk-b,.bk-h,.bk-f{padding-left:16px;padding-right:16px}.bk-hint{flex-basis:100%}}
+/* 활성/비활성 바꾸는 동안 바로 보이는 표시(2026-11-24 — 서버 반영에 몇 초 걸려도 눌렀다는 것을 바로 알림) */
+tr.row-busy td{opacity:.55;transition:opacity .15s}
+tr.row-busy td:last-child{opacity:1}
+tr.row-busy td:last-child .btn-sm:not(:last-child),tr.row-busy td:last-child label{opacity:.45}
+tr.row-busy td:last-child .btn-sm:last-child:disabled{opacity:1;cursor:progress}
+.busy-dot{display:inline-block;width:10px;height:10px;margin-right:5px;vertical-align:-1px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:busy-spin .7s linear infinite}
+@keyframes busy-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.busy-dot{animation:none;border-right-color:currentColor;opacity:.6}}
+.ap-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:900;max-width:calc(100% - 32px);padding:11px 18px;border-radius:8px;background:#222;color:#fff;font-size:13.5px;line-height:1.5;box-shadow:0 6px 20px rgba(0,0,0,.18)}
+.ap-toast.is-error{background:#d93025}
 </style>
 
 <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:20px">
@@ -581,10 +591,13 @@ async function sycBulk(val) {
     const word = val ? '활성' : '비활성';
     if (sycAllMatching) {
         if (!confirm(`검색 결과 전체 ${sycTotal.toLocaleString()}개(모든 페이지)를 ${word}으로 바꿀까요?`)) return;
+        sycRowsBusy([...document.querySelectorAll('.syc-chk')].map(c => +c.value), val); sycBulkBusy(true);
+        apToast(`${sycTotal.toLocaleString()}개를 ${word}으로 바꾸는 중…`);
         const r = await fetch(isSyc() ? SYC_API : API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'set_active_filter', filter:sycFilter, expect:sycTotal, is_active:val})});
         const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
-        if (!d.ok) { alert(d.error); load(curPage); return; }
+        if (!d.ok) { apToast(d.error, true); load(curPage); return; }
         pubWarn(d);
+        apToast(`${sycTotal.toLocaleString()}개를 ${word}으로 바꿨습니다.`);
         load(1);
         return;
     }
@@ -594,13 +607,36 @@ async function sycBulk(val) {
     await sycToggle(ids, val);
 }
 
+// 처리 중 표시: 누른 줄을 흐리게 + 상태 칸 '바꾸는 중…' + 버튼 잠금(고객 화면 반영까지 몇 초 걸림), 끝나면 알림
+let apToastTimer;
+function apToast(msg, err) {
+    let el = document.getElementById('ap-toast');
+    if (!el) { el = document.createElement('div'); el.id = 'ap-toast'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); document.body.appendChild(el); }
+    el.className = 'ap-toast' + (err ? ' is-error' : ''); el.textContent = msg; el.hidden = false;
+    clearTimeout(apToastTimer); apToastTimer = setTimeout(() => { el.hidden = true; }, 2600);
+}
+function sycRowsBusy(ids, val) {
+    const set = new Set(ids.map(Number));
+    const rows = [...document.querySelectorAll('.syc-chk')].filter(c => set.has(+c.value)).map(c => c.closest('tr'));
+    rows.forEach(tr => {
+        tr.classList.add('row-busy'); tr.setAttribute('aria-busy', 'true');
+        tr.querySelectorAll('button, input').forEach(el => { el.disabled = true; });
+        const b = [...tr.querySelectorAll('button')].find(el => /활성으로$/.test(el.textContent.trim()));
+        if (b) b.innerHTML = '<span class="busy-dot" aria-hidden="true"></span>바꾸는 중…';
+    });
+}
+function sycBulkBusy(on) {
+    ['syc-bulk-on', 'syc-bulk-off'].forEach(id => { const b = document.getElementById(id); if (b) b.disabled = on || !document.querySelector('.syc-chk:checked'); });
+}
 async function sycToggle(id, val) {
     const ids = Array.isArray(id) ? id : [id];
     const syc = isSyc();
-    const r = await fetch(syc ? SYC_API : API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action: syc ? 'set_active' : 'bulk_toggle', ids, is_active:val, source: srcCode()})});
-    const d = await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'}));
-    if (!d.ok) { alert(d.error); return; }
+    sycRowsBusy(ids, val); sycBulkBusy(true);
+    const r = await fetch(syc ? SYC_API : API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action: syc ? 'set_active' : 'bulk_toggle', ids, is_active:val, source: srcCode()})}).catch(() => null);
+    const d = r ? await r.json().catch(() => ({ok:false, error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'})) : {ok:false, error:'서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.'};
+    if (!d.ok) { apToast(d.error, true); load(curPage); return; }
     pubWarn(d);
+    apToast(`${ids.length > 1 ? ids.length + '개를 ' : ''}${val ? '활성' : '비활성'}으로 바꿨습니다.`);
     load(curPage);
 }
 
