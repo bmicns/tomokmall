@@ -148,6 +148,10 @@ function catalog_axis_parse_try(string $value, array $axes, array $dimCols): ?ar
  *  ③ 같은 모양에서 배우기: 규격의 숫자 모양(개수와 각 숫자 앞뒤 표시 D·Ø·H·T…)이 기준 상품 2개 이상과 똑같고, 그 기준 상품들이
  *     '몇 번째 숫자 = 어느 칸'으로 모두 같게(하나로만) 읽힐 때만 그 자리의 숫자를 씀. 단위가 다르거나(m 칸) 자리가 둘 이상이면 배우지 않음
  *  ④ 끝 두께 떼기: '…*200T' 처럼 끝 숫자 하나가 T 로 끝나 이름표 칸 수보다 숫자가 하나 많으면, 앞부분만 읽고 '200T' 는 옵션으로(값을 버리지 않음)
+ *  ⑤ 분기구: 이름표가 '가지관 내경' 하나뿐이면 '본관*가지관D숫자'의 끝 숫자 = 가지관 내경, 앞 글자는 옵션('본관 …_가지관 …')
+ *  ⑥ 범위 값: 이름표가 '적용 크기' 하나뿐이고 원문이 비면 옵션 '형식_숫자-숫자' → 모델 코드 = 형식, 적용 크기 = 범위
+ *  ⑦ 구분 기호: 'D116_D142*H850'·'D200용'·'1120*620*h80' 처럼 '_'·'용'·앞 h 때문에 못 읽으면 정리해서 다시 읽음(숫자 수 = 이름표 칸 수, 칸이 모두 찰 때만)
+ *  ② 보완: 괄호 형식에서 옵션이 '6T_1롤' 이면 '6T (원문 1롤)'
  */
 
 /** 규격 글자 비교용(띄어쓰기·대소문자 무시) */
@@ -238,6 +242,19 @@ function catalog_ref_learn(array $list): array|false
 }
 
 /**
+ * 모양 글자와 이름표가 맞지 않는지: '사각'·'수공'인데 이름표에 직경(d)만 있고 가로·폭(w)이 없음, '원형'인데 w 만 있고 직경 칸이 없음.
+ * 이런 상품은 분류가 모양과 달라(케이토목은 사각을 따로 나눔) 숫자를 넣으면 잘못 들어가므로 규칙 ⑦ 을 쓰지 않는다(①~④ 는 기준 상품·형식으로 이미 걸러짐). 순수 함수
+ */
+function catalog_shape_conflict(string $text, array $keys): bool
+{
+    $hasD = (bool) array_intersect($keys, ['d', 'd_i', 'd_o']);
+    $hasW = in_array('w', $keys, true);
+    if (preg_match('/사각|수공/u', $text) && $hasD && !$hasW) { return true; }
+    if (str_contains($text, '원형') && $hasW && !$hasD) { return true; }
+    return false;
+}
+
+/**
  * 업체 상품 1행 → 기준 상품·형식 규칙으로 채울 값(규칙 ①~④, 위 설명). 못 정하면 null. 순수 함수
  * @param array $ref catalog_ref_index()[공통 분류 id] (없으면 [])
  * @return ?array{cols: array<string, ?string>, code: ?string, option: ?string, src: string, rule: string}
@@ -259,12 +276,22 @@ function catalog_axis_from_ref(string $spec, ?string $option, array $axes, array
         $hit = $ref['exact'][catalog_spec_norm($t)] ?? null;
         if (is_array($hit)) { return ['cols' => $fill($hit['cols']), 'code' => $hit['code'], 'option' => $hit['option'], 'src' => $src, 'rule' => 'same']; }
     }
+    $keys = array_map(static fn($a) => (string) $a['axis_key'], $axes);
+    // ⑥ 범위 값(집게·클립): 이름표가 '적용 크기' 하나뿐인 분류에서 옵션 '형식_…_숫자-숫자' → 모델 코드 = 형식, 적용 크기 = 범위, 가운데 = 옵션
+    if ($spec === '' && $keys === ['d_base'] && preg_match('/^([^_]+)((?:_[^_]+)*)_(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/u', $opt, $m) && (float) $m[3] < (float) $m[4]) {
+        $mid = trim(str_replace('_', ' ', $m[2]));
+        return ['cols' => $fill(['dim_d_base' => $m[3] . '~' . $m[4]]), 'code' => trim($m[1]), 'option' => $mid !== '' ? str_replace(' ', '_', $mid) : null, 'src' => $src, 'rule' => 'range'];
+    }
     if ($spec === '') { return null; }                         // 아래 규칙은 원문 치수가 있을 때만
     // ② 형식 맞춰 읽기
     $fmt = $axes ? spec_axes_fmt($axes) : '';
     $alts = [];
     if ($opt !== '') {
         if ($fmt === 'paren') { $alts[] = $opt . ' (' . $spec . ')'; }
+        if ($fmt === 'paren' && str_contains($opt, '_')) {       // 그리드: 규격 '2m*50m' + 옵션 '6T_1롤' → '6T (2m*50m 1롤)'
+            $p = explode('_', $opt);
+            $alts[] = $p[0] . ' (' . $spec . ' ' . implode(' ', array_slice($p, 1)) . ')';
+        }
         if ($fmt === 'lead_text' || $fmt === 'shape') { $alts[] = $opt . ' ' . $spec; }
         if ($fmt === 'pipe_port') {
             $p = explode('_', $opt);
@@ -290,6 +317,25 @@ function catalog_axis_from_ref(string $spec, ?string $option, array $axes, array
         if ($r !== null && count(array_filter($r['cols'], static fn($v) => $v !== null)) === count(array_filter($axes, static fn($a) => isset(SPEC_AXIS_COLUMNS[(string) $a['axis_key']])))) {
             $parts = array_values(array_unique(array_filter([(string) $r['option'], $m[2], $opt], static fn($x) => $x !== '')));
             return ['cols' => $r['cols'], 'code' => $r['code'], 'option' => implode('_', $parts), 'src' => $src, 'rule' => 'trailing_t'];
+        }
+    }
+    // ⑤ 분기구: 이름표가 '가지관 내경' 하나뿐인 분류에서 '본관*가지관D숫자'(가지관 글자에 숫자 없음) → 가지관 내경 = 끝 숫자,
+    //    옵션 = '본관 …_가지관 …_업체 옵션'(케이토목 분기구 표기와 같게)
+    if ($keys === ['d_i'] && preg_match('/^([^*]+)\*([^*\d]+?)D?(\d+(?:\.\d+)?)$/u', $spec, $m)) {
+        $parts = array_values(array_filter(['본관 ' . trim($m[1]), '가지관 ' . trim($m[2]), $opt], static fn($x) => $x !== ''));
+        return ['cols' => $fill(['dim_d_i' => spec_axis_num((float) $m[3])]), 'code' => null, 'option' => implode('_', $parts), 'src' => $src, 'rule' => 'branch'];
+    }
+    // ⑦ 구분 기호 맞추기: 숫자 묶음 사이 '_' → '*', 끝 숫자 뒤 '용' 떼기, '*h80' → '*80H'. 다시 읽어 이름표 칸이 모두 차고 숫자 수 = 이름표 칸 수일 때만
+    //    사각 상품이 원형 이름표 분류에 있는 경우 등(모양 글자와 이름표가 안 맞음)은 쓰지 않음
+    if ($axes && !catalog_shape_conflict($spec . ' ' . $opt, $keys)) {
+        $alt = (string) preg_replace(['/(?<=\d)_(?=[DdHhØ]?\d)/u', '/(?<=\d)용$/u', '/(?<=\*)h(\d+(?:\.\d+)?)(?=\*|$)/u'], ['*', '', '${1}H'], $spec);
+        $need = count(array_filter($keys, static fn($k) => isset(SPEC_AXIS_COLUMNS[$k])));
+        if ($alt !== $spec && count(catalog_spec_numbers($alt)) === $need) {
+            $r = catalog_axis_parse_try($alt, $axes, $dimCols);
+            if ($r !== null && count(array_filter($r['cols'], static fn($v) => $v !== null)) === $need) {
+                $parts = array_values(array_unique(array_filter([(string) $r['option'], $opt], static fn($x) => $x !== '')));
+                return ['cols' => $r['cols'], 'code' => $r['code'], 'option' => $parts ? implode('_', $parts) : null, 'src' => $src, 'rule' => 'separator'];
+            }
         }
     }
     return null;
