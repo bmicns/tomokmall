@@ -299,7 +299,7 @@ function syc_publish_dims(array $p, array $axes): array
  * 공통 분류 반영: syc_products(모든 출처) → products. 트랜잭션은 호출측(syc_publish_std_run).
  * @return array{products:int, unmapped:int, stale:int}
  */
-function syc_publish_std_apply(PDO $pdo): array
+function syc_publish_std_apply(PDO $pdo, ?string $focusSource = null): array
 {
     $stdIds = [];
     foreach ($pdo->query("SELECT id, slug FROM categories WHERE slug NOT LIKE 'syc-%' AND slug NOT LIKE 'dac-%'") as $r) { $stdIds[(string) $r['slug']] = (int) $r['id']; }
@@ -322,7 +322,7 @@ function syc_publish_std_apply(PDO $pdo): array
     $pins = $pdo->prepare('INSERT INTO products (' . implode(', ', $cols) . ') VALUES (' . implode(', ', array_fill(0, count($cols), '?')) . ') AS n ON DUPLICATE KEY UPDATE ' . $upd);
     $axesBySyc = syc_axes_rows();
     $sycDimCols = array_values(array_intersect(array_filter(array_map('syc_axis_column', SYC_AXIS_KEYS)), $sycCols));   // 업체 원본 치수 칸(S33 판단용)
-    $n = 0; $unmapped = 0; $specRead = 0; $specMiss = []; $refIdx = null;
+    $n = 0; $unmapped = 0; $specRead = 0; $specMiss = []; $refIdx = null; $specStat = []; $specRows = [];
     foreach ($pdo->query('SELECT * FROM syc_products ORDER BY id') as $p) {
         $sid = (int) $p['category_id'];
         $cid = catalog_std_category((string) ($sycSlug[$sid] ?? ''), $p, $stdIds);
@@ -333,22 +333,28 @@ function syc_publish_std_apply(PDO $pdo): array
         $remap = catalog_axis_remap((string) ($sycSlug[$sid] ?? ''), $p, $dimCols, 'syc_axis_column');
         $code = $p['spec_code']; $opt = $p['spec_option']; $specSrc = null;
         // 업체 칸 값이 하나도 없고 모델 코드도 없으면(동아산업 등 이름표 없는 업체 분류) 공통 분류 이름표로 규격 원문을 읽어 담음(S33, 2026-11-24).
-        // 모델 코드만 나눠 둔 행(규사 등 spec_axes_row_named)은 정리된 것으로 보고 그대로
-        if (trim((string) $code) === '' && !array_filter($sycDimCols, static fn($c) => ($p[$c] ?? null) !== null && $p[$c] !== '')) {
+        // 모델 코드만 나눠 둔 행(규사 등 spec_axes_row_named)은 정리된 것으로 보고 그대로. 업체 목록 업체(vendor-…)는 엑셀에 모델 코드를 적어도
+        // 치수 칸이 비면 읽음(새 업체, 2026-11-24 — 업체 모델 코드는 그대로 둠). 관리자가 제품관리에서 치수를 직접 적으면 업체 칸 값이 있어 그 값 그대로
+        if (syc_publish_needs_read($p, $sycDimCols)) {
             $cax = spec_axes_for_category($cid);
-            $fs  = catalog_axis_from_spec((string) $p['spec'], $p['spec_option'], $cax, $dimCols)
-                ?? catalog_axis_from_ref((string) $p['spec'], $p['spec_option'], $cax, ($refIdx ??= syc_publish_ref_index($pdo, $pcols))[$cid] ?? ['exact' => [], 'sig' => []], $dimCols,
-                                         in_array($cid, CATALOG_T_AS_HEIGHT, true));
+            $rd  = catalog_axis_read((string) $p['spec'], $p['spec_option'], $cax, ($refIdx ??= syc_publish_ref_index($pdo, $pcols))[$cid] ?? ['exact' => [], 'sig' => []], $dimCols,
+                                     in_array($cid, CATALOG_T_AS_HEIGHT, true));
+            $fs  = $rd['fs'];
+            $srcKey = (string) $p['external_source'];
+            $specStat[$srcKey][$rd['status']] = ($specStat[$srcKey][$rd['status']] ?? 0) + 1;
+            if ($focusSource !== null && $srcKey === $focusSource && in_array($rd['status'], ['partial', 'unread'], true) && count($specRows) < 500) {
+                $specRows[] = ['id' => (int) $p['id'], 'name' => (string) $p['name'], 'spec' => (string) $p['spec'], 'option' => (string) $p['spec_option'],
+                               'category_id' => $cid, 'status' => $rd['status'], 'reason' => $rd['reason']];
+            }
             if ($fs !== null) {
                 $remap = $fs['cols'];
-                $code  = $fs['code'];
-                $opt   = $fs['option'];
+                [$code, $opt] = syc_publish_merge_code($code, $fs['code'], $fs['option']);
                 // 원문이 비고 옵션에 규격을 적은 업체 상품(집게·클립 등): 같은 규격의 케이토목 상품처럼 그 글자를 규격 원문으로
                 if (trim((string) $p['spec']) === '' && ($fs['src'] ?? '') !== '') {
                     $specSrc = $fs['src'];
                     $vals[3] = syc_publish_spec_text(['spec' => $specSrc] + $p);
                 }
-                // 이름표 칸에 넣지 않은 값(고정값 칸 자리 — 우레탄볼라드 바닥직경 등)은 상세 화면 '세부 치수'로(product.php)
+                // 이름표 칸에 넣지 않은 값(고정값 칸 자리 — 우레탄볼라드 바닥직경, 이름표에 없는 칸·표시 없는 숫자)은 상세 화면 '세부 치수'로(product.php)
                 if (!$dims && !empty($fs['detail'])) { $dims = $fs['detail']; }
                 $specRead++;
             } else {
@@ -391,7 +397,9 @@ function syc_publish_std_apply(PDO $pdo): array
         foreach ($ids as $id) { $missNames[(string) ($nm[$id] ?? $id)] = $specMiss[$id]; }
     }
     return ['products' => $n, 'unmapped' => $unmapped, 'stale' => (int) $stale, 'categories_opened' => $opened,
-            'spec_read' => $specRead, 'spec_unread' => array_sum($specMiss), 'spec_unread_top' => $missNames];
+            'spec_read' => $specRead, 'spec_unread' => array_sum($specMiss), 'spec_unread_top' => $missNames,
+            // 업체별 규격 정리 결과 개수(full·partial·nodims·unread)와 고른 업체의 일부만·못 읽은 상품(일괄 등록 결과 화면, 500개까지)
+            'spec_status' => $specStat, 'spec_rows' => syc_publish_rows_named($pdo, $specRows)];
 }
 
 /**
@@ -407,12 +415,96 @@ function syc_publish_ref_index(PDO $pdo, array $pcols): array
     return catalog_ref_index($rs);
 }
 
+/** 업체 상품 행의 규격을 공통 분류 이름표로 읽어야 하는지: 업체 칸 값이 하나도 없고, 모델 코드가 없거나 업체 목록 업체(vendor-…) 상품. 순수 함수 */
+function syc_publish_needs_read(array $p, array $sycDimCols): bool
+{
+    if (array_filter($sycDimCols, static fn($c) => ($p[$c] ?? null) !== null && $p[$c] !== '')) { return false; }
+    return trim((string) ($p['spec_code'] ?? '')) === '' || str_starts_with((string) ($p['external_source'] ?? ''), 'vendor-');
+}
+
+/** 업체가 적은 모델 코드 + 읽은 모델 코드·옵션 → [모델 코드, 옵션]: 업체 코드가 있으면 그대로, 읽은 코드는 옵션 앞에. 순수 함수 */
+function syc_publish_merge_code(?string $vendorCode, ?string $readCode, ?string $readOpt): array
+{
+    $vc = trim((string) $vendorCode); $rc = trim((string) $readCode);
+    if ($vc === '') { return [$rc !== '' ? $rc : null, $readOpt]; }
+    $parts = array_values(array_unique(array_filter([$rc !== $vc ? $rc : '', (string) $readOpt], static fn($x) => $x !== '')));
+    return [$vc, $parts ? implode('_', $parts) : null];
+}
+
+/** 일괄 등록 결과 행에 공통 분류 이름을 붙임 */
+function syc_publish_rows_named(PDO $pdo, array $rows): array
+{
+    $ids = array_values(array_unique(array_column($rows, 'category_id')));
+    if (!$ids) { return $rows; }
+    $st = $pdo->prepare('SELECT id, name FROM categories WHERE id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')');
+    $st->execute($ids);
+    $nm = array_column($st->fetchAll(), 'name', 'id');
+    foreach ($rows as &$r) { $r['category'] = (string) ($nm[$r['category_id']] ?? ''); }
+    unset($r);
+    return $rows;
+}
+
+/**
+ * 제품관리 수정 창 '고객 화면 규격'(2026-11-24 사용자 요청 '원문으로 남은 상품은 관리자 화면에서 직접 수정'): 업체 상품 1행(창에 적은 값 그대로)이
+ * 고객 화면에서 어떻게 정리되는지. 업체 원본 분류에 이름표가 있으면(상용콘크리트 등) null — 기존 세부 치수 칸 그대로
+ * @return ?array{category: array, axes: list<array>, editable: bool, manual: bool, status: string, reason: string, values: array<string,string>, code: ?string, option: ?string, detail: list<array>}
+ */
+function syc_publish_std_preview(PDO $pdo, array $p): ?array
+{
+    $sid = (int) ($p['category_id'] ?? 0);
+    if (!empty(syc_axes_rows()[$sid])) { return null; }
+    $q = $pdo->prepare('SELECT slug FROM syc_categories WHERE id = ?');
+    $q->execute([$sid]);
+    $slug = (string) ($q->fetchColumn() ?: '');
+    $stdIds = [];
+    foreach ($pdo->query("SELECT id, slug FROM categories WHERE slug NOT LIKE 'syc-%' AND slug NOT LIKE 'dac-%'") as $r) { $stdIds[(string) $r['slug']] = (int) $r['id']; }
+    $cid = $slug !== '' ? catalog_std_category($slug, $p, $stdIds) : null;
+    if ($cid === null) { return ['category' => null, 'axes' => [], 'editable' => false, 'manual' => false, 'status' => 'unread', 'reason' => '고객 화면 분류에 연결되지 않음', 'values' => [], 'code' => null, 'option' => null, 'detail' => []]; }
+    $q = $pdo->prepare('SELECT name FROM categories WHERE id = ?');
+    $q->execute([$cid]);
+    $cname = (string) ($q->fetchColumn() ?: '');
+    $pcols = syc_publish_product_columns($pdo);
+    $dimCols = array_values(array_intersect(array_values(SPEC_AXIS_COLUMNS), $pcols));
+    $sycCols = array_column($pdo->query('SHOW COLUMNS FROM syc_products')->fetchAll(), 'Field');
+    $sycDimCols = array_values(array_intersect(array_filter(array_map('syc_axis_column', SYC_AXIS_KEYS)), $sycCols));
+    $cax = spec_axes_for_category($cid);
+    // 이름표 칸 중 업체 원본 칸(syc_products)에 그대로 담을 수 있는 칸만 직접 적기 — 하나라도 못 담는 칸이 있으면 규격 원문으로 고치게(값이 빠지지 않게)
+    $axes = []; $editable = (bool) $cax;
+    foreach ($cax as $a) {
+        $k = (string) $a['axis_key'];
+        if (!isset(SPEC_AXIS_COLUMNS[$k])) { continue; }
+        $fixed = ($a['fixed_value'] ?? null) !== null || trim((string) ($a['fixed_text'] ?? '')) !== '';
+        $col = syc_axis_column($k);
+        $store = $col !== null && in_array($col, $sycDimCols, true) && (!function_exists('syc_bulk_columns') || isset(syc_bulk_columns()[$col]));   // 저장 때 일괄 등록 칸 규칙으로 확인
+        if (!$store && !$fixed) { $editable = false; }
+        $axes[] = ['key' => $k, 'label' => (string) $a['label'], 'symbol' => (string) ($a['symbol'] ?? ''), 'unit' => (string) ($a['unit'] ?? 'mm'), 'fixed' => $fixed, 'storable' => $store];
+    }
+    $manual = (bool) array_filter($sycDimCols, static fn($c) => ($p[$c] ?? null) !== null && $p[$c] !== '');   // 관리자가 치수를 직접 적은 상품
+    $values = []; $code = $p['spec_code'] ?? null; $opt = $p['spec_option'] ?? null; $detail = [];
+    if ($manual) {
+        foreach ($axes as $a) { $c = syc_axis_column($a['key']); if ($c !== null && ($p[$c] ?? null) !== null && $p[$c] !== '') { $values[$a['key']] = (string) $p[$c]; } }
+        $st = ['status' => 'full', 'reason' => '관리자가 적은 치수'];
+    } elseif (!syc_publish_needs_read($p, $sycDimCols)) {
+        $st = ['status' => 'nodims', 'reason' => '모델 코드·옵션만(규격외정보)'];
+    } else {
+        $ref = syc_publish_ref_index($pdo, $pcols)[$cid] ?? ['exact' => [], 'sig' => []];
+        $st = catalog_axis_read((string) ($p['spec'] ?? ''), $p['spec_option'] ?? null, $cax, $ref, $dimCols, in_array($cid, CATALOG_T_AS_HEIGHT, true));
+        if ($st['fs'] !== null) {
+            foreach ($axes as $a) { $v = $st['fs']['cols'][SPEC_AXIS_COLUMNS[$a['key']]] ?? null; if ($v !== null && $v !== '') { $values[$a['key']] = (string) $v; } }
+            [$code, $opt] = syc_publish_merge_code($code, $st['fs']['code'], $st['fs']['option']);
+            $detail = $st['fs']['detail'] ?? [];
+        }
+    }
+    return ['category' => ['id' => $cid, 'name' => $cname], 'axes' => $axes, 'editable' => $editable, 'manual' => $manual,
+            'status' => $st['status'], 'reason' => $st['reason'], 'values' => $values, 'code' => $code, 'option' => $opt, 'detail' => $detail];
+}
+
 /** 공통 분류 반영 실행(트랜잭션). 실패하면 되돌리고 예외 */
-function syc_publish_std_run(PDO $pdo, ?int $userId = null): array
+function syc_publish_std_run(PDO $pdo, ?int $userId = null, ?string $focusSource = null): array
 {
     $pdo->beginTransaction();
     try {
-        $r = syc_publish_std_apply($pdo);
+        $r = syc_publish_std_apply($pdo, $focusSource);
         if ($userId !== null) { $pdo->prepare('UPDATE syc_catalog_state SET updated_by = ? WHERE id = 1')->execute([$userId]); }
         $pdo->commit();
     } catch (\Throwable $e) {

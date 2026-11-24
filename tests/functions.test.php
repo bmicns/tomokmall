@@ -1610,6 +1610,38 @@ eq('기준 상품 ⑧ 안 씀: 조각이 칸보다 많음·D 표시가 가로 �
     catalog_axis_from_ref('D500', '원형', $fxAx([['w', '가로', 'W'], ['v', '세로', 'V'], ['t', '두께', 'T']]), [], $fsCols),
     catalog_axis_from_ref('1120*620', '사각_수공프레임', $fxAx([['d', '직경', 'D'], ['h', '높이', 'H']]), [], $fsCols)], [null, null, null]);
 eq('기준 상품 ⑨ 치수 없는 상품: 옵션 = 규격외정보', $rfPick(catalog_axis_from_ref('', '주문제작품', [], [], $fsCols)), [[], null, '주문제작품', '주문제작품', 'nodims']);
+// 새 업체 규격 자동 정리 보완(2026-11-24 '1~5 모두'): ⑩ 표기 통일 ⑪ 이름으로 칸 연결 ⑨ 보완 + 전체 순서 catalog_axis_read
+$whl = $fxAx([['w', '폭', 'W'], ['h', '높이', 'H'], ['l', '길이', 'L']]);
+$rdPick = static function (array $r): array { $f = $r['fs']; return [$r['status'], $f ? array_filter($f['cols'], static fn($v) => $v !== null) : null, $f['option'] ?? null, $f['detail'] ?? []]; };
+eq('⑩ 표기 통일: x·X·×·띄어쓰기·Φ·㎜, 코드(M16x50)의 16 은 그대로',
+   [catalog_spec_normalize('300x200x1000'), catalog_spec_normalize('300 X 200 × 1000'), catalog_spec_normalize('Φ300 * 1000㎜'), catalog_spec_normalize('W300xH200'), catalog_spec_normalize('M16x50')],
+   ['300*200*1000', '300*200*1000', 'Ø300*1000mm', 'W300*H200', 'M16x50']);
+eq('⑩ 표기 통일 뒤 읽기: 300x200x1000 → 폭·높이·길이', $rdPick(catalog_axis_read('300x200x1000', null, $whl, [], $fsCols)),
+   ['full', ['dim_w' => '300', 'dim_h' => '200', 'dim_l' => '1000'], null, []]);
+eq('⑪ 이름으로 칸 연결: 순서가 달라도 표시대로(H200*W300)·한글 이름(폭 300, 높이: 200)',
+   [$rdPick(catalog_axis_read('H200*W300*L1000', null, $whl, [], $fsCols))[1], $rdPick(catalog_axis_read('폭 300 높이: 200 길이 1000', null, $whl, [], $fsCols))[1]],
+   [['dim_w' => '300', 'dim_h' => '200', 'dim_l' => '1000'], ['dim_w' => '300', 'dim_h' => '200', 'dim_l' => '1000']]);
+eq('⑪ 이름표에 없는 칸(L)은 상세 화면 세부 치수(영문 표시는 이름 짐작 없이 기타 치수 L), 숫자 없는 글자는 규격외정보, 상태 = 일부만',
+   $rdPick(catalog_axis_read('W300 H200 L1000 2단', 'KS', $fxAx([['w', '폭', 'W'], ['h', '높이', 'H']]), [], $fsCols)),
+   ['partial', ['dim_w' => '300', 'dim_h' => '200'], '2단_KS', [['label' => '기타 치수', 'symbol' => 'L', 'value' => '1000', 'unit' => 'mm', 'main' => false]]]);
+eq('⑪ 안 씀: 같은 칸에 두 값(W300*W400)·D 표시를 깊이 칸에(수로관 깊이 기호 D)·숫자가 칸보다 많음',
+   [catalog_axis_read('W300*W400', null, $whl, [], $fsCols)['status'], catalog_axis_read('D300', null, $fxAx([['w', '폭', 'W'], ['depth', '깊이', 'D']]), [], $fsCols)['status'],
+    catalog_axis_read('300*200*1000*50*20', null, $whl, [], $fsCols)['reason']],
+   ['unread', 'unread', '숫자 5개가 이름표 칸 3개보다 많음']);
+eq('⑪ m 단위 표시: 2m → 2000(mm 칸), 지름 표시는 내경 칸이 하나뿐일 때 그 칸',
+   [$rdPick(catalog_axis_read('W300*L2m', null, $whl, [], $fsCols))[1], $rdPick(catalog_axis_read('Ø300 L1000', null, $fxAx([['d_i', '내경', 'D'], ['l', '길이', 'L']]), [], $fsCols))[1]],
+   [['dim_w' => '300', 'dim_l' => '2000'], ['dim_d_i' => '300', 'dim_l' => '1000']]);
+eq('⑨ 보완: 원문·옵션 모두 숫자가 없으면 원문도 규격외정보(같은 글자는 한 번)',
+   [$rdPick(catalog_axis_read('대형', '회색', $whl, [], $fsCols)), $rdPick(catalog_axis_read('주문제작', 'SCG 주문제작', $whl, [], $fsCols))[2]],
+   [['nodims', [], '대형_회색', []], 'SCG 주문제작']);
+eq('읽기 순서: 이름표 없는 분류 = 못 읽음, 이미 읽히는 규격은 예전 결과 그대로', [catalog_axis_read('300*200', null, [], [], $fsCols)['reason'], $rdPick(catalog_axis_read('1120*620', '사각_수공인상링', $wvh, [], $fsCols))],
+   ['고객 화면 분류에 이름표가 없음', ['partial', ['dim_w' => '1120', 'dim_v' => '620'], '사각_수공인상링', []]]);
+eq('업체 모델 코드: 업체 코드 그대로, 읽은 코드는 옵션 앞 / 업체 상품은 코드가 있어도 치수 칸이 비면 읽음(상용콘크리트 코드 행은 그대로)',
+   [syc_publish_merge_code('AB-1', 'G377', '회색'), syc_publish_merge_code('', 'G377', '회색'), syc_publish_merge_code('AB-1', null, null),
+    syc_publish_needs_read(['spec_code' => 'AB-1', 'external_source' => 'vendor-9', 'dim_w' => null], ['dim_w']),
+    syc_publish_needs_read(['spec_code' => '1호', 'external_source' => 'syccrt', 'dim_w' => null], ['dim_w']),
+    syc_publish_needs_read(['spec_code' => '', 'external_source' => 'vendor-9', 'dim_w' => '300'], ['dim_w'])],
+   [['AB-1', 'G377_회색'], ['G377', '회색'], ['AB-1', null], true, false, false]);
 eq('공통 분류 매핑: 칼라맨홀뚜껑 → 131, 화산석 원형 → std-028',
    [catalog_std_category('dac-2880', ['spec_option' => '주철용칼라맨홀뚜껑_오수'], ['ktomok-2880' => 112]), catalog_std_category('dac-4260', ['spec_option' => '현무암디딤석 원형_50T'], ['std-028' => 1066, 'ktomok-4260' => 158]),
     catalog_std_category('dac-4260', ['spec_option' => '현무암판석 부정형'], ['std-028' => 1066, 'ktomok-4260' => 158])], [131, 1066, 158]);

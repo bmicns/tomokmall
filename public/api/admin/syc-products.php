@@ -19,6 +19,8 @@ declare(strict_types=1);
  *      2026-11-16 — 케이토목처럼 가격 3칸·분류·세부 치수도 관리자 화면에서). 세부 치수 = 고른 분류의 이름표(syc_category_spec_axes) 칸,
  *      저장하면 spec_dims_src = 규격(이 치수가 지금 규격 기준). 출처·출처ID는 그대로. 저장 뒤 고객 화면 반영
  *      (create 도 dims·이미지 3칸을 받음). 분류 목록(action=categories)에 분류별 세부 치수 칸(axes)을 함께 보냄
+ * POST JSON {action:'spec_preview', source, id, category_id, name, spec, spec_code, spec_option}  수정 창 '고객 화면 규격' 미리보기(저장 안 함, 2026-11-24)
+ * GET  목록 &spec=unread|partial  규격 원문 그대로(못 읽음)·일부 상세 화면으로 넘긴 상품만(관리자가 찾아 직접 고침, 2026-11-24)
  * POST JSON {action:'set_active', ids, is_active} / {action:'delete', id}(비활성화)
  * POST JSON {action:'set_active_filter', filter:{source,status,cat_id,q}, expect, is_active}  검색 결과 전체(모든 페이지) 활성/비활성
  *      ↑ 활성/비활성 바꾸기 3개는 지금 멈춤(PRODUCT_ACTIVE_TOGGLE_ENABLED — 사용자 결정 2026-11-13, 추후 개발)
@@ -41,10 +43,10 @@ const SYC_WEBROOT = __DIR__ . '/../..';   // 이미지 경로(/…)를 찾는 �
  * 원본이 바뀐 뒤 고객 화면에 반영(공통 분류, 사용자 결정 2026-11-16). 실패해도 원본 저장은 이미 끝났으므로 응답에 알림만 붙인다.
  * @return array{publish?:array, publish_error?:string}
  */
-function syc_api_publish(PDO $pdo): array
+function syc_api_publish(PDO $pdo, ?string $focusSource = null): array
 {
     try {
-        return ['publish' => syc_publish_std_run($pdo, (int) (current_user()['id'] ?? 0) ?: null)];
+        return ['publish' => syc_publish_std_run($pdo, (int) (current_user()['id'] ?? 0) ?: null, $focusSource)];
     } catch (Throwable $e) {
         error_log('[api/admin/syc-products] 고객 화면 반영 실패: ' . get_class($e) . ': ' . $e->getMessage());
         return ['publish_error' => $e instanceof RuntimeException && str_contains($e->getMessage(), '공통 분류')
@@ -69,6 +71,37 @@ function syc_api_dims_input(mixed $dims): array
         $out[$col] = $v;
     }
     return $out;
+}
+
+/** 고객용 상품 표(products)의 치수 칸 이름(목록 규격 정리 상태 판단용) */
+function syc_api_pub_dim_cols(): array
+{
+    static $c = null;
+    return $c ??= array_values(array_intersect(array_values(SPEC_AXIS_COLUMNS), syc_publish_product_columns(db())));
+}
+
+/**
+ * 목록 '규격' 조건(2026-11-24 — 원문으로 남은 상품을 찾아 관리자가 직접 고치게): unread = 고객 화면에 치수 칸이 하나도 없는데 규격·옵션에 숫자가 있음
+ * (원문 한 줄로 보임), partial = 일부 값을 상세 화면 세부 치수로 넘김(업체 원본 분류에 이름표가 없는 상품). 바인딩 값 없음
+ */
+function syc_api_spec_where(string $spec): string
+{
+    $pp = 'pp.external_source = p.external_source AND pp.external_id = p.external_id';
+    if ($spec === 'unread') {
+        return "EXISTS (SELECT 1 FROM products pp WHERE {$pp} AND COALESCE(" . implode(', ', array_map(static fn($c) => 'pp.' . $c, syc_api_pub_dim_cols())) . ") IS NULL
+                         AND IFNULL(pp.spec_code, '') = '') AND CONCAT(IFNULL(p.spec, ''), IFNULL(p.spec_option, '')) REGEXP '[0-9]'";
+    }
+    return "EXISTS (SELECT 1 FROM products pp WHERE {$pp} AND pp.spec_detail IS NOT NULL)
+            AND NOT EXISTS (SELECT 1 FROM syc_category_spec_axes a WHERE a.category_id = p.category_id AND a.is_active = 1)";
+}
+
+/** 목록 한 줄의 규격 정리 상태: 'unread' | 'partial' | ''(위 조건과 같은 기준). 순수 함수 */
+function syc_api_spec_state(array $r, ?array $pub): string
+{
+    if ($pub === null) { return ''; }
+    if ($pub['any_dim'] === null && trim((string) $pub['spec_code']) === '' && preg_match('/\d/u', (string) $r['spec'] . (string) ($r['spec_option'] ?? ''))) { return 'unread'; }
+    if ($pub['spec_detail'] !== null && empty(syc_axes_rows()[(int) $r['category_id']])) { return 'partial'; }
+    return '';
 }
 
 /** 칸 맞추기·분류 고른 값: [글자 => 글자] 만(각 300자, 2,000개까지). 그 밖은 버림 */
@@ -155,6 +188,8 @@ function syc_api_list_where(array $f, string $source): array
     if ($status === 'active') { $where[] = 'p.is_active = 1'; }
     elseif ($status === 'inactive') { $where[] = 'p.is_active = 0'; }
     if ($catId) { $where[] = 'p.category_id = :cat_id'; $params['cat_id'] = $catId; }
+    $spec = (string) ($f['spec'] ?? '');
+    if (in_array($spec, ['unread', 'partial'], true)) { $where[] = syc_api_spec_where($spec); }
     if ($q !== '') {
         $where[] = '(p.name LIKE :q OR p.spec LIKE :q2 OR p.spec_code LIKE :q3 OR p.external_id LIKE :q4 OR p.brand LIKE :q5)';
         $params['q'] = $params['q2'] = $params['q3'] = $params['q4'] = $params['q5'] = '%' . $q . '%';
@@ -190,12 +225,12 @@ try {
             $byId = (int) ($_GET['id'] ?? 0) > 0;
             $dimSel = implode(', ', array_map(static fn($k) => 'p.' . syc_axis_column($k), SYC_AXIS_KEYS));
             $st = $pdo->prepare('SELECT p.id, p.category_id, p.name, p.brand, p.spec, p.spec_code, p.spec_option, p.unit, p.weight_kg, p.description,
-                                        p.price_b2c, p.price_b2b, p.cost_price, p.image_thumb_file, p.image_file, p.image_spec_file, p.is_active, p.external_id, ' . $dimSel . '
+                                        p.price_b2c, p.price_b2b, p.cost_price, p.image_thumb_file, p.image_file, p.image_spec_file, p.is_active, p.external_id, p.external_source, ' . $dimSel . '
                                  FROM syc_products p WHERE p.external_source = ? AND ' . ($byId ? 'p.id = ?' : 'p.external_id = ?') . ' LIMIT 1');
             $st->execute([$src['code'], $byId ? (int) $_GET['id'] : (string) ($_GET['external_id'] ?? '')]);
             $row = $st->fetch();
             if (!$row) { throw new InvalidArgumentException('상품을 찾지 못했습니다. 목록을 새로 고쳐 주세요.'); }
-            syc_api_out(['ok' => true, 'product' => $row]);
+            syc_api_out(['ok' => true, 'product' => $row, 'std_spec' => syc_publish_std_preview($pdo, $row)]);
         }
         $page   = max(1, (int) ($_GET['page'] ?? 1));
         $limit  = 20;
@@ -203,7 +238,7 @@ try {
         $cnt = $pdo->prepare("SELECT COUNT(*) FROM syc_products p WHERE {$w}");
         $cnt->execute($params);
         $offset = ($page - 1) * $limit;
-        $st = $pdo->prepare("SELECT p.id, p.name, p.brand, p.spec, p.spec_code, p.unit, p.weight_kg, p.price_b2b, p.price_b2c, p.cost_price,
+        $st = $pdo->prepare("SELECT p.id, p.name, p.brand, p.spec, p.spec_code, p.spec_option, p.unit, p.weight_kg, p.price_b2b, p.price_b2c, p.cost_price,
                                     p.image_file, p.image_thumb_file, p.is_active, p.external_id, p.category_id, c.name AS cat_name
                              FROM syc_products p JOIN syc_categories c ON c.id = p.category_id
                              WHERE {$w} ORDER BY p.id DESC LIMIT {$limit} OFFSET {$offset}");
@@ -214,7 +249,8 @@ try {
         $pub = [];
         if ($list) {
             $ph = implode(',', array_fill(0, count($list), '?'));
-            $q = $pdo->prepare("SELECT external_id, category_id, price_b2c, price_b2b, cost_price FROM products WHERE external_source = ? AND external_id IN ({$ph})");
+            $dimSql = implode(', ', syc_api_pub_dim_cols());
+            $q = $pdo->prepare("SELECT external_id, category_id, price_b2c, price_b2b, cost_price, spec_code, spec_detail, COALESCE({$dimSql}) AS any_dim FROM products WHERE external_source = ? AND external_id IN ({$ph})");
             $q->execute(array_merge([$src['code']], array_column($list, 'external_id')));
             foreach ($q as $r) { $pub[(string) $r['external_id']] = $r; }
         }
@@ -224,6 +260,7 @@ try {
             else { $sycAll ??= syc_categories_all(); $pb = price_bundle(syc_price_row($r, $sycAll)); }
             $r['price_customer']  = $pb['customer'];
             $r['price_corporate'] = $pb['corporate'];
+            $r['spec_state'] = syc_api_spec_state($r, $pub[(string) $r['external_id']] ?? null);   // 고객 화면 규격 정리 상태(목록 표시)
         }
         unset($r);
         syc_api_out(['ok' => true, 'products' => $list, 'total' => (int) $cnt->fetchColumn(), 'page' => $page, 'limit' => $limit]);
@@ -321,12 +358,27 @@ try {
         }
         $result = ['done' => $total, 'total' => $total, 'finished' => true,
                    'normalized_rows' => $norm ? (int) ($r['normalize']['changed_rows'] ?? 0) : 0, 'skipped' => (int) ($r['skipped'] ?? 0)] + $count;
-        $result += syc_api_publish($pdo);
+        $result += syc_api_publish($pdo, $src['code']);   // 이 업체의 규격 정리 결과(행별)를 함께
         file_put_contents($progress, json_encode($result));
         syc_api_out(['ok' => true] + $result);
     }
 
     // 제품 1건 등록(비활성). 칸 규칙은 일괄 등록과 같음(syc_bulk_columns). 자동 정리는 하지 않음(품목 단위 규칙이라 일괄 등록에서만)
+    // 수정 창 '고객 화면 규격' 다시 읽기: 창에 적은 분류·규격·모델 코드·옵션으로(관리자가 적은 치수는 빼고 자동 읽기 결과만). 저장하지 않음
+    if ($action === 'spec_preview') {
+        $src = product_source_syc_or_fail($pdo, (string) ($body['source'] ?? ''));
+        $row = ['external_source' => $src['code']];
+        $id = (int) ($body['id'] ?? 0);
+        if ($id > 0) {
+            $cur = $pdo->prepare('SELECT * FROM syc_products WHERE id = ? AND external_source = ?');
+            $cur->execute([$id, $src['code']]);
+            $row = $cur->fetch() ?: $row;
+        }
+        foreach (SYC_AXIS_KEYS as $k) { $c = syc_axis_column($k); if ($c !== null) { $row[$c] = null; } }
+        foreach (['name', 'spec', 'spec_code', 'spec_option'] as $k) { $row[$k] = mb_substr(trim((string) ($body[$k] ?? '')), 0, 200); }
+        $row['category_id'] = (int) ($body['category_id'] ?? 0);
+        syc_api_out(['ok' => true, 'std_spec' => syc_publish_std_preview($pdo, $row)]);
+    }
     if ($action === 'create') {
         $src = product_source_syc_or_fail($pdo, (string) ($body['source'] ?? ''));
         $cols = syc_bulk_columns();

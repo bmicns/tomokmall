@@ -283,6 +283,11 @@ function catalog_axis_from_ref(string $spec, ?string $option, array $axes, array
     if ($spec === '' && !preg_match('/\d/u', $opt)) {
         return ['cols' => $fill([]), 'code' => null, 'option' => $opt, 'src' => $src, 'rule' => 'nodims'];
     }
+    // ⑨ 보완(2026-11-24 '치수가 없는 건 규격을 표기 안 하는 것처럼'): 원문·옵션 모두 숫자가 없으면('주문제작'·'대형') 원문도 규격외정보로(목록 규격 칸 '-')
+    if ($spec !== '' && !preg_match('/\d/u', $spec . $opt)) {
+        $parts = $opt !== '' && str_contains($opt, $spec) ? [$opt] : array_values(array_filter([$spec, $opt], static fn($x) => $x !== ''));
+        return ['cols' => $fill([]), 'code' => null, 'option' => implode('_', $parts), 'src' => $src, 'rule' => 'nodims'];
+    }
     // ⑥ 범위 값(집게·클립): 이름표가 '적용 크기' 하나뿐인 분류에서 옵션 '형식_…_숫자-숫자' → 모델 코드 = 형식, 적용 크기 = 범위, 가운데 = 옵션
     if ($spec === '' && $keys === ['d_base'] && preg_match('/^([^_]+)((?:_[^_]+)*)_(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/u', $opt, $m) && (float) $m[3] < (float) $m[4]) {
         $mid = trim(str_replace('_', ' ', $m[2]));
@@ -415,6 +420,144 @@ function catalog_axis_partial(string $spec, string $opt, array $axes, array $dim
     if (!array_filter($cols, static fn($v) => $v !== null)) { return null; }
     $o = implode('_', array_values($optParts));
     return ['cols' => $cols, 'code' => null, 'option' => $o !== '' ? $o : null, 'detail' => $detail];
+}
+
+/*
+ * ── 새 업체 규격 자동 정리 보완(사용자 결정 2026-11-24 '1~5 모두' — 업체마다 표기가 달라도 등록하면 정리, S33) ──
+ *  ⑩ 표기 통일: 숫자 사이 x·X·×·✕·＊ → '*', '*' 앞뒤 띄어쓰기, Φ·φ·ø·∅ → Ø, ㎜ → mm 로 바꾼 뒤 ①~⑨ 를 다시 읽음(원래 글자로 이미 읽히면 그대로)
+ *  ⑪ 이름으로 칸 연결: W300·H200·L1000·T50·D300·Ø300·850H·폭300·높이 200·내경300… 처럼 표시가 붙은 숫자를 순서가 아니라
+ *     표시가 가리키는 이름표 칸에 넣음(표시가 하나의 칸으로만 정해질 때만, 같은 칸에 두 값이면 쓰지 않음)
+ *     — 이 분류 이름표에 없는 칸(L1000 인데 길이 칸 없음)·표시 없는 숫자는 상세 화면 '세부 치수'로, 숫자 없는 글자는 규격외정보로
+ *     (목록에는 업체 간 공통 칸만 보임 — catalog_list_common_axes)
+ *  그래도 못 읽은 상품은 원문 한 줄 그대로 + 일괄 등록 결과·제품관리에서 찾아 관리자가 직접 고침
+ */
+
+/** ⑩ 표기 통일(위 설명). 바뀌지 않으면 같은 글자. 순수 함수 */
+function catalog_spec_normalize(string $s): string
+{
+    $s = strtr($s, ['Φ' => 'Ø', 'φ' => 'Ø', 'ø' => 'Ø', '∅' => 'Ø', '㎜' => 'mm', 'ｍｍ' => 'mm', '＊' => '*']);
+    $mark = '(?:[WwHhLlTtDdVvØ]|폭|가로|세로|높이|길이|두께|지름|직경|내경|외경|깊이)';
+    // 숫자(+단위·뒤 표시) 다음의 x·×·✕ 뒤에 (표시+)숫자가 오면 '*'. 영문 바로 뒤 숫자(M16x50 의 16)는 코드라 그대로
+    $s = (string) preg_replace('/(?<![A-Za-z0-9.])((?:' . $mark . ')?\s*\d+(?:\.\d+)?(?:mm|[TtHhØ])?)\s*[xX×✕]\s*(?=' . $mark . '?\s*\d)/u', '$1*', $s);
+    $s = (string) preg_replace('/(?<![A-Za-z0-9.])((?:' . $mark . ')?\s*\d+(?:\.\d+)?(?:mm|[TtHhØ])?)\s*[xX×✕]\s*(?=' . $mark . '?\s*\d)/u', '$1*', $s);   // 겹친 자리(300x200x1000)
+    $s = (string) preg_replace('/\s*\*\s*/u', '*', $s);
+    return trim($s);
+}
+
+/** ⑪ 표시 글자 → 칸 키 후보(이 순서로 이름표에 있는 첫 칸). 이름표 이름과 글자가 같으면 그 칸이 먼저 */
+const CATALOG_MARK_KEYS = [
+    'W' => ['w'], '폭' => ['w'], '가로' => ['w'], 'V' => ['v'], '세로' => ['v'],
+    'H' => ['h'], '높이' => ['h'], '깊이' => ['depth'], 'L' => ['l'], '길이' => ['l'], 'T' => ['t'], '두께' => ['t'],
+    'D' => ['d', 'd_i|d_o'], 'Ø' => ['d', 'd_i|d_o'], '지름' => ['d', 'd_i|d_o'], '직경' => ['d', 'd_i|d_o'], '내경' => ['d_i'], '외경' => ['d_o'],
+];
+
+/**
+ * ⑪ 표시로 칸 연결(위 설명). 표시가 붙은 숫자가 이름표 칸 하나 이상에 들어갈 때만 결과. 순수 함수
+ * @return ?array{cols: array<string, ?string>, code: null, option: ?string, detail: list<array>}
+ */
+function catalog_axis_marked(string $spec, string $opt, array $axes, array $dimCols): ?array
+{
+    if ($spec === '' || !$axes) { return null; }
+    $keys = array_map(static fn($a) => (string) $a['axis_key'], $axes);
+    if (catalog_shape_conflict($spec . ' ' . $opt, $keys)) { return null; }
+    $byKey = [];
+    foreach ($axes as $a) {
+        $k = (string) $a['axis_key'];
+        if (!isset(SPEC_AXIS_COLUMNS[$k]) || in_array($k, SPEC_AXIS_TEXT, true)) { continue; }
+        if (($a['fixed_value'] ?? null) !== null || trim((string) ($a['fixed_text'] ?? '')) !== '') { continue; }   // 고정값 칸은 업체 값을 넣지 않음
+        $byKey[$k] = $a;
+    }
+    $words = array_merge(array_keys(CATALOG_MARK_KEYS), ['w', 'v', 'h', 'l', 't', 'd'], array_map(static fn($a) => (string) $a['label'], $byKey));
+    usort($words, static fn($a, $b) => mb_strlen($b) <=> mb_strlen($a));
+    $wre = implode('|', array_map(static fn($w) => preg_quote($w, '/'), array_unique(array_filter($words, static fn($w) => $w !== ''))));
+    // '폭 300'·'높이: 200' → '폭300'·'높이200'(한 조각으로)
+    $text = (string) preg_replace('/(' . $wre . ')\s*[:=]?\s+(?=\d)/u', '$1', $spec);
+    $pieces = array_values(array_filter(array_map('trim', preg_split('/[*_,\/\s]+/u', $text) ?: []), static fn($x) => $x !== ''));
+    $resolve = static function (string $w) use ($byKey): ?string {
+        foreach ($byKey as $k => $a) { if ((string) $a['label'] === $w) { return $k; } }   // 이름표 이름 그대로
+        $u = preg_match('/^[a-z]$/', $w) ? strtoupper($w) : $w;
+        foreach (CATALOG_MARK_KEYS[$u] ?? [] as $cand) {
+            if (str_contains($cand, '|')) {                 // 지름 칸이 내경·외경 중 하나만 있을 때만 그 칸
+                $hit = array_values(array_intersect(explode('|', $cand), array_keys($byKey)));
+                if (count($hit) === 1) { return $hit[0]; }
+                continue;
+            }
+            if (isset($byKey[$cand])) { return $cand; }
+        }
+        return null;
+    };
+    $vals = []; $detail = []; $optWords = []; $marked = 0;
+    foreach ($pieces as $pc) {
+        if (!preg_match('/^(' . $wre . ')?(\d+(?:\.\d+)?)(mm|cm|m|M)?([WwHhLlTtØ])?$/u', $pc, $m) || ($m[1] ?? '') !== '' && ($m[4] ?? '') !== '') {
+            $optWords[] = $pc;                               // 숫자 없는 글자·코드('KS'·'2단'·'M16')는 규격외정보
+            continue;
+        }
+        $w = ($m[1] ?? '') !== '' ? $m[1] : (($m[4] ?? '') !== '' ? $m[4] : '');
+        $unit = strtolower($m[3] ?? '');
+        $mm = (float) $m[2] * ($unit === 'cm' ? 10 : ($unit === 'm' ? 1000 : 1));
+        $k = $w !== '' ? $resolve($w) : null;
+        if ($k === null) {                                   // 표시 없는 숫자·이름표에 없는 칸 → 상세 화면
+            // 영문 한 글자 표시(D·L…)는 뜻이 분류마다 달라(수로관 D = 깊이) 이름을 짐작하지 않고 '기타 치수 D'로, 한글 이름(길이·두께…)은 그대로
+            $u = preg_match('/^[a-z]$/', $w) ? strtoupper($w) : $w;
+            $one = (bool) preg_match('/^[A-ZØ]$/u', $u);
+            $detail[] = ['label' => ($w === '' || $one) ? '기타 치수' : $w, 'symbol' => $one ? $u : '',
+                         'value' => spec_axis_num($mm), 'unit' => 'mm', 'main' => false];
+            continue;
+        }
+        $a = $byKey[$k];
+        $lu = (string) ($a['unit'] ?? 'mm');
+        if ($lu === 'm') {                                   // m 이름표 칸은 단위가 적혀 있을 때만(m 그대로, mm 는 ÷1000)
+            if ($unit === '') { $detail[] = ['label' => (string) $a['label'], 'symbol' => (string) ($a['symbol'] ?? ''), 'value' => $m[2], 'unit' => '', 'main' => false]; continue; }
+            $v = spec_axis_num($mm / 1000);
+        } elseif ($lu === 'mm') {
+            $v = spec_axis_num($mm);
+        } else {
+            return null;                                     // t/m 등 다른 단위 칸은 표시만 믿고 넣지 않음
+        }
+        $col = SPEC_AXIS_COLUMNS[$k];
+        if (isset($vals[$col])) { return null; }             // 같은 칸에 두 값 — 어느 쪽인지 모름
+        $vals[$col] = $v;
+        $marked++;
+    }
+    if ($marked === 0) { return null; }
+    $cols = array_fill_keys($dimCols, null);
+    foreach ($vals as $c => $v) { if (array_key_exists($c, $cols)) { $cols[$c] = $v; } }
+    $o = implode('_', array_values(array_unique(array_filter(array_merge($optWords, $opt !== '' ? [$opt] : []), static fn($x) => $x !== ''))));
+    return ['cols' => $cols, 'code' => null, 'option' => $o !== '' ? $o : null, 'detail' => $detail];
+}
+
+/**
+ * 업체 상품 1행 규격 읽기 전체 순서(반영·제품관리 미리보기·일괄 등록 결과가 같은 결과를 쓰게). 순수 함수
+ *  이름표로 읽기(catalog_axis_from_spec) → 기준 상품·형식 규칙 ①~⑨(catalog_axis_from_ref) → ⑩ 표기 통일 뒤 다시 → ⑪ 이름으로 칸 연결
+ * @return array{fs: ?array, status: string, reason: string}
+ *   status: full(정리됨) | partial(일부만 — 비운 칸·상세 화면으로 넘긴 값이 있음) | nodims(치수 없음 — 규격외정보) | unread(못 읽음)
+ */
+function catalog_axis_read(string $spec, ?string $option, array $axes, array $ref, array $dimCols, bool $tAsHeight = false): array
+{
+    $spec = trim($spec); $opt = trim((string) $option);
+    if ($spec === '' && $opt === '') { return ['fs' => null, 'status' => 'nodims', 'reason' => '규격·옵션 없음']; }
+    $fs = catalog_axis_from_spec($spec, $opt, $axes, $dimCols) ?? catalog_axis_from_ref($spec, $opt, $axes, $ref, $dimCols, $tAsHeight);
+    if ($fs === null) {
+        $ns = catalog_spec_normalize($spec); $no = catalog_spec_normalize($opt);
+        if ($ns !== $spec || $no !== $opt) {
+            $fs = catalog_axis_from_spec($ns, $no, $axes, $dimCols) ?? catalog_axis_from_ref($ns, $no, $axes, $ref, $dimCols, $tAsHeight);
+            if ($fs !== null) { $fs['rule'] = 'normalize+' . ($fs['rule'] ?? 'labels'); }
+        }
+        if ($fs === null && ($m = catalog_axis_marked($ns, $no, $axes, $dimCols)) !== null) { $fs = $m + ['rule' => 'marked']; }
+        if ($fs !== null && $spec === '') { $fs['src'] = $opt; }   // 규격 원문은 업체가 적은 글자 그대로
+    }
+    if ($fs === null && !$axes) { return ['fs' => null, 'status' => 'unread', 'reason' => '고객 화면 분류에 이름표가 없음']; }
+    if ($fs === null) {
+        $n = count(catalog_spec_numbers(catalog_spec_normalize($spec !== '' ? $spec : $opt)));
+        $need = count(array_filter($axes, static fn($a) => isset(SPEC_AXIS_COLUMNS[(string) $a['axis_key']])));
+        return ['fs' => null, 'status' => 'unread', 'reason' => $n > $need ? "숫자 {$n}개가 이름표 칸 {$need}개보다 많음" : '규격 표기를 읽지 못함'];
+    }
+    if (($fs['rule'] ?? '') === 'nodims') { return ['fs' => $fs, 'status' => 'nodims', 'reason' => '치수 없음 — 규격외정보로']; }
+    $free = array_filter($axes, static fn($a) => isset(SPEC_AXIS_COLUMNS[(string) $a['axis_key']]) && ($a['fixed_value'] ?? null) === null && trim((string) ($a['fixed_text'] ?? '')) === '');
+    $filled = count(array_filter(array_intersect_key($fs['cols'], array_flip(array_map(static fn($a) => SPEC_AXIS_COLUMNS[(string) $a['axis_key']], $free))), static fn($v) => $v !== null && $v !== ''));
+    if (!empty($fs['detail'])) { return ['fs' => $fs, 'status' => 'partial', 'reason' => '일부 값은 상세 화면 세부 치수로']; }
+    if ($filled < count($free)) { return ['fs' => $fs, 'status' => 'partial', 'reason' => '빈 칸 ' . (count($free) - $filled) . '개']; }
+    return ['fs' => $fs, 'status' => 'full', 'reason' => ''];
 }
 
 /**
