@@ -1427,13 +1427,15 @@ require_once __DIR__ . '/../app/work_types.php';
 eq('공통 분류 매핑: 모델 코드 줄이 전부 줄보다 먼저(측구수로관 A형 → 33, Z형 → 36)', [catalog_std_category('syc-s1', ['spec_code' => 'A형'], []), catalog_std_category('syc-s1', ['spec_code' => 'Z형'], [])], [33, 36]);
 eq('공통 분류 매핑: 옵션 줄(원심력수로관 무개 → 48, 유개 → 49)', [catalog_std_category('syc-s79', ['spec_option' => '무개'], []), catalog_std_category('syc-s79', ['spec_option' => '유개'], [])], [48, 49]);
 eq('공통 분류 매핑: 새 품명 slug 는 id 로(std-006 2련암거), 매핑 없는 분류는 null', [catalog_std_category('syc-s22', [], ['std-006' => 9001]), catalog_std_category('syc-zz', [], [])], [9001, null]);
-eq('2026-11-16 확인 반영: 사각수로관 → 중분류 258, 인조화강블록 → 71(투수·불투수 합침), I형 호안 → 저류용 95, 수공 사각뚜껑 → 108, 보강토 → 줄무늬 83, 흄관 → B형 50',
-    array_map(static fn($s) => catalog_std_category($s, ['spec_code' => 'A형', 'spec_option' => '투수/불투수'], []), ['syc-s16', 'syc-s54', 'syc-s55', 'syc-s68', 'syc-s52', 'syc-s63', 'syc-s19']), [258, 71, 71, 95, 108, 83, 50]);
-preg_match_all("/'(std-\d+)'/", (string) file_get_contents(__DIR__ . '/../database/20261116_std_categories.sql'), $stdM);
+eq('2026-11-16 확인 반영: 사각수로관 → 중분류 258, 인조화강블록 → 71(투수·불투수 합침), I형 호안 → 저류용 95, 보강토 → 줄무늬 83, 흄관 → B형 50',
+    array_map(static fn($s) => catalog_std_category($s, ['spec_code' => 'A형', 'spec_option' => '투수/불투수'], []), ['syc-s16', 'syc-s54', 'syc-s55', 'syc-s68', 'syc-s63', 'syc-s19']), [258, 71, 71, 95, 83, 50]);
+eq('2026-11-23 모양별 나누기(S26): 사각 주철뚜껑(s52·s53) → 주철뚜껑(사각) std-023, 원형(s51·s85) → 108 그대로, 일자형 스텐볼라드(w2) → std-026, U형(w5) → 148 그대로',
+    array_map(static fn($s) => catalog_std_category($s, [], ['std-023' => 9023, 'std-026' => 9026]), ['syc-s52', 'syc-s53', 'syc-s51', 'syc-s85', 'syc-w2', 'syc-w5']), [9023, 9023, 108, 108, 9026, 148]);
+preg_match_all("/'(std-\d+)'/", (string) file_get_contents(__DIR__ . '/../database/20261116_std_categories.sql') . (string) file_get_contents(__DIR__ . '/../database/20261123_std_split_categories.sql'), $stdM);
 $stdFake = array_combine(array_values(array_unique($stdM[1])), range(90001, 90000 + count(array_unique($stdM[1]))));
 $pjRows = json_decode((string) file_get_contents(__DIR__ . '/../data/syccrt/products.json'), true)['rows'] ?? [];
 $unm = array_values(array_filter($pjRows, static fn($r) => catalog_std_category($r['category_slug'], $r, $stdFake) === null));
-eq('공통 분류 매핑: 상용콘크리트 704개 모두 공통 분류에 들어감(새 품명 slug 는 마이그레이션에 있음)', [count($pjRows), count($unm), count($stdFake)], [704, 0, 19]);
+eq('공통 분류 매핑: 상용콘크리트 704개 모두 공통 분류에 들어감(새 품명 slug 는 마이그레이션 2개에 있음)', [count($pjRows), count($unm), count($stdFake)], [704, 0, 24]);
 // 동아산업(S29, 2026-11-23): dac-<번호> → 같은 번호 케이토목 분류, 예외표(불투수 → 71), 같은 번호 없으면 null, 매핑 줄이 있으면 그 줄
 eq('동아산업 분류 → 공통 분류: 번호 연결·예외표·없는 번호·syc 분류는 기존대로',
     [catalog_std_category('dac-1060', [], ['ktomok-1060' => 21]), catalog_std_category('dac-3426', [], ['ktomok-3425' => 71, 'ktomok-3426' => 72]),
@@ -1481,6 +1483,44 @@ eq('묶음별 고르기: 등록 안 함 = 건너뜀(오류 아님), 고른 분�
 $ar = syc_bulk_read_excel($acsv, 'csv', $acat, false, null, 'vendor-9', ['std' => $astd, 'manual' => ['품명' => '']]);
 eq('상품명 칸이 없으면 등록 안 되고 칸 맞추기 안내', [$ar['error_count'], str_contains($ar['errors'][0], '상품명'), count($ar['columns'])], [1, true, 5]);
 unlink($acsv);
+// 업체 칸 → 케이토목 칸 대응표(S26, app/catalog_axis_map.php, 2026-11-24)
+$axBad = [];
+foreach (CATALOG_AXIS_MAP as $slug => $m) {
+    foreach ($m as $from => $to) {
+        if (!in_array($from, SYC_AXIS_KEYS, true)) { $axBad[] = "{$slug}:{$from}"; }
+        if (!isset(SPEC_AXIS_COLUMNS[$to])) { $axBad[] = "{$slug}->{$to}"; }
+    }
+    if (count(array_unique($m)) !== count($m)) { $axBad[] = "{$slug}: 같은 케이토목 칸에 두 칸"; }
+}
+eq('칸 대응표: 업체 칸 키·케이토목 칸 키가 모두 있는 키, 한 케이토목 칸에 두 업체 칸 없음', $axBad, []);
+$axCols = ['dim_w', 'dim_h', 'dim_depth', 'dim_l', 'dim_t', 'dim_v', 'dim_d', 'dim_d_i', 'dim_d_o', 'dim_t_tb', 'dim_t_wall', 'dim_h_high', 'dim_h_low'];
+$axPick = static fn(array $r) => array_filter($r, static fn($v) => $v !== null);
+eq('칸 대응표: 측구 높이 → 깊이·바닥두께 t3 → 두께(윗면 T 는 안 옮김), 보강토 두께 → 높이·세로 → 깊이, PE 빗물받이는 높이만, 표에 없는 분류는 그대로',
+    [$axPick(catalog_axis_remap('syc-s1', ['dim_w' => 300, 'dim_h' => 300, 'dim_l' => 2000, 'dim_t' => 95, 'dim_t3' => 80], $axCols, 'syc_axis_column')),
+     $axPick(catalog_axis_remap('syc-s63', ['dim_w' => 500, 'dim_v' => 420, 'dim_t' => 200], $axCols, 'syc_axis_column')),
+     $axPick(catalog_axis_remap('syc-s41', ['dim_w' => 410, 'dim_v' => 510, 'dim_h' => 640], $axCols, 'syc_axis_column')),
+     $axPick(catalog_axis_remap('syc-s14', ['dim_d' => 200, 'dim_w' => 320, 'dim_h' => 360, 'dim_l' => 2000], $axCols, 'syc_axis_column')),
+     $axPick(catalog_axis_remap('syc-s87', ['dim_w' => 180, 'dim_h' => 200, 'dim_h1' => 100, 'dim_l' => 1000], $axCols, 'syc_axis_column')),
+     $axPick(catalog_axis_remap('syc-s9', ['dim_w' => 300, 'dim_h' => 250], $axCols, 'syc_axis_column'))],
+    [['dim_w' => 300, 'dim_depth' => 300, 'dim_l' => 2000, 'dim_t' => 80],
+     ['dim_w' => 500, 'dim_h' => 200, 'dim_depth' => 420],
+     ['dim_h' => 640],
+     ['dim_d_i' => 200, 'dim_d_o' => 320, 'dim_depth' => 360, 'dim_l' => 2000],
+     ['dim_w' => 180, 'dim_h_high' => 200, 'dim_h_low' => 100, 'dim_l' => 1000],
+     ['dim_w' => 300, 'dim_h' => 250]]);
+// 목록 공통 칸(S26): 업체 둘 이상이면 모든 업체에 값 있는 칸만, 측구 두께·PE 가로세로 제외, 축 값 못 쓰는 행은 업체 판단에서 뺌
+$lcDefs = [['axis_key' => 'w', 'label' => '폭'], ['axis_key' => 'depth', 'label' => '깊이'], ['axis_key' => 'l', 'label' => '길이'], ['axis_key' => 't', 'label' => '두께']];
+$lcK = ['external_source' => 'ktomok', 'spec' => '규격: 300*300*2000*120T', 'spec_dims_src' => '300*300*2000*120T', 'dim_w' => 300, 'dim_depth' => 300, 'dim_l' => 2000, 'dim_t' => 120];
+$lcS = ['external_source' => 'syccrt', 'spec' => '규격: 300*300*2000', 'spec_dims_src' => '300*300*2000', 'dim_w' => 300, 'dim_depth' => 300, 'dim_l' => null, 'dim_t' => 95];
+$lcOld = ['external_source' => 'syccrt', 'spec' => '규격: 1*2', 'spec_dims_src' => '9*9', 'dim_w' => 1];
+$lcKeys = static fn(array $r) => array_column($r, 'axis_key');
+eq('목록 공통 칸: 두 업체 공통만·한 업체면 값 있는 칸 전부·측구(33) 두께 제외·PE(177) 가로세로 제외·옛 값 행 무시',
+    [$lcKeys(catalog_list_common_axes($lcDefs, [$lcK, $lcS], [25, 25])),
+     $lcKeys(catalog_list_common_axes($lcDefs, [$lcK], [25])),
+     $lcKeys(catalog_list_common_axes($lcDefs, [$lcK, $lcS], [33])),
+     $lcKeys(catalog_list_common_axes([['axis_key' => 'w'], ['axis_key' => 'v'], ['axis_key' => 'h']], [['external_source' => '', 'spec' => '규격: 400*500*640', 'spec_dims_src' => '400*500*640', 'dim_w' => 400, 'dim_v' => 500, 'dim_h' => 640]], [177])),
+     $lcKeys(catalog_list_common_axes($lcDefs, [$lcK, $lcOld], [25]))],
+    [['w', 'depth', 't'], ['w', 'depth', 'l', 't'], ['w', 'depth'], ['h'], ['w', 'depth', 'l', 't']]);
 $pdm = syc_publish_dims(['dim_w' => 300.0, 'dim_w1' => 600.0, 'dim_l' => null], [
     ['axis_key' => 'w', 'label' => '폭', 'symbol' => 'W', 'unit' => 'mm', 'in_list' => true], ['axis_key' => 'w1', 'label' => '세부', 'symbol' => 'w1', 'unit' => 'mm', 'in_list' => false],
     ['axis_key' => 'l', 'label' => '길이', 'symbol' => 'L', 'unit' => 'mm', 'in_list' => true]]);
@@ -1641,6 +1681,43 @@ ok('이미지 경로 칸: 없는 파일·이미지 아닌 파일·../ 거부', $
     && $bad(fn() => product_image_path_input('/uploads/products/ktomok/fake.png', $wr, 'x')) && $bad(fn() => product_image_path_input('/uploads/../a.png', $wr, 'x')));
 array_map('unlink', glob($wr . '/uploads/products/ktomok/*')); rmdir($wr . '/uploads/products/ktomok'); rmdir($wr . '/uploads/products'); rmdir($wr . '/uploads'); rmdir($wr);
 
+
+echo "[상담 견적 카드 — 배송 지역 해석·금액 (app/quote_draft.php, 2026-11-23 A8)]\n";
+eq('경기도 → 경기',         freight_region_normalize('경기도'), '경기');
+eq('충청 남도(공백) → 충남', freight_region_normalize('충청 남도'), '충남');
+eq('전북특별자치도 → 전북',  freight_region_normalize('전북특별자치도'), '전북');
+eq('서울 → 서울',           freight_region_normalize(' 서울 '), '서울');
+eq('수원(시·군) → null',     freight_region_normalize('수원'), null);
+eq('광주시(헷갈림) → null',  freight_region_normalize('광주시'), null);
+$qItems = [
+    ['product_id' => 1, 'name' => 'A', 'spec' => '300×300', 'quantity' => 10, 'unit_price' => 12000, 'subtotal' => 120000],
+    ['product_id' => 2, 'name' => 'B', 'spec' => '',        'quantity' => 2,  'unit_price' => 0,     'subtotal' => 0],
+];
+$q = quote_draft_build($qItems, ['status' => 'ok', 'freight' => 150000, 'km' => 40.2, 'total_kg' => 900, 'origins' => ['경기']], '서울');
+eq('운임 있음: 상품 합계(문의 품목 제외)', $q['goods_total'], 120000);
+eq('운임 있음: 부가세 = (상품+운임)×10%', $q['vat'], 27000);
+eq('운임 있음: 최종 = 297,000', $q['final'], 297000);
+eq('운임 있음: 꼬리 = 문의 품목만', $q['final_suffix'], ' + 문의 품목');
+eq('운임 있음: 운임 글', $q['freight']['text'], '150,000원');
+ok('문의 품목 안내', $q['has_inquiry'] && count($q['notes']) === 3);
+$q = quote_draft_build([$qItems[0]], ['status' => 'none'], null);
+eq('지역 없음: 운임 0원 아님(묻기 문장)', $q['freight']['text'], '배송 지역을 알려 주시면 계산해 드립니다');
+eq('지역 없음: 부가세 = 상품만', $q['vat'], 12000);
+eq('지역 없음: 꼬리 = 운임 별도', $q['final_suffix'], ' + 운임 별도');
+$q = quote_draft_build([$qItems[0]], ['status' => 'missing_weight', 'missing' => 1, 'missing_names' => ['A']], '경기');
+ok('중량 없음: 운임 별도 확인, 최종에 운임 없음', str_starts_with($q['freight']['text'], '별도 확인') && $q['final'] === 132000 && $q['final_suffix'] === ' + 운임 별도');
+$q = quote_draft_build([$qItems[0]], ['status' => 'negotiate'], '제주');
+eq('제주: 별도 협의', $q['freight']['text'], '별도 협의');
+$q = quote_draft_build([$qItems[1]], ['status' => 'ok', 'freight' => 50000], '서울');
+ok('가격 문의 품목만: 최종 = 담당자 문의(null)', $q['final'] === null && $q['vat'] === null && $q['final_suffix'] === '');
+$q = quote_draft_build([], ['status' => 'ok', 'freight' => 1], '서울');
+eq('품목 없음: empty', $q['freight']['status'], 'empty');
+$q = quote_draft_build([$qItems[0]], ['status' => '이상한값'], '서울');
+eq('모르는 상태 → error(별도 확인)', $q['freight']['text'], '별도 확인');
+$evs = [['type' => 'cart_update'], ['type' => 'quote_draft', 'n' => 1], ['type' => 'cart_update'], ['type' => 'quote_draft', 'n' => 2], ['type' => 'legal_sources']];
+$kept = rag_last_quote_only($evs);
+ok('한 턴 견적 카드는 마지막 하나만', count($kept) === 4 && $kept[2]['n'] === 2 && $kept[3]['type'] === 'legal_sources');
+eq('견적 카드 없으면 그대로', rag_last_quote_only([['type' => 'a']]), [['type' => 'a']]);
 
 echo "\n결과: {$pass} 통과 / {$fail} 실패\n";
 exit($fail > 0 ? 1 : 0);

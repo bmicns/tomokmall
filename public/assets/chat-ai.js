@@ -304,6 +304,47 @@ function renderEstimateCard(estimateId, container) {
   document.getElementById('messages').scrollTop = 9999;
 }
 
+/** quote_draft 이벤트 → 한 장 견적 카드(금액은 서버 계산 그대로 — app/quote_draft.php, 2026-11-23 A8) */
+function renderQuoteDraft(q, container) {
+  const items = q.items || [];
+  if (!items.length) return;
+  const won = n => new Intl.NumberFormat('ko-KR').format(parseInt(n, 10) || 0) + '원';
+  const f = q.freight || {};
+  const rows = items.map(it => {
+    const unit = parseInt(it.unit_price, 10) || 0;
+    const qty  = parseInt(it.quantity, 10) || 0;
+    const sub  = unit > 0 ? `${won(unit)} × ${qty}` : `수량 ${qty}`;
+    return `<li class="quote-card-item">
+        <div><div class="quote-card-name">${escHtml(it.name)}</div>
+          <div class="quote-card-sub">${it.spec ? escHtml(it.spec) + ' · ' : ''}<span class="quote-card-nowrap">${escHtml(sub)}</span></div></div>
+        <div class="quote-card-amt${unit > 0 ? '' : ' is-inquiry'}">${unit > 0 ? won(it.subtotal) : '가격 문의'}</div>
+      </li>`;
+  }).join('');
+  const goods = parseInt(q.goods_total, 10) || 0;
+  const goodsText = goods > 0 ? won(goods) + (q.has_inquiry ? ' + 문의' : '') : '담당자 문의';
+  const fOk = f.status === 'ok';
+  const freightLabel = '예상 운임' + (q.region ? ` (${escHtml(q.region)})` : '');
+  const finalText = q.final === null || q.final === undefined ? '담당자 문의' : won(q.final);
+  const card = document.createElement('div');
+  card.className = 'quote-card';
+  card.innerHTML = `
+    <div class="quote-card-head"><span class="quote-card-title">견적서 (예상)</span>
+      <span class="quote-card-region">${items.length}개 품목</span></div>
+    ${q.restored ? '<div class="quote-card-old">이전 상담 때 계산한 금액입니다. 지금 금액은 견적 요청 화면에서 확인해 주세요.</div>' : ''}
+    <ul class="quote-card-items">${rows}</ul>
+    <div class="quote-card-sum">
+      <div class="quote-card-row"><span>상품 합계</span><span>${escHtml(goodsText)}</span></div>
+      <div class="quote-card-row"><span>${freightLabel}</span><span class="${fOk ? '' : 'is-pending'}">${escHtml(f.text || '')}</span></div>
+      <div class="quote-card-row"><span>부가세 10% <small>(${escHtml(q.vat_basis || '')})</small></span><span>${q.vat === null || q.vat === undefined ? '-' : won(q.vat)}</span></div>
+      <div class="quote-card-row quote-card-final"><span>최종 예상 금액</span>
+        <span class="quote-card-final-val">${escHtml(finalText)}<small>${escHtml(q.final_suffix || '')}</small></span></div>
+    </div>
+    <div class="quote-card-notes">${(q.notes || []).map(n => `<div>※ ${escHtml(n)}</div>`).join('')}</div>
+    <div class="quote-card-foot"><a class="quote-card-btn" href="/estimate.php">견적 요청하기</a></div>`;
+  container.appendChild(card);
+  document.getElementById('messages').scrollTop = 9999;
+}
+
 /** SSE 이벤트 처리 (tool 결과 렌더링) */
 function processEvent(event, content) {
   switch (event.type) {
@@ -316,6 +357,9 @@ function processEvent(event, content) {
       break;
     case 'cart_update':
       refreshEstPanel();
+      break;
+    case 'quote_draft':
+      renderQuoteDraft(event, content);
       break;
     case 'estimate_created':
       renderEstimateCard(event.estimate_id, content);

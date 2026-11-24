@@ -7,6 +7,7 @@ declare(strict_types=1);
  *        (시나리오 7개 × V21·V22 비활성/활성). 분리 후 같은 시나리오의 rag_build_prompt() 결과가 글자 하나까지 같아야 한다.
  *        2026-10-29 의도적 변경 반영: s3(공공 보도)·s6(불명확) 안내 구역에서 근거 없이 적힌 '최소 100mm' 문장 1줄씩 수정
  *        (분리 자체의 전후 동일성은 수정 전 기준값으로 14건 모두 일치 확인 — 요청 본문 전체 바이트 비교).
+ *        2026-11-23 의도적 변경 반영(A8 상담 견적 카드): 3단계 견적 안내 — 담기 전 묻기·배송 지역(region)·update_cart·금액 재나열 금지(전 시나리오 같은 차이).
  *        2026-11-17 의도적 변경 반영(업체 공통 상담 가이드 A안): 옛 고정 가이드(category_consult_guide) 대신 '현재 등록 상품' 구역(판매 데이터 — 비교에서 빼고 따로 검사),
  *        케이토목 하중 3단계·'그레이팅 수로용 중하중' 예시를 업체 중립 문장으로(전 시나리오 같은 차이).
  *        2026-10-29 의도적 변경 반영(2): '블록'만 쓴 바닥 포장 문맥도 보도블록으로 감지 → s2~s7 에 보도블록 상담 가이드·사내 문서 추가,
@@ -81,7 +82,7 @@ $golden = __DIR__ . '/fixtures/prompts/golden';
 $rule80 = '★차량이 올라가면 두께 80mm 이상(80T) 제품, 사람만 다니면 60mm(60T)도 가능 → [참조 문서] 기준.';
 
 $scoped = $pdo->query("SELECT id, is_active, review_status FROM rag_documents WHERE author = '검증 조문(2-1단계)' AND tags LIKE '@scope:public_road%'")->fetchAll(PDO::FETCH_ASSOC);
-$prompts = [];
+$prompts = []; $promptsOff = [];
 try {
     foreach (['inactive', 'active'] as $state) {
         if ($state === 'inactive') {
@@ -92,6 +93,11 @@ try {
         }
         foreach ($scenarios as $key => $s) {
             $prompts[$state][$key] = rag_build_prompt($s['messages']);
+        }
+        if ($state === 'active') {   // 견적 카드 스위치를 끈 프롬프트(반영 전과 같아야 함, 2026-11-23)
+            ai_quote_card_enabled(false);
+            foreach ($scenarios as $key => $s) { $promptsOff[$key] = rag_build_prompt($s['messages']); }
+            ai_quote_card_enabled(true);
         }
     }
 } finally {
@@ -109,7 +115,17 @@ foreach ($prompts as $state => $byKey) {
         ok("{$key} ({$state}) 시스템 프롬프트 = 분리 전", $g !== '' && $norm($p['system']) === $norm($g));
     }
 }
-ok('rag_process 가 rag_build_prompt 결과를 그대로 사용', (bool) preg_match('/\$prompt\s*=\s*rag_build_prompt\(\$messages(?:,\s*(?:rag_recent_cards\(\$sid\)|\$recentCards))?\);\s*\$system\s*=\s*\$prompt\[\'system\'\];/', (string) file_get_contents(__DIR__ . '/../app/rag.php')));
+echo "[견적 카드 스위치 끔(app/features.php) = 반영 전 3단계 문장]\n";
+$quoteOn  = "【3단계: 견적 안내】\n- 고객이 표에서 제품을 고르면";
+$quoteOff = "【3단계: 견적 안내】\n- 고객이 담기 원하면 add_to_cart 호출. quantity 는 답변에서 안내한 권장 수량(suggested_qty)을 쓰고, 고객이 다른 수량을 말하면 그 수량.\n- 완료 후: '견적요청하기 버튼을 눌러 신청해 주세요.' 한 줄만 출력.\n- 연관 제품이 더 필요할 것 같으면 추가 검색 제안.";
+foreach ($promptsOff as $key => $p) {
+    $on = $prompts['active'][$key]['system'];
+    $i  = strpos($on, $quoteOn);
+    $j  = strpos($on, '- 연관 제품이 더 필요할 것 같으면 추가 검색 제안.', (int) $i);
+    $expect = $i === false || $j === false ? '' : substr($on, 0, $i) . $quoteOff . substr($on, $j + strlen('- 연관 제품이 더 필요할 것 같으면 추가 검색 제안.'));
+    ok("{$key}: 끄면 3단계만 반영 전 문장(나머지 같음)", $expect !== '' && $p['system'] === $expect);
+}
+ok('rag_process 가 rag_build_prompt 결과를 그대로 사용', (bool) preg_match('/\$prompt\s*=\s*rag_build_prompt\(\$messages(?:,\s*(?:rag_recent_cards\(\$sid\)|\$recentCards)(?:,\s*\$style)?)?\);\s*\$system\s*=\s*\$prompt\[\'system\'\];/', (string) file_get_contents(__DIR__ . '/../app/rag.php')));
 
 echo "[시나리오별 내용 — V21·V22 비활성(현재 상태)]\n";
 $P = $prompts['inactive'];

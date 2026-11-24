@@ -975,11 +975,27 @@ function rag_curl_post(string $url, string $body, array $headers): string|false
 }
 
 /**
+ * 우측 하단 'AI 빠른 견적' 창 답변 방식(케이토목 1분 자동견적과 비슷하게 — 사용자 요청 2026-11-23, 지금 상담과 비교용).
+ * 시스템 프롬프트 맨 끝에 붙어 위 '검색 결과 답변 형식'·'3단계 견적 안내'의 길이·담기 순서만 바꾼다. 하중·두께·공공도로 등 안전 규칙과 가격·수량 계산은 그대로.
+ */
+const RAG_QUICK_STYLE_PROMPT = "\n\n=== 빠른 견적 창 답변 방식 (이 구역이 위 '검색 결과 답변 형식'·'3단계: 견적 안내'보다 우선) ===\n"
+    . "- 화면 오른쪽 아래의 작은 견적 창이다. 답 글은 3~5줄, 200자 안팎. 제품별 설명 줄·장단점 나열·'원하시는 제품을 선택해 주세요' 없이 짧게.\n"
+    . "- 고객이 자재와 수량(또는 설치 길이·면적)을 말하면 되묻지 말고 search_products 로 찾고, 같은 응답에서 조건에 가장 알맞은 1개를 add_to_cart 로 바로 담는다(quantity = 권장 수량 suggested_qty, 고객이 개수를 말했으면 그 수량). 담기 전에 묻지 않는다.\n"
+    . "- 담은 뒤 첫 줄: 무엇을 왜 골랐는지 한 줄('차량이 다니는 주차장 배수로라 중하중 300×1000 규격을 담았습니다.'), 이어서 수량 근거 한 줄('20m ÷ 1m = 20개'). 일반 규격으로 골랐으면 '우선 가장 일반적인 규격으로 담아 드렸습니다.'\n"
+    . "- 안전에 꼭 필요한 조건(그레이팅·블록의 차량 통행 여부 등 필수 항목)이 말에 없으면 담기 전에 그 하나만 한 줄로 묻는다. 차량·하중·두께·공공도로 규칙은 위 규칙 그대로 지킨다.\n"
+    . "- 고객이 '같이 넣어줘'·'추가'라고 하면 이미 담긴 것은 두고 더 담는다. 빼기·수량 바꾸기는 update_cart.\n"
+    . "- 배송 지역(시·도)을 고객이 말하면 add_to_cart·get_cart 의 region 에 넣는다. 아직 모르면 마지막 줄에 '현재는 상품 금액만 먼저 계산했습니다. 정확한 견적을 위해 수량 확인과 현장 지역(시·도)을 알려 주시면 운반비까지 계산해 드립니다.' 한 줄.\n"
+    . "- 금액(단가·합계·운반비·부가세)은 창의 견적 표가 보여 주므로 글에 쓰지 않는다.\n"
+    . "- 맞는 제품이 없거나 가격 문의 상품이면 그 사실을 한 줄로 말하고 다른 규격을 지어내지 않는다.\n"
+    . "- 질문이 '[견적서 사진에서 읽은 품목]' 으로 시작하면 고객이 올린 견적서·자재 목록 사진에서 읽은 줄이다: 줄마다 search_products 로 찾아(한 응답에 여러 도구 호출 가능) 품명·규격이 맞는 상품을 그 줄의 수량으로 add_to_cart 한다(수량 모름이면 1). "
+    . "맞는 상품이 없거나 '(읽기 애매함)' 줄은 담지 않고, 답 글 끝에 '확인 필요:' 다음 한 줄에 하나씩 그 품목을 적는다. 담은 품목은 글에 다시 나열하지 않는다(견적 표가 보여 줌). 사진 속 단가·금액은 쓰지 않는다.";
+
+/**
  * 상담 시스템 프롬프트와 이번 질문의 근거 묶음 생성 — API 호출 없음.
  * rag_process() 가 이 결과를 그대로 OpenAI 에 보낸다. 프롬프트 검증(scripts/testdb/dump-prompts.php)·테스트에서도 같은 함수를 쓴다.
  * @return array{system:string, categoryKey:string, ragDocs:array, legalDocs:array, roadCtx:string, scopes:array}
  */
-function rag_build_prompt(array $messages, array $recentCards = []): array
+function rag_build_prompt(array $messages, array $recentCards = [], string $style = 'consult'): array
 {
     // Stage 2: 카테고리 자동 감지 + 업체 공통 '현재 등록 상품'(판매 중 상품에서 자동 생성 — 상담 가이드 A안, 2026-11-17)
     // 기존 category_consult_guide(케이토목 상품명 기준 고정 문장)는 읽지 않는다(행은 DB 에 그대로 — 되돌리려면 rag_load_consult_guide 를 다시 붙임)
@@ -1138,8 +1154,15 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
         . "  → note가 없을 때만: '해당 조건의 제품을 찾지 못했습니다. 용도나 재질을 알려주시면 다시 찾아드리겠습니다.' 후 검색어를 바꿔 1회 재시도.\n"
         . "  → 결과에 alternatives(같은 두께로 등록된 다른 포장 블록 이름)가 있으면, 같은 턴에서 그 이름들을 queries 로 같은 spec_mm·spec_strict·area_m2 와 함께 search_products 를 다시 호출해 표를 보여준다(더 얇은 두께로 바꾸지 않는다).\n"
         . "【3단계: 견적 안내】\n"
-        . "- 고객이 담기 원하면 add_to_cart 호출. quantity 는 답변에서 안내한 권장 수량(suggested_qty)을 쓰고, 고객이 다른 수량을 말하면 그 수량.\n"
-        . "- 완료 후: '견적요청하기 버튼을 눌러 신청해 주세요.' 한 줄만 출력.\n"
+        . (ai_quote_card_enabled()   // 견적 카드 스위치(app/features.php) — 끄면 반영 전 문장 그대로
+            ? ""
+            . "- 고객이 표에서 제품을 고르면(예: '이걸로 할게요') '이 제품으로 견적서에 담을까요? 배송 지역(시·도)을 알려 주시면 예상 운임까지 계산해 드립니다.'처럼 담을지 묻는다. 고객이 담아 달라고 하기 전에는 add_to_cart 를 호출하지 않는다.\n"
+            . "- 고객이 담기 원하면 add_to_cart 호출. quantity 는 답변에서 안내한 권장 수량(suggested_qty)을 쓰고, 고객이 다른 수량을 말하면 그 수량. 고객이 배송 지역을 말했으면 region 에 시·도를 넣는다.\n"
+            . "- 담은 뒤 배송 지역만 알려 주면 get_cart 를 region 과 함께 호출한다. 담긴 제품을 빼거나 수량을 바꿔 달라고 하면 update_cart(빼기 = quantity 0). 고객이 말한 제품만 담고·빼고·바꾼다.\n"
+            . "- 완료 후: 견적 카드(품목·상품 합계·예상 운임·부가세·최종 예상 금액)가 화면에 보이므로 금액을 다시 나열하지 않는다. '견적서에 담았습니다. 견적요청하기 버튼을 눌러 신청해 주세요.'처럼 짧게. 도구 결과 quote_note 의 안내(배송 지역 묻기 등)는 한 줄로 덧붙인다. 금액을 말해야 하면 도구 결과 quote 의 값만 쓴다.\n"
+            : ""
+            . "- 고객이 담기 원하면 add_to_cart 호출. quantity 는 답변에서 안내한 권장 수량(suggested_qty)을 쓰고, 고객이 다른 수량을 말하면 그 수량.\n"
+            . "- 완료 후: '견적요청하기 버튼을 눌러 신청해 주세요.' 한 줄만 출력.\n")
         . "- 연관 제품이 더 필요할 것 같으면 추가 검색 제안.";
 
     // Stage 2: 상담 품목의 현재 등록 상품(모든 업체) — 조회 실패·품목 없음이면 빈 문자열
@@ -1158,6 +1181,9 @@ function rag_build_prompt(array $messages, array $recentCards = []): array
     $system .= rag_legal_prompt_section($legalDocs);
     $system .= rag_drain_notice_prompt(rag_drain_notice_keys($messages)); // 옹벽 배수관·도로 횡단배수관 주의(해당 상황만, 없으면 빈 문자열)
     $system .= rag_recent_cards_prompt($recentCards, price_basis_label());   // 이 상담에서 고객 화면에 보인 직전 추천표(담기·비교 질문용) — 없으면 빈 문자열(기존과 같음)
+    if ($style === 'quick') {
+        $system .= RAG_QUICK_STYLE_PROMPT;   // 우측 하단 빠른 견적 창(2026-11-23 비교용) — 기본 상담('consult')은 그대로
+    }
 
     return [
         'system'      => $system,
@@ -2275,10 +2301,34 @@ function rag_tool_summary(string $name, array $d): string
             . ' · 국가표준 ' . (implode(', ', array_column($b['standards'] ?? [], 'ref')) ?: '없음') . ' · 등록 상품 ' . count($b['products'] ?? []) . '종'
             . (!empty($b['procurement']) ? ' · 조달 현황 ' . implode(', ', array_column($b['procurement'], 'name')) : '');
     }
-    if ($name === 'add_to_cart') {
-        return !empty($d['success']) || !empty($d['ok']) ? '담기 성공' : '담기 실패: ' . mb_substr((string) ($d['error'] ?? json_encode($d, JSON_UNESCAPED_UNICODE)), 0, 60);
+    if ($name === 'add_to_cart' || $name === 'update_cart') {
+        $ok = !empty($d['success']) || !empty($d['ok']);
+        $label = $name === 'add_to_cart' ? '담기' : (!empty($d['removed']) ? '빼기' : '수량 변경');
+        return ($ok ? "{$label} 성공" : "{$label} 실패: " . mb_substr((string) ($d['error'] ?? json_encode($d, JSON_UNESCAPED_UNICODE)), 0, 60))
+            . ($ok ? rag_quote_summary($d) : '');
+    }
+    if ($name === 'get_cart') {
+        return '견적서 ' . (int) ($d['count'] ?? 0) . '개' . rag_quote_summary($d);
     }
     return mb_substr(json_encode($d, JSON_UNESCAPED_UNICODE) ?: '', 0, 80);
+}
+
+/** 견적 카드 요약(도구 로그용) — 지역·운임 상태 (순수 함수) */
+function rag_quote_summary(array $d): string
+{
+    $q = $d['quote'] ?? null;
+    if (!is_array($q)) { return ''; }
+    return ' · 지역 ' . ($q['region'] ?? '없음') . ' · 운임 ' . (string) ($q['freight_text'] ?? '')
+        . (!empty($d['region_error']) ? ' · 지역 해석 실패' : '');
+}
+
+/** 견적 카드(quote_draft) 이벤트는 마지막 것만 남긴다 (순수 함수) */
+function rag_last_quote_only(array $events): array
+{
+    $last = null;
+    foreach ($events as $i => $ev) { if (($ev['type'] ?? '') === 'quote_draft') { $last = $i; } }
+    if ($last === null) { return $events; }
+    return array_values(array_filter($events, static fn($ev, $i) => ($ev['type'] ?? '') !== 'quote_draft' || $i === $last, ARRAY_FILTER_USE_BOTH));
 }
 
 /** 답변이 '제품을 찾아/검색해 드리겠다'는 약속으로 끝나는지 (순수 함수) — 도구 호출 없이 끝나면 손님이 결과 없이 기다리게 됨 */
@@ -2319,7 +2369,7 @@ function rag_strip_dangling_choice(string $text, array $events): string
  *
  * @return array{ok:bool, text:string, events:list<array>, error?:string}
  */
-function rag_process(array $messages, string $sid): array
+function rag_process(array $messages, string $sid, string $style = 'consult'): array
 {
     global $config;
 
@@ -2333,7 +2383,7 @@ function rag_process(array $messages, string $sid): array
 
     // 프롬프트·근거 생성(rag_build_prompt) — 내용은 분리 전과 동일
     $recentCards = rag_recent_cards($sid);
-    $prompt      = rag_build_prompt($messages, $recentCards);
+    $prompt      = rag_build_prompt($messages, $recentCards, $style);
     $system      = $prompt['system'];
     $categoryKey = $prompt['categoryKey'];
     $legalDocs   = $prompt['legalDocs'];
@@ -2346,6 +2396,9 @@ function rag_process(array $messages, string $sid): array
     $maxIter      = 3;
     $toolUsed     = false;
     $forceSearch  = false;   // '찾아 드릴게요'만 하고 끝난 응답 → 1회 검색 재요청
+    $forceAdd     = false;   // 빠른 견적 창: 찾고도 담지 않고 '골라 주세요'로 끝난 응답 → 1회 담기 재요청
+    $forcedAdd    = false;
+    $cartTouched  = false;   // 이번 턴에 담기·빼기·수량 바꾸기를 했는지
     $chatUrl      = $config['openai']['chat_url'] ?? 'https://api.openai.com/v1/chat/completions';
     $answered     = false;   // 도구 없이 끝난(최종 답을 받은) 응답이 있었는지
     $promised     = '';      // 검색 약속 문장(강제 검색 재요청 때 버림 — 도구가 안 불리면 되살림)
@@ -2402,10 +2455,12 @@ function rag_process(array $messages, string $sid): array
             'model'       => $model,
             'stream'      => false,
             'tools'       => ai_tool_definitions(),
-            'tool_choice' => $forceSearch ? ['type' => 'function', 'function' => ['name' => 'search_products']] : 'auto',
+            'tool_choice' => $forceSearch ? ['type' => 'function', 'function' => ['name' => 'search_products']]
+                : ($forceAdd ? ['type' => 'function', 'function' => ['name' => 'add_to_cart']] : 'auto'),
             'messages'    => $oaiMessages,
         ]);
         $forceSearch = false;
+        $forceAdd    = false;
 
         $raw = rag_curl_post(
             $chatUrl,
@@ -2453,6 +2508,17 @@ function rag_process(array $messages, string $sid): array
             continue;
         }
 
+        // 빠른 견적 창(케이토목 1분 자동견적 그대로 — A9·A11): 찾은 제품을 담지 않고 '원하시는 제품을 선택해 주세요'로 끝난 답은 버리고
+        // add_to_cart 를 1회 강제(운영 상담 #260). 확인 질문('?')으로 끝난 답(안전 필수 조건 묻기)은 그대로 둔다.
+        if ($noTool && $style === 'quick' && !$forcedAdd && $turnCards && !$cartTouched && !str_contains((string) $content, '?')) {
+            $forcedAdd = true;
+            $promised  = (string) $content;   // 강제해도 도구를 안 부르면 이 답이라도 돌려준다
+            $oaiMessages[] = ['role' => 'system', 'content' => '빠른 견적 창이다. 고객에게 고르라고 하지 말고, 방금 찾은 제품 중 고객 조건에 가장 알맞은 1개를 지금 add_to_cart 로 담는다(quantity = 고객이 말한 개수, 없으면 suggested_qty). 담은 뒤 빠른 견적 창 답변 방식대로 짧게 답한다.'];
+            $forceAdd = true;
+            $maxIter++;
+            continue;
+        }
+
         // 도구 호출과 함께 온 글('찾아볼게요·잠시만요', 검색 전 추측성 종류 설명, '오류가 발생' 등)은 최종 답이 오면 버린다 — 손님에게는 도구 결과를 본 뒤의 답만.
         // 최종 답이 끝내 비면 이 글을 대신 쓴다(빈 답변 방지).
         if ($content !== '' && $content !== null) {
@@ -2477,6 +2543,7 @@ function rag_process(array $messages, string $sid): array
                 [$input, $fills, $clarify] = rag_prepare_search_input($input, $searchCtx);
             }
             $output   = ai_tool_dispatch($tc['function']['name'] ?? '', $input, $sid);
+            if (in_array($tc['function']['name'] ?? '', ['add_to_cart', 'update_cart'], true)) { $cartTouched = true; }
             $toolData = json_decode($output, true) ?? [];
             if ($clarify !== '') { $toolData['clarify'] = $clarify; }   // 모호한 고객 말 — GPT 가 확인 질문을 하게(서버가 해석을 정하지 않음)
             if (($tc['function']['name'] ?? '') === 'search_products') {
@@ -2516,6 +2583,8 @@ function rag_process(array $messages, string $sid): array
             return ['ok' => false, 'text' => '', 'events' => $events, 'tools' => $toolLog, 'error' => '답변을 만들지 못했습니다. 다시 시도해 주세요.'];
         }
     }
+
+    $events = rag_last_quote_only($events);   // 한 턴에 여러 개 담으면 견적 카드는 마지막(모두 담긴 상태) 하나만
 
     if (trim($responseText) === '' && $preToolText !== '') {
         $responseText = $preToolText;

@@ -27,6 +27,34 @@ $_cleanEvents = static function (array $events): array {
                 ];
             }
             if ($products) $out[] = ['type' => 'product_cards', 'products' => $products];
+        } elseif ($type === 'quote_draft' && is_array($ev['items'] ?? null) && $ev['items']) {
+            // 견적 카드: 그때 계산한 금액 그대로(이전 상담 표시는 chat-ai.js 가 '그때 금액' 안내를 붙임)
+            $items = [];
+            foreach ($ev['items'] as $it) {
+                if (!is_array($it)) continue;
+                $items[] = [
+                    'name'       => (string) ($it['name'] ?? ''),
+                    'spec'       => (string) ($it['spec'] ?? ''),
+                    'quantity'   => (int) ($it['quantity'] ?? 0),
+                    'unit_price' => (int) ($it['unit_price'] ?? 0),
+                    'subtotal'   => (int) ($it['subtotal'] ?? 0),
+                ];
+            }
+            $f = is_array($ev['freight'] ?? null) ? $ev['freight'] : [];
+            $out[] = [
+                'type'         => 'quote_draft',
+                'restored'     => true,
+                'region'       => is_string($ev['region'] ?? null) ? $ev['region'] : null,
+                'items'        => $items,
+                'goods_total'  => (int) ($ev['goods_total'] ?? 0),
+                'has_inquiry'  => !empty($ev['has_inquiry']),
+                'freight'      => ['status' => (string) ($f['status'] ?? 'none'), 'text' => (string) ($f['text'] ?? '')],
+                'vat'          => isset($ev['vat']) ? (int) $ev['vat'] : null,
+                'final'        => isset($ev['final']) ? (int) $ev['final'] : null,
+                'final_suffix' => (string) ($ev['final_suffix'] ?? ''),
+                'vat_basis'    => (string) ($ev['vat_basis'] ?? ''),
+                'notes'        => array_values(array_map('strval', (array) ($ev['notes'] ?? []))),
+            ];
         } elseif ($type === 'estimate_created' && (int) ($ev['estimate_id'] ?? 0) > 0) {
             $out[] = ['type' => 'estimate_created', 'estimate_id' => (int) $ev['estimate_id']];
         }
@@ -337,6 +365,32 @@ render_header('AI 자재 상담', 'chat');
   .estimate-card-icon  { color: #27AE60; font-size: 16px; line-height: 1; }
   .estimate-card-title { font-size: 13px; font-weight: 500; color: #27AE60; }
   .estimate-card-sub   { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+
+  /* ── 견적 카드(상담 답변 안, 2026-11-23 A8) — 품목·상품 합계·예상 운임·부가세·최종 예상 금액 ── */
+  .quote-card { margin-top: 10px; max-width: 460px; border: 1px solid var(--color-border); background: #fff; font-size: 13px; line-height: 1.5; }
+  .quote-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 10px 14px; background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
+  .quote-card-title { font-size: 14px; font-weight: 700; color: var(--color-text-primary); }
+  .quote-card-region { font-size: 12px; color: var(--color-text-secondary); white-space: nowrap; }
+  .quote-card-items { list-style: none; margin: 0; padding: 0 14px; }
+  .quote-card-item { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid #EEEEEE; }
+  .quote-card-name { font-weight: 600; color: var(--color-text-primary); word-break: keep-all; overflow-wrap: anywhere; }
+  .quote-card-sub { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; overflow-wrap: anywhere; }
+  .quote-card-amt { font-weight: 600; color: var(--color-text-primary); white-space: nowrap; text-align: right; }
+  .quote-card-amt.is-inquiry { color: var(--color-text-secondary); font-weight: 500; }
+  .quote-card-sum { padding: 6px 14px 10px; }
+  .quote-card-row { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; color: var(--color-text-primary); }
+  .quote-card-row > span:first-child { flex-shrink: 0; white-space: nowrap; }
+  .quote-card-row .is-pending { color: var(--color-text-secondary); text-align: right; word-break: keep-all; }
+  .quote-card-nowrap { white-space: nowrap; }
+  .quote-card-row small { color: var(--color-text-secondary); font-size: 11px; }
+  .quote-card-final { border-top: 1px solid var(--color-border); margin-top: 6px; padding-top: 8px; font-weight: 700; }
+  .quote-card-final .quote-card-final-val { color: var(--color-primary); font-size: 15px; text-align: right; }
+  .quote-card-final small { display: block; font-weight: 400; }
+  .quote-card-notes { padding: 0 14px 10px; font-size: 11.5px; color: var(--color-text-secondary); word-break: keep-all; }
+  .quote-card-foot { padding: 0 14px 12px; }
+  .quote-card-btn { display: flex; align-items: center; justify-content: center; min-height: 44px; background: var(--color-primary); color: #fff; font-size: 14px; font-weight: 600; text-decoration: none; }
+  .quote-card-btn:hover, .quote-card-btn:focus-visible { background: var(--color-primary-hover); }
+  .quote-card-old { padding: 8px 14px 0; font-size: 11.5px; color: var(--color-text-secondary); }
 
   /* ── 커서 ────────────────────────────────────────────────── */
   .cursor {

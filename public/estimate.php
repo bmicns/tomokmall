@@ -7,6 +7,7 @@ require __DIR__ . '/../app/auth.php';
 require __DIR__ . '/../app/estimate.php';
 
 require_once __DIR__ . '/../app/cart.php';
+require_once __DIR__ . '/../app/quote_draft.php';   // AI 상담에서 들은 배송 지역(시·도) 미리 선택 — 2026-11-23 A8
 require __DIR__ . '/../app/layout.php';
 
 $cart      = cart_session_read();
@@ -34,6 +35,7 @@ $totalText = $cartTotal > 0 ? number_format($cartTotal).'원'.($hasInquiry ? ' +
 $sum0      = estimate_amount_summary($cartTotal, null); // 초기 상태: 배송 지역 미선택 → 운임 미포함
 // 수량 상한 = 저장 API 상한(장바구니 api/cart.php·즉시견적 quick-items.php 모두 999)
 $qtyMax    = 999;
+$shipRegion = ai_quote_card_enabled() ? quote_region_get() : null;   // 상담에서 말한 배송 지역(목록에 있는 시·도만, 없으면 null)
 $user  = current_user();
 $nowMin = date('Y-m-d\TH:i');
 
@@ -257,7 +259,7 @@ render_header('견적 요청');
                 <label for="ship-region">배송 지역</label>
                 <select id="ship-region" onchange="refreshFreight(0)">
                     <option value="">지역 선택</option>
-                    <?php foreach (array_keys(FREIGHT_SIDO_COORDS) as $sido): ?><option value="<?= e($sido) ?>"><?= e($sido) ?></option><?php endforeach; ?>
+                    <?php foreach (array_keys(FREIGHT_SIDO_COORDS) as $sido): ?><option value="<?= e($sido) ?>"<?= $sido === $shipRegion ? ' selected' : '' ?>><?= e($sido) ?></option><?php endforeach; ?>
                 </select>
                 <span>예상 운임비</span>
                 <span id="freight-display" class="est-freight-val is-pending" aria-live="polite">지역 선택 시 산출</span>
@@ -652,6 +654,8 @@ async function doPrint() {
 }
 
 recalcTotal();
+// 상담에서 배송 지역을 미리 골라 두었으면 바로 예상 운임 계산
+if (document.getElementById('ship-region')?.value) refreshFreight(0);
 </script>
 
 <!-- 인쇄 전용 견적서 -->
