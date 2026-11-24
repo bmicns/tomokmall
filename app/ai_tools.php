@@ -2316,7 +2316,7 @@ function tool_add_to_cart(array $input, string $sid): string
     }
 
     $stmt = db()->prepare(
-        'SELECT id, name, price_b2c FROM products WHERE id = :id AND is_active = 1'
+        'SELECT id, name, spec, price_b2c FROM products WHERE id = :id AND is_active = 1'
     );
     $stmt->execute(['id' => $productId]);
     $product = $stmt->fetch();
@@ -2336,8 +2336,13 @@ function tool_add_to_cart(array $input, string $sid): string
         if (($cart[$productId] ?? 0) + $quantity > 999) {
             return json_encode(['error' => '수량은 1~999 범위여야 합니다.'], JSON_UNESCAPED_UNICODE);
         }
+        if (cart_store_is_quick_list()) {
+            [$cart, $swapped] = tool_quick_swap_out($cart, $product);
+            if ($swapped) { $setNote = '수량이 정해지지 않았던 ' . implode(', ', $swapped) . ' 은(는) 이 상품으로 바꿔 담아 목록에서 뺐습니다.'; }
+        }
         $cart[$productId] = ($cart[$productId] ?? 0) + $quantity;
     }
+    if (cart_store_is_quick_list()) { quick_turn_state(null, $productId); }
     cart_session_write($cart);
 
     [$count, $total] = cart_summary($cart);
@@ -2366,6 +2371,29 @@ function tool_add_to_cart(array $input, string $sid): string
             $quote,
         ],
     ], JSON_UNESCAPED_UNICODE);
+}
+
+/**
+ * 빠른 견적 창 목록 바꿔 담기(운영 시험 11-24): 새 상품과 크기가 같고 품명이 닮은 수량 0(미정) 줄을 뺀다.
+ * 이번 턴에 함께 담은 줄, 고객이 '같이·추가·둘 다'라고 한 턴은 빼지 않는다. 수량이 있는 줄은 그대로.
+ * @return array{0:array<int,int>, 1:list<string>} [바뀐 목록, 뺀 상품 이름]
+ */
+function tool_quick_swap_out(array $cart, array $product): array
+{
+    $turn = quick_turn_state();
+    if (quick_match_keep_both($turn['msg'])) { return [$cart, []]; }
+    $zeroIds = array_values(array_diff(array_keys(array_filter($cart, static fn($q) => (int) $q === 0)), $turn['added'], [(int) $product['id']]));
+    if (!$zeroIds) { return [$cart, []]; }
+    $in   = implode(',', array_fill(0, count($zeroIds), '?'));
+    $stmt = db()->prepare("SELECT id, name, spec FROM products WHERE id IN ($in)");
+    $stmt->execute(array_map('intval', $zeroIds));
+    $rows  = $stmt->fetchAll();
+    $drop  = quick_match_swap_ids($product, $rows);
+    $names = [];
+    foreach ($rows as $r) {
+        if (in_array((int) $r['id'], $drop, true)) { unset($cart[(int) $r['id']]); $names[] = $r['name'] . ' ' . quick_match_spec_text((string) $r['spec']); }
+    }
+    return [$cart, $names];
 }
 
 /**
@@ -2514,3 +2542,4 @@ function tool_create_estimate(array $input, string $sid): string
 require_once __DIR__ . '/estimate.php';
 require_once __DIR__ . '/quote_draft.php';   // AI 상담 견적 카드(2026-11-23 A8)
 require_once __DIR__ . '/external_products.php';
+require_once __DIR__ . '/quick_match.php';     // 빠른 견적 창 바꿔 담기(같은 크기 수량 0 줄 빼기)
