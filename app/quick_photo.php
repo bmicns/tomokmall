@@ -10,6 +10,8 @@ declare(strict_types=1);
  * 금지: 가격 읽기·쓰기(사진 속 단가는 쓰지 않음 — 가격은 우리 상품 가격으로만), 사진·원문 저장·로그.
  */
 
+require_once __DIR__ . '/quick_match.php';
+
 const QUICK_PHOTO_MAX_BYTES = 10 * 1024 * 1024;
 const QUICK_PHOTO_MAX_ITEMS = 10;
 const QUICK_PHOTO_PREFIX    = '[견적서 사진에서 읽은 품목]';
@@ -55,32 +57,95 @@ function quick_photo_scrub(string $s): string
 }
 
 /**
- * OpenAI 가 돌려준 JSON 글 → 빠른 견적 창 질문 글 (순수 함수).
- * @return array{ok:bool, text?:string, count?:int, error?:string}
+ * OpenAI 가 돌려준 JSON 글 → 확인된 품목 목록 (순수 함수). 개인정보 모양은 지우고, 품명 없는 줄은 뺀다.
+ * @return list<array{name:string, spec:string, qty:?float, unit:string, unclear:bool}>|null  JSON 이 아니면 null
  */
-function quick_photo_items_text(string $json): array
+function quick_photo_items(string $json): ?array
 {
     $d = json_decode($json, true);
     $items = is_array($d) && is_array($d['items'] ?? null) ? $d['items'] : null;
+    if ($items === null) { return null; }
+    $out = [];
+    foreach ($items as $it) {
+        if (!is_array($it) || count($out) >= QUICK_PHOTO_MAX_ITEMS) { continue; }
+        $name = mb_substr(quick_photo_scrub((string) ($it['name'] ?? '')), 0, 60);
+        if ($name === '') { continue; }
+        $out[] = [
+            'name'    => $name,
+            'spec'    => mb_substr(quick_photo_scrub((string) ($it['spec'] ?? '')), 0, 60),
+            'qty'     => is_numeric($it['qty'] ?? null) && (float) $it['qty'] > 0 ? (float) $it['qty'] : null,
+            'unit'    => mb_substr(quick_photo_scrub((string) ($it['unit'] ?? '')), 0, 8),
+            'unclear' => !empty($it['unclear']),
+        ];
+    }
+    return $out;
+}
+
+/** 품목 1줄 글: '배수(빗물받이)경계석 180×200×1000 · 수량 30개' (순수 함수) */
+function quick_photo_item_line(array $it): string
+{
+    $qty = $it['qty'] !== null ? rtrim(rtrim(number_format((float) $it['qty'], 2, '.', ''), '0'), '.') : '';
+    return $it['name'] . ($it['spec'] !== '' ? ' ' . $it['spec'] : '')
+        . ($qty !== '' ? ' · 수량 ' . $qty . $it['unit'] : ' · 수량 모름')
+        . ($it['unclear'] ? ' (읽기 애매함)' : '');
+}
+
+/**
+ * OpenAI 가 돌려준 JSON 글 → 빠른 견적 창 질문 글 (순수 함수).
+ * @return array{ok:bool, text?:string, count?:int, items?:array, error?:string}
+ */
+function quick_photo_items_text(string $json): array
+{
+    $items = quick_photo_items($json);
     if ($items === null) {
         return ['ok' => false, 'error' => '사진에서 품목을 읽지 못했습니다. 더 밝고 반듯하게 찍어 다시 올려 주세요.'];
     }
-    $lines = [];
-    foreach ($items as $it) {
-        if (!is_array($it) || count($lines) >= QUICK_PHOTO_MAX_ITEMS) { continue; }
-        $name = mb_substr(quick_photo_scrub((string) ($it['name'] ?? '')), 0, 60);
-        if ($name === '') { continue; }
-        $spec = mb_substr(quick_photo_scrub((string) ($it['spec'] ?? '')), 0, 60);
-        $qty  = is_numeric($it['qty'] ?? null) && (float) $it['qty'] > 0 ? rtrim(rtrim(number_format((float) $it['qty'], 2, '.', ''), '0'), '.') : '';
-        $unit = mb_substr(quick_photo_scrub((string) ($it['unit'] ?? '')), 0, 8);
-        $lines[] = (count($lines) + 1) . ') ' . $name . ($spec !== '' ? ' ' . $spec : '')
-            . ($qty !== '' ? ' · 수량 ' . $qty . $unit : ' · 수량 모름')
-            . (!empty($it['unclear']) ? ' (읽기 애매함)' : '');
-    }
-    if (!$lines) {
+    if (!$items) {
         return ['ok' => false, 'error' => '사진에서 자재 품목을 찾지 못했습니다. 견적서나 자재 목록 사진인지 확인해 주세요.'];
     }
-    return ['ok' => true, 'text' => QUICK_PHOTO_PREFIX . "\n" . implode("\n", $lines), 'count' => count($lines)];
+    $lines = [];
+    foreach ($items as $i => $it) { $lines[] = ($i + 1) . ') ' . quick_photo_item_line($it); }
+    return ['ok' => true, 'text' => QUICK_PHOTO_PREFIX . "\n" . implode("\n", $lines), 'count' => count($items), 'items' => $items];
+}
+
+/**
+ * 사진 품목 → 같은 상품 찾기(품명+규격, app/quick_match.php). 읽기 애매한 줄·규격 없는 줄·못 찾은 줄은 '확인 필요'로.
+ * 수량: 사진 수량(소수는 올림, 999 까지), 없으면 0(미정). 가격은 보지 않는다(사진 속 단가 안 씀).
+ * @param callable(string,string):?array $find 품명·규격 → 상품 행(id·name·spec) — 시험에서는 바꿔 넣는다
+ * @return array{add:array<int,int>, missing:list<string>}  add = 상품 id => 수량
+ */
+function quick_photo_match(array $items, callable $find): array
+{
+    $add = [];
+    $missing = [];
+    foreach ($items as $it) {
+        $row = $it['unclear'] ? null : $find($it['name'], $it['spec']);
+        if (!$row) { $missing[] = quick_photo_item_line($it); continue; }
+        $qty = $it['qty'] !== null ? min(999, (int) ceil($it['qty'])) : 0;
+        $id  = (int) $row['id'];
+        $add[$id] = isset($add[$id]) ? min(999, $add[$id] + $qty) : $qty;
+    }
+    return ['add' => $add, 'missing' => $missing];
+}
+
+/** 사진 담기 결과 안내 글 (순수 함수) */
+function quick_photo_reply_text(int $read, int $added, array $missing, bool $hasRegion): string
+{
+    $lines = [];
+    $lines[] = $added > 0
+        ? "사진에서 {$read}개 품목을 읽어 {$added}개를 이 창의 목록에 담았습니다. 수량은 사진에 적힌 대로 넣었고, 금액은 사진 속 단가가 아닌 저희 판매가로 계산했습니다."
+        : "사진에서 {$read}개 품목을 읽었지만 같은 품명·규격의 상품을 찾지 못해 담지 못했습니다.";
+    if ($missing) {
+        $lines[] = '확인 필요(같은 상품을 찾지 못했거나 읽기 애매함):';
+        foreach ($missing as $m) { $lines[] = '- ' . $m; }
+        $lines[] = '위 품목은 품명이나 규격을 적어 주시면 찾아 담아 드립니다.';
+    }
+    if ($added > 0) {
+        $lines[] = $hasRegion
+            ? "정리된 목록으로 견적서를 만들려면 '견적서 만들어줘'라고 입력해 주세요."
+            : '현재는 상품 금액만 먼저 계산했습니다. 현장 지역(시·도)을 알려 주시면 운반비까지 계산해 드립니다.';
+    }
+    return implode("\n", $lines);
 }
 
 /**
