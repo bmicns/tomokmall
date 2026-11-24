@@ -134,7 +134,7 @@ $html = static function (string $mode, ?array $user): string {
     render_quick_chat();
     return (string) ob_get_clean();
 };
-ok('직원·일반 화면: 버튼·창·스크립트', str_contains($h = $html('normal', $staff), 'id="qc-fab"') && str_contains($h, '/assets/quick-chat.js') && str_contains($h, '관리자·직원 시험 중'));
+ok('직원·일반 화면: 버튼·창·스크립트', str_contains($h = $html('normal', $staff), 'id="qc-fab"') && str_contains($h, '/assets/quick-chat.js') && str_contains($h, 'id="qc-title"') && !str_contains($h, '관리자·직원 시험 중'));   // 머리 안내 줄 뺌(사용자 요청 11-24)
 ok('고객·비로그인: 없음', $html('normal', $cust) === '' && $html('home', null) === '');
 ok('AI 상담 화면(chat): 없음', $html('chat', $staff) === '');
 $_SESSION['user'] = null;
