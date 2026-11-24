@@ -69,7 +69,9 @@
   border: 1px solid var(--color-border); border-radius: 6px; background: #fff;
   font-family: var(--font); font-size: 12.5px; color: var(--color-text-primary); cursor: pointer;
 }
-.qc-example:hover, .qc-example:focus-visible { border-color: var(--color-primary); color: var(--color-primary); }
+/* 예시 카드: 마우스를 올려도 모양이 바뀌지 않게(전역 button:hover 파란 배경도 덮음 — 사용자 피드백 11-24), 키보드 초점 표시만 유지 */
+.qc-example:hover { background: #fff; border-color: var(--color-border); color: var(--color-text-primary); }
+.qc-example:focus-visible { border-color: var(--color-primary); color: var(--color-primary); background: #fff; }
 
 /* 견적 표 — 품목마다 상품명·단가·수량, 아래에 운반비·부가세·총합계 */
 .qc-quote { width: 92%; margin-top: 6px; background: #fff; border: 1px solid var(--color-border); border-radius: 6px; font-size: 12.5px; }

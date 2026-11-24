@@ -354,6 +354,7 @@
     state = { sid: '', open: true, msgs: [], prev: prev.slice(0, PREV_MAX) };
     photoReset();
     showPrev(false);
+    setHelp(false);
     try {
       const r = await fetch('/api/chat/quick.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'new' }) });
       const d = await r.json();
@@ -439,13 +440,14 @@
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); ask(input.value); }
   });
   form.addEventListener('submit', e => { e.preventDefault(); ask(input.value); });
-  if (helpBtn && help) {
-    helpBtn.addEventListener('click', () => {
-      const open = help.hidden;
-      help.hidden = !open;
-      helpBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    });
+  // 사용방법: 열면 헤더 버튼이 '닫기'로 바뀌고, 다시 누르거나 [새 대화]를 누르면 닫힌다(사용자 피드백 11-24)
+  function setHelp(open) {
+    if (!helpBtn || !help) return;
+    help.hidden = !open;
+    helpBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    helpBtn.textContent = open ? '닫기' : '사용방법';
   }
+  if (helpBtn && help) helpBtn.addEventListener('click', () => setHelp(help.hidden));
   if (prevBtn && prevBox) prevBtn.addEventListener('click', () => showPrev(prevBox.hidden));
   if (attach && file && photo) {
     attach.addEventListener('click', () => { if (!busy) file.click(); });

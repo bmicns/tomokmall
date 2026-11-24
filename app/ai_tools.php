@@ -86,14 +86,16 @@ function ai_tool_definitions(): array
             'type'     => 'function',
             'function' => [
                 'name'        => 'update_cart',
-                'description' => "견적서에 이미 담긴 상품의 수량을 바꾸거나 뺍니다(고객이 '빼 줘'·'수량을 30개로' 처럼 말한 상품만). quantity 0 = 견적서에서 빼기.",
+                'description' => "견적서에 이미 담긴 상품의 수량을 바꾸거나 뺍니다(고객이 '빼 줘'·'수량을 30개로' 처럼 말한 상품만). quantity 0 = 견적서에서 빼기. 고객이 개수 대신 설치 길이·면적을 말했으면 quantity 대신 length_m·area_m2 — 서버가 권장 수량을 계산해 맞추고 qty_basis 를 돌려줍니다.",
                 'parameters'  => [
                     'type'       => 'object',
                     'properties' => [
                         'product_id' => ['type' => 'integer', 'description' => '견적서에 담긴 상품 ID'],
-                        'quantity'   => ['type' => 'integer', 'description' => '새 수량(1~999), 0 이면 빼기'],
+                        'quantity'   => ['type' => 'integer', 'description' => '새 수량(1~999), 0 이면 빼기. length_m·area_m2 를 넣으면 생략'],
+                        'length_m'   => ['type' => 'number', 'description' => '설치 총 길이(m) — 이 길이에 맞는 권장 수량으로 맞춤'],
+                        'area_m2'    => ['type' => 'number', 'description' => '설치 면적(㎡) — 이 면적에 맞는 권장 수량으로 맞춤'],
                     ],
-                    'required' => ['product_id', 'quantity'],
+                    'required' => ['product_id'],
                 ],
             ],
         ],
@@ -2361,12 +2363,19 @@ function tool_add_to_cart(array $input, string $sid): string
     [$region, $regionError] = quote_region_resolve($input);
     $quote = quote_draft_current($region);
 
+    // 빠른 견적 창: 수량 미정(0)으로 담으면 1개가 덮는 길이 예시를 같이 — '10m면 10개 정도' 수량 추천용(사용자 피드백 11-24)
+    $hint = null;
+    if (cart_store_is_quick_list() && (int) $cart[$productId] === 0) {
+        [$hq, $hb] = tool_cart_suggest_qty($productId, 10.0, 0.0);
+        if ($hq !== null) { $hint = '설치 길이 10m 예시: ' . $hb . ' — 고객이 길이를 말하면 update_cart(length_m)로 맞춤'; }
+    }
+
     return json_encode([
         'ok'         => true,
         'product_id' => $productId,
         'name'       => $product['name'],
         'quantity'   => $cart[$productId],
-    ] + ($setNote !== null ? ['note' => $setNote] : []) + quote_tool_result($quote, $regionError) + [
+    ] + ($setNote !== null ? ['note' => $setNote] : []) + ($hint !== null ? ['qty_hint' => $hint] : []) + quote_tool_result($quote, $regionError) + [
         '_sse'       => [
             ['type' => 'cart_update', 'count' => $count, 'total' => $total],
             $quote,
@@ -2425,6 +2434,21 @@ function tool_get_cart(string $sid, array $input = []): string
 }
 
 /**
+ * 담긴 상품의 설치 길이·면적 기준 권장 수량 — 검색 표 suggested_qty 와 같은 계산(ai_estimate_quantity). 계산할 수 없으면 [null, ''].
+ * @return array{0:?int, 1:string} [수량, 계산식(예: '10m ÷ 1m = 10개')]
+ */
+function tool_cart_suggest_qty(int $productId, float $lengthM, float $areaM2): array
+{
+    $st = db()->prepare('SELECT * FROM products WHERE id = :id');
+    $st->execute(['id' => $productId]);
+    $row = $st->fetch();
+    if (!$row) { return [null, '']; }
+    $width = ai_row_dim_mm($row, 'w');
+    [$qty, $basis] = ai_estimate_quantity($row, $lengthM, $width, $areaM2 > 0 ? $areaM2 : null);
+    return ($qty !== null && $qty > 0 && $qty <= 999) ? [$qty, $basis] : [null, ''];
+}
+
+/**
  * 견적서에 담긴 상품 수량 바꾸기·빼기(quantity 0) — 2026-11-23 A8. 담기지 않은 상품은 바꾸지 않는다.
  */
 function tool_update_cart(array $input, string $sid): string
@@ -2434,12 +2458,23 @@ function tool_update_cart(array $input, string $sid): string
     if ($productId <= 0) {
         return json_encode(['error' => 'product_id 가 유효하지 않습니다.']);
     }
-    if ($quantity < 0 || $quantity > 999) {
-        return json_encode(['error' => '수량은 0(빼기) 또는 1~999 범위여야 합니다.'], JSON_UNESCAPED_UNICODE);
-    }
     $cart = cart_session_read();
     if (!isset($cart[$productId])) {
         return json_encode(['error' => '견적서에 담긴 상품이 아닙니다. get_cart 로 담긴 상품 id 를 확인하세요.', 'product_id' => $productId], JSON_UNESCAPED_UNICODE);
+    }
+    // 개수 대신 설치 길이·면적 → 검색 표와 같은 계산(ai_estimate_quantity)으로 권장 수량(빠른 견적 창 수량 추천 — 사용자 피드백 11-24)
+    $basis = null;
+    $lengthM = (float) ($input['length_m'] ?? 0);
+    $areaM2  = (float) ($input['area_m2'] ?? 0);
+    if (!isset($input['quantity']) && ($lengthM > 0 || $areaM2 > 0)) {
+        [$sq, $basis] = tool_cart_suggest_qty($productId, $lengthM, $areaM2);
+        if ($sq === null) {
+            return json_encode(['error' => '이 상품은 설치 길이·면적으로 수량을 계산할 수 없습니다(1개 길이·면적을 알 수 없음). 고객에게 필요한 개수를 물을 것.', 'product_id' => $productId], JSON_UNESCAPED_UNICODE);
+        }
+        $quantity = $sq;
+    }
+    if ($quantity < 0 || $quantity > 999) {
+        return json_encode(['error' => '수량은 0(빼기) 또는 1~999 범위여야 합니다.'], JSON_UNESCAPED_UNICODE);
     }
     if ($quantity === 0) {
         unset($cart[$productId]);
@@ -2456,7 +2491,7 @@ function tool_update_cart(array $input, string $sid): string
         'product_id' => $productId,
         'removed'    => $quantity === 0,
         'quantity'   => $quantity,
-    ] + quote_tool_result($quote, null) + [
+    ] + ($basis !== null ? ['qty_basis' => $basis] : []) + quote_tool_result($quote, null) + [
         '_sse'       => [
             ['type' => 'cart_update', 'count' => $count, 'total' => $total],
             $quote,

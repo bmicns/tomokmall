@@ -210,7 +210,30 @@ function quick_reply_tidy(string $text): string
     }
     $text = implode("\n", $lines);
     $text = (string) preg_replace('/견적서에\s*(담았|담아|넣었|넣어)/u', '목록에 $1', $text);   // 담는 곳은 창 안 목록(사이트 견적서가 아님)
+    $text = quick_reply_units($text);
     return trim((string) preg_replace("/\n{3,}/", "\n\n", $text));
+}
+
+/**
+ * 빠른 견적 창 답 글의 mm 치수를 m 로 (순수 함수): '폭 150mm, 길이 1000mm … 10m' 처럼 단위가 섞이던 문제(사용자 피드백 11-24 — m 기준).
+ * 1000mm → 1m, 300mm → 0.3m, 1,500mm → 1.5m. 상품 규격 표기(300×1000×32, '×50mm' 처럼 곱하기 뒤 숫자)는 그대로 둔다.
+ */
+function quick_reply_units(string $text): string
+{
+    return (string) preg_replace_callback(
+        '/(?<![\d.,])(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?\s*(?:mm|㎜)(?![a-zA-Z])/u',
+        static function (array $m) use ($text): string {
+            $before = rtrim(substr($text, 0, $m[0][1]));
+            if ($before !== '' && preg_match('/[×*xX]$|[A-Za-z]$/u', $before)) { return $m[0][0]; }   // 규격 표기의 일부(곱하기 뒤 숫자·D150mm 같은 호칭)
+            $mm = (float) (str_replace(',', '', $m[1][0]) . (isset($m[2]) && $m[2][1] >= 0 ? '.' . $m[2][0] : ''));
+            if ($mm <= 0) { return $m[0][0]; }
+            return rtrim(rtrim(sprintf('%.4f', $mm / 1000), '0'), '.') . 'm';
+        },
+        $text,
+        -1,
+        $count,
+        PREG_OFFSET_CAPTURE
+    );
 }
 
 /**
