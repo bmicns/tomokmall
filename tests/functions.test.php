@@ -1527,6 +1527,20 @@ eq('칸 대응표: 측구 높이 → 깊이·바닥두께 t3 → 두께(윗면 T
      ['dim_d_i' => 200, 'dim_d_o' => 320, 'dim_depth' => 360, 'dim_l' => 2000],
      ['dim_w' => 180, 'dim_h_high' => 200, 'dim_h_low' => 100, 'dim_l' => 1000],
      ['dim_w' => 300, 'dim_h' => 250]]);
+// 업체 칸 값이 없는 업체 상품(동아산업 등): 공통 분류 이름표로 규격 원문 읽기(S33, 2026-11-24)
+$fsAx = static fn(array $keys, string $fmt = 'default', array $units = []) => array_map(static fn($i, $k) => ['seq' => $i + 1, 'axis_key' => $k, 'unit' => $units[$k] ?? 'mm', 'parse_fmt' => $fmt, 'fixed_value' => null, 'fixed_text' => ''], array_keys($keys), $keys);
+$fsCols = array_values(SPEC_AXIS_COLUMNS);
+$fsPick = static fn(?array $r) => $r === null ? null : [array_filter($r['cols'], static fn($v) => $v !== null), $r['code'], $r['option']];
+eq('업체 규격 읽기: U형플륨관 원문만', $fsPick(catalog_axis_from_spec('310*275*2000*32T', null, $fsAx(['w', 'depth', 'l', 't']), $fsCols)),
+   [['dim_w' => '310', 'dim_depth' => '275', 'dim_l' => '2000', 'dim_t' => '32'], null, null]);
+eq('업체 규격 읽기: 업체 옵션은 그대로 이어 붙임', $fsPick(catalog_axis_from_spec('500*450*2000*60T', '500B', $fsAx(['w', 'depth', 'l', 't']), $fsCols)),
+   [['dim_w' => '500', 'dim_depth' => '450', 'dim_l' => '2000', 'dim_t' => '60'], null, '500B']);
+eq('업체 규격 읽기: 개거 m 단위·상하/벽체두께', $fsPick(catalog_axis_from_spec('1.5*1.5*2.0_160T*140T', null, $fsAx(['w', 'h', 'l', 't_tb', 't_wall'], 'default', ['w' => 'm', 'h' => 'm', 'l' => 'm']), $fsCols)),
+   [['dim_w' => '1500', 'dim_h' => '1500', 'dim_l' => '2000', 'dim_t_tb' => '160', 'dim_t_wall' => '140'], null, null]);
+eq('업체 규격 읽기: 모델 코드가 옵션에 있으면 옵션_원문으로', $fsPick(catalog_axis_from_spec('390*90*90', 'Q2B', $fsAx(['w', 'v', 'depth'], 'lead_code'), $fsCols)),
+   [['dim_w' => '390', 'dim_v' => '90', 'dim_depth' => '90'], 'Q2B', null]);
+eq('업체 규격 읽기: 못 읽으면 null(원문 한 줄)', catalog_axis_from_spec('흄관D200~D800*PVC관(VN)D75', '고무형', $fsAx(['d_i']), $fsCols), null);
+eq('업체 규격 읽기: 이름표 없으면 null', catalog_axis_from_spec('300*300*2000', null, [], $fsCols), null);
 // 목록 공통 칸(S26): 업체 둘 이상이면 모든 업체에 값 있는 칸만, 측구 두께·PE 가로세로 제외, 축 값 못 쓰는 행은 업체 판단에서 뺌
 $lcDefs = [['axis_key' => 'w', 'label' => '폭'], ['axis_key' => 'depth', 'label' => '깊이'], ['axis_key' => 'l', 'label' => '길이'], ['axis_key' => 't', 'label' => '두께']];
 $lcK = ['external_source' => 'ktomok', 'spec' => '규격: 300*300*2000*120T', 'spec_dims_src' => '300*300*2000*120T', 'dim_w' => 300, 'dim_depth' => 300, 'dim_l' => 2000, 'dim_t' => 120];

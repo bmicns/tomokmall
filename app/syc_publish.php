@@ -321,7 +321,8 @@ function syc_publish_std_apply(PDO $pdo): array
     $upd = implode(', ', array_map(static fn($c) => "{$c} = n.{$c}", array_diff($cols, ['external_source', 'external_id'])));
     $pins = $pdo->prepare('INSERT INTO products (' . implode(', ', $cols) . ') VALUES (' . implode(', ', array_fill(0, count($cols), '?')) . ') AS n ON DUPLICATE KEY UPDATE ' . $upd);
     $axesBySyc = syc_axes_rows();
-    $n = 0; $unmapped = 0;
+    $sycDimCols = array_values(array_intersect(array_filter(array_map('syc_axis_column', SYC_AXIS_KEYS)), $sycCols));   // 업체 원본 치수 칸(S33 판단용)
+    $n = 0; $unmapped = 0; $specRead = 0; $specMiss = [];
     foreach ($pdo->query('SELECT * FROM syc_products ORDER BY id') as $p) {
         $sid = (int) $p['category_id'];
         $cid = catalog_std_category((string) ($sycSlug[$sid] ?? ''), $p, $stdIds);
@@ -330,8 +331,23 @@ function syc_publish_std_apply(PDO $pdo): array
         $vals = [$cid, $p['name'], $p['brand'], syc_publish_spec_text($p), $p['spec_code']];
         // 업체 칸 → 케이토목 칸(S26 대응표, app/catalog_axis_map.php). 표에 없는 분류는 같은 키 칸 그대로
         $remap = catalog_axis_remap((string) ($sycSlug[$sid] ?? ''), $p, $dimCols, 'syc_axis_column');
+        $code = $p['spec_code']; $opt = $p['spec_option'];
+        // 업체 칸 값이 하나도 없고 모델 코드도 없으면(동아산업 등 이름표 없는 업체 분류) 공통 분류 이름표로 규격 원문을 읽어 담음(S33, 2026-11-24).
+        // 모델 코드만 나눠 둔 행(규사 등 spec_axes_row_named)은 정리된 것으로 보고 그대로
+        if (trim((string) $code) === '' && !array_filter($sycDimCols, static fn($c) => ($p[$c] ?? null) !== null && $p[$c] !== '')) {
+            $fs = catalog_axis_from_spec((string) $p['spec'], $p['spec_option'], spec_axes_for_category($cid), $dimCols);
+            if ($fs !== null) {
+                $remap = $fs['cols'];
+                $code  = $fs['code'];
+                $opt   = $fs['option'];
+                $specRead++;
+            } else {
+                $specMiss[$cid] = ($specMiss[$cid] ?? 0) + 1;
+            }
+        }
+        $vals[4] = $code;
         foreach ($dimCols as $dc) { $vals[] = $remap[$dc]; }
-        array_push($vals, $p['spec_option'], $p['spec'], $dims ? json_encode($dims, JSON_UNESCAPED_UNICODE) : null, $p['unit'], $p['weight_kg'], $p['description'],
+        array_push($vals, $opt, $p['spec'], $dims ? json_encode($dims, JSON_UNESCAPED_UNICODE) : null, $p['unit'], $p['weight_kg'], $p['description'],
                    (int) $p['price_b2c'], (int) $p['price_b2b'], (int) $p['cost_price'], (int) $p['stock_qty'],
                    $p['external_source'], $p['external_id'], $p['source_url'], $p['image_file'] ?: $p['image_thumb_file'], (int) $p['is_active']);
         foreach ($imgExtra as $c) {
@@ -354,7 +370,18 @@ function syc_publish_std_apply(PDO $pdo): array
         $opened += $pdo->exec("UPDATE categories SET is_active = 1 WHERE is_active = 0 AND id IN (SELECT ref_id FROM syc_catalog_hidden WHERE entity = 'category')");
     }
     $pdo->exec("INSERT INTO syc_catalog_state (id, mode, published_at) VALUES (1, 'std', NOW()) AS n ON DUPLICATE KEY UPDATE mode = n.mode, published_at = n.published_at");
-    return ['products' => $n, 'unmapped' => $unmapped, 'stale' => (int) $stale, 'categories_opened' => $opened];
+    // 규격을 못 읽은 업체 상품(원문 한 줄로 보임) — 분류 이름별 개수, 많은 순 10개(관리자 화면 안내)
+    arsort($specMiss);
+    $missNames = [];
+    if ($specMiss) {
+        $ids = array_slice(array_keys($specMiss), 0, 10);
+        $st = $pdo->prepare('SELECT id, name FROM categories WHERE id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')');
+        $st->execute($ids);
+        $nm = array_column($st->fetchAll(), 'name', 'id');
+        foreach ($ids as $id) { $missNames[(string) ($nm[$id] ?? $id)] = $specMiss[$id]; }
+    }
+    return ['products' => $n, 'unmapped' => $unmapped, 'stale' => (int) $stale, 'categories_opened' => $opened,
+            'spec_read' => $specRead, 'spec_unread' => array_sum($specMiss), 'spec_unread_top' => $missNames];
 }
 
 /** 공통 분류 반영 실행(트랜잭션). 실패하면 되돌리고 예외 */

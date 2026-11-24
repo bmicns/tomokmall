@@ -868,6 +868,7 @@ async function bkRegister() {
     if (d.normalized_rows) parts.push(`자동 정리: 상품 ${d.normalized_rows.toLocaleString()}건의 품명·모델 코드·옵션·치수·분류를 사이트 표기로 고쳐 저장했습니다.`);
     parts.push(ACTIVE_TOGGLE ? '제품관리에서 내용을 확인한 뒤 활성으로 바꾸면 고객 화면에 보입니다.' : '활성/비활성 변경은 추후 지원 예정입니다.');
     if (d.publish) parts.push(`고객 화면 반영: 상품 ${Number(d.publish.products).toLocaleString()}건` + (d.publish.unmapped ? ` · 공통 분류 매핑 없음 ${d.publish.unmapped}건(반영 안 됨)` : ''));
+    if (d.publish && d.publish.spec_unread) parts.push(`규격을 칸별로 못 읽은 업체 상품 ${Number(d.publish.spec_unread).toLocaleString()}건은 고객 목록에 규격 원문 한 줄로 보입니다` + (d.publish.spec_unread_top ? ` (${Object.entries(d.publish.spec_unread_top).map(([k, v]) => `${x(k)} ${v}`).join(', ')})` : '') + '.');
     if (d.publish_error) parts.push(`<b style="color:#c62828">고객 화면 반영 안 됨:</b> ${x(d.publish_error)}`);
     document.getElementById('bk-done-s').innerHTML = parts.join('<br>');
     document.getElementById('bk-done').classList.remove('bk-hide');
