@@ -2,6 +2,10 @@
  * 우측 하단 'AI 빠른 견적' 창 (app/layout.php render_quick_chat, 사용자 결정 2026-11-23 — 지금 AI 상담과 비교용)
  * - 질문 → /api/chat/quick.php (상담 엔진·도구·가격 계산은 AI 상담과 같고 답변만 짧게)
  * - 견적 표(quote_draft)는 서버 계산 그대로 표시. 대화는 이 탭 동안(sessionStorage) 페이지를 옮겨도 이어짐
+ * - 견적서 사진 첨부(A10, 2026-11-24): 안내·동의 체크 후 사진(긴 변 1600px JPEG 로 줄임)을 보내면 서버가 품목만 읽어 답함.
+ *   사진은 브라우저에도 남기지 않음(sessionStorage 에는 읽은 품목 글만)
+ * - 케이토목 1분 자동견적 그대로(A11, 2026-11-24): 품목마다 가격·수량·합계·상품 사진·[상품목록][상품보기][도면자료],
+ *   부가세·총합계, 오류 안내 + 고객상담 전화. 사용방법, 이전 대화내용(새 대화 전 대화 5개, 이 탭 동안)
  */
 (function () {
   'use strict';
@@ -19,6 +23,22 @@
   const input = document.getElementById('qc-input');
   const count = document.getElementById('qc-count');
   const send  = document.getElementById('qc-send');
+  const attach = document.getElementById('qc-attach');   // 사진 첨부 스위치가 꺼져 있으면 없음
+  const file   = document.getElementById('qc-file');
+  const photo  = document.getElementById('qc-photo');
+  const thumb  = document.getElementById('qc-photo-thumb');
+  const agree  = document.getElementById('qc-photo-agree');
+  const pSend  = document.getElementById('qc-photo-send');
+  const helpBtn = document.getElementById('qc-help-btn');
+  const help    = document.getElementById('qc-help');
+  const prevBtn = document.getElementById('qc-prev-btn');
+  const prevBox = document.getElementById('qc-prev');
+  const PHONE = panel ? (panel.dataset.phone || '') : '';
+  const PREV_MAX = 5;
+  const PHOTO_MAX_BYTES = 10 * 1024 * 1024;
+  const PHOTO_MAX_SIDE = 1600;
+  const PHOTO_PREFIX = '[견적서 사진에서 읽은 품목]';
+  let photoData = '';
   if (!fab || !panel) return;
 
   let state = load();
@@ -27,12 +47,15 @@
   function load() {
     try {
       const s = JSON.parse(sessionStorage.getItem(STORE) || 'null');
-      if (s && Array.isArray(s.msgs)) return s;
+      if (s && Array.isArray(s.msgs)) { if (!Array.isArray(s.prev)) s.prev = []; return s; }
     } catch (e) {}
-    return { sid: '', open: false, msgs: [] };
+    return { sid: '', open: false, msgs: [], prev: [] };
   }
   function save() {
-    try { sessionStorage.setItem(STORE, JSON.stringify({ sid: state.sid, open: state.open, msgs: state.msgs.slice(-30) })); } catch (e) {}
+    try {
+      sessionStorage.setItem(STORE, JSON.stringify({ sid: state.sid, open: state.open, msgs: state.msgs.slice(-30),
+        prev: (state.prev || []).slice(0, PREV_MAX).map(c => ({ sid: c.sid, at: c.at, msgs: c.msgs.slice(-30) })) }));
+    } catch (e) {}
   }
 
   function esc(str) {
@@ -58,7 +81,8 @@
   function render() {
     body.textContent = '';
     if (!state.msgs.length) {
-      const intro = addBubble('ai', '현장·자재·규격·수량을 한 번에 적어 주세요. 알맞은 제품을 골라 견적에 바로 담고, 현장 지역(시·도)을 알려 주시면 운반비까지 계산해 드립니다.');
+      const intro = addBubble('ai', '현장·자재·규격·수량을 한 번에 적어 주세요. 알맞은 제품을 골라 견적에 바로 담고, 현장 지역(시·도)을 알려 주시면 운반비까지 계산해 드립니다.'
+        + (attach ? '\n견적서·자재 목록 사진을 올려도 됩니다.' : ''));
       const ex = document.createElement('div');
       ex.className = 'qc-examples';
       EXAMPLES.forEach(t => {
@@ -72,6 +96,7 @@
     state.msgs.forEach(m => {
       const wrap = addBubble(m.role, m.text, m.error);
       (m.events || []).forEach(ev => renderEvent(ev, wrap));
+      if (m.role !== 'user' && !m.error) addNote(wrap);
     });
     body.scrollTop = body.scrollHeight;
   }
@@ -106,7 +131,11 @@
     wrap.appendChild(box);
   }
 
-  // 견적 표 — 품목(상품명·단가·수량) + 운반비·부가세·총합계 (app/quote_draft.php 값 그대로)
+  // 서버가 준 이미지·자료 주소만(같은 사이트 경로 '/…' 또는 http(s))
+  const safeUrl = u => (/^(https?:\/\/|\/(?!\/))/i.test(String(u || '')) ? String(u) : '');
+
+  // 견적 표 — 케이토목 1분 자동견적 구성(A11): 품목마다 상품명·가격·수량·합계·사진·[상품목록][상품보기][도면자료],
+  // 아래에 상품 합계·운반비·부가세·총합계 (app/quote_draft.php 값 그대로, 운반비는 예상 운임 — 0원으로 보이지 않음)
   function renderQuote(q, wrap) {
     const items = q.items || [];
     if (!items.length) return;
@@ -115,10 +144,24 @@
     if (old) old.remove();
     const rows = items.map(it => {
       const unit = parseInt(it.unit_price, 10) || 0;
+      const pid = parseInt(it.product_id, 10) || 0;
+      const cat = parseInt(it.category_id, 10) || 0;
+      const img = safeUrl(it.image);
+      const spec = safeUrl(it.spec_image);
+      const btns = [
+        cat ? `<a class="qc-q-btn" href="/products.php?category=${cat}" target="_blank" rel="noopener">상품목록</a>` : '',
+        pid ? `<a class="qc-q-btn" href="/product.php?id=${pid}" target="_blank" rel="noopener">상품보기</a>` : '',
+        spec ? `<a class="qc-q-btn is-doc" href="${esc(spec)}" target="_blank" rel="noopener">도면자료</a>` : '',
+      ].join('');
       return `<div class="qc-quote-item">
-          <div class="qc-quote-name">${esc(it.name)}${it.spec ? ' ' + esc(it.spec) : ''}</div>
-          <div class="qc-quote-line"><span>단가 ${unit > 0 ? won(unit) : '가격 문의'} · 수량 ${parseInt(it.quantity, 10) || 0}</span><b>${unit > 0 ? won(it.subtotal) : '문의'}</b></div>
-          ${it.product_id ? `<a class="qc-quote-link" href="/product.php?id=${parseInt(it.product_id, 10)}" target="_blank" rel="noopener">상품보기</a>` : ''}
+          <dl class="qc-q-list">
+            <div><dt>상품명</dt><dd>${esc(it.name)}${it.spec ? ' ' + esc(it.spec) : ''}</dd></div>
+            <div><dt>가격</dt><dd>${unit > 0 ? won(unit) : '가격 문의'}</dd></div>
+            <div><dt>수량</dt><dd>${parseInt(it.quantity, 10) || 0}</dd></div>
+            <div><dt>합계</dt><dd>${unit > 0 ? won(it.subtotal) : '문의'}</dd></div>
+          </dl>
+          ${img ? `<div class="qc-q-img"><img src="${esc(img)}" alt="${esc(it.name)} 사진" loading="lazy"></div>` : ''}
+          ${btns ? `<div class="qc-q-btns">${btns}</div>` : ''}
         </div>`;
     }).join('');
     const goods = parseInt(q.goods_total, 10) || 0;
@@ -137,48 +180,173 @@
     wrap.appendChild(box);
   }
 
-  async function ask(text) {
-    const msg = String(text || '').trim().slice(0, MAX_LEN);
-    if (!msg || busy) return;
-    busy = true; send.disabled = true;
-    input.value = ''; updateCount();
-    state.msgs.push({ role: 'user', text: msg });
+  // 답변 끝 안내(케이토목처럼 답마다) — 견적 표가 있으면 운반비·전화 상담 안내까지
+  function addNote(wrap) {
+    const n = document.createElement('p');
+    n.className = 'qc-note';
+    const hasQuote = !!wrap.querySelector('.qc-quote');
+    n.textContent = 'AI 답변에는 오류가 있을 수 있습니다.'
+      + (hasQuote ? ' 금액은 예상이며 담당자 확인 후 확정됩니다. 자세한 제품 정보와 운반비는 전화로 상담해 주세요.' : '');
+    if (hasQuote && PHONE) {
+      const t = document.createElement('span');
+      t.className = 'qc-note-tel';
+      t.innerHTML = `[고객상담 전화번호: <a href="tel:${esc(PHONE.replace(/[^0-9]/g, ''))}">${esc(PHONE)}</a>]`;
+      n.appendChild(t);
+    }
+    wrap.appendChild(n);
+  }
+
+  // 질문·사진 공통: 서버에 보내고 답 말풍선·견적 표를 붙임. userText = '나' 말풍선(사진은 읽은 품목으로 바뀜)
+  async function request(payload, userText, typingText, timeoutMs, timeoutText) {
+    busy = true; send.disabled = true; if (attach) attach.disabled = true;
+    const mine = { role: 'user', text: userText };
+    state.msgs.push(mine);
     save(); render();
-    const typing = addBubble('ai', '견적을 계산하고 있습니다…');
+    const typing = addBubble('ai', typingText);
     typing.querySelector('.qc-bubble').classList.add('qc-typing');
     body.scrollTop = body.scrollHeight;
     let reply;
     try {
       const ctrl = new AbortController();
-      const tid = setTimeout(() => ctrl.abort(), 95000);
+      const tid = setTimeout(() => ctrl.abort(), timeoutMs);
       const r = await fetch('/api/chat/quick.php', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'ask', sid: state.sid, msg }), signal: ctrl.signal,
+        body: JSON.stringify(Object.assign({ sid: state.sid }, payload)), signal: ctrl.signal,
       });
       clearTimeout(tid);
       const d = await r.json();
       if (d.sid) state.sid = d.sid;
+      if (d.ok && d.asked) mine.text = '견적서 사진 — 읽은 품목\n' + String(d.asked).replace(PHOTO_PREFIX, '').trim();
       reply = d.ok ? { role: 'ai', text: d.text || '', events: d.events || [] }
                    : { role: 'ai', text: d.error || '오류가 발생했습니다. 다시 시도해 주세요.', error: true };
       if ((d.events || []).some(e => e.type === 'cart_update') && typeof refreshEstPanel === 'function') refreshEstPanel();
     } catch (e) {
-      reply = { role: 'ai', text: e.name === 'AbortError' ? '응답 시간이 초과되었습니다. 더 짧게 질문해 보세요.' : '오류가 발생했습니다. 다시 시도해 주세요.', error: true };
+      reply = { role: 'ai', text: e.name === 'AbortError' ? timeoutText : '오류가 발생했습니다. 다시 시도해 주세요.', error: true };
     }
     state.msgs.push(reply);
     save(); render();
-    busy = false; send.disabled = false;
+    busy = false; send.disabled = false; if (attach) attach.disabled = false;
     input.focus();
+  }
+
+  function ask(text) {
+    const msg = String(text || '').trim().slice(0, MAX_LEN);
+    if (!msg || busy) return;
+    input.value = ''; updateCount();
+    return request({ action: 'ask', msg }, msg, '견적을 계산하고 있습니다…', 95000, '응답 시간이 초과되었습니다. 더 짧게 질문해 보세요.');
+  }
+
+  // ── 견적서 사진 첨부 ──────────────────────────────
+  function photoReset() {
+    photoData = '';
+    if (!photo) return;
+    photo.hidden = true;
+    thumb.removeAttribute('src');
+    agree.checked = false;
+    pSend.disabled = true;
+    file.value = '';
+  }
+
+  function photoNotice(text) {
+    state.msgs.push({ role: 'ai', text, error: true });
+    save(); render();
+  }
+
+  // 긴 변 1600px JPEG 로 줄임(흰 바탕 — png 투명 부분이 검게 되지 않게)
+  function shrink(f) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(f);
+      const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, PHOTO_MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(img.naturalWidth * k));
+        c.height = Math.max(1, Math.round(img.naturalHeight * k));
+        const g = c.getContext('2d');
+        g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+        g.drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        resolve(c.toDataURL('image/jpeg', 0.85));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('decode')); };
+      img.src = url;
+    });
+  }
+
+  async function photoPicked() {
+    const f = file.files && file.files[0];
+    if (!f) return;
+    if (!/^image\/(jpeg|png)$/.test(f.type)) { photoReset(); photoNotice('jpg·png 사진만 올릴 수 있습니다.'); return; }
+    if (f.size > PHOTO_MAX_BYTES) { photoReset(); photoNotice('사진은 10MB 이하로 올려 주세요.'); return; }
+    try {
+      photoData = await shrink(f);
+    } catch (e) {
+      photoReset(); photoNotice('사진을 열 수 없습니다. 다른 사진으로 올려 주세요.'); return;
+    }
+    thumb.src = photoData;
+    agree.checked = false;
+    pSend.disabled = true;
+    photo.hidden = false;
+    agree.focus();
+  }
+
+  function photoSend() {
+    if (!photoData || !agree.checked || busy) return;
+    const image = photoData;
+    photoReset();
+    request({ action: 'photo', image, consent: true }, '견적서 사진을 보냈습니다', '사진에서 품목을 읽고 견적을 계산하고 있습니다…', 150000, '응답 시간이 초과되었습니다. 품목이 적게 보이게 나눠 찍어 다시 올려 주세요.');
   }
 
   async function newChat() {
     if (busy) return;
-    state = { sid: '', open: true, msgs: [] };
+    const prev = (state.prev || []).slice();
+    if (state.msgs.some(m => m.role === 'user')) prev.unshift({ sid: state.sid, at: Date.now(), msgs: state.msgs.slice(-30) });
+    state = { sid: '', open: true, msgs: [], prev: prev.slice(0, PREV_MAX) };
+    photoReset();
+    showPrev(false);
     try {
       const r = await fetch('/api/chat/quick.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'new' }) });
       const d = await r.json();
       if (d.ok) state.sid = d.sid;
     } catch (e) {}
     save(); render(); input.focus();
+  }
+
+  // ── 이전 대화내용(새 대화 전 대화 5개, 이 탭 동안) ──────────────
+  function showPrev(open) {
+    if (!prevBtn) return;
+    prevBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    prevBox.hidden = !open;
+    if (!open) return;
+    prevBox.textContent = '';
+    const list = state.prev || [];
+    if (!list.length) {
+      const p = document.createElement('p');
+      p.className = 'qc-prev-empty';
+      p.textContent = '이전 대화가 없습니다. [새 대화]를 누르면 지금 대화가 여기에 남습니다.';
+      prevBox.appendChild(p);
+      return;
+    }
+    list.forEach((c, i) => {
+      const first = (c.msgs.find(m => m.role === 'user') || {}).text || '';
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'qc-prev-item';
+      const d = new Date(c.at || Date.now());
+      b.innerHTML = `<span class="qc-prev-q">${esc(first.split('\n')[0])}</span><span class="qc-prev-at">${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}</span>`;
+      b.addEventListener('click', () => restorePrev(i));
+      prevBox.appendChild(b);
+    });
+  }
+
+  function restorePrev(i) {
+    if (busy) return;
+    const list = (state.prev || []).slice();
+    const [c] = list.splice(i, 1);
+    if (!c) return;
+    if (state.msgs.some(m => m.role === 'user')) list.unshift({ sid: state.sid, at: Date.now(), msgs: state.msgs.slice(-30) });
+    state = { sid: c.sid, open: true, msgs: c.msgs, prev: list.slice(0, PREV_MAX) };
+    save(); showPrev(false); render(); input.focus();
   }
 
   function updateCount() { count.textContent = input.value.length + ' / ' + MAX_LEN; }
@@ -192,6 +360,21 @@
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); ask(input.value); }
   });
   form.addEventListener('submit', e => { e.preventDefault(); ask(input.value); });
+  if (helpBtn && help) {
+    helpBtn.addEventListener('click', () => {
+      const open = help.hidden;
+      help.hidden = !open;
+      helpBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  }
+  if (prevBtn && prevBox) prevBtn.addEventListener('click', () => showPrev(prevBox.hidden));
+  if (attach && file && photo) {
+    attach.addEventListener('click', () => { if (!busy) file.click(); });
+    file.addEventListener('change', photoPicked);
+    agree.addEventListener('change', () => { pSend.disabled = !agree.checked; });
+    pSend.addEventListener('click', photoSend);
+    document.getElementById('qc-photo-cancel').addEventListener('click', () => { photoReset(); attach.focus(); });
+  }
 
   if (state.open) setOpen(true);
 })();

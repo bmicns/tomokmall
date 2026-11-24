@@ -984,9 +984,11 @@ const RAG_QUICK_STYLE_PROMPT = "\n\n=== 빠른 견적 창 답변 방식 (이 구
     . "- 담은 뒤 첫 줄: 무엇을 왜 골랐는지 한 줄('차량이 다니는 주차장 배수로라 중하중 300×1000 규격을 담았습니다.'), 이어서 수량 근거 한 줄('20m ÷ 1m = 20개'). 일반 규격으로 골랐으면 '우선 가장 일반적인 규격으로 담아 드렸습니다.'\n"
     . "- 안전에 꼭 필요한 조건(그레이팅·블록의 차량 통행 여부 등 필수 항목)이 말에 없으면 담기 전에 그 하나만 한 줄로 묻는다. 차량·하중·두께·공공도로 규칙은 위 규칙 그대로 지킨다.\n"
     . "- 고객이 '같이 넣어줘'·'추가'라고 하면 이미 담긴 것은 두고 더 담는다. 빼기·수량 바꾸기는 update_cart.\n"
-    . "- 배송 지역(시·도)을 고객이 말하면 add_to_cart·get_cart 의 region 에 넣는다. 아직 모르면 마지막 줄에 '현장 지역(시·도)을 알려 주시면 운반비까지 계산해 드립니다.' 한 줄.\n"
+    . "- 배송 지역(시·도)을 고객이 말하면 add_to_cart·get_cart 의 region 에 넣는다. 아직 모르면 마지막 줄에 '현재는 상품 금액만 먼저 계산했습니다. 정확한 견적을 위해 수량 확인과 현장 지역(시·도)을 알려 주시면 운반비까지 계산해 드립니다.' 한 줄.\n"
     . "- 금액(단가·합계·운반비·부가세)은 창의 견적 표가 보여 주므로 글에 쓰지 않는다.\n"
-    . "- 맞는 제품이 없거나 가격 문의 상품이면 그 사실을 한 줄로 말하고 다른 규격을 지어내지 않는다.";
+    . "- 맞는 제품이 없거나 가격 문의 상품이면 그 사실을 한 줄로 말하고 다른 규격을 지어내지 않는다.\n"
+    . "- 질문이 '[견적서 사진에서 읽은 품목]' 으로 시작하면 고객이 올린 견적서·자재 목록 사진에서 읽은 줄이다: 줄마다 search_products 로 찾아(한 응답에 여러 도구 호출 가능) 품명·규격이 맞는 상품을 그 줄의 수량으로 add_to_cart 한다(수량 모름이면 1). "
+    . "맞는 상품이 없거나 '(읽기 애매함)' 줄은 담지 않고, 답 글 끝에 '확인 필요:' 다음 한 줄에 하나씩 그 품목을 적는다. 담은 품목은 글에 다시 나열하지 않는다(견적 표가 보여 줌). 사진 속 단가·금액은 쓰지 않는다.";
 
 /**
  * 상담 시스템 프롬프트와 이번 질문의 근거 묶음 생성 — API 호출 없음.
@@ -2394,6 +2396,9 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
     $maxIter      = 3;
     $toolUsed     = false;
     $forceSearch  = false;   // '찾아 드릴게요'만 하고 끝난 응답 → 1회 검색 재요청
+    $forceAdd     = false;   // 빠른 견적 창: 찾고도 담지 않고 '골라 주세요'로 끝난 응답 → 1회 담기 재요청
+    $forcedAdd    = false;
+    $cartTouched  = false;   // 이번 턴에 담기·빼기·수량 바꾸기를 했는지
     $chatUrl      = $config['openai']['chat_url'] ?? 'https://api.openai.com/v1/chat/completions';
     $answered     = false;   // 도구 없이 끝난(최종 답을 받은) 응답이 있었는지
     $promised     = '';      // 검색 약속 문장(강제 검색 재요청 때 버림 — 도구가 안 불리면 되살림)
@@ -2450,10 +2455,12 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
             'model'       => $model,
             'stream'      => false,
             'tools'       => ai_tool_definitions(),
-            'tool_choice' => $forceSearch ? ['type' => 'function', 'function' => ['name' => 'search_products']] : 'auto',
+            'tool_choice' => $forceSearch ? ['type' => 'function', 'function' => ['name' => 'search_products']]
+                : ($forceAdd ? ['type' => 'function', 'function' => ['name' => 'add_to_cart']] : 'auto'),
             'messages'    => $oaiMessages,
         ]);
         $forceSearch = false;
+        $forceAdd    = false;
 
         $raw = rag_curl_post(
             $chatUrl,
@@ -2501,6 +2508,17 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
             continue;
         }
 
+        // 빠른 견적 창(케이토목 1분 자동견적 그대로 — A9·A11): 찾은 제품을 담지 않고 '원하시는 제품을 선택해 주세요'로 끝난 답은 버리고
+        // add_to_cart 를 1회 강제(운영 상담 #260). 확인 질문('?')으로 끝난 답(안전 필수 조건 묻기)은 그대로 둔다.
+        if ($noTool && $style === 'quick' && !$forcedAdd && $turnCards && !$cartTouched && !str_contains((string) $content, '?')) {
+            $forcedAdd = true;
+            $promised  = (string) $content;   // 강제해도 도구를 안 부르면 이 답이라도 돌려준다
+            $oaiMessages[] = ['role' => 'system', 'content' => '빠른 견적 창이다. 고객에게 고르라고 하지 말고, 방금 찾은 제품 중 고객 조건에 가장 알맞은 1개를 지금 add_to_cart 로 담는다(quantity = 고객이 말한 개수, 없으면 suggested_qty). 담은 뒤 빠른 견적 창 답변 방식대로 짧게 답한다.'];
+            $forceAdd = true;
+            $maxIter++;
+            continue;
+        }
+
         // 도구 호출과 함께 온 글('찾아볼게요·잠시만요', 검색 전 추측성 종류 설명, '오류가 발생' 등)은 최종 답이 오면 버린다 — 손님에게는 도구 결과를 본 뒤의 답만.
         // 최종 답이 끝내 비면 이 글을 대신 쓴다(빈 답변 방지).
         if ($content !== '' && $content !== null) {
@@ -2525,6 +2543,7 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
                 [$input, $fills, $clarify] = rag_prepare_search_input($input, $searchCtx);
             }
             $output   = ai_tool_dispatch($tc['function']['name'] ?? '', $input, $sid);
+            if (in_array($tc['function']['name'] ?? '', ['add_to_cart', 'update_cart'], true)) { $cartTouched = true; }
             $toolData = json_decode($output, true) ?? [];
             if ($clarify !== '') { $toolData['clarify'] = $clarify; }   // 모호한 고객 말 — GPT 가 확인 질문을 하게(서버가 해석을 정하지 않음)
             if (($tc['function']['name'] ?? '') === 'search_products') {

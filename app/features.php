@@ -39,3 +39,17 @@ function ai_quick_chat_visible(?array $user, ?string $setMode = null): bool
         default => false,
     };
 }
+
+// 빠른 견적 창 '견적서 사진 첨부'(A10, 사용자 결정 2026-11-24 — 안내·동의 후 사진을 OpenAI 로 보내 품목만 읽음, 사진 저장 안 함)
+// false: 창에 사진 첨부 버튼이 안 보이고 서버도 사진을 받지 않는다(글 질문은 그대로)
+const FEATURE_AI_QUICK_PHOTO = true;
+
+/**
+ * 빠른 견적 창 사진 첨부 켜짐 여부. 테스트는 $set 으로 이 요청 동안만 바꿀 수 있다.
+ */
+function ai_quick_photo_enabled(?bool $set = null): bool
+{
+    static $override = null;
+    if ($set !== null) { $override = $set; }
+    return $override ?? FEATURE_AI_QUICK_PHOTO;
+}
