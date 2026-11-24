@@ -24,6 +24,13 @@
   overflow: hidden;
 }
 .qc-panel[hidden] { display: none; }
+/* 사진을 끌어다 놓는 중 */
+.qc-panel.is-drop::after {
+  content: '여기에 견적서 사진을 놓으세요'; position: absolute; inset: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, .92); border: 3px dashed var(--color-primary); border-radius: 8px;
+  color: var(--color-primary); font-size: 15px; font-weight: 700; pointer-events: none;
+}
 
 .qc-head {
   display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
