@@ -34,7 +34,7 @@ function admin_img_slots(string $prefix): string
 $sources = product_sources(db());
 // 일괄 등록 양식(CSV 머리글): 케이토목 = products 칸, 그 밖 = syc_products 칸(출처 칸은 고른 업체로 정해지므로 뺌)
 $tplLabels = ['category_slug' => '분류코드', 'name' => '상품명', 'brand' => '업체명', 'spec' => '규격', 'spec_code' => '모델 코드', 'spec_option' => '옵션',
-              'unit' => '단위', 'weight_kg' => '중량(kg)', 'description' => '설명', 'price_b2c' => '판매가(개인)', 'price_b2b' => '판매가(기업)',
+              'unit' => '단위', 'weight_kg' => '중량(kg)', 'load_qty' => '상차수량', 'description' => '설명', 'price_b2c' => '판매가(개인)', 'price_b2b' => '판매가(기업)',
               'cost_price' => '매입가', 'stock_qty' => '재고', 'external_id' => '출처ID', 'source_url' => '출처 주소',
               'image_thumb_url' => '썸네일 이미지 url 경로', 'image_detail_url' => '상세 이미지 url 경로', 'image_spec_url' => '규격 이미지 url 경로'];
 $tplImg  = ['image_thumb_url', 'image_detail_url', 'image_spec_url'];   // 이미지: ZIP 대신 서버에 올려 둔 파일 경로(2026-11-13)

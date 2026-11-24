@@ -50,7 +50,9 @@ function syc_bulk_columns(): array
     }
     return $c + [
         'spec_wire_no' => ['int', [0, 65535]], 'dim_d_inlet' => ['str', 20], 'dim_d_outlet' => ['str', 20],
-        'spec_option' => ['str', 160], 'unit' => ['str', 20], 'weight_kg' => ['dec', [6, 2]], 'description' => ['str', 65535],
+        'spec_option' => ['str', 160], 'unit' => ['str', 20], 'weight_kg' => ['dec', [6, 2]],
+        'load_qty' => ['dec', [8, 2]],   // 상차수량(database/20261124_syc_products_load_qty_phpmyadmin.sql, 사용자 요청 2026-11-24)
+        'description' => ['str', 65535],
         'price_b2c' => ['int', [0, 4294967295]], 'price_b2b' => ['int', [0, 4294967295]], 'cost_price' => ['int', [0, 4294967295]],
         'stock_qty' => ['int', [-2147483648, 2147483647]],
         'external_source' => ['str', 40], 'external_id' => ['str', 80], 'source_url' => ['str', 255],
@@ -544,6 +546,7 @@ const SYC_BULK_HEADER_ALIASES = [
     'spec_option'      => ['옵션', '규격외정보', '규격외', '형식', '종류'],
     'unit'             => ['단위'],
     'weight_kg'        => ['중량', '중량kg', '무게', '무게kg', '단위중량', '개당중량'],
+    'load_qty'         => ['상차수량', '상차', '적재수량', '상차량'],
     'description'      => ['설명', '상세설명', '상품설명', '제품설명'],
     'stock_qty'        => ['재고', '재고수량'],
     'external_id'      => ['품번', '상품코드', '제품코드', '품목코드', '상품번호', '출처id'],
