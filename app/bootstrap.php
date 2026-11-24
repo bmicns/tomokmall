@@ -105,6 +105,7 @@ require_once __DIR__ . '/vendors.php';
 
 // 상품 규격 구조화(spec_code·dim_* + category_spec_axes): 목록 표·필터의 축별 규격
 require_once __DIR__ . '/spec_axes.php';
+require_once __DIR__ . '/catalog_axis_map.php';   // 업체 칸 대응표·목록 공통 칸(S26)
 
 function db(): ?PDO
 {
@@ -549,7 +550,7 @@ function product_facets(?int $categoryId, ?string $query, array $active = []): a
             if (!$ids) { return $empty; }
             $ph  = implode(',', array_fill(0, count($ids), '?'));
             $axCols = spec_axes_ready() ? ', ' . implode(', ', array_merge(SPEC_AXES_NEW_COLUMNS, spec_axes_extra_ready() ? SPEC_AXES_EXTRA_COLUMNS : [])) : '';
-            $st  = db()->prepare("SELECT id, category_id, name, spec, stock_qty{$axCols} FROM products WHERE is_active = 1 AND category_id IN ($ph)");
+            $st  = db()->prepare("SELECT id, category_id, name, spec, stock_qty, external_source{$axCols} FROM products WHERE is_active = 1 AND category_id IN ($ph)");
             $st->execute(array_values($ids));
             $rows = $st->fetchAll();
         } catch (\Throwable $e) { return $empty; }
@@ -663,6 +664,8 @@ function product_facets(?int $categoryId, ?string $query, array $active = []): a
         $typeCnt = [];
         foreach ($typeAll as $v) { $typeCnt[$v] = (int) ($axCnt[$codeKey][$v] ?? 0); }
         $axes = ['defs' => $axDefs, 'vals' => $vals, 'all' => $all, 'type' => $typeCnt, 'type_all' => $typeAll, 'code_key' => $codeKey,
+                 // 목록 공통 칸(S26, 2026-11-24): 머리글·필터에 둘 칸 — 업체가 둘 이상이면 모든 업체에 값이 있는 칸만
+                 'list' => catalog_list_common_axes($axDefs, $rows, array_column($rows, 'category_id')),
                  // 'keys' 순서의 축 값 + 마지막 칸 재고(1/0). 너무 많으면 생략(화면은 '필터 적용' 후 서버 계산만 사용)
                  'combos' => count($combos) <= 3000 ? ['keys' => $axKeys, 'rows' => array_values($combos)] : null];
     }
