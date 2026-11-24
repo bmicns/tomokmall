@@ -2434,6 +2434,35 @@ function tool_get_cart(string $sid, array $input = []): string
 }
 
 /**
+ * 빠른 견적 창: 고객이 개수 없이 설치 길이·면적만 말했을 때 서버가 목록 줄 수량을 권장 수량으로 맞춤(GPT 가 맞추지 않은 경우 — 사용자 피드백 11-24).
+ * @param list<int> $ids 맞출 상품 id(quick_qty_targets)
+ * @param array{length_m?:float, area_m2?:float} $amount
+ * @return array{text:string, events:array} 답 앞에 붙일 한 줄(없으면 '')과 화면 이벤트(견적 표)
+ */
+function tool_quick_install_qty(array $ids, array $amount, string $sid): array
+{
+    if (!$ids || !$amount) { return ['text' => '', 'events' => []]; }
+    $in = implode(',', array_fill(0, count($ids), '?'));
+    $st = db()->prepare("SELECT id, name, spec FROM products WHERE id IN ($in)");
+    $st->execute(array_map('intval', $ids));
+    $names = [];
+    foreach ($st->fetchAll() as $r) { $names[(int) $r['id']] = trim($r['name'] . ' ' . quick_match_spec_text((string) $r['spec'])); }
+    $k    = array_key_first($amount);
+    $v    = spec_axis_num((float) $amount[$k]);
+    $what = $k === 'length_m' ? "설치 길이 {$v}m" : "면적 {$v}㎡";
+    $done = $fail = $events = [];
+    foreach ($ids as $id) {
+        $r = json_decode(tool_update_cart(['product_id' => $id, $k => (float) $amount[$k]], $sid), true) ?: [];
+        $n = $names[$id] ?? '이 제품';
+        if (!empty($r['ok'])) { $done[] = $n . ' ' . (int) $r['quantity'] . '개'; $events = (array) ($r['_sse'] ?? []); }
+        else { $fail[] = $n; }
+    }
+    $text = $done ? "{$what}이면 " . implode(', ', $done) . ' 정도 필요합니다. 수량을 맞춰 두었습니다.' : '';
+    if ($fail) { $text .= ($text !== '' ? ' ' : '') . implode(', ', $fail) . '은(는) 1개 길이를 알 수 없어 필요한 개수를 알려 주세요.'; }
+    return ['text' => $text, 'events' => $events];
+}
+
+/**
  * 담긴 상품의 설치 길이·면적 기준 권장 수량 — 검색 표 suggested_qty 와 같은 계산(ai_estimate_quantity). 계산할 수 없으면 [null, ''].
  * @return array{0:?int, 1:string} [수량, 계산식(예: '10m ÷ 1m = 10개')]
  */

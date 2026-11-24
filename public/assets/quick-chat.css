@@ -136,7 +136,7 @@
   border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface);
   font-family: var(--font); font-size: 13px; color: var(--color-text-secondary); cursor: pointer;
 }
-.qc-prev-btn:hover, .qc-prev-btn:focus-visible { color: var(--color-text-primary); }
+.qc-prev-btn:hover, .qc-prev-btn:focus-visible { background: var(--color-surface); color: var(--color-text-primary); }   /* 전역 button:hover 파란 배경 덮기(사용자 피드백 11-24) */
 .qc-prev-btn[aria-expanded="true"] .qc-prev-arrow { transform: rotate(180deg); }
 .qc-prev-arrow { font-size: 11px; }
 .qc-prev { margin-top: 4px; max-height: 160px; overflow-y: auto; border: 1px solid var(--color-border); border-radius: 6px; background: #fff; }
