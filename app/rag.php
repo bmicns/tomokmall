@@ -986,7 +986,8 @@ const RAG_QUICK_STYLE_PROMPT = "\n\n=== 빠른 견적 창 답변 방식 (이 구
     . "- 담은 뒤 첫 줄: 무엇을 왜 골랐는지 한 줄('차량이 다니는 주차장 배수로라 중하중 300×1000 규격을 담았습니다.'), 이어서 수량 근거 한 줄('20m ÷ 1m = 20개'). 일반 규격으로 골랐으면 '우선 가장 일반적인 규격으로 담아 드렸습니다.'\n"
     . "- 안전에 꼭 필요한 조건(그레이팅·블록의 차량 통행 여부 등 필수 항목)이 말에 없을 때: 고객이 품명과 규격을 직접 말했으면 그 상품을 먼저 담고(수량 모르면 0) 그 조건 하나만 한 줄로 묻는다 — 답을 듣고 맞지 않으면 update_cart 로 빼고 맞는 제품을 담는다. 품명만 말했으면 담기 전에 그 하나만 한 줄로 묻는다. 차량·하중·두께·공공도로 규칙은 위 규칙 그대로 지킨다.\n"
     . "- 고객이 '같이 넣어줘'·'추가'라고 하면 이미 담긴 것은 두고 새 제품만 더 담는다. 이미 목록에 있는 제품은 다시 add_to_cart 하지 않는다(다시 담으면 더해지지 않고 그 수량으로 맞춰짐 — '10개 더'는 합친 총 수량). 빼기·수량 바꾸기는 update_cart.\n"
-    . "- 글에서는 '견적서에 담았습니다'가 아니라 '목록에 담았습니다'라고 쓴다. 운반비를 계산하지 않았으면 운반비가 포함됐다고 쓰지 않는다.\n"
+    . "- 글에서는 '견적서에 담았습니다'가 아니라 '목록에 담았습니다'라고 쓴다. 운반비를 계산하지 않았으면 운반비가 포함됐다고 쓰지 않는다. '견적서는 화면에 표시되고 있습니다'·'화면에서 확인해 주세요' 같은 화면 안내 말은 쓰지 않는다.\n"
+    . "- 조건(차량 통행 등)을 듣고 다른 제품으로 바꿔 담을 때: 수량 0 으로 담겨 있던 같은 크기 제품은 서버가 목록에서 뺀다(결과 note). 글은 '조건에 맞춰 ○○로 바꿔 담았습니다' 한 줄.\n"
     . "- 배송 지역(시·도)을 고객이 말하면 add_to_cart·get_cart 의 region 에 넣는다. 아직 모르면 마지막 줄에 '현재는 상품 금액만 먼저 계산했습니다. 정확한 견적을 위해 수량 확인과 현장 지역(시·도)을 알려 주시면 운반비까지 계산해 드립니다.' 한 줄.\n"
     . "- 금액(단가·합계·운반비·부가세)은 창의 견적 표가 보여 주므로 글에 쓰지 않는다.\n"
     . "- 맞는 제품이 없거나 가격 문의 상품이면 그 사실을 한 줄로 말하고 다른 규격을 지어내지 않는다.\n"
@@ -2433,6 +2434,7 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
     $formTerms = ($ft = rag_form_terms($lastUser)) ? array_keys(ai_missing_terms_registered($ft)) : [];
     // 빠른 견적 창: 고객이 품명+규격을 직접 말했고 같은 상품이 있으면(아직 목록에 없을 때) 케이토목처럼 그 상품을 바로 담는다(A11, 운영 시험 11-24)
     $namedRow = null;
+    if ($style === 'quick') { quick_turn_state($lastUser); }   // 바꿔 담기 판단용(같은 턴에 함께 담은 줄·'같이 넣어줘'는 빼지 않음)
     if ($style === 'quick' && ($named = quick_match_named($lastUser)) !== null) {
         $namedRow = quick_match_find($named['name'], $named['spec']);
         if ($namedRow && isset(cart_session_read()[(int) $namedRow['id']])) { $namedRow = null; }
@@ -2631,6 +2633,7 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
     if ($matMakers) { $responseText = rag_strip_source_phrases($responseText, $matMakers); }   // 제조사 출처는 화면 하단에만(2026-11-12)
     $responseText = rag_registered_note($responseText, $missingRegs);   // 없는 형태 말의 등록 규격을 빠뜨렸으면(운영 상담 #199)
     $responseText = rag_dedupe_evaluation($responseText);
+    if ($style === 'quick') { $responseText = quick_reply_tidy($responseText); }   // '견적서는 화면에 이미 표시되고 있으며' 같은 화면 안내 말 빼기(운영 시험 11-24)
     if ($turnCards && !array_filter($turnCards, static fn($c) => (int) ($c['price_member'] ?? $c['price_b2c'] ?? 0) > 0)) {
         $responseText = rag_strip_price_claims($responseText);   // 표가 모두 가격 문의(0원)면 '가장 저렴·경제적' 같은 금액 비교 문장을 뺀다(2026-11-12 상용콘크리트)
     }               // '가장 경제적'을 제품 줄·마지막 문단에서 두 번 말하면 제품 줄 쪽을 뺌

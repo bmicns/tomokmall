@@ -77,6 +77,20 @@ $pok('고객 말에서 품명+규격', quick_match_named('그레이팅수로용 
     && quick_match_named('안녕하세요. 경계석 150x170x1000 30개요') === ['name' => '경계석', 'spec' => '150x170x1000']
     && quick_match_named('마당 경계석 30m 필요해요') === null);
 $pok('규격 숫자 차례 REGEXP', quick_match_spec_regexp([300.0, 1000.0, 32.0]) === '(^|[^0-9.])300[^0-9.]+1000[^0-9.]+32([^0-9.]|$)' && quick_match_spec_regexp([2.5]) === '(^|[^0-9.])2[.]5([^0-9.]|$)');
+$g32 = ['id' => 11, 'name' => '그레이팅수로용', 'spec' => '300*1000*32'];
+$g50 = ['id' => 12, 'name' => '중하중그레이팅수로용', 'spec' => '300*1000*50(7*4)'];
+$pok('바꿔 담기: 같은 크기·닮은 품명의 수량 0 줄만 뺌(다른 크기·다른 품명·자기 자신은 그대로)', quick_match_swap_ids($g50, [$g32, $g50,
+        ['id' => 13, 'name' => '그레이팅수로용', 'spec' => '200*1000*32'], ['id' => 14, 'name' => '사각보도블록', 'spec' => '300*1000*60']]) === [11]
+    && quick_match_swap_ids(['id' => 15, 'name' => '경계석', 'spec' => ''], [$g32]) === []);
+$pok("'같이·추가·둘 다'면 바꿔 담기 안 함", quick_match_keep_both('50mm도 같이 넣어줘') && quick_match_keep_both('둘 다 견적 주세요') && !quick_match_keep_both('아파트 주차장이고 차 다녀요. 20m요'));
+$pok("화면 안내 말 빼기('견적서는 화면에 이미 표시되고 있으며' 등 운영 답 8개 표현)",
+    quick_reply_tidy("총 20개를 담았습니다.\n\n견적서는 화면에 이미 표시되고 있으며, 운임은 별도로 확인됩니다.") === "총 20개를 담았습니다.\n\n운임은 별도로 확인됩니다."
+    && quick_reply_tidy('20개를 담았습니다. 견적서는 화면에 보이니 확인해 주세요.') === '20개를 담았습니다.'
+    && quick_reply_tidy('20개를 담았습니다. 견적 카드에 상품과 운임 금액이 표시되어 있습니다.') === '20개를 담았습니다.'
+    && quick_reply_tidy('현재 상품 금액은 화면에 보이며, 정확한 운임 계산을 위해 배송 지역(시·도)을 알려 주세요.') === '정확한 운임 계산을 위해 배송 지역(시·도)을 알려 주세요.'
+    && quick_reply_tidy('경계석을 견적서에 담았습니다. 견적서에서 확인해 주세요.') === '경계석을 목록에 담았습니다.');
+$pok('화면 안내 말이 아니면 그대로(수량·지역 묻기·확인 필요·견적서 만들기 안내)', ($keepTxt = "말씀하신 규격으로 우선 목록에 담았습니다. 차량이 다니는 곳인지 알려 주세요.\n확인 필요:\n경계석 150×170\n'견적서 만들어줘'라고 하시면 견적서로 옮겨 드립니다.") === quick_reply_tidy($keepTxt)
+    && quick_reply_tidy('수량 확인과 현장 지역(시·도)을 알려 주시면 화면에 운반비까지 표시해 드립니다.') === '수량 확인과 현장 지역(시·도)을 알려 주시면 화면에 운반비까지 표시해 드립니다.');
 $pitems = quick_photo_items(json_encode(['items' => [
     ['name' => '사각보도블록', 'spec' => '300×300×60', 'qty' => 50, 'unit' => 'm²'],
     ['name' => 'EX메탈망그레이팅', 'spec' => '300×1000×50', 'qty' => 2.5, 'unit' => '개'],
@@ -290,6 +304,36 @@ header("Content-Type: application/json"); echo json_encode($r[$n - 1] ?? end($r)
     $post(['action' => 'ask', 'sid' => $nsid, 'msg' => '그대로요'], $cookie);
     ok('같은 상품을 다시 담으면 그 수량으로 맞춤(20 → 40 으로 늘지 않음) · 0 으로 다시 담으면 그대로', $after === 20 && ($sess()['qc_list_' . $nsid][$pid] ?? 0) === 20,
         ['after_region' => $after, 'final' => $sess()['qc_list_' . $nsid][$pid] ?? null]);
+
+    echo "[API — 바꿔 담기: 조건을 듣고 다른 제품을 담으면 수량 0 이던 같은 크기 줄을 뺌(운영 시험 11-24)]\n";
+    $sa = $pdo->query("SELECT id FROM products WHERE is_active = 1 AND name = '중하중그레이팅수로용' AND spec LIKE '%300*1000*65%' ORDER BY id LIMIT 1")->fetchColumn();
+    $sb = $pdo->query("SELECT id FROM products WHERE is_active = 1 AND name = '안전중하중그레이팅수로용' AND spec LIKE '%300*1000*75%' ORDER BY id LIMIT 1")->fetchColumn();
+    if ($sa && $sb) {
+        [$sa, $sb] = [(int) $sa, (int) $sb];
+        $swapRun = static function (string $msg2, bool $sameTurn = false) use ($mockSeq, $call, $say, $post, $sess, $cookie, $sa, $sb): array {
+            [, $d] = $post(['action' => 'new'], $cookie);
+            $ssid = (string) ($d['sid'] ?? '');
+            if ($sameTurn) {
+                $mockSeq([$call('add_to_cart', ['product_id' => $sa, 'quantity' => 0], 71), $call('add_to_cart', ['product_id' => $sb, 'quantity' => 0], 72), $say('[테스트] 두 제품을 목록에 담았습니다.')]);
+                [, $d] = $post(['action' => 'ask', 'sid' => $ssid, 'msg' => $msg2], $cookie);
+                return [$sess()['qc_list_' . $ssid] ?? [], (string) ($d['text'] ?? '')];
+            }
+            $mockSeq([$call('add_to_cart', ['product_id' => $sa, 'quantity' => 0], 73), $say('[테스트] 말씀하신 규격으로 우선 목록에 담았습니다. 차량이 다니나요?')]);
+            $post(['action' => 'ask', 'sid' => $ssid, 'msg' => '중하중그레이팅수로용 300*1000*65 얼마에요?'], $cookie);
+            $mockSeq([$call('add_to_cart', ['product_id' => $sb, 'quantity' => 20], 74), $say('[테스트] 조건에 맞춰 안전중하중으로 바꿔 담았습니다. 견적서는 화면에 이미 표시되고 있으며, 운임은 별도로 확인됩니다.')]);
+            [, $d] = $post(['action' => 'ask', 'sid' => $ssid, 'msg' => $msg2], $cookie);
+            return [$sess()['qc_list_' . $ssid] ?? [], (string) ($d['text'] ?? '')];
+        };
+        [$l1, $t1] = $swapRun('아파트 주차장이고 차 다녀요. 20m요');
+        ok('차량 조건을 듣고 안전중하중을 담으면 0개였던 같은 크기 줄은 빠지고 새 제품 20개만', !isset($l1[$sa]) && ($l1[$sb] ?? 0) === 20, $l1);
+        ok("답 글에서 '견적서는 화면에 이미 표시되고 있으며' 빠짐", !str_contains($t1, '화면에') && str_contains($t1, '운임은 별도로 확인됩니다'), $t1);
+        [$l2] = $swapRun('75mm 짜리도 같이 넣어줘');
+        ok("'같이 넣어줘'면 0개 줄도 그대로", ($l2[$sa] ?? -1) === 0 && ($l2[$sb] ?? 0) === 20, $l2);
+        [$l3] = $swapRun('300*1000*65 와 75 얼마예요', true);
+        ok('같은 턴에 함께 담은 0개 줄은 빼지 않음', ($l3[$sa] ?? -1) === 0 && ($l3[$sb] ?? -1) === 0, $l3);
+    } else {
+        echo "  (건너뜀: 테스트 DB 에 중하중·안전중하중 그레이팅수로용 300*1000 없음)\n";
+    }
 
     echo "[API — 창 안 목록(케이토목식): 수량 미정 0 · '견적서 만들어줘' · [견적 요청하기]]\n";
     $mockSeq([
