@@ -1463,6 +1463,10 @@ eq('공통 분류를 바로 적은 업체 상품(S30): 원본 분류 slug = 공�
     [catalog_std_category('ktomok-1060', [], ['ktomok-1060' => 21]), catalog_std_category('std-004', [], ['std-004' => 9004]), catalog_std_category('mid12--40', [], ['mid12--40' => 264]),
      catalog_std_category('syc-s21', [], ['syc-s21' => 351, 'ktomok-1010' => 9]), catalog_std_category('common-std', [], [])],
     [21, 9004, 264, 9, null]);
+eq('같은 이름 중분류·품명(11-24): 동아산업·상용콘크리트 상품은 보이는 중분류로(숨긴 품명 줄 아님)',
+    [catalog_std_category('dac-2910', [], ['ktomok-2910' => 113, 'mid13--30' => 268]), catalog_std_category('dac-4610', [], ['ktomok-4610' => 136, 'mid13--40' => 269]),
+     catalog_std_category('dac-5410', [], ['mid12--40' => 264]), catalog_std_category('dac-1060', [], ['ktomok-1060' => 21])],
+    [268, 269, 264, 21]);
 // 업체 엑셀 자동 정리(2026-11-23): 칸 맞추기(별칭·값 검사·직접 고름)·분류 추천(이름 같음 = 확실)·묶음별 고르기·등록 안 함
 eq('칸 짐작: [칸 이름] 먼저, 한글 이름 별칭, 가격 칸은 짐작 안 함',
     array_map(fn($h) => syc_bulk_header_guess($h), ['품명 [name]', '제품명', '중량(kg)', '대분류 [top]', '규격외정보 [spec_extra]', '단가', '판매가', '아무거나']),
