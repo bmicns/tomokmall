@@ -1214,9 +1214,14 @@ $migAcc = (string) file_get_contents(__DIR__ . '/../database/20261111_syc_produc
 preg_match_all('/ADD COLUMN ([a-z0-9_]+)\s+(DECIMAL\((\d+),(\d+)\))/', $migAcc, $am2, PREG_SET_ORDER);
 foreach ($am2 as $c) { $migCols[$c[1]] = [$c[0], $c[1], $c[2], '', $c[3], $c[4]]; }
 eq('부속 치수 칸 6개(ADD COLUMN)', count($am2), 6);
+// 2026-11-24 상차수량 칸(ADD COLUMN)
+$migLoad = (string) file_get_contents(__DIR__ . '/../database/20261124_syc_products_load_qty_phpmyadmin.sql');
+preg_match_all('/ADD COLUMN ([a-z0-9_]+)\s+(DECIMAL\((\d+),(\d+)\))/', $migLoad, $am3, PREG_SET_ORDER);
+foreach ($am3 as $c) { $migCols[$c[1]] = [$c[0], $c[1], $c[2], '', $c[3], $c[4]]; }
+eq('상차수량 칸(ADD COLUMN)', array_column($am3, 1), ['load_qty']);
 $skip = ['id', 'category_id', 'spec_dims_src', 'image_file', 'image_thumb_file', 'is_active', 'created_at'];
 $mc = array_values(array_diff(array_keys($migCols), $skip)); $bc = array_keys(syc_bulk_columns()); sort($mc); sort($bc);
-eq('엑셀 칸 = 마이그레이션 칸(자동 칸 7개 제외, 순서 무관) — 칸 수', [count($bc), $mc === $bc], [71, true]);
+eq('엑셀 칸 = 마이그레이션 칸(자동 칸 7개 제외, 순서 무관) — 칸 수', [count($bc), $mc === $bc], [72, true]);
 $bad = [];
 foreach (syc_bulk_columns() as $k => [$t, $lim]) {
     $c = $migCols[$k] ?? null;
@@ -1453,6 +1458,7 @@ eq('공통 분류를 바로 적은 업체 상품(S30): 원본 분류 slug = 공�
 eq('칸 짐작: [칸 이름] 먼저, 한글 이름 별칭, 가격 칸은 짐작 안 함',
     array_map(fn($h) => syc_bulk_header_guess($h), ['품명 [name]', '제품명', '중량(kg)', '대분류 [top]', '규격외정보 [spec_extra]', '단가', '판매가', '아무거나']),
     [['name', 'exact'], ['name', 'alias'], ['weight_kg', 'alias'], ['category_top', 'alias'], ['spec_option', 'alias'], ['', ''], ['', ''], ['', '']]);
+eq('칸 짐작: 상차수량', [syc_bulk_header_guess('상차수량'), syc_bulk_header_guess('상차수량 [load_qty]'), syc_bulk_cell('load_qty', '158.4')], [['load_qty', 'alias'], ['load_qty', 'exact'], [158.4, null]]);
 $acols = syc_bulk_columns_auto(['품명', '사진', '상품명', '단가'], [['가', '사진 보기', '나', '100'], ['다', '사진 보기', '라', '200']], [], []);
 eq('칸 맞추기: 값이 이미지 주소가 아니면 안 씀, 같은 칸 두 번째는 안 씀, 가격은 안 씀',
     array_map(fn($c) => [$c['key'], $c['how']], $acols), [['name', 'alias'], ['', 'none'], ['', 'none'], ['', 'none']]);
