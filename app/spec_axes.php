@@ -341,7 +341,7 @@ function spec_axis_title(array $axis): string
 
 /**
  * 옵션 화면 표시(사용자 결정 2026-11-06). 저장값(spec_option)은 원문 그대로.
- *  - 밑줄을 슬래시로: '하부구체_KS' → '하부구체/KS', '곡선_타공_KS' → '곡선/타공/KS'
+ *  - 밑줄을 슬래시로(앞뒤 한 칸): '하부구체_KS' → '하부구체 / KS', '곡선_타공_KS' → '곡선 / 타공 / KS'
  *  - 통째로 소괄호에 싸인 조각은 괄호를 뗌: '(B)' → 'B', '(SA)_곡선' → 'SA/곡선', '(고강도콘크리트_점형_KS)' → '고강도콘크리트/점형/KS'
  *  - 글자에 붙은 괄호는 그대로: '컬러(보도)', '0RS(유공)'
  */
@@ -364,7 +364,7 @@ function spec_option_display(string $opt): string
     foreach ($parts as $p) {
         foreach (explode('_', $unwrap($p)) as $q) { $q = trim($q); if ($q !== '') { $out[] = $q; } }
     }
-    return implode('/', $out);
+    return implode(' / ', $out);   // 조각 사이 ' / '(앞뒤 한 칸 — 규격외정보의 모델 코드 ' / ' 와 같게, 사용자 요청 2026-11-24)
 }
 
 /**
