@@ -2305,7 +2305,8 @@ function ai_search_compare(array $queries, array $input): string
 function tool_add_to_cart(array $input, string $sid): string
 {
     $productId = (int) ($input['product_id'] ?? 0);
-    $quantity  = (int) ($input['quantity'] ?? 1);
+    // 빠른 견적 창 목록은 수량을 빠뜨리면 0(미정) — 케이토목식(A11), 운영 시험 11-24: 수량 없이 담은 줄이 1개로 들어가 바꿔 담기에서 빠지지 않던 문제
+    $quantity  = (int) ($input['quantity'] ?? (cart_store_is_quick_list() ? 0 : 1));
 
     if ($productId <= 0) {
         return json_encode(['error' => 'product_id 가 유효하지 않습니다.']);
