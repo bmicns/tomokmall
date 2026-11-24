@@ -167,7 +167,7 @@ function quick_reply_tidy(string $text): string
         $sentences = preg_split('/(?<=[.!?])\s+/u', $line) ?: [$line];
         $kept = [];
         foreach ($sentences as $sen) {
-            $clauses = preg_split('/(?<=,)\s*/u', $sen) ?: [$sen];
+            $clauses = preg_split('/(?<=,)\s+/u', $sen) ?: [$sen];
             $last    = count($clauses) - 1;
             $out     = [];
             foreach ($clauses as $i => $c) {
