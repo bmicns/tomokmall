@@ -670,7 +670,9 @@ function render_quick_chat(): void
         return;
     }
     $trial = FEATURE_AI_QUICK_CHAT === 'staff';
-    $v     = (string) @filemtime(__DIR__ . '/../public/assets/quick-chat.js') . (string) @filemtime(__DIR__ . '/../public/assets/quick-chat.css');
+    // 캐시버스팅: 운영은 app/ 과 웹루트(/html)가 떨어져 있어 __DIR__ 기준 경로로는 파일을 못 찾는다(빈 버전 → 옛 JS 캐시, 2026-11-24) — 웹루트 기준
+    $root  = (string) ($_SERVER['DOCUMENT_ROOT'] ?? '') ?: __DIR__ . '/../public';
+    $v     = (string) @filemtime($root . '/assets/quick-chat.js') . '-' . (string) @filemtime($root . '/assets/quick-chat.css');
     ?>
 <link rel="stylesheet" href="/assets/quick-chat.css?v=<?= e($v) ?>">
 <button type="button" class="qc-fab" id="qc-fab" aria-controls="qc-panel" aria-expanded="false">
@@ -695,12 +697,12 @@ function render_quick_chat(): void
         <b>사용방법</b>
         <ol>
             <li>현장·자재·규격·수량(또는 설치 길이)을 한 번에 적어 주세요. 예: 주차장 배수로 그레이팅 폭 300, 20m, 차가 다녀요</li>
-            <li>알맞은 제품을 골라 견적에 바로 담고 가격·수량·합계·부가세·총합계를 보여 드립니다.</li>
+            <li>알맞은 제품을 골라 이 창의 견적 목록에 바로 담고 가격·수량·합계·부가세·총합계를 보여 드립니다. 질문할 때마다 제품이 쌓이고, 필요 없는 제품은 '빼 줘'라고 하면 됩니다.</li>
             <li>현장 지역(시·도)을 알려 주시면 운반비까지 계산합니다. 수량·제품은 '30개로 바꿔 줘', '빼 줘'처럼 말하면 됩니다.</li>
 <?php if (ai_quick_photo_enabled()): ?>
-            <li>견적서·자재 목록 사진을 올리면 품목·규격·수량을 읽어 한 번에 담습니다(이름·전화번호는 가리고 올려 주세요).</li>
+            <li>견적서·자재 목록 사진을 [견적서 사진 첨부]로 고르거나 이 창에 끌어다 놓으면 품목·규격·수량을 읽어 한 번에 담습니다(이름·전화번호는 가리고 올려 주세요).</li>
 <?php endif; ?>
-            <li>[견적 요청하기]를 누르면 담당자가 확인해 최종 견적을 드립니다.</li>
+            <li>'견적서 만들어줘'라고 하거나 [견적 요청하기]를 누르면 목록이 견적서로 옮겨집니다. 견적 요청을 보내면 담당자가 확인해 최종 견적을 드립니다.</li>
         </ol>
     </div>
     <div class="qc-body" id="qc-body" aria-live="polite"></div>

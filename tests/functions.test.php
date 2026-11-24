@@ -652,11 +652,14 @@ eq('조립식원형맨홀 D600*1000H*150T_하부구체_KS → 옵션 하부구�
     ['spec_code' => null, 'dims' => ['d_i' => 600.0, 'h' => 1000.0, 't' => 150.0], 'option' => '하부구체_KS']);
 eq('다칼라블랜딩블록 1200*1000*60_컬러(보도) → 가로·세로·두께 + 옵션', spec_axes_parse('1200*1000*60_컬러(보도)', $AX([['w', '가로', 'W'], ['l', '세로', 'L'], ['t', '두께', 'T']])),
     ['spec_code' => null, 'dims' => ['w' => 1200.0, 'l' => 1000.0, 't' => 60.0], 'option' => '컬러(보도)']);
-eq('옵션 표시: 밑줄 → 슬래시', [spec_option_display('하부구체_KS'), spec_option_display('컬러(보도)'), spec_option_display('곡선_타공_KS'), spec_option_display(''), spec_option_display('_국산')], ['하부구체/KS', '컬러(보도)', '곡선/타공/KS', '', '국산']);
+eq('옵션 표시: 밑줄 → 슬래시', [spec_option_display('하부구체_KS'), spec_option_display('컬러(보도)'), spec_option_display('곡선_타공_KS'), spec_option_display(''), spec_option_display('_국산')], ['하부구체 / KS', '컬러(보도)', '곡선 / 타공 / KS', '', '국산']);
 // 목록 표 규격·규격외정보 두 칸(사용자 결정 2026-11-13)
 eq('규격 두 칸: 끝 괄호 형식 → 규격외', product_list_spec_split('200*180*2000*95T (A형)', 'A형', null), ['spec' => '200*180*2000*95T', 'info' => 'A형']);
 eq('규격 두 칸: 괄호 안 치수 목록은 규격에 그대로', product_list_spec_split('600*600 (320*320*2000*60T)', null, null), ['spec' => '600*600 (320*320*2000*60T)', 'info' => '']);
-eq('규격 두 칸: 모델 코드 + 옵션(표시 형식), 옵션에 있는 괄호 글자는 한 번', product_list_spec_split('D150*750 (앙카식)', 'B형', 'HK_앙카식'), ['spec' => 'D150*750', 'info' => 'B형 / HK/앙카식']);
+eq('규격 두 칸: 모델 코드 + 옵션(표시 형식), 옵션에 있는 괄호 글자는 한 번', product_list_spec_split('D150*750 (앙카식)', 'B형', 'HK_앙카식'), ['spec' => 'D150*750', 'info' => 'B형 / HK / 앙카식']);
+eq('규격 두 칸: 옵션과 표시 형식만 다른 괄호 글자는 한 번', product_list_spec_split('300*300*60T(고강도콘크리트_점형_KS)', null, '(고강도콘크리트_점형_KS)'), ['spec' => '300*300*60T', 'info' => '고강도콘크리트 / 점형 / KS']);
+eq('규격 두 칸: 3단으로 나눈 괄호(옵션으로 시작)는 다시 안 붙임', product_list_spec_split('SUS_M형클립(중형30_40피치)', 'M형클립', 'SUS_중형'), ['spec' => 'SUS_M형클립', 'info' => 'M형클립 / SUS / 중형']);
+eq('규격 두 칸: 옵션에 없는 괄호 글자는 그대로 규격외', product_list_spec_split('Φ600*50H (외경635·내경590)', 'Φ600', null), ['spec' => 'Φ600*50H', 'info' => 'Φ600 / 외경635·내경590']);
 eq('규격 두 칸: 케이토목 원문·정보 없음', product_list_spec_split('1.5*1.5*2.0_160T*140T', null, null), ['spec' => '1.5*1.5*2.0_160T*140T', 'info' => '']);
 eq('규격 두 칸: 괄호뿐인 규격은 그대로', product_list_spec_split('(주문제작)', null, ''), ['spec' => '(주문제작)', 'info' => '']);
 eq('흄관(B형) D600*2500*50T → 내경·길이·두께', spec_axes_parse('D600*2500*50T', $AX([['d_i', '내경', 'D'], ['l', '길이', 'L'], ['t', '두께', 'T']])),
@@ -711,6 +714,12 @@ ok('갱신 계획: 규격이 바뀌고 못 읽으면 모두 비움', ($p2 = spec
 $pManual = ['spec' => '규격: 수로관 특수규격 | 단위: 본', 'dim_w' => '900.0', 'spec_dims_src' => '수로관 특수규격'];
 ok('갱신 계획: 못 읽어도 원문이 같으면 사람이 넣은 값 유지(null)', spec_axes_plan($pManual, $axFlume) === null);
 ok('갱신 계획: 이름표 없고 값 남음 → 비움 / 값 없음 → null', spec_axes_plan($pSame, []) !== null && spec_axes_plan($pRow, []) === null);
+$pNamed = ['spec' => '규격: 5호사(백규사)_1.0톤 | 단위: 포', 'spec_code' => '5호사', 'spec_option' => '백규사_1.0톤', 'spec_dims_src' => '5호사(백규사)_1.0톤'];
+ok('갱신 계획: 이름표 없어도 치수 없는 3단 값(원문 같음)은 유지', spec_axes_plan($pNamed, []) === null);
+ok('갱신 계획: 3단 값이라도 원문이 바뀌면 비움', ($p3 = spec_axes_plan(['spec' => '규격: 5호사_2.0톤'] + $pNamed, [])) !== null && $p3['spec_code'] === null);
+ok('3단(치수 없음) 행: named 참·fresh 거짓 / 치수 있으면 named 거짓 / 원문 다르면 거짓',
+    spec_axes_row_named($pNamed) && !spec_axes_row_fresh($pNamed) && !spec_axes_row_named($pSame) && !spec_axes_row_named(['spec' => '규격: 5호사_2.0톤'] + $pNamed)
+    && !spec_axes_row_named(['spec_code' => null, 'spec_option' => null] + $pNamed));
 ok('신선도: 채운 원문 = 지금 원문일 때만', spec_axes_row_fresh($pSame) && !spec_axes_row_fresh($pChanged) && !spec_axes_row_fresh($pRow));
 eq('행 값: 폭 900.0 → 900, 형식 B, 없는 축 null', [spec_axes_row_value($pSame, 'w'), spec_axes_row_value($pSame, 'type'), spec_axes_row_value($pSame, 'd_i')], ['900', 'B', null]);
 
@@ -751,7 +760,7 @@ $axSlash[3]['fixed_value'] = 1000;
 eq('slash 화강경계경사 150*200/100_곡선_#377 → 폭·상단/하단 높이·길이 1000(고정)·모델 코드 G377(# → G)', spec_axes_parse('150*200/100_곡선_#377', $axSlash),
     ['spec_code' => 'G377', 'dims' => ['w' => 150.0, 'h_high' => 200.0, 'h_low' => 100.0, 'l' => 1000.0], 'option' => '곡선']);
 $pk = spec_axes_parse('150*200/100(국산)_곡선', $axSlash);
-eq('slash (국산)_곡선 → 코드 없음, 옵션 표시 국산/곡선', [is_array($pk) && array_key_exists('spec_code', $pk) ? $pk['spec_code'] : 'x', spec_option_display((string) ($pk['option'] ?? ''))], [null, '국산/곡선']);
+eq('slash (국산)_곡선 → 코드 없음, 옵션 표시 국산/곡선', [is_array($pk) && array_key_exists('spec_code', $pk) ? $pk['spec_code'] : 'x', spec_option_display((string) ($pk['option'] ?? ''))], [null, '국산 / 곡선']);
 ok('형식이 안 맞으면 null(lead_code 에 코드 없음, mesh 에 각 없음)', spec_axes_parse('390*120*120', $AXF('lead_code', [['w', '가로'], ['l', '세로'], ['depth', '깊이']])) === null
     && spec_axes_parse('1800*1800_150_#8(Ø3.5)BS', $axMesh) === null);
 eq('표시: 철선 번호 #8, 인장강도 단위 (t/m), 번호는 단위 없음', [spec_axis_display(8.0, 'no'), spec_axis_unit_label(['unit' => 't/m']), spec_axis_unit_label(['unit' => 'no'])], ['#8', '(t/m)', '']);
@@ -760,7 +769,7 @@ eq('URL 입력: 모델 코드 전체 ax_code(K2·#377), 이상한 값 버림', s
 // 화강경계도로·낮춤(hash), PVC소형맨홀·오수받이(pipe_port) — 사용자 결정 2026-11-09
 $axHash = $AXF('hash', [['w', '폭', 'W'], ['h', '높이', 'H']]);
 eq('hash 화강경계도로 100*100_곡선_#377 → 모델 코드 G377, 옵션 곡선', spec_axes_parse('100*100_곡선_#377', $axHash), ['spec_code' => 'G377', 'dims' => ['w' => 100.0, 'h' => 100.0], 'option' => '곡선']);
-eq('hash 100*100(국산)_곡선 → 코드 없음, 옵션 표시 국산/곡선', spec_option_display((string) (spec_axes_parse('100*100(국산)_곡선', $axHash)['option'] ?? '')), '국산/곡선');
+eq('hash 100*100(국산)_곡선 → 코드 없음, 옵션 표시 국산/곡선', spec_option_display((string) (spec_axes_parse('100*100(국산)_곡선', $axHash)['option'] ?? '')), '국산 / 곡선');
 eq('hash 는 모델 코드 전체 필터', spec_axes_code_key($axHash), 'code');
 $axPvc = $AXF('pipe_port', [['d_i', '내경', 'D'], ['h', '높이', 'H'], ['d_connect', '접속구 지름', '']]);
 eq('pipe_port PVC소형맨홀 D300*900H*VG200(4구)사각몸통 → 접속구 VG200, 옵션 접속4구(사각몸통)', spec_axes_parse('D300*900H*VG200(4구)사각몸통', $axPvc),
@@ -812,7 +821,7 @@ eq('shape 볼라드 원형 D400*400 / 사각 400*400*400', [spec_axes_parse('원
     [['spec_code' => null, 'dims' => ['d' => 400.0, 'h' => 400.0], 'option' => '원형'], ['w' => 400.0, 'v' => 400.0, 'h' => 400.0]]);
 ok('lead_text 숫자 하나뿐(버너 30T 외 규격)은 이름표 칸 수와 달라 null', spec_axes_parse('버너 30T 외 규격', $AXF('lead_text', [['w', '폭', 'W'], ['v', '세로', 'V'], ['t', '두께', 'T']])) === null);
 eq('옵션 표시: 통째 괄호 조각은 괄호 뗌, 글자에 붙은 괄호는 그대로', [spec_option_display('(B)'), spec_option_display('(SA)_곡선'), spec_option_display('(고강도콘크리트_점형_KS)'), spec_option_display('(7*4)_국산'), spec_option_display('컬러(보도)'), spec_option_display('0RS(유공)')],
-    ['B', 'SA/곡선', '고강도콘크리트/점형/KS', '7*4/국산', '컬러(보도)', '0RS(유공)']);
+    ['B', 'SA / 곡선', '고강도콘크리트 / 점형 / KS', '7*4 / 국산', '컬러(보도)', '0RS(유공)']);
 eq('URL 입력 정리(ax_w·ax_type, 잘못된 값 버림)', spec_axes_filter_input(['ax_w' => ['900', '900.0', 'abc', '1.6'], 'ax_type' => ['b', 'BB', 'C'], 'ax_x' => ['1']]),
     ['ax' => ['w' => ['900', '1.6']], 'ax_type' => ['B', 'C'], 'ax_code' => []]);
 

@@ -434,11 +434,15 @@ render_header($pageTitle);
     // 칸별 축(폭 W·높이 H…)은 왼쪽 필터와 상세 화면(세부 치수)에만 — 목록에서는 쓰지 않음. 모델 코드·옵션은 축 값이 지금 규격 기준일 때만
     $specSplit = []; $hasInfo = false;
     if (!$demoMode) {
+        $anySpec = false;
         foreach ($products as $i => $p) {
-            $fresh = spec_axes_row_fresh($p);
+            $named = spec_axes_row_named($p);   // 치수 없이 모델 코드·옵션만(규사 등, 2026-11-24): 규격 칸 '-', 원문 밑줄 대신 3단
+            $fresh = $named || spec_axes_row_fresh($p);
             $specSplit[$i] = product_list_spec_split($parsedSpecs[$i]['spec'], $fresh ? ($p['spec_code'] ?? null) : null, $fresh ? ($p['spec_option'] ?? null) : null);
+            if ($named) { $specSplit[$i]['spec'] = '-'; } elseif ($specSplit[$i]['spec'] !== '') { $anySpec = true; }
             if ($specSplit[$i]['info'] !== '') { $hasInfo = true; }
         }
+        if (!$anySpec && $hasInfo) { $hasSpec = false; }   // 모든 행이 치수 없음(규사 목록 등) → '-' 만 있는 규격 칸은 숨김
     }
     // 목록 공통 칸(S26, 2026-11-24 — S17 의 '규격' 한 칸을 바꿈): 결과 분류가 같은 이름표를 쓰면 '규격' 묶음 아래 공통 칸(폭 W·깊이…)만.
     // 공통 칸 = 두 업체 이상이면 모든 업체에 값이 있는 칸(product_facets → catalog_list_common_axes). 나머지 칸은 상세 화면 '세부 치수'.
@@ -446,7 +450,7 @@ render_header($pageTitle);
     $axisCols = (!$demoMode && $hasSpec) ? ($facets['axes']['list'] ?? []) : [];
     $axisMode = (bool) $axisCols;
     $axisFresh = [];
-    if ($axisMode) { foreach ($products as $i => $p) { $axisFresh[$i] = spec_axes_row_fresh($p); } }
+    if ($axisMode) { foreach ($products as $i => $p) { $axisFresh[$i] = spec_axes_row_fresh($p) || spec_axes_row_named($p); } }   // 치수 없는 3단 행은 칸마다 '-'
     $axRs = $axisMode ? ' rowspan="2"' : '';   // 두 줄 머리글: 규격 묶음 밖 칸은 두 줄 차지
 
     if (empty($tableRows)):

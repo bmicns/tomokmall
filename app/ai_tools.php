@@ -2310,7 +2310,8 @@ function tool_add_to_cart(array $input, string $sid): string
     if ($productId <= 0) {
         return json_encode(['error' => 'product_id 가 유효하지 않습니다.']);
     }
-    if ($quantity < 1 || $quantity > 999) {   // 견적 담기 수량 1~999 (장바구니 API 와 같음)
+    $minQty = cart_store_is_quick_list() ? 0 : 1;   // 빠른 견적 창 목록은 케이토목처럼 수량 0(미정)으로 담고 수량을 묻는다(A11)
+    if ($quantity < $minQty || $quantity > 999) {   // 견적 담기 수량 1~999 (장바구니 API 와 같음)
         return json_encode(['error' => '수량은 1~999 범위여야 합니다.'], JSON_UNESCAPED_UNICODE);
     }
 
