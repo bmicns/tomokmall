@@ -152,6 +152,8 @@ function catalog_axis_parse_try(string $value, array $axes, array $dimCols): ?ar
  *  ⑥ 범위 값: 이름표가 '적용 크기' 하나뿐이고 원문이 비면 옵션 '형식_숫자-숫자' → 모델 코드 = 형식, 적용 크기 = 범위
  *  ⑦ 구분 기호: 'D116_D142*H850'·'D200용'·'1120*620*h80' 처럼 '_'·'용'·앞 h 때문에 못 읽으면 정리해서 다시 읽음(숫자 수 = 이름표 칸 수, 칸이 모두 찰 때만)
  *  ② 보완: 괄호 형식에서 옵션이 '6T_1롤' 이면 '6T (원문 1롤)'
+ *  ⑧ 앞에서부터 읽기: 치수 조각만 있는 규격을 이름표 순서대로 채우고 모자란 뒤 칸은 비움(표시 D·H·T 가 칸과 맞을 때만). 고정값 칸 자리 값은 상세 화면으로
+ *  ⑨ 치수 없는 상품: 원문이 비고 옵션에 숫자가 없으면 옵션을 규격외정보로
  */
 
 /** 규격 글자 비교용(띄어쓰기·대소문자 무시) */
@@ -260,7 +262,7 @@ function catalog_shape_conflict(string $text, array $keys): bool
  * @return ?array{cols: array<string, ?string>, code: ?string, option: ?string, src: string, rule: string}
  *   src = 규격 원문으로 쓸 글자(업체 원문이 비고 옵션에 규격을 적은 경우 그 옵션)
  */
-function catalog_axis_from_ref(string $spec, ?string $option, array $axes, array $ref, array $dimCols): ?array
+function catalog_axis_from_ref(string $spec, ?string $option, array $axes, array $ref, array $dimCols, bool $tAsHeight = false): ?array
 {
     $spec = trim($spec); $opt = trim((string) $option);
     if ($spec === '' && $opt === '') { return null; }
@@ -277,6 +279,10 @@ function catalog_axis_from_ref(string $spec, ?string $option, array $axes, array
         if (is_array($hit)) { return ['cols' => $fill($hit['cols']), 'code' => $hit['code'], 'option' => $hit['option'], 'src' => $src, 'rule' => 'same']; }
     }
     $keys = array_map(static fn($a) => (string) $a['axis_key'], $axes);
+    // ⑨ 치수 없는 상품(주문제작품 등): 원문이 비고 옵션에 숫자가 하나도 없으면 옵션을 규격외정보로(목록 규격 칸 '-'), 칸은 비움
+    if ($spec === '' && !preg_match('/\d/u', $opt)) {
+        return ['cols' => $fill([]), 'code' => null, 'option' => $opt, 'src' => $src, 'rule' => 'nodims'];
+    }
     // ⑥ 범위 값(집게·클립): 이름표가 '적용 크기' 하나뿐인 분류에서 옵션 '형식_…_숫자-숫자' → 모델 코드 = 형식, 적용 크기 = 범위, 가운데 = 옵션
     if ($spec === '' && $keys === ['d_base'] && preg_match('/^([^_]+)((?:_[^_]+)*)_(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/u', $opt, $m) && (float) $m[3] < (float) $m[4]) {
         $mid = trim(str_replace('_', ' ', $m[2]));
@@ -338,7 +344,77 @@ function catalog_axis_from_ref(string $spec, ?string $option, array $axes, array
             }
         }
     }
+    // ⑧ 앞에서부터 읽기(사용자 요청 2026-11-24 '정리 안 되는 부분은 업체 간 공통 치수만 목록, 나머지는 상세 화면')
+    //    같은 규격·같은 숫자 모양의 기준 상품끼리 값이 엇갈리면(자리를 하나로 못 정함) 순서만 믿고 넣지 않음
+    foreach ($texts as $t) {
+        if (($ref['exact'][catalog_spec_norm($t)] ?? null) === false) { return null; }
+        $n = catalog_spec_numbers($t);
+        if ($n && ($ref['sig'][catalog_spec_signature($n)] ?? null) === false) { return null; }
+    }
+    $part = catalog_axis_partial($spec, $opt, $axes, $dimCols, $tAsHeight);
+    if ($part !== null) { return $part + ['src' => $src, 'rule' => 'partial']; }
     return null;
+}
+
+/**
+ * ⑧ 앞에서부터 읽기: 규격이 치수 조각('*'·'_' 로 이음 — 300·D116·H850·80T·648Ø)만으로 되어 있고 조각 수가 이름표 칸 수 이하일 때
+ * 이름표 순서대로 앞에서부터 채우고 모자란 뒤 칸은 비운다(1120*620 → 가로·세로, 높이 없음).
+ * 표시가 칸과 맞아야 함: D·Ø = 지름 칸, H = 높이 칸, T = 두께 칸($tAsHeight 면 높이 칸도 — 조경잔디블록 80T = 높이, 사용자 결정 11-24).
+ * 고정값 칸(우레탄볼라드 바닥직경 142~145)은 업체 상품에 고정값을 쓰지 않음: 조각 수가 고정 칸까지 센 수와 같으면 그 자리 값을 상세 화면(세부 치수)으로,
+ * 아니면 고정 칸을 건너뛰고 채움. m·t/m 단위 칸이 있거나, 모양 글자와 이름표가 안 맞거나, 조각이 칸보다 많으면 null.
+ * 두께 칸이 남고 옵션에 '50T' 같은 조각이 하나뿐이면 그 값을 두께로(옵션에서 뺌). 목록에는 업체 간 공통 칸만 보이고 나머지는 상세(S26)
+ * @return ?array{cols: array<string, ?string>, code: null, option: ?string, detail: list<array>}
+ */
+function catalog_axis_partial(string $spec, string $opt, array $axes, array $dimCols, bool $tAsHeight = false): ?array
+{
+    if ($spec === '' || !$axes) { return null; }
+    $keys = array_map(static fn($a) => (string) $a['axis_key'], $axes);
+    if (catalog_shape_conflict($spec . ' ' . $opt, $keys) || array_intersect($keys, ['skip', 'none'])) { return null; }   // 자리만 차지하는 칸이 있으면 순서를 믿을 수 없음
+    $tok = '/^([DdHhØ]?)(\d+(?:\.\d+)?)(mm|[TtHhØ])?$/u';
+    $pieces = preg_split('/[*_]/u', $spec);
+    $nums = [];
+    foreach ($pieces as $pc) {
+        if (!preg_match($tok, trim($pc), $m)) { return null; }
+        $mark = strtoupper(($m[1] === 'Ø' || ($m[3] ?? '') === 'Ø') ? 'D' : ($m[1] !== '' ? $m[1] : (($m[3] ?? '') === 'mm' ? '' : ($m[3] ?? ''))));
+        $nums[] = [$mark, $m[2]];
+    }
+    $use = array_values(array_filter($axes, static fn($a) => isset(SPEC_AXIS_COLUMNS[(string) $a['axis_key']])));
+    foreach ($use as $a) { if (($a['unit'] ?? 'mm') !== 'mm' && !in_array((string) $a['axis_key'], SPEC_AXIS_TEXT, true)) { return null; } }
+    $isFixed = static fn($a) => ($a['fixed_value'] ?? null) !== null || trim((string) ($a['fixed_text'] ?? '')) !== '';
+    $free = array_values(array_filter($use, static fn($a) => !$isFixed($a)));
+    $slots = count($nums) === count($use) ? $use : $free;     // 고정 칸 자리에도 값이 있으면 그 칸까지 셈
+    if (!$nums || count($nums) > count($slots)) { return null; }
+    $fam = static function (string $k): string {
+        if (in_array($k, ['d', 'd_i', 'd_o', 'd_base'], true)) { return 'D'; }
+        if (in_array($k, ['h', 'h_high', 'h_low', 'h1'], true)) { return 'H'; }
+        if (in_array($k, ['t', 't2', 't_tb', 't_wall', 't_top', 't_bottom', 't_mid'], true)) { return 'T'; }
+        return '';
+    };
+    $vals = []; $detail = [];
+    foreach ($nums as $i => [$mark, $num]) {
+        $a = $slots[$i]; $k = (string) $a['axis_key']; $f = $fam($k);
+        $ok = $mark === '' || $mark === $f || ($mark === 'T' && $tAsHeight && $f === 'H');
+        if (!$ok) { return null; }
+        $v = in_array($k, SPEC_AXIS_TEXT, true) ? $num : spec_axis_num((float) $num);
+        if ($isFixed($a)) {
+            $detail[] = ['label' => (string) ($a['label'] ?? $k), 'symbol' => (string) ($a['symbol'] ?? ''), 'value' => $v, 'unit' => 'mm', 'main' => false];
+            continue;
+        }
+        $vals[SPEC_AXIS_COLUMNS[$k]] = $v;
+    }
+    // 남은 두께 칸 + 옵션의 'NT' 조각 하나 → 두께
+    $optParts = $opt === '' ? [] : explode('_', $opt);
+    $tLeft = array_values(array_filter(array_slice($slots, count($nums)), static fn($a) => $fam((string) $a['axis_key']) === 'T' && !$isFixed($a)));
+    $tIdx = array_keys(array_filter($optParts, static fn($x) => (bool) preg_match('/^\d+(?:\.\d+)?T$/u', trim($x))));
+    if ($tLeft && count($tIdx) === 1) {
+        $vals[SPEC_AXIS_COLUMNS[(string) $tLeft[0]['axis_key']]] = spec_axis_num((float) $optParts[$tIdx[0]]);
+        unset($optParts[$tIdx[0]]);
+    }
+    $cols = array_fill_keys($dimCols, null);
+    foreach ($vals as $c => $v) { if (array_key_exists($c, $cols)) { $cols[$c] = $v; } }
+    if (!array_filter($cols, static fn($v) => $v !== null)) { return null; }
+    $o = implode('_', array_values($optParts));
+    return ['cols' => $cols, 'code' => null, 'option' => $o !== '' ? $o : null, 'detail' => $detail];
 }
 
 /**
