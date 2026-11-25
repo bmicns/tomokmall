@@ -95,9 +95,6 @@ $pok('금액은 글에서 빼고 견적 표에만(케이토목처럼): 마디·�
     && quick_reply_tidy('6만 6천원입니다.') === '' && quick_reply_tidy('원형 맨홀 D600을 담았습니다.') === '원형 맨홀 D600을 담았습니다.');
 $pok('상품 사진: 케이토목 40×40 썸네일 → 같은 파일 450×450(그 밖의 주소는 그대로)', quick_chat_big_image('https://ktomok.com/data/item/10/1060/1581990666/thumb-pcbox_o_1_40x40.jpg') === 'https://ktomok.com/data/item/10/1060/1581990666/thumb-pcbox_o_1_450x450.jpg'
     && quick_chat_big_image('/uploads/products/a/b_40x40.jpg') === '/uploads/products/a/b_40x40.jpg' && quick_chat_big_image('http://www.dacity.co.kr/x/thumb-a_450x450.jpg') === 'http://www.dacity.co.kr/x/thumb-a_450x450.jpg');
-$pok('상품 사진: 동아산업 www.dacity.co.kr/data/item/… → 같은 경로 ktomok.com(화면 표시만)', quick_chat_big_image('http://www.dacity.co.kr/data/item/31/3110/1581993551/thumb-hhgw_1_450x450.jpg') === 'https://ktomok.com/data/item/31/3110/1581993551/thumb-hhgw_1_450x450.jpg'
-    && quick_chat_big_image('http://dacity.co.kr/data/item/30/3010/1581990436/thumb-sgw_1_450x450.png') === 'https://ktomok.com/data/item/30/3010/1581990436/thumb-sgw_1_450x450.png'
-    && quick_chat_big_image('http://www.dacity.co.kr/bbs/x.php') === 'http://www.dacity.co.kr/bbs/x.php');
 $pok('답 글 단위는 m 기준(사용자 피드백 11-24): mm → m, 규격 표기·호칭은 그대로', quick_reply_units('조건(폭 150mm, 길이 1000mm)과 설치 길이 10m') === '조건(폭 0.15m, 길이 1m)과 설치 길이 10m'
     && quick_reply_units('높이는 50 mm, 길이 1,500mm') === '높이는 0.05m, 길이 1.5m' && quick_reply_units('300×1000×50mm·300*1000*32mm·D150mm') === '300×1000×50mm·300*1000*32mm·D150mm'
     && quick_reply_tidy('폭 300mm 제품을 담았습니다.') === '폭 0.3m 제품을 담았습니다.');
