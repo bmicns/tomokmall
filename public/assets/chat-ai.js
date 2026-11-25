@@ -249,7 +249,8 @@ function renderProductCards(products, container) {
     const imgHtml = p.image_url
       ? `<a class="compare-img-link" href="${detailUrl}" target="_blank" rel="noopener" title="제품 상세 보기" tabindex="-1" aria-hidden="true"><img class="compare-img" src="${escHtml(p.image_url)}" alt="" loading="lazy" onerror="this.className='compare-img-ph';this.removeAttribute('src')"></a>`
       : `<div class="compare-img-ph"></div>`;
-    // 수량은 1로 시작(권장 수량은 답변 글에서 안내) — 고객이 직접 바꿔 담는다
+    // 수량 칸 = 답변 글에서 안내한 권장 수량(suggested_qty, 사용자 요청 2026-11-25). 계산할 수 없으면 1. 장바구니 상한 999 를 넘으면 999
+    const startQty = (Number(p.suggested_qty) > 0) ? Math.min(999, Math.floor(Number(p.suggested_qty))) : 1;
     return `
       <tr data-pid="${p.id}">
         <td>${imgHtml}</td>
@@ -261,7 +262,7 @@ function renderProductCards(products, container) {
           ${stateNote}
         </td>
         <td class="compare-price${state === 'ok' ? '' : ' is-state'}">${price}${unitHtml}${costHtml}</td>
-        <td><input type="number" class="compare-qty" value="1" min="1" max="999" aria-label="${escHtml(p.name)} 수량"${blocked ? ' disabled' : ''}></td>
+        <td><input type="number" class="compare-qty" value="${startQty}" min="1" max="999" aria-label="${escHtml(p.name)} 수량"${blocked ? ' disabled' : ''}></td>
         <td><button class="btn-compare-add"${blocked ? ' disabled' : ''}>견적추가</button></td>
       </tr>`;
   }).join('');
