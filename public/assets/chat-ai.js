@@ -477,8 +477,15 @@ async function send() {
   if (btnNew) btnNew.disabled = false;
   const { bubble, content } = addMsg('assistant', '');
 
+  // 답변 기다리는 동안: 깜빡이는 커서 대신 '답변을 준비하고 있어요.' → '..' → '...' 반복(사용자 요청 2026-11-25)
   const cursor = document.createElement('span');
-  cursor.className = 'cursor';
+  cursor.className = 'chat-waiting';
+  cursor.setAttribute('role', 'status');
+  let dots = 1;
+  const waitText = () => { cursor.textContent = '답변을 준비하고 있어요' + '.'.repeat(dots); };
+  waitText();
+  const waitTimer = setInterval(() => { dots = dots % 3 + 1; waitText(); }, 500);
+  const stopWaiting = () => { clearInterval(waitTimer); cursor.remove(); };
   bubble.appendChild(cursor);
 
   try {
@@ -496,7 +503,7 @@ async function send() {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const data = await r.json();
 
-    cursor.remove();
+    stopWaiting();
 
     if (!data.ok) {
       bubble.textContent = data.error || '오류가 발생했습니다. 다시 시도해 주세요.';
@@ -514,7 +521,7 @@ async function send() {
       }
     }
   } catch (err) {
-    cursor.remove();
+    stopWaiting();
     if (err.name === 'AbortError') {
       bubble.textContent = '응답 시간이 초과되었습니다. 더 짧게 질문해 보세요.';
     } else {
