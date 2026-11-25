@@ -249,9 +249,12 @@ function quick_reply_units(string $text): string
 /**
  * 빠른 견적 창 상품 사진: 케이토목 썸네일 주소의 40×40 을 같은 파일의 450×450 으로 (순수 함수, DB 값은 그대로).
  * 운영 상품 1,315개가 ktomok.com/…/thumb-…_40x40.jpg (견적 표에서 흐리게 보임) — 450×450 이 없으면 화면이 원래 주소로 되돌린다.
+ * 동아산업 상품 3,347개의 사진 주소 www.dacity.co.kr/data/item/… 은 화면에 사진이 나오지 않아(11-25 사용자 화면), 같은 상품 DB 의
+ * 같은 경로(ktomok.com/data/item/…, 같은 파일 확인)로 보여 준다 — 화면 표시만, DB 값은 그대로.
  */
 function quick_chat_big_image(string $url): string
 {
+    $url = (string) preg_replace('#^https?://(?:www\.)?dacity\.co\.kr(/data/item/.+\.(?:jpe?g|png|gif))$#i', 'https://ktomok.com$1', $url);
     return (string) preg_replace('#^(https?://(?:www\.)?ktomok\.com/data/item/.+/thumb-[^/]+)_40x40(\.(?:jpe?g|png|gif))$#i', '$1_450x450$2', $url);
 }
 
