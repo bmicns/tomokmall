@@ -399,6 +399,7 @@ render_header('AI 자재 상담', 'chat');
     animation: blink .7s step-end infinite; vertical-align: middle;
   }
   @keyframes blink { 50% { opacity: 0; } }
+  .chat-waiting { color: var(--color-text-secondary); }   /* 답변 준비 중 안내(점 1~3개 반복) */
 
   /* ── 입력 영역 ───────────────────────────────────────────── */
   .input-area {
