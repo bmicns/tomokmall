@@ -660,7 +660,8 @@ document.addEventListener('DOMContentLoaded', () => {
 }
 
 /**
- * 우측 하단 'AI 빠른 견적' 창(케이토목식 짧은 상담, 비교용 — 사용자 결정 2026-11-23).
+ * 우측 하단 'AI 빠른 견적' 창(케이토목식 짧은 상담, 비교용 — 사용자 결정 2026-11-23). 화면은 'AI 빠른 상담 창(After)' 시안(2026-11-25):
+ * 머리 아이콘 버튼·[대화|견적 목록] 탭·아래에서 올라오는 안내 시트(도움말·사진 올리기·이전 대화).
  * 기능 스위치(app/features.php FEATURE_AI_QUICK_CHAT)에 맞는 사용자에게만, AI 상담 화면(chat)에서는 빼고 출력.
  */
 function render_quick_chat(): void
@@ -674,65 +675,85 @@ function render_quick_chat(): void
     $v     = (string) @filemtime($root . '/assets/quick-chat.js') . '-' . (string) @filemtime($root . '/assets/quick-chat.css');
     ?>
 <link rel="stylesheet" href="/assets/quick-chat.css?v=<?= e($v) ?>">
+<?php
+    $photo   = ai_quick_photo_enabled();
+    $doc     = '<svg width="%1$d" height="%1$d" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>';
+    $clock   = '<svg width="%1$d" height="%1$d" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3.5 4v4.5H8"/><path d="M12 8v4.2l2.8 1.8"/></svg>';
+    $xIcon   = '<svg width="%1$d" height="%1$d" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+    $regions = array_keys(FREIGHT_SIDO_COORDS);   // 배송 지역 17개 시·도(견적 요청 화면과 같은 목록·순서)
+    ?>
 <button type="button" class="qc-fab" id="qc-fab" aria-controls="qc-panel" aria-expanded="false">
-    <span class="qc-fab-icon" aria-hidden="true">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 11h7M8.5 14h4"/></svg>
-    </span>
-    <span class="qc-fab-label">AI 빠른 견적</span>
+    <?= sprintf($doc, 20) ?>
+    <span>AI 빠른 견적</span>
 </button>
-<section class="qc-panel" id="qc-panel" data-phone="<?= e(SITE_CONTACT_PHONE) ?>" role="dialog" aria-labelledby="qc-title" hidden>
+<section class="qc-panel" id="qc-panel" data-regions="<?= e((string) json_encode($regions, JSON_UNESCAPED_UNICODE)) ?>" data-photo="<?= $photo ? '1' : '0' ?>" role="dialog" aria-labelledby="qc-title" hidden>
     <header class="qc-head">
-        <h2 class="qc-title" id="qc-title">AI 빠른 견적</h2>
-        <div class="qc-head-btns">
-            <button type="button" class="qc-icon-btn" id="qc-help-btn" aria-expanded="false" aria-controls="qc-help">사용방법</button>
-            <button type="button" class="qc-icon-btn" id="qc-new" title="새 대화">새 대화</button>
-            <button type="button" class="qc-icon-btn qc-close" id="qc-close" aria-label="닫기">&times;</button>
-        </div>
+        <span class="qc-logo"><?= sprintf($doc, 18) ?></span>
+        <h2 class="qc-title" id="qc-title">AI 빠른 상담</h2>
+        <button type="button" class="qc-ib" id="qc-prev-btn" aria-label="이전 대화 보기" title="이전 대화"><?= sprintf($clock, 18) ?></button>
+        <button type="button" class="qc-ib" id="qc-help-btn" aria-label="도움말" title="도움말"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4"/><path d="M12 16.8h.01"/></svg></button>
+        <button type="button" class="qc-ib" id="qc-new" aria-label="새 대화 시작" title="새 대화"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h2v3.5l4-3.5h2"/><path d="M18.5 15v6M15.5 18h6"/></svg></button>
+        <button type="button" class="qc-ib" id="qc-close" aria-label="창 닫기" title="닫기"><?= sprintf($xIcon, 18) ?></button>
     </header>
-    <div class="qc-help" id="qc-help" hidden>
-        <b>사용방법</b>
-        <ol>
-            <li>현장·자재·규격·수량(또는 설치 길이)을 한 번에 적어 주세요. 예: 주차장 배수로 그레이팅 폭 300, 20m, 차가 다녀요</li>
-            <li>알맞은 제품을 골라 이 창의 견적 목록에 바로 담고 가격·수량·합계·부가세·총합계를 보여 드립니다. 질문할 때마다 제품이 쌓이고, 필요 없는 제품은 '빼 줘'라고 하면 됩니다.</li>
-            <li>현장 지역(시·도)을 알려 주시면 운반비까지 계산합니다. 수량·제품은 '30개로 바꿔 줘', '빼 줘'처럼 말하면 됩니다.</li>
-<?php if (ai_quick_photo_enabled()): ?>
-            <li>견적서·자재 목록 사진을 [견적서 사진 첨부]로 고르거나 이 창에 끌어다 놓으면 품목·규격·수량을 읽어 한 번에 담습니다(이름·전화번호는 가리고 올려 주세요).</li>
-<?php endif; ?>
-            <li>'견적서 만들어줘'라고 하거나 [견적 요청하기]를 누르면 목록이 견적서로 옮겨집니다. 견적 요청을 보내면 담당자가 확인해 최종 견적을 드립니다.</li>
-        </ol>
+    <div class="qc-tabs" role="tablist" aria-label="보기 전환">
+        <button type="button" class="qc-tab" id="qc-tab-chat" role="tab" aria-controls="qc-view-chat" aria-selected="true">대화</button>
+        <button type="button" class="qc-tab" id="qc-tab-list" role="tab" aria-controls="qc-view-list" aria-selected="false" tabindex="-1">견적 목록<span class="qc-badge" id="qc-badge">0</span></button>
     </div>
-    <div class="qc-body" id="qc-body" aria-live="polite"></div>
-    <div class="qc-bottom">
-<?php if (ai_quick_photo_enabled()): ?>
-        <div class="qc-photo" id="qc-photo" hidden>
-            <img class="qc-photo-thumb" id="qc-photo-thumb" alt="올릴 견적서 사진 미리보기">
-            <div class="qc-photo-info">
-                <p class="qc-photo-note">이름·전화번호는 가리고 올려 주세요. 사진은 AI 분석에 쓰이고 저장하지 않습니다.</p>
-                <label class="qc-photo-agree"><input type="checkbox" id="qc-photo-agree"> 위 안내를 확인했고 사진 분석에 동의합니다</label>
-                <div class="qc-photo-btns">
-                    <button type="button" class="qc-photo-cancel" id="qc-photo-cancel">취소</button>
-                    <button type="button" class="qc-send" id="qc-photo-send" disabled>사진 보내기</button>
-                </div>
-            </div>
-        </div>
-        <button type="button" class="qc-attach" id="qc-attach">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 9"/></svg>
-            견적서 사진 첨부
-        </button>
-        <input type="file" id="qc-file" accept="image/jpeg,image/png" hidden>
+    <div class="qc-view" id="qc-view-chat" role="tabpanel" aria-labelledby="qc-tab-chat">
+        <div class="qc-body" id="qc-body"><div class="qc-log" id="qc-log" aria-live="polite"></div></div>
+        <form class="qc-composer" id="qc-form">
+            <div class="qc-input-box">
+<?php if ($photo): ?>
+                <button type="button" class="qc-ib" id="qc-attach" aria-label="견적서 사진 첨부" title="견적서 사진 첨부"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5l-7.8 7.8a5 5 0 0 1-7.1-7.1l8.2-8.2a3.4 3.4 0 0 1 4.8 4.8l-8.1 8.1a1.7 1.7 0 0 1-2.4-2.4l7.4-7.4"/></svg></button>
 <?php endif; ?>
-        <button type="button" class="qc-prev-btn" id="qc-prev-btn" aria-expanded="false" aria-controls="qc-prev">
-            <span>이전 대화내용</span><span class="qc-prev-arrow" aria-hidden="true">▲</span>
-        </button>
-        <div class="qc-prev" id="qc-prev" hidden></div>
-        <form class="qc-form" id="qc-form">
-            <label class="qc-sr" for="qc-input">질문</label>
-            <textarea id="qc-input" rows="2" maxlength="200" placeholder="제품명이나 질문 내용을 구체적으로 입력해 주세요. 예: 주차장 배수로 그레이팅 폭 300, 20m"></textarea>
-            <div class="qc-form-row">
-                <span class="qc-count" id="qc-count">0 / 200</span>
-                <button type="submit" class="qc-send" id="qc-send">보내기</button>
+                <label class="qc-sr" for="qc-input">자재·규격·수량</label>
+                <textarea id="qc-input" rows="1" maxlength="200" placeholder="자재·규격·수량을 적어 주세요"></textarea>
+                <button type="submit" class="qc-send" id="qc-send" aria-label="보내기" disabled><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
             </div>
         </form>
+    </div>
+    <div class="qc-view" id="qc-view-list" role="tabpanel" aria-labelledby="qc-tab-list" hidden>
+        <div class="qc-list" id="qc-list"></div>
+        <div class="qc-list-foot">
+            <button type="button" class="qc-btn qc-sec" id="qc-back">대화로 돌아가기</button>
+            <button type="button" class="qc-btn qc-pri" id="qc-request">견적 요청하기</button>
+        </div>
+    </div>
+    <div class="qc-toast" id="qc-toast" role="status" aria-live="polite" hidden></div>
+    <div class="qc-sheet-wrap" id="qc-sheet" hidden>
+        <div class="qc-sheet" role="dialog" aria-modal="true" aria-labelledby="qc-sheet-title">
+            <div class="qc-sheet-head">
+                <h3 class="qc-sheet-title" id="qc-sheet-title"></h3>
+                <button type="button" class="qc-ib" id="qc-sheet-close" aria-label="닫기"><?= sprintf($xIcon, 18) ?></button>
+            </div>
+            <div class="qc-sheet-part" data-sheet="help" data-title="이렇게 쓰세요" hidden>
+                <ol class="qc-steps">
+                    <li><b>1</b><span>현장·자재·규격·수량을 한 번에 적어 주세요. 예: 주차장 배수로 그레이팅 폭 300, 20m</span></li>
+                    <li><b>2</b><span>맞는 제품을 찾아 견적 목록에 바로 담아요. 수량을 모르면 설치 길이·면적만 말해도 돼요.</span></li>
+                    <li><b>3</b><span>[견적 목록]에서 수량을 고치고 배송 지역을 고르면 운반비까지 계산돼요.</span></li>
+                    <li><b>4</b><span>[견적 요청하기]를 누르면 사이트 견적 요청 화면으로 이어져요.</span></li>
+                </ol>
+            </div>
+<?php if ($photo): ?>
+            <div class="qc-sheet-part" data-sheet="photo" data-title="견적서 사진 올리기" hidden>
+                <ul class="qc-guide">
+                    <li>견적서·자재 목록 사진을 올리면 AI가 품목을 찾아 견적 목록에 바로 담아 드려요.</li>
+                    <li>사진에서 품목·규격·수량만 읽고, 이름·연락처 같은 개인정보는 사용하지 않아요.</li>
+                    <li>jpg·png 형식, 10MB 이하 사진만 올릴 수 있어요.</li>
+                </ul>
+                <div class="qc-drop" id="qc-drop" role="button" tabindex="0" aria-label="사진을 끌어다 놓거나 눌러서 올리기">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-9 9"/></svg>
+                    <span class="qc-drop-main">사진을 여기로 끌어다 놓으세요</span>
+                    <span class="qc-drop-sub">jpg·png · 10MB 이하</span>
+                </div>
+                <button type="button" class="qc-btn qc-pri qc-pick" id="qc-pick"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>사진 업로드</button>
+                <input type="file" id="qc-file" accept="image/jpeg,image/png" hidden>
+            </div>
+<?php endif; ?>
+            <div class="qc-sheet-part" data-sheet="history" data-title="이전 대화" hidden>
+                <div class="qc-hist" id="qc-hist"></div>
+            </div>
+        </div>
     </div>
 </section>
 <script src="/assets/quick-chat.js?v=<?= e($v) ?>"></script>

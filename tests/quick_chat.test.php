@@ -119,6 +119,9 @@ $pok('사진 품목 전부 찾아 담기: 사진 수량(소수 올림) · 못 �
 $ptext = quick_photo_reply_text(4, 2, $pmatch['missing'], false);
 $pok('사진 안내 글: 목록에 담음 · 사진 단가 안 씀 · 확인 필요 · 지역 묻기', str_contains($ptext, '4개 품목을 읽어 2개를 이 창의 목록에 담았습니다')
     && str_contains($ptext, '사진 속 단가가 아닌') && str_contains($ptext, "확인 필요") && str_contains($ptext, '현장 지역(시·도)') && !str_contains($ptext, '견적서에 담'));
+$pok('견적 목록 탭 수량 −/+·빼기: 목록에 있는 상품만, 0~999, 새 상품은 안 담음', cart_quick_list_edit([5 => 0, 6 => 3], 5, 4) === [5 => 4, 6 => 3]
+    && cart_quick_list_edit([5 => 2], 5, 5000) === [5 => 999] && cart_quick_list_edit([5 => 2], 5, -3) === [5 => 0]
+    && cart_quick_list_edit([5 => 2, 6 => 1], 5, null) === [6 => 1] && cart_quick_list_edit([5 => 2], 7, 3) === null && cart_quick_list_edit([5 => 2], 0, null) === null);
 $pok('운영 기본값: 사진 첨부 켬', FEATURE_AI_QUICK_PHOTO === true && ai_quick_photo_enabled());
 
 $dbName = (string) ($config['db']['name'] ?? '');
@@ -416,6 +419,29 @@ header("Content-Type: application/json"); echo json_encode($r[$n - 1] ?? end($r)
         && ($sv['cart'][$pid] ?? 0) === 25 && in_array('estimate_moved', $types, true) && in_array('quote_draft', $types, true), ['text' => $d['text'] ?? null, 'types' => $types, 'cart' => $sv['cart'] ?? null]);
     [$st, $d] = $post(['action' => 'to_estimate', 'sid' => $lsid], $cookie);
     ok('[견적 요청하기] 다시 눌러도 두 배가 되지 않음(목록 수량으로 맞춤)', ($d['ok'] ?? false) && ($d['url'] ?? '') === '/estimate.php' && ($sess()['cart'][$pid] ?? 0) === 25, $d);
+
+    echo "[API — 견적 목록 탭(After 시안 11-25): 목록·수량·빼기·배송 지역]\n";
+    [$st, $d] = $post(['action' => 'list', 'sid' => $lsid], $cookie);
+    $lq = $d['quote'] ?? [];
+    ok('목록: 창 안 목록의 견적 표(단가·소계 서버 계산, 단위 붙음)', ($d['ok'] ?? false) && ($lq['type'] ?? '') === 'quote_draft' && ($lq['items'][0]['product_id'] ?? 0) === $pid
+        && ($lq['items'][0]['quantity'] ?? 0) === 25 && ($lq['items'][0]['subtotal'] ?? -1) === ($lq['items'][0]['unit_price'] ?? 0) * 25 && array_key_exists('unit', $lq['items'][0] ?? []), $lq);
+    $unitBefore = (int) ($lq['items'][0]['unit_price'] ?? 0);
+    [$st, $d] = $post(['action' => 'qty', 'sid' => $lsid, 'product_id' => $pid, 'qty' => 26], $cookie);
+    ok('수량 +: 목록만 바뀜(사이트 견적서·단가 그대로)', ($d['ok'] ?? false) && ($sess()['qc_list_' . $lsid][$pid] ?? 0) === 26 && ($sess()['cart'][$pid] ?? 0) === 25
+        && (int) ($d['quote']['items'][0]['unit_price'] ?? -1) === $unitBefore, $d);
+    [$st, $d] = $post(['action' => 'qty', 'sid' => $lsid, 'product_id' => $pid + 999999, 'qty' => 3], $cookie);
+    ok('목록에 없는 상품 수량 → 거부(새로 담지 않음)', ($d['ok'] ?? null) === false && !isset($sess()['qc_list_' . $lsid][$pid + 999999]), $d);
+    [$st, $d] = $post(['action' => 'qty', 'sid' => $lsid, 'product_id' => $pid, 'qty' => 1000], $cookie);
+    ok('수량 1000 → 거부', ($d['ok'] ?? null) === false && ($sess()['qc_list_' . $lsid][$pid] ?? 0) === 26, $d);
+    [$st, $d] = $post(['action' => 'region', 'sid' => $lsid, 'region' => '경기'], $cookie);
+    ok('배송 지역 경기 → 이 대화 지역·운반비 계산', ($d['ok'] ?? false) && ($sess()['qc_region_' . $lsid] ?? '') === '경기' && ($d['quote']['region'] ?? '') === '경기'
+        && in_array($d['quote']['freight']['status'] ?? '', ['ok', 'missing_weight', 'error'], true), $d['quote']['freight'] ?? $d);
+    [$st, $d] = $post(['action' => 'region', 'sid' => $lsid, 'region' => '평양'], $cookie);
+    ok('목록에 없는 지역 → 거부', ($d['ok'] ?? null) === false && ($sess()['qc_region_' . $lsid] ?? '') === '경기', $d);
+    [$st, $d] = $post(['action' => 'region', 'sid' => $lsid, 'region' => ''], $cookie);
+    ok("지역 '' → 풀림(운반비 '-')", ($d['ok'] ?? false) && !isset($sess()['qc_region_' . $lsid]) && ($d['quote']['freight']['status'] ?? '') === 'none', $d['quote']['freight'] ?? $d);
+    [$st, $d] = $post(['action' => 'remove', 'sid' => $lsid, 'product_id' => $pid], $cookie);
+    ok('빼기 → 목록에서 없어짐(사이트 견적서는 그대로)', ($d['ok'] ?? false) && !isset($sess()['qc_list_' . $lsid][$pid]) && ($d['quote']['items'] ?? [1]) === [] && ($sess()['cart'][$pid] ?? 0) === 25, $d);
 
     echo "[API — 견적서 사진 첨부: 읽은 품목을 바로 목록에(GPT 상담 호출 없음)]\n";
     $pr = $pdo->query("SELECT name, spec FROM products WHERE id = {$pid}")->fetch();

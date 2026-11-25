@@ -60,6 +60,22 @@ function cart_merge_quick_list(array $cart, array $list): array
 }
 
 /**
+ * 빠른 견적 창 '견적 목록' 탭의 수량 −/+·빼기 (순수 함수). 목록에 있는 상품만 바꾼다(새 상품은 담지 않음), 수량 0(미정)~999.
+ * @param array<int,int> $list
+ * @return array<int,int>|null  바뀐 목록, 목록에 없는 상품이면 null
+ */
+function cart_quick_list_edit(array $list, int $pid, ?int $qty): ?array
+{
+    if ($pid <= 0 || !array_key_exists($pid, $list)) { return null; }
+    if ($qty === null) {
+        unset($list[$pid]);
+    } else {
+        $list[$pid] = max(0, min(999, $qty));
+    }
+    return $list;
+}
+
+/**
  * 세션 장바구니 읽기 (세션이 닫혀 있으면 재개)
  *
  * @return array<int,int>  [product_id => quantity]
