@@ -101,6 +101,8 @@ $pok('답 글 단위는 m 기준(사용자 피드백 11-24): mm → m, 규격 �
 $pok('설치 길이·면적만 말한 말 읽기(개수·폭·제품 길이·규격 표기·값 둘은 아님)', quick_install_amount('10미터쯤 설치할거야') === ['length_m' => 10.0] && quick_install_amount('20m요') === ['length_m' => 20.0]
     && quick_install_amount('30㎡ 정도 깔 거예요') === ['area_m2' => 30.0] && quick_install_amount('설치 길이 15m') === ['length_m' => 15.0] && quick_install_amount('폭 0.3m 20m') === ['length_m' => 20.0]
     && quick_install_amount('10개요') === null && quick_install_amount('길이 1m 그레이팅') === null && quick_install_amount('개거 1.5*1.5*2.0m') === null && quick_install_amount('10m 30m') === null);
+$pok('새 자재 요청인지(자재 이름·추천·가격 질문) — 조건만 답한 말은 아님', quick_match_new_request('도로에 쓸 그레이팅 추천해줘', 'grating') && quick_match_new_request('잔디블록 얼마에요', '')
+    && !quick_match_new_request('아파트 주차장이고 차 다녀요. 20m요', '') && !quick_match_new_request('네 차 다녀요', ''));
 $pok('수량을 맞출 줄: 수량 미정 줄, 없으면 한 줄뿐일 때만', quick_qty_targets([5 => 0, 6 => 3]) === [5] && quick_qty_targets([6 => 3]) === [6] && quick_qty_targets([6 => 3, 7 => 2]) === []);
 $pok('천 단위 쉼표 숫자는 그대로(1,200 → \'1, 200\' 안 됨 — 운영 시험 11-24)', quick_reply_tidy('설치 길이 1,200m, 수량 1,200개를 담았습니다.') === '설치 길이 1,200m, 수량 1,200개를 담았습니다.');
 $pok('화면 안내 말이 아니면 그대로(수량·지역 묻기·확인 필요·견적서 만들기 안내)', ($keepTxt = "말씀하신 규격으로 우선 목록에 담았습니다. 차량이 다니는 곳인지 알려 주세요.\n확인 필요:\n경계석 150×170\n'견적서 만들어줘'라고 하시면 견적서로 옮겨 드립니다.") === quick_reply_tidy($keepTxt)
@@ -346,6 +348,8 @@ header("Content-Type: application/json"); echo json_encode($r[$n - 1] ?? end($r)
         ok("'같이 넣어줘'면 0개 줄도 그대로", ($l2[$sa] ?? -1) === 0 && ($l2[$sb] ?? 0) === 20, $l2);
         [$l3] = $swapRun('300*1000*65 와 75 얼마예요', true);
         ok('같은 턴에 함께 담은 0개 줄은 빼지 않음', ($l3[$sa] ?? -1) === 0 && ($l3[$sb] ?? -1) === 0, $l3);
+        [$l4] = $swapRun('도로에 쓸 그레이팅 추천해줘');
+        ok("새 상황('도로에 쓸 그레이팅 추천해줘')이면 앞 상황의 0개 줄도 그대로(사용자 피드백 11-25)", ($l4[$sa] ?? -1) === 0 && ($l4[$sb] ?? 0) === 20, $l4);
 
         echo "[API — 수량 추천: 설치 길이를 말하면 담긴 제품을 권장 수량으로(사용자 피드백 11-24)]\n";
         [$sq, $sbasis] = tool_cart_suggest_qty($sa, 20.0, 0.0);
