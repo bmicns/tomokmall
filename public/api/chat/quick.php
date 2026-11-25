@@ -9,9 +9,14 @@ declare(strict_types=1);
  *   {action:'load', sid}      → {ok, sid, msgs}            (이전 대화 다시 열기 — 본인 대화만, 창 안 목록·지역도 되살림)
  * 담는 곳(A11, 사용자 결정 2026-11-24): 케이토목처럼 '창 안 목록'(대화마다 세션 'qc_list_<키>', app/cart.php cart_store_key)에만 담고,
  *   수량을 모르면 0(미정)으로 담아 묻는다. '견적서 만들어줘' 또는 [견적 요청하기] 때 사이트 견적서로 옮긴다(수량 0 품목은 빼고).
+ *   {action:'list', sid}                     → {ok, sid, quote}  (견적 목록 탭 — 창 안 목록의 견적 표, 2026-11-25 After 시안)
+ *   {action:'qty', sid, product_id, qty}     → {ok, sid, quote}  (목록에 있는 상품 수량 0~999)
+ *   {action:'remove', sid, product_id}       → {ok, sid, quote}  (목록에서 빼기)
+ *   {action:'region', sid, region}           → {ok, sid, quote}  (배송 지역 시·도, '' = 풀기)
  *   {action:'photo', sid, image, consent:true} → {ok, sid, asked, text, events}
  *        견적서·자재 목록 사진(jpg·png 10MB, data URL/base64)을 OpenAI 로 품목만 읽어 그 글로 'ask' 와 같게 답한다(A10, 2026-11-24).
- *        손님 동의(consent === true) 없으면 받지 않음. 사진은 저장·로그하지 않고 읽은 품목 글만 대화·상담 로그에 남는다.
+ *        손님 동의(consent === true — 화면은 안내를 보여 준 '사진 올리기' 창에서 사진을 고른 것을 동의로 보냄, 11-25) 없으면 받지 않음.
+ *        사진은 저장·로그하지 않고 읽은 품목 글만 대화·상담 로그에 남는다.
  *
  * 인증: 기능 스위치(app/features.php FEATURE_AI_QUICK_CHAT) — 'staff' 면 관리자·직원만, 'off' 면 아무도(403).
  * 검증: msg 1~200자, sid 는 이 브라우저 세션이 발급받은 키만(rag_chat_key_allowed)·다른 회원 상담 쓰기 금지(rag_session_writable).
@@ -67,7 +72,7 @@ function quick_chat_quote_media(array $events): array
     }
     $ph   = implode(',', array_fill(0, count($ids), '?'));
     $cols = $pdo->query('SHOW COLUMNS FROM products')->fetchAll(PDO::FETCH_COLUMN);
-    $sel  = ['id', 'category_id', 'image_url'];
+    $sel  = ['id', 'category_id', 'image_url', 'spec'];
     foreach (['image_thumb_url', 'image_spec_url'] as $c) { if (in_array($c, $cols, true)) { $sel[] = $c; } }
     $st = $pdo->prepare('SELECT ' . implode(', ', $sel) . " FROM products WHERE id IN ({$ph})");
     $st->execute($ids);
@@ -78,6 +83,7 @@ function quick_chat_quote_media(array $events): array
             'image_small' => $img,   // 큰 사진이 없으면 화면이 이 주소로 되돌림
             'category_id' => (int) ($r['category_id'] ?? 0),
             'spec_image'  => (string) ($r['image_spec_url'] ?? ''),
+            'unit'        => unit_display_label(parse_spec_field((string) ($r['spec'] ?? ''))['unit']),   // 견적 목록 '1,100원/개' 표시용
         ];
     }
     foreach ($events as &$e) {
@@ -208,6 +214,18 @@ function quick_chat_load(string $sid, int $uid): ?array
     return $msgs;
 }
 
+/** 견적 목록 탭에 보낼 지금 창 안 목록의 견적 표(서버 계산 그대로 + 사진·단위) — cart_store_key 가 'qc_list_<키>' 인 상태에서 */
+function quick_chat_list_quote(): array
+{
+    $q = quote_draft_current(quote_region_get());
+    try {
+        $q = quick_chat_quote_media([$q])[0];
+    } catch (Throwable $e) {
+        error_log('quick chat media: ' . $e->getMessage());
+    }
+    return $q;
+}
+
 /** 옮긴 결과 → 안내 글 */
 function quick_chat_estimate_text(array $m): string
 {
@@ -246,7 +264,7 @@ if ($action === 'history' || $action === 'load') {
     echo json_encode($loaded === null ? ['ok' => false, 'error' => '대화를 찾을 수 없습니다.'] : ['ok' => true, 'sid' => $req, 'msgs' => $loaded], JSON_UNESCAPED_UNICODE);
     exit;
 }
-if (!in_array($action, ['ask', 'photo', 'to_estimate'], true)) {
+if (!in_array($action, ['ask', 'photo', 'to_estimate', 'list', 'qty', 'remove', 'region'], true)) {
     echo json_encode(['ok' => false, 'error' => '잘못된 요청입니다.'], JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -263,6 +281,44 @@ if ($action === 'to_estimate') {
     echo json_encode($m['moved'] > 0
         ? ['ok' => true, 'sid' => $sid, 'moved' => $m['moved'], 'skipped' => $m['skipped'], 'url' => '/estimate.php']
         : ['ok' => false, 'sid' => $sid, 'error' => quick_chat_estimate_text($m)], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+// 견적 목록 탭(After 시안, 2026-11-25): 목록·수량·빼기·배송 지역 — 창 안 목록만 바꾸고 금액은 서버 계산 그대로(가격 값은 건드리지 않음)
+if ($action === 'list') {
+    echo json_encode(['ok' => true, 'sid' => $sid, 'quote' => quick_chat_list_quote()], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+if ($action === 'qty' || $action === 'remove') {
+    $pid = (int) ($body['product_id'] ?? 0);
+    $qty = $action === 'qty' ? (int) ($body['qty'] ?? -1) : null;
+    if ($action === 'qty' && ($qty < 0 || $qty > 999)) {
+        echo json_encode(['ok' => false, 'sid' => $sid, 'error' => '수량은 0~999 사이로 적어 주세요.'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    $list = cart_quick_list_edit(cart_session_read(), $pid, $qty);
+    if ($list === null) {
+        if (session_status() === PHP_SESSION_ACTIVE) { session_write_close(); }
+        echo json_encode(['ok' => false, 'sid' => $sid, 'error' => '견적 목록에 없는 제품입니다.', 'quote' => quick_chat_list_quote()], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    cart_session_write($list);
+    echo json_encode(['ok' => true, 'sid' => $sid, 'quote' => quick_chat_list_quote()], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+if ($action === 'region') {
+    $region = (string) ($body['region'] ?? '');
+    if ($region === '') {
+        if (session_status() !== PHP_SESSION_ACTIVE) { session_start(); }
+        unset($_SESSION[quote_region_key()]);   // 고른 지역을 다시 누르면 풀림
+        session_write_close();
+    } elseif (isset(FREIGHT_SIDO_COORDS[$region])) {
+        quote_region_set($region);
+    } else {
+        echo json_encode(['ok' => false, 'sid' => $sid, 'error' => '배송 지역을 목록에서 골라 주세요.'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    echo json_encode(['ok' => true, 'sid' => $sid, 'quote' => quick_chat_list_quote()], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
