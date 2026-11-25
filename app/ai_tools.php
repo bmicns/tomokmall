@@ -2345,7 +2345,13 @@ function tool_add_to_cart(array $input, string $sid): string
         }
         $cart[$productId] = ($cart[$productId] ?? 0) + $quantity;
     }
-    if (cart_store_is_quick_list()) { quick_turn_state(null, $productId); }
+    if (cart_store_is_quick_list()) {
+        $turnNow = quick_turn_state(null, $productId);
+        quick_list_prev_turn($turnNow['id']);   // 이번 턴을 최근 턴 목록에(다음 턴의 바꿔 담기 판단용)
+        $at = quick_list_added_turns();
+        $at[$productId] = $turnNow['id'];
+        $_SESSION[cart_store_key() . '_at'] = array_intersect_key($at, $cart);   // 목록에 남은 줄만
+    }
     cart_session_write($cart);
 
     [$count, $total] = cart_summary($cart);
@@ -2383,6 +2389,24 @@ function tool_add_to_cart(array $input, string $sid): string
     ], JSON_UNESCAPED_UNICODE);
 }
 
+/** 빠른 견적 창 목록 줄을 담은 턴(상품 id => 턴 id) — 세션 '<목록 키>_at' */
+function quick_list_added_turns(): array
+{
+    return (array) ($_SESSION[cart_store_key() . '_at'] ?? []);
+}
+
+/**
+ * 이번 턴 id 를 세션의 최근 턴 목록('<목록 키>_turns', 2개)에 넣고 바로 앞 턴 id 를 돌려준다(없으면 ''). 세션은 열린 상태에서 부른다.
+ */
+function quick_list_prev_turn(string $turnId): string
+{
+    if ($turnId === '') { return ''; }
+    $k = cart_store_key() . '_turns';
+    $turns = array_values((array) ($_SESSION[$k] ?? []));
+    if (end($turns) !== $turnId) { $turns[] = $turnId; $turns = array_slice($turns, -2); $_SESSION[$k] = $turns; }
+    return count($turns) >= 2 ? (string) $turns[count($turns) - 2] : '';
+}
+
 /**
  * 빠른 견적 창 목록 바꿔 담기(운영 시험 11-24): 새 상품과 크기가 같고 품명이 닮은 수량 0(미정) 줄을 뺀다.
  * 이번 턴에 함께 담은 줄, 고객이 '같이·추가·둘 다'라고 한 턴은 빼지 않는다. 수량이 있는 줄은 그대로.
@@ -2392,7 +2416,15 @@ function tool_quick_swap_out(array $cart, array $product): array
 {
     $turn = quick_turn_state();
     if (quick_match_keep_both($turn['msg'])) { return [$cart, []]; }
-    $zeroIds = array_values(array_diff(array_keys(array_filter($cart, static fn($q) => (int) $q === 0)), $turn['added'], [(int) $product['id']]));
+    // 새 상황(다른 자재 요청·추천·가격 질문)이면 빼지 않는다. 바로 앞 턴에 담은 수량 미정 줄만 '조건을 듣고 바꿔 담기' 대상(사용자 피드백 11-25)
+    $cat = function_exists('rag_detect_category') ? rag_detect_category([['role' => 'user', 'content' => $turn['msg']]]) : '';
+    if (quick_match_new_request($turn['msg'], $cat)) { return [$cart, []]; }
+    $prevTurn = quick_list_prev_turn($turn['id']);
+    $at = quick_list_added_turns();
+    $zeroIds = array_values(array_filter(
+        array_diff(array_keys(array_filter($cart, static fn($q) => (int) $q === 0)), $turn['added'], [(int) $product['id']]),
+        static fn($id) => $prevTurn !== '' && ($at[(int) $id] ?? '') === $prevTurn
+    ));
     if (!$zeroIds) { return [$cart, []]; }
     $in   = implode(',', array_fill(0, count($zeroIds), '?'));
     $stmt = db()->prepare("SELECT id, name, spec FROM products WHERE id IN ($in)");

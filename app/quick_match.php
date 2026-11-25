@@ -134,6 +134,16 @@ function quick_match_swap_ids(array $new, array $zeroRows): array
     return $out;
 }
 
+/**
+ * 이번 말이 새 자재 요청인지(순수 함수) — '도로에 쓸 그레이팅 추천해줘'·'잔디블록 얼마에요' 처럼 자재 이름이나 추천·가격 요청이 있으면 새 상황.
+ * 새 상황이면 앞서 담은 수량 미정 줄을 바꿔 담기로 빼지 않는다(사용자 피드백 11-25 — 상황이 바뀌면 앞 상황 제품이 사라지던 문제).
+ * $category: rag_detect_category 결과(이번 말만). 조건만 답한 말('아파트 주차장이고 차 다녀요. 20m요')은 새 요청이 아님.
+ */
+function quick_match_new_request(string $msg, string $category): bool
+{
+    return $category !== '' || (bool) preg_match('/추천|찾아|얼마|가격|견적|필요한\s*(자재|제품)/u', $msg);
+}
+
 /** 고객이 '같이·추가·둘 다'처럼 함께 담기를 말했는지 — 그때는 바꿔 담기로 빼지 않는다 (순수 함수) */
 function quick_match_keep_both(string $msg): bool
 {
@@ -147,8 +157,8 @@ function quick_match_keep_both(string $msg): bool
  */
 function quick_turn_state(?string $msg = null, ?int $added = null): array
 {
-    static $s = ['msg' => '', 'added' => []];
-    if ($msg !== null) { $s = ['msg' => $msg, 'added' => []]; }
+    static $s = ['msg' => '', 'added' => [], 'id' => ''];
+    if ($msg !== null) { $s = ['msg' => $msg, 'added' => [], 'id' => bin2hex(random_bytes(6))]; }   // id: 이 턴 표시(바꿔 담기는 바로 앞 턴에 담은 줄만 — 11-25)
     if ($added !== null) { $s['added'][] = $added; }
     return $s;
 }

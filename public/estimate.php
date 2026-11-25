@@ -50,9 +50,9 @@ render_header('견적 요청');
 .est-items{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:0}
 .est-items th{background:var(--color-bg-secondary);padding:10px 14px;text-align:left;font-weight:600;border-bottom:2px solid var(--color-border)}
 .est-items td{padding:10px 14px;border-bottom:1px solid var(--color-border);vertical-align:middle}
-.est-items .num{text-align:right}
+.est-items .num{text-align:right;white-space:nowrap}   /* '14,300,000원'의 '원'이 다음 줄로 넘어가지 않게(사용자 피드백 11-25) */
 .est-items .qty-cell{display:flex;align-items:center;gap:6px;justify-content:center}
-.est-items input.qty-input{width:52px;height:30px;border:1px solid var(--color-border);text-align:center;font-size:13px;font-family:var(--font)}
+.est-items input.qty-input{width:72px;height:32px;padding:0 4px;background:#fff;border:1px solid var(--color-border);text-align:center;font-size:13px;font-family:var(--font)}   /* 세 자리 수량(500)이 잘리지 않게 — 전역 입력창 여백·회색 배경 덮기(11-25) */
 .est-items .remove-btn{background:none;border:none;cursor:pointer;color:var(--color-text-secondary);padding:2px 4px;font-size:16px;line-height:1}
 .est-items .remove-btn:hover{color:#e53935}
 .est-total-row{display:flex;justify-content:flex-end;align-items:center;gap:16px;padding:14px 14px;border-top:2px solid var(--color-border);background:var(--color-bg-secondary);font-size:15px;font-weight:700}
@@ -225,9 +225,9 @@ render_header('견적 요청');
                 <tr>
                     <th>제품명</th>
                     <th>규격</th>
-                    <th style="text-align:center;width:90px">수량</th>
+                    <th style="text-align:center;width:100px">수량</th>
                     <th style="text-align:right;width:110px">단가</th>
-                    <th style="text-align:right;width:120px">소계</th>
+                    <th style="text-align:right;width:140px">소계</th>
                     <th style="width:36px"></th>
                 </tr>
             </thead>
