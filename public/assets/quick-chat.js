@@ -185,7 +185,12 @@
     const mine = { role: 'user', text: userText };
     state.msgs.push(mine);
     save(); render();
-    aiRow(typingText, 'is-typing');
+    // 기다리는 동안: '답변을 준비하고 있어요.' → '..' → '...' 반복(AI 상담 화면과 같게, 사용자 요청 2026-11-25)
+    const typing = aiRow(typingText + '.', 'is-typing');
+    typing.setAttribute('role', 'status');
+    const typingEl = typing.querySelector('.qc-a-text');
+    let dots = 1;
+    const waitTimer = setInterval(() => { dots = dots % 3 + 1; typingEl.textContent = typingText + '.'.repeat(dots); }, 500);
     body.scrollTop = 0;
     const before = quote ? (quote.items || []).length : 0;
     let reply;
@@ -208,6 +213,7 @@
     } catch (e) {
       reply = { role: 'ai', text: e.name === 'AbortError' ? timeoutText : '오류가 발생했습니다. 다시 시도해 주세요.', error: true };
     }
+    clearInterval(waitTimer);
     state.msgs.push(reply);
     save(); render();
     setBusy(false);
@@ -218,7 +224,7 @@
     const msg = String(text || '').trim().slice(0, MAX_LEN);
     if (!msg || busy) return;
     input.value = ''; grow(); syncSend();
-    return request({ action: 'ask', msg }, msg, '견적을 계산하고 있어요…', 95000, '응답 시간이 초과되었습니다. 더 짧게 질문해 보세요.');
+    return request({ action: 'ask', msg }, msg, '답변을 준비하고 있어요', 95000, '응답 시간이 초과되었습니다. 더 짧게 질문해 보세요.');
   }
 
   // ── 견적 목록 ──────────────────────────────────────
@@ -531,7 +537,7 @@
     let image = '';
     try { image = await shrink(f); } catch (e) { toast('사진을 열 수 없어요. 다른 사진으로 올려 주세요'); return; }
     closeSheet(false);
-    request({ action: 'photo', image, consent: true }, '견적서 사진을 보냈어요', '사진에서 품목을 읽고 견적을 계산하고 있어요…', 150000, '응답 시간이 초과되었습니다. 품목이 적게 보이게 나눠 찍어 다시 올려 주세요.');
+    request({ action: 'photo', image, consent: true }, '견적서 사진을 보냈어요', '사진에서 품목을 읽고 있어요', 150000, '응답 시간이 초과되었습니다. 품목이 적게 보이게 나눠 찍어 다시 올려 주세요.');
   }
 
   if (PHOTO_ON) {
