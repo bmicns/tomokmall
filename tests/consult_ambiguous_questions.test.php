@@ -169,7 +169,7 @@ try {
         [$r, $o, $sys, $cs] = $t('폭 400으로 바꾸고 나머지는 그대로.', [$call($cf ? ['query' => '그레이팅', 'width_mm' => 400, 'product_length_mm' => 1000, 'length_m' => 20, 'traffic' => 'car'] : ['query' => '그레이팅', 'width_mm' => 400]), $say('결과')]);
         $i = $in($r);
         ok('폭만 400, 제품 길이 1000·설치 20m·통행 car 유지', (float) ($i['width_mm'] ?? 0) === 400.0 && (float) ($i['product_length_mm'] ?? 0) === 1000.0 && (float) ($i['length_m'] ?? 0) === 20.0 && ($i['traffic'] ?? '') === 'car', $j($i) . ' ' . $fills($r));
-        ok('표: 폭 400·길이 1000 승용차용(하중 확인)만, 20개', $cs !== [] && !array_filter($cs, static fn($c) => !str_starts_with((string) ($c['size'] ?? ''), '폭 W 400mm · 길이 L 1000mm') || ($c['load_check'] ?? '') !== 'verified' || ($c['suggested_qty'] ?? 0) !== 20), $j(array_map(static fn($c) => [$c['name'], $c['load_check'] ?? null], $cs)));
+        ok('표: 폭 400·길이 1000 승용차용(하중 확인)만, 20개', $cs !== [] && !array_filter($cs, static fn($c) => !str_starts_with((string) ($c['size'] ?? ''), '폭 W 400mm · 길이 L 1m') || ($c['load_check'] ?? '') !== 'verified' || ($c['suggested_qty'] ?? 0) !== 20), $j(array_map(static fn($c) => [$c['name'], $c['load_check'] ?? null], $cs)));
         ok('모호한 점 없음 → 확인 질문 근거를 붙이지 않음', ($o['clarify'] ?? '') === '' && !str_contains($sys, $hint));
 
         echo " ⑧ '이 제품 대신 비슷한 규격의 다른 제품 보여줘.'\n";
@@ -178,7 +178,7 @@ try {
         [$r, $o, , $cs] = $t('이 제품 대신 비슷한 규격의 다른 제품 보여줘.', [$call($cf ? ['query' => '그레이팅', 'width_mm' => 400, 'product_length_mm' => 1000, 'exclude_ids' => $ids($c0)] : ['query' => '그레이팅']), $say('결과')]);
         $i = $in($r);
         ok('같은 확인 치수(폭 400·길이 1000) 유지 · 앞 제품 제외', (float) ($i['width_mm'] ?? 0) === 400.0 && (float) ($i['product_length_mm'] ?? 0) === 1000.0 && !array_diff($ids($c0), ai_int_list($i['exclude_ids'] ?? null)), $j($i));
-        ok('결과: 폭 400·길이 1000 다른 제품(앞 제품 이름 없음)', $cs !== [] && !array_filter($cs, static fn($c) => !str_starts_with((string) ($c['size'] ?? ''), '폭 W 400mm · 길이 L 1000mm')) && !array_intersect(array_column($cs, 'name'), array_column($c0, 'name')), $j(array_column($cs, 'name')));
+        ok('결과: 폭 400·길이 1000 다른 제품(앞 제품 이름 없음)', $cs !== [] && !array_filter($cs, static fn($c) => !str_starts_with((string) ($c['size'] ?? ''), '폭 W 400mm · 길이 L 1m')) && !array_intersect(array_column($cs, 'name'), array_column($c0, 'name')), $j(array_column($cs, 'name')));
         $t = $session($sid());
         [, , , $c0] = $t('그레이팅 보여줘.', [$call(['query' => '그레이팅']), $say('표')]);
         [$r, $o] = $t('이 제품 대신 비슷한 규격의 다른 제품 보여줘.', [$call(['query' => '그레이팅']), $say('결과')]);

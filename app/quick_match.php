@@ -225,16 +225,28 @@ function quick_reply_tidy(string $text): string
 }
 
 /**
- * 빠른 견적 창 답 글의 mm 치수를 m 로 (순수 함수): '폭 150mm, 길이 1000mm … 10m' 처럼 단위가 섞이던 문제(사용자 피드백 11-24 — m 기준).
- * 1000mm → 1m, 300mm → 0.3m, 1,500mm → 1.5m. 상품 규격 표기(300×1000×32, '×50mm' 처럼 곱하기 뒤 숫자)는 그대로 둔다.
+ * 빠른 견적 창 답 글의 단위 손질 (순수 함수) — **길이만 m, 나머지 치수는 mm**(사용자 결정 11-26, 11-24 'm 기준'을 좁힘).
+ * - 길이·연장(설치 길이 포함) 값의 mm → m: '길이 1000mm' → '길이 1m', '길이 1,500mm' → '길이 1.5m'.
+ * - 폭·높이·두께·깊이·지름 등은 mm 그대로, 답이 m 로 쓴 1m 미만 값('두께 0.06m'·'폭 0.3m')은 mm 로. 이름 없는 mm 값도 그대로.
+ * - 상품 규격 표기(300×1000×32, '×50mm' 처럼 곱하기 뒤 숫자, D150mm 같은 호칭)는 그대로.
+ * - 예시가 붙은 질문의 단위 표시 '(mm)' 는 뺀다('배수로의 폭(mm)을 알려 주세요. (예: 300mm)' → '배수로의 폭을 알려 주세요. (예: 300mm)').
  */
 function quick_reply_units(string $text): string
 {
+    $text = (string) preg_replace('/\s?\((?:mm|㎜)\)(?=[^\n]*예\s*[:)]?\s*[\d.,]+\s*(?:mm|㎜|m)\b)/u', '', $text);
+    // 길이 아닌 치수를 답이 m 로 쓴 1m 미만 값('두께 0.06m'·'폭 0.3m'·'폭을 알려 주세요 (예: 0.3m)') → mm. 가로·세로(현장 크기)는 그대로
+    $text = (string) preg_replace_callback('/(?<![\d.,])0\.(\d{1,3})\s*m(?![m²2a-zA-Z])/u',
+        static function (array $m) use ($text): string {
+            $dim = quick_reply_last_dim(substr($text, 0, $m[0][1]));
+            if ($dim === '' || in_array($dim, ['길이', '연장', '가로', '세로'], true)) { return $m[0][0]; }
+            return (int) str_pad($m[1][0], 3, '0') . 'mm';
+        }, $text, -1, $count, PREG_OFFSET_CAPTURE);
     return (string) preg_replace_callback(
         '/(?<![\d.,])(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?\s*(?:mm|㎜)(?![a-zA-Z])/u',
         static function (array $m) use ($text): string {
             $before = rtrim(substr($text, 0, $m[0][1]));
             if ($before !== '' && preg_match('/[×*xX]$|[A-Za-z]$/u', $before)) { return $m[0][0]; }   // 규격 표기의 일부(곱하기 뒤 숫자·D150mm 같은 호칭)
+            if (!in_array(quick_reply_last_dim($before), ['길이', '연장'], true)) { return $m[0][0]; }   // 길이만 m(11-26)
             $mm = (float) (str_replace(',', '', $m[1][0]) . (isset($m[2]) && $m[2][1] >= 0 ? '.' . $m[2][0] : ''));
             if ($mm <= 0) { return $m[0][0]; }
             return rtrim(rtrim(sprintf('%.4f', $mm / 1000), '0'), '.') . 'm';
@@ -244,6 +256,21 @@ function quick_reply_units(string $text): string
         $count,
         PREG_OFFSET_CAPTURE
     );
+}
+
+/**
+ * 답 글에서 숫자 앞 같은 문장의 마지막 치수 이름 (순수 함수, 없으면 '') — '두께는 80mm, 폭 200mm' 의 200 → '폭',
+ * '배수로의 폭(mm)을 알려 주세요 (예: 300mm)' → '폭', '설치 길이 10m 에 길이 1000mm' → '길이'.
+ */
+function quick_reply_last_dim(string $before): string
+{
+    $parts = preg_split('/[.!?。]\s|\n/u', $before);
+    $clause = (string) array_pop($parts);
+    // 질문 뒤에 붙은 예시('… 알려 주세요. (예: 0.3m)')는 앞 문장의 치수 이름을 따른다
+    if (preg_match('/^\s*\(?\s*예\s*[:)]?\s*$/u', $clause) && $parts) { $clause = (string) array_pop($parts) . ' ' . $clause; }
+    $clause = mb_substr($clause, -40);
+    if (!preg_match_all('/두께|폭|너비|가로|세로|길이|연장|높이|깊이|지름|직경|관경|내경|외경/u', $clause, $m)) { return ''; }
+    return (string) end($m[0]);
 }
 
 /**
