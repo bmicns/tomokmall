@@ -14,6 +14,7 @@ declare(strict_types=1);
  */
 
 require_once __DIR__ . '/cart.php';
+require_once __DIR__ . '/privacy.php';   // 견적 개인정보 1년 자동 정리(처리방침 제2조)
 
 /**
  * 견적 생성 공용 로직 — tool_create_estimate() 와 api/estimate.php 에서 공유
@@ -149,6 +150,8 @@ function estimate_create(array $data): array
         $pdo->rollBack();
         return ['ok' => false, 'error' => '견적 생성 중 오류가 발생했습니다.'];
     }
+
+    privacy_estimate_purge();   // 1년 지난 견적 개인정보 정리 — 가끔, 일부씩
 
     // 견적 완료 후 cart + quick_items 모두 초기화
     if (session_status() !== PHP_SESSION_ACTIVE) session_start();

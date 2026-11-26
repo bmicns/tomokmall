@@ -1584,6 +1584,13 @@ body:has(.product-table.pt-has-desc) :is(main, .header-inner, .footer-inner) { m
 .info-btn:disabled{opacity:.5;cursor:not-allowed}
 .info-msg{font-size:12px;margin-top:4px;display:none}
 .info-msg.ok{color:#27ae60}.info-msg.err{color:#c0392b}
+/* 회원 탈퇴(마이페이지 내 정보) — 접어 두고 펼쳐야 보임 */
+.wd-box{border:1px solid var(--color-border)}
+.wd-summary{padding:12px 14px;min-height:44px;box-sizing:border-box;font-size:13px;font-weight:600;color:var(--color-text-secondary);cursor:pointer}
+.wd-box[open] .wd-summary{border-bottom:1px solid var(--color-border)}
+.wd-body{padding:14px;display:flex;flex-direction:column;gap:12px}
+.wd-notes{margin:0;padding-left:18px;font-size:12px;line-height:1.6;color:var(--color-text-secondary)}
+.wd-btn{background:var(--color-danger)}
 .ord-list{display:flex;flex-direction:column;gap:8px}
 .ord-card{border:1px solid var(--color-border);padding:14px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .ord-id{font-size:11px;color:#aaa;font-family:monospace;width:64px;flex-shrink:0}

@@ -4,6 +4,12 @@ require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/auth.php';
 require __DIR__ . '/../app/layout.php';
 
+// 페이지 내림(사용자 결정 2026-11-26): 위젯이 주소·보증금·등기부등본 파일을 브라우저에서 바로 외부(vestra.ai.kr)로 보내고
+// 건축자재몰 기능과도 관계없어서 첫 화면으로 보낸다. 메뉴는 layout.php 에서 이미 숨김. 다시 열려면 아래 세 줄을 지운다
+// (그때는 개인정보 처리방침에 vestra 제공·위탁 내용을 먼저 넣어야 함 — docs/03-analysis/privacy-withdrawal-2026-11-26.md).
+header('Location: /', true, 302);
+exit;
+
 render_header('부동산안전');
 ?>
 <style>
