@@ -457,13 +457,38 @@
     if (sheet.dataset.open !== 'history') return;
     hist.textContent = '';
     if (d && d.ok && d.server) {
-      if (!(d.list || []).length) { histNote(NO_PREV); return; }
-      d.list.forEach(c => histItem(c.first, c.at, () => restoreServer(c.sid)));
+      if (!(d.list || []).length) histNote(NO_PREV);
+      else d.list.forEach(c => histItem(c.first, c.at, () => restoreServer(c.sid)));
+      if (d.guest) guestFoot();
       return;
     }
     const list = state.prev || [];
     if (!list.length) { histNote(NO_PREV); return; }
     list.forEach((c, i) => histItem((c.msgs.find(m => m.role === 'user') || {}).text || '', c.at, () => restorePrev(i)));
+  }
+
+  // 비회원: 이 기기(쿠키)에서만 30일 보관 안내 + '이 기기 상담 기록 지우기'(두 번 눌러 확인 — 브라우저 확인 창 없이)
+  function guestFoot() {
+    const foot = document.createElement('div');
+    foot.className = 'qc-hist-foot';
+    const p = document.createElement('p');
+    p.textContent = '비회원 상담은 이 기기에서만 마지막 대화 후 30일 동안 보여요. 로그인하면 내 계정으로 옮겨져요.';
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'qc-hist-forget';
+    b.textContent = '이 기기 상담 기록 지우기';
+    b.addEventListener('click', async () => {
+      if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = '한 번 더 누르면 모두 지워요'; return; }
+      b.disabled = true;
+      let r = null;
+      try { r = await (await fetch('/api/chat/history.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'forget' }) })).json(); } catch (e) {}
+      if (!r || !r.ok) { b.disabled = false; b.textContent = '지우지 못했어요. 다시 눌러 주세요'; return; }
+      state = { sid: '', open: true, tab: 'chat', msgs: [], prev: [] };
+      quote = null; listSeq++; syncBadge(); save(); render();
+      histNote('이 기기의 상담 기록을 지웠어요.');
+    });
+    foot.append(p, b);
+    hist.appendChild(foot);
   }
 
   async function restoreServer(sid) {

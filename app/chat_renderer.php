@@ -1,7 +1,7 @@
 <?php
 /** 채팅 UI HTML 렌더링 전용 — 비즈니스 로직 없음
  *  호출자: public/chat.php (GET 일반 요청)
- *  의존: $sessionKey (string), $_isLoggedIn (bool), $_restored (array, 복원할 이전 상담 메시지),
+ *  의존: $sessionKey (string), $_isLoggedIn (bool), $_hasHistory (bool, 이전 상담 목록 — 회원 또는 이 기기 기록이 있는 비회원), $_restored (array, 복원할 이전 상담 메시지),
  *        $_restoredEvents (array, [메시지 인덱스 => chat_logs 이벤트]) — 호출자가 주입
  */
 $_sid     = $sessionKey ?? '';
@@ -530,6 +530,11 @@ render_header('AI 자재 상담', 'chat');
     display: inline-flex; align-items: center; justify-content: center;
   }
   .hist-panel-list { max-height: 340px; overflow-y: auto; padding: 6px 0; }
+  /* 비회원: 이 기기 보관 안내 + 기록 지우기(A12) */
+  .hist-panel-foot { padding: 10px 16px 12px; border-top: 1px solid #E5E5E5; font-size: 12px; line-height: 1.6; color: var(--color-text-secondary); }
+  .hist-panel-foot p { margin: 0 0 4px; }
+  .hist-forget { min-height: 36px; padding: 6px 0; border: 0; background: none; font-family: var(--font); font-size: 12.5px; color: var(--color-danger); text-decoration: underline; cursor: pointer; }
+  .hist-forget:disabled { opacity: .6; cursor: default; }
   .hist-panel-item {
     display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
     width: 100%; min-height: 44px; padding: 10px 16px;
@@ -644,7 +649,7 @@ render_header('AI 자재 상담', 'chat');
 <section class="chat-area" aria-label="AI 자재 상담">
   <!-- 상담 툴바: 이전 상담(로그인 시) + 새 상담을 한 줄로 -->
   <div class="chat-toolbar">
-    <?php if ($_isLoggedIn ?? false): ?>
+    <?php if ($_hasHistory ?? ($_isLoggedIn ?? false)): ?>
     <div class="history-bar" id="history-bar" hidden>
       <span class="history-bar-label">이전 상담</span>
       <div class="history-chips" id="history-chips" role="list" aria-label="이전 상담 목록"></div>
@@ -659,6 +664,12 @@ render_header('AI 자재 상담', 'chat');
         <button type="button" class="hist-panel-close" aria-label="닫기" onclick="toggleHistPanel(false)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
       </div>
       <div class="hist-panel-list" id="hist-panel-list"></div>
+      <?php if (!($_isLoggedIn ?? false)): ?>
+      <div class="hist-panel-foot">
+        <p>비회원 상담은 이 기기에서만 마지막 대화 후 30일 동안 보여요. 로그인하면 내 계정으로 옮겨져요.</p>
+        <button type="button" class="hist-forget" id="hist-forget">이 기기 상담 기록 지우기</button>
+      </div>
+      <?php endif; ?>
     </div>
     <?php endif; ?>
     <div class="chat-toolbar-actions">
@@ -789,7 +800,7 @@ function toggleEstPanel() {
   update();
 })();
 </script>
-<?php if ($_isLoggedIn ?? false): ?>
+<?php if ($_hasHistory ?? ($_isLoggedIn ?? false)): ?>
 <script>
 function toggleHistPanel(force) {
   const panel = document.getElementById('hist-panel');
@@ -806,6 +817,16 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   const panel = document.getElementById('hist-panel');
   if (e.key === 'Escape' && panel && !panel.hidden) toggleHistPanel(false);
+});
+// 비회원 '이 기기 상담 기록 지우기' — 두 번 눌러 확인(브라우저 확인 창 없이), 지우면 새 상담으로
+document.getElementById('hist-forget')?.addEventListener('click', async (e) => {
+  const b = e.currentTarget;
+  if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = '한 번 더 누르면 모두 지워요'; return; }
+  b.disabled = true;
+  let r = null;
+  try { r = await (await fetch('/api/chat/history.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'forget' }) })).json(); } catch (_) {}
+  if (!r || !r.ok) { b.disabled = false; b.textContent = '지우지 못했어요. 다시 눌러 주세요'; return; }
+  location.href = '/chat.php';
 });
 
 (async () => {
@@ -859,7 +880,8 @@ document.addEventListener('keydown', (e) => {
     // 최근 5건보다 많으면 '전체' 목록 버튼 표시 (좁은 화면은 CSS로 항상 표시)
     document.getElementById('hist-all-label').textContent = '전체 ' + d.sessions.length;
     document.getElementById('hist-panel-count').textContent = d.sessions.length + '건';
-    if (d.sessions.length > RECENT) document.getElementById('btn-hist-all').hidden = false;
+    // 비회원은 '이 기기 상담 기록 지우기'가 전체 목록 안에 있어 항상 '전체' 버튼 표시
+    if (d.sessions.length > RECENT || d.guest) document.getElementById('btn-hist-all').hidden = false;
     bar.hidden = false;
   } catch (_) {}
 })();

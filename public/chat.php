@@ -94,18 +94,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // ── 채팅 UI ───────────────────────────────────────────────────────────────
-// ?sid= : 이전 상담 복원 (로그인 본인 상담만). 그 외에는 상담마다 새 키 발급
+// ?sid= : 이전 상담 복원 (본인 상담만 — 회원은 계정, 비회원은 이 기기 쿠키 토큰으로 확인, A12). 그 외에는 상담마다 새 키 발급
 $_isLoggedIn = is_logged_in();
+$_ownerUid   = $_isLoggedIn ? (int) current_user()['id'] : 0;
+$_hasHistory = $_isLoggedIn || chat_guest_hash() !== null;   // 이전 상담 목록 표시(비회원은 이 기기에서 저장한 상담이 있을 때)
 $_restored   = [];
 $_restoredEvents = [];
 $sessionKey  = '';
 $_reqSid     = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) ($_GET['sid'] ?? ''));
-if ($_reqSid !== '' && $_isLoggedIn) {
-    $_owned = rag_load_owned_session($_reqSid, (int) current_user()['id']);
+if ($_reqSid !== '') {
+    $_owned = rag_load_owned_session($_reqSid, $_ownerUid);
     if ($_owned !== null) {
         $sessionKey = $_reqSid;
         $_restored  = $_owned;
-        $_restoredEvents = rag_load_turn_events($_reqSid, (int) current_user()['id'], $_owned);
+        $_restoredEvents = rag_load_turn_events($_reqSid, $_ownerUid, $_owned);
         // 상품 추천표: 가격·판매 상태만 현재 기준(견적서와 같은 규칙), 나머지는 상담 당시 그대로
         $_restoredEvents = rag_apply_current_prices(
             $_restoredEvents,
