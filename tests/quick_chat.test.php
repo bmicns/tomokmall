@@ -6,7 +6,7 @@ declare(strict_types=1);
  * 확인:
  *  - 보이는 사람: 스위치 'staff' = 관리자·직원만, 'all' = 모두, 'off' = 아무도, 견적 카드 스위치를 끄면 안 보임
  *  - 프롬프트: 기본 상담은 그대로, 빠른 창은 기본 + '빠른 견적 창 답변 방식' 구역만 덧붙음
- *  - API(/api/chat/quick.php): 비로그인 403, 직원 → 질문 → 검색·담기 도구 실행 → 견적 표(quote_draft) 돌려줌, 상담 키 'qc…', 대화 저장, 200자 초과 거부
+ *  - API(/api/chat/quick.php): 비로그인 = 스위치대로('all' 이면 사용, 'staff' 이면 403), 직원 → 질문 → 검색·담기 도구 실행 → 견적 표(quote_draft) 돌려줌, 상담 키 'qc…', 대화 저장, 200자 초과 거부
  *  - 화면: 직원에게만 버튼·창 출력, AI 상담 화면(chat)에는 없음
  *  - 케이토목처럼 바로 담기(A11): 찾고도 '골라 주세요'로 끝나면 담기 1회 강제, 확인 질문('?')이면 강제 안 함, 견적 표에 사진·상품목록·도면자료 연결
  *  - 창 안 목록(A11 11-24 결정): 담기·수량은 대화별 목록에만, 수량 미정 0, '견적서 만들어줘'·[견적 요청하기] 때 사이트 견적서로(두 배 안 됨)
@@ -151,7 +151,7 @@ ai_quote_card_enabled(false);
 ok('견적 카드 스위치를 끄면 안 보임', !ai_quick_chat_visible($admin));
 ai_quote_card_enabled(true);
 ai_quick_chat_visible(null, FEATURE_AI_QUICK_CHAT);
-ok('운영 기본값 = 관리자·직원만', FEATURE_AI_QUICK_CHAT === 'staff');
+ok('운영 기본값 = 모든 방문자(11-26 사용자 결정)', FEATURE_AI_QUICK_CHAT === 'all');
 
 echo "[프롬프트 — 기본 상담 그대로, 빠른 창은 구역만 덧붙음]\n";
 $msgs = [['role' => 'user', 'content' => '마당 경계석 30m 차는 안 다녀요']];
@@ -169,7 +169,10 @@ $html = static function (string $mode, ?array $user): string {
     return (string) ob_get_clean();
 };
 ok('직원·일반 화면: 버튼·창·스크립트', str_contains($h = $html('normal', $staff), 'id="qc-fab"') && str_contains($h, '/assets/quick-chat.js') && str_contains($h, 'id="qc-title"') && !str_contains($h, '관리자·직원 시험 중'));   // 머리 안내 줄 뺌(사용자 요청 11-24)
-ok('고객·비로그인: 없음', $html('normal', $cust) === '' && $html('home', null) === '');
+ok('고객·비로그인(운영 기본값 all): 보임', str_contains($html('normal', $cust), 'id="qc-fab"') && str_contains($html('home', null), 'id="qc-fab"'));
+ai_quick_chat_visible(null, 'staff');
+ok("'staff' 이면 고객·비로그인: 없음", $html('normal', $cust) === '' && $html('home', null) === '');
+ai_quick_chat_visible(null, FEATURE_AI_QUICK_CHAT);
 ok('AI 상담 화면(chat): 없음', $html('chat', $staff) === '');
 $_SESSION['user'] = null;
 
@@ -216,8 +219,9 @@ header("Content-Type: application/json"); echo json_encode($r[$n - 1] ?? end($r)
     };
 
     echo "[API — 권한]\n";
-    [$st] = $post(['action' => 'new'], null);
-    ok('비로그인 → 403', $st === 403);
+    [$st, $d] = $post(['action' => 'new'], null);
+    ok(FEATURE_AI_QUICK_CHAT === 'all' ? '비로그인 → 새 대화 키 발급(모든 방문자)' : '비로그인 → 403',
+        FEATURE_AI_QUICK_CHAT === 'all' ? ($st === 200 && str_starts_with((string) ($d['sid'] ?? ''), 'qc')) : $st === 403);
 
     // 직원 로그인 세션(로컬 테스트 DB 의 직원 id, 세션 파일에만)
     if (session_status() !== PHP_SESSION_ACTIVE) { session_start(); }

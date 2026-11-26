@@ -304,7 +304,7 @@
     const st = f.status || 'none';
     // 수량 미정(0) 품목이 있으면 서버는 중량을 몰라 운반비를 계산하지 않음 — 수량을 정하라고 안내(계산은 그대로)
     const undecided = st === 'missing_weight' && items.some(it => (parseInt(it.quantity, 10) || 0) <= 0);
-    const fText = !region || st === 'none' ? '-' : st === 'ok' ? won(f.amount) : st === 'negotiate' ? '별도 협의' : undecided ? '수량 정하면 계산' : '별도 확인';
+    const fText = !region || st === 'none' ? '-' : st === 'ok' ? won(f.amount) : st === 'negotiate' ? '별도 협의' : undecided ? '-' : '별도 확인';   // 수량 미정 품목이 있으면 '-'(11-26 사용자 요청)
     const note = !region ? '현장 시·도를 골라 주세요'
       : st === 'ok' ? region + ' · 예상 운반비 ' + won(f.amount)
       : st === 'negotiate' ? region + ' · 운반비 별도 협의'
