@@ -139,7 +139,7 @@ try {
     $c2 = $cards($b2);
     ok('2턴: 주방 → 보행자 조건·폭 500 → width_mm(10m 는 설치 길이 length_m 그대로)', ($b2['tools'][0]['input']['traffic'] ?? '') === 'pedestrian' && (float) ($b2['tools'][0]['input']['width_mm'] ?? 0) === 500.0 && (float) ($b2['tools'][0]['input']['length_m'] ?? 0) === 10.0);
     ok('2턴: 폭 W 500mm 보행자용만, 수량은 제품 길이 L 로(500×500 → 20개, 500×1000 → 10개)', $c2 !== [] && !array_filter($c2, static fn($c) => !str_starts_with((string) ($c['size'] ?? ''), '폭 W 500mm') || str_contains($c['name'], '중하중'))
-        && !array_filter($c2, static fn($c) => !(str_contains((string) $c['size'], '길이 L 500mm') ? $c['suggested_qty'] === 20 : (str_contains((string) $c['size'], '길이 L 1000mm') ? $c['suggested_qty'] === 10 : false))));
+        && !array_filter($c2, static fn($c) => !(str_contains((string) $c['size'], '길이 L 0.5m') ? $c['suggested_qty'] === 20 : (str_contains((string) $c['size'], '길이 L 1m') ? $c['suggested_qty'] === 10 : false))));
     $e2 = array_column($c2, 'est_cost'); $s2 = $e2; sort($s2);
     ok('2턴: 예상 비용 = 화면 단가 × 권장 수량, 낮은 순', $e2 === $s2 && !array_filter($c2, static fn($c) => $c['est_cost'] !== $c['price_member'] * $c['suggested_qty']));
     [$b3] = $turn('사람만 다니는 곳이야.', [$call($s500 + ['traffic' => 'pedestrian'], 7), $say('보행자용 제품입니다.')]);

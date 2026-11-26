@@ -533,7 +533,9 @@ render_header('AI 자재 상담', 'chat');
   /* 비회원: 이 기기 보관 안내 + 기록 지우기(A12) */
   .hist-panel-foot { padding: 10px 16px 12px; border-top: 1px solid #E5E5E5; font-size: 12px; line-height: 1.6; color: var(--color-text-secondary); }
   .hist-panel-foot p { margin: 0 0 4px; }
-  .hist-forget { min-height: 36px; padding: 6px 0; border: 0; background: none; font-family: var(--font); font-size: 12.5px; color: var(--color-danger); text-decoration: underline; cursor: pointer; }
+  .hist-forget { min-height: 36px; padding: 6px 0; border: 0; background: none; font-family: var(--font); font-size: 12.5px; font-weight: 600; color: var(--color-text-secondary); text-decoration: none; cursor: pointer; }
+  .hist-forget:hover { color: var(--color-text-primary); }
+  .hist-forget[data-armed] { color: var(--color-danger); }
   .hist-forget:disabled { opacity: .6; cursor: default; }
   .hist-panel-item {
     display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
