@@ -6,7 +6,7 @@ declare(strict_types=1);
  * 확인:
  *  - 줄 구성 읽기(install_runs_parse): '10m씩 2줄'·'10m, 15m'·'양쪽 20m씩'·'2줄 각 10m'·'총 30m 3줄'(나누지 않음)·한 줄·치수 숫자 제외
  *  - 대화에서 지금 유효한 줄 구성(나중에 한 줄 길이로 고쳐 말하면 풀림)
- *  - 수량: 줄마다 올림(콘크리트·그레이팅·경계석 등) / 합계(PE·PVC 관류·미터 단위) / 줄마다 길이를 모르면 합계 + 확인 안내
+ *  - 수량: 개·본 단위 길이 자재는 PE·PVC 관 포함 줄마다 올림(자투리 재사용 가정 안 함 — 11-26 사용자 결정) / 미터 단위는 합계 / 줄마다 길이를 모르면 합계 + 확인 안내
  *  - 도구 입력 바로잡기(rag_apply_runs): GPT 가 한 줄 길이·합계만 넘겨도 고객 말대로 runs_m
  *  - 빠른 상담 설치 길이(quick_install_amount): '10m씩 2줄'을 10m 로 읽던 문제
  *  - 질문 방식 공통 구역이 두 상담 프롬프트에 모두 들어감·돌려 묻는 예문 없음·경계석 면적 질문 바로잡기·흄관 = 관류
@@ -86,7 +86,8 @@ $set(['runs' => [10.0, 10.0], 'count' => 2]);
 ok('딱 맞는 길이(10m×2줄 그레이팅) = 합계와 같음 20개', ai_estimate_quantity($gr, 20.0, null, null)[0] === 20);
 $set(['runs' => [4.0, 4.0, 4.0], 'count' => 3]);
 [$q, $b] = ai_estimate_quantity($pe, 12.0, null, null);
-ok('PE 이중벽관(6m) 4m×3줄: 자투리를 이어 써 합계 12m ÷ 6m = 2본', $q === 2 && str_contains($b, '합계로 계산'), [$q, $b]);
+ok('PE 이중벽관(6m) 4m×3줄: 자투리 재사용을 가정하지 않고 줄마다 1본 × 3줄 = 3본(합계 계산 2본보다 많음)', $q === 3 && !str_contains($b, '합계로 계산') && str_contains($b, '× 3줄 = 3본'), [$q, $b]);
+ok('재사용이 검증된 자재 목록은 비어 있음(PE·PVC·유공관도 줄마다)', INSTALL_RUNS_REUSE_VERIFIED === [] && !install_runs_reuse_offcut($pe) && !install_runs_reuse_offcut(['name' => 'PVC관', 'category_name' => '유공관']));
 $set(['runs' => [10.5, 10.5], 'count' => 2]);
 [$q, $b] = ai_estimate_quantity($mU, 21.0, null, null);
 ok('미터 단위: 합계 21m → 21M', $q === 21 && str_contains($b, '21M'), [$q, $b]);
@@ -94,7 +95,8 @@ $set(['runs' => [], 'count' => 3]);
 [$q, $b] = ai_estimate_quantity($tr, 30.0, null, null);
 ok('총 30m 3줄(줄마다 길이 모름): 나누지 않고 합계 15본 + 그 사실 밝힘', $q === 15 && str_contains($b, '줄마다 길이 모름'), [$q, $b]);
 ok('줄마다 길이 모름 → 수로관은 확인 안내(run_note)', install_runs_split_note(30.0, $tr) !== null);
-ok('줄마다 길이 모름 → PE 관은 안내 없음(합계가 정확)', install_runs_split_note(30.0, $pe) === null);
+ok('줄마다 길이 모름 → PE 관도 확인 안내(줄마다 올림 자재)', install_runs_split_note(30.0, $pe) !== null);
+ok('줄마다 길이 모름 → 미터 단위는 안내 없음(합계가 정확)', install_runs_split_note(30.0, $mU) === null);
 $set(['runs' => [10.0, 10.0], 'count' => 2]);
 ok('다른 길이로 부른 계산에는 줄 구성을 쓰지 않음(합계 20m ≠ 50m)', ai_estimate_quantity($gr, 50.0, null, null) == [50, '50m ÷ 1m = 50개']);
 ok('줄 기준 문구: 10m×2줄(총 20m)', install_runs_basis_label(20.0) === '10m×2줄(총 20m)', install_runs_basis_label(20.0));

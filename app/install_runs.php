@@ -7,7 +7,7 @@ declare(strict_types=1);
  *  - install_runs_parse()        고객 말에서 줄 구성 읽기 — '10m씩 2줄'·'10m, 15m'·'양쪽 20m씩'·'2줄 각 10m'·'총 30m 3줄'(줄마다 길이 모름)
  *  - install_runs_from_messages() 대화에서 지금 유효한 줄 구성(마지막으로 설치 길이를 말한 고객 말 기준)
  *  - install_runs_ctx()          도구 한 번 실행 동안의 줄 구성(ai_tool_dispatch 가 넣고 비움) — ai_estimate_quantity 가 읽는다
- *  - install_runs_reuse_offcut() 자투리를 다른 줄에 이어 쓰는 자재인지(PE·PVC 관류 — 합계로 계산), 그 밖의 길이 자재는 줄마다 올림
+ *  - install_runs_reuse_offcut() 자투리를 다른 줄에 이어 쓸 수 있다고 검증된 자재인지(지금은 없음 — 개·본 단위 길이 자재는 모두 줄마다 올림)
  *  - install_runs_piece_qty()    1개 길이로 줄별 수량 계산 + 근거 문구
  *
  * 금지: 가격·단가·마진율·가격 계산식은 다루지 않는다(수량만). 예상 자재비 = 단가 × 수량 계산은 기존 그대로(ai_tools.php).
@@ -24,8 +24,13 @@ const INSTALL_RUNS_MAX_LEN_M = 2000.0;
 /** 줄 수를 말하는 낱말 */
 const INSTALL_RUNS_LINE_WORD = '(?:줄|열|라인|line|군데|곳|개소|구간|개\s*구간|개\s*라인)';
 
-/** 자투리를 다른 줄에 이어 쓰는 자재(자르고 이음관으로 잇는 PE·PVC 관류) — 상품명·분류 이름 기준. 그 밖의 길이 자재(콘크리트 수로관·측구·흄관·경계석·그레이팅·트렌치 등)는 줄마다 올림 */
-const INSTALL_RUNS_REUSE_RE = '/이중벽관|다중벽관|유공관|주름관|PVC\s*관|VR\s*관|PE\s*관|PE\s*(?:배수|하수|우수|오수)관|PE\s*이중|PE\s*다중/iu';
+/**
+ * 자투리(절단 잔여분)를 다른 줄에 이어 쓸 수 있다고 **검증된** 자재 — 상품명·분류 이름 정규식 목록. 지금은 비어 있음(사용자 결정 2026-11-26).
+ * PE·PVC 관류도 '자를 수 있다'는 것만으로 재사용을 가정하지 않는다: 제조사 공식 시공지침·국가건설기준(KDS·KCS) 등에서
+ * 다른 구간 재사용이 확인된 자재만 근거와 함께 여기에 더한다. 그 전에는 개·본 단위 길이 자재 모두 줄마다 올림(미터 단위 판매는 합계).
+ * @var list<string>
+ */
+const INSTALL_RUNS_REUSE_VERIFIED = [];
 
 /** 한글 수 낱말 → 숫자 (모르면 null) */
 function install_runs_count_num(string $w): ?int
@@ -219,10 +224,14 @@ function install_runs_input(array $input): array
     return [$input, null];
 }
 
-/** 자투리를 다른 줄에 이어 쓰는 자재인지 (순수 함수) — 상품명·분류 이름(PE·PVC 관류) */
+/** 자투리를 다른 줄에 이어 쓸 수 있다고 검증된 자재인지 (순수 함수) — INSTALL_RUNS_REUSE_VERIFIED(지금은 없음 → 항상 false) */
 function install_runs_reuse_offcut(array $p): bool
 {
-    return preg_match(INSTALL_RUNS_REUSE_RE, ((string) ($p['name'] ?? '')) . ' ' . ((string) ($p['category_name'] ?? ''))) === 1;
+    $text = ((string) ($p['name'] ?? '')) . ' ' . ((string) ($p['category_name'] ?? ''));
+    foreach (INSTALL_RUNS_REUSE_VERIFIED as $re) {
+        if (preg_match($re, $text) === 1) { return true; }
+    }
+    return false;
 }
 
 /** 지금 계산에 쓸 줄 구성 (순수 함수 + 요청 범위 상태) — 합계가 설치 길이와 같을 때만 */
@@ -245,7 +254,7 @@ function install_runs_label(array $c, float $lengthM): string
 
 /**
  * 1개 길이(m)로 줄별 수량 (순수 함수). 줄마다 길이를 알면 줄마다 올림해 더한다(줄 끝에서 자른 자투리를 다른 줄에 쓰지 않는 자재).
- * 자투리를 이어 쓰는 자재($reuse)·줄마다 길이를 모르면 합계로 계산한다(근거에 그 사실을 밝힘).
+ * 자투리 재사용이 검증된 자재($reuse — 지금은 없음)·줄마다 길이를 모르면 합계로 계산한다(근거에 그 사실을 밝힘).
  * @return array{0:int, 1:string}
  */
 function install_runs_piece_qty(float $lengthM, float $perM, string $unit, ?array $c, bool $reuse): array
@@ -288,10 +297,11 @@ function install_runs_basis_label(float $lengthM): string
     return $c['runs'] ? install_runs_label($c, $lengthM) . '(총 ' . $f($lengthM) . 'm)' : install_runs_label($c, $lengthM);
 }
 
-/** 줄마다 길이를 모를 때 확인 안내 (순수 함수) — 줄마다 올림하는 자재에만(자투리를 이어 쓰는 관류·미터 단위는 합계로 정확) */
+/** 줄마다 길이를 모를 때 확인 안내 (순수 함수) — 줄마다 올림하는 자재에만(미터 단위 판매·재사용 검증 자재는 합계로 정확) */
 function install_runs_split_note(float $lengthM, array $p): ?string
 {
     $c = install_runs_for_length($lengthM);
-    if ($c === null || $c['runs'] || install_runs_reuse_offcut($p)) { return null; }
+    $unit = preg_match('/단위:\s*([^|]+)/u', (string) ($p['spec'] ?? ''), $m) ? mb_strtolower(str_replace(' ', '', trim($m[1]))) : '';
+    if ($c === null || $c['runs'] || $unit === 'm' || install_runs_reuse_offcut($p)) { return null; }
     return '줄마다 길이를 몰라 합계로 계산함(줄마다 나눠 짐작하지 않음) — 줄마다 끝을 잘라 쓰는 자재라 줄마다 길이를 알면 수량이 조금 늘 수 있음. 줄마다 길이를 한 번만 물어볼 것(예: 10m, 12m, 8m).';
 }
