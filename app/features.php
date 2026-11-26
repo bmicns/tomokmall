@@ -54,3 +54,18 @@ function ai_quick_photo_enabled(?bool $set = null): bool
     if ($set !== null) { $override = $set; }
     return $override ?? FEATURE_AI_QUICK_PHOTO;
 }
+
+// 설치 길이·질문 방식 개선(사용자 결정 2026-11-26 B안) — 여러 줄 설치 읽기('10m씩 2줄'·'10m, 15m'·'총 30m 3줄')·줄마다 수량 계산,
+// 공통 질문 방식 구역(안내형 질문·단위와 예시·한 번에 묻기), 경계석 = 설치 길이·흄관 = 관류 질문. 기존 AI 상담·빠른 상담 공통.
+// false: 반영 전처럼(한 줄 합계 계산, 반영 전 프롬프트 문장 — app/install_runs_legacy.php). 가격·단가 계산은 켜고 끄는 것과 관계없이 그대로
+const FEATURE_AI_INSTALL_RUNS = true;
+
+/**
+ * 설치 길이 개선 켜짐 여부. 테스트는 $set 으로 이 요청 동안만 바꿀 수 있다.
+ */
+function ai_install_runs_enabled(?bool $set = null): bool
+{
+    static $override = null;
+    if ($set !== null) { $override = $set; }
+    return $override ?? FEATURE_AI_INSTALL_RUNS;
+}

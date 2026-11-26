@@ -257,12 +257,17 @@ function quick_chat_big_image(string $url): string
 
 /**
  * 빠른 견적 창: 고객 말의 설치 길이·면적(개수 없이) — '10미터쯤 설치할거야'·'20m요'·'30㎡ 정도' (순수 함수, 사용자 피드백 11-24 — 말만 해도 권장 수량).
- * 개수(개·본·장…)를 말했거나 값이 둘 이상이면 null. 폭·높이·두께·제품 길이 칸 이름이 붙은 값, '짜리'(1개 길이), 규격 표기(×·*)의 숫자는 뺀다.
- * @return array{length_m?:float, area_m2?:float}|null
+ * 여러 줄이면 합계와 줄 구성(runs_m 줄마다 길이, 줄마다 길이를 모르면 run_count) — install_runs_parse.
+ * 개수(개·본·장…)를 말했거나 (줄 구성이 아닌) 값이 둘 이상이면 null. 폭·높이·두께·제품 길이 칸 이름이 붙은 값, '짜리'(1개 길이), 규격 표기(×·*)의 숫자는 뺀다.
+ * @return array{length_m?:float, area_m2?:float, runs_m?:list<float>, run_count?:int}|null
  */
 function quick_install_amount(string $msg): ?array
 {
     if (preg_match('/\d\s*(?:개|본|장|매|세트|ea\b)/iu', $msg)) { return null; }
+    // 여러 줄('10m씩 2줄'·'10m, 15m'·'양쪽 20m씩') → 합계 + 줄마다 길이, '총 30m 3줄' → 합계 + 줄 수(나누지 않음) — 한 줄 길이로 읽어 수량이 절반이 되던 문제(2026-11-26 B안)
+    if (function_exists('install_runs_parse') && ai_install_runs_enabled() && ($r = install_runs_parse($msg)) !== null) {
+        return ['length_m' => $r['total']] + ($r['split_known'] ? ['runs_m' => $r['runs']] : ['run_count' => $r['count']]);
+    }
     $found = [];
     foreach (['area_m2' => '/(?<![\d.,×*])(\d+(?:\.\d+)?)\s*(?:㎡|m2|m²|제곱\s*미터|평방\s*미터|헤베)/u',
               'length_m' => '/(?<![\d.,×*])(\d+(?:\.\d+)?)\s*(?:m|M|미터)(?![mM²2a-zA-Z])/u'] as $k => $re) {

@@ -505,7 +505,7 @@ function rag_detect_category(array $messages): string
 
     // '배수관 뚜껑'(2026-11-09 운영 상담: 식당 주방 배수관 뚜껑 → PE배수관 상담으로 분류) 처럼 배수 시설 위 덮개도 그레이팅 상담
     if (preg_match('/그레이팅|(측구|배수로|배수관|트렌치)\s*(뚜껑|덮개|커버)/u', $text)) return 'grating';
-    if (preg_match('/pe\s*배수관|우수관|하수관|배수관|pe\s*관/u', $text))   return 'pe_pipe';
+    if (preg_match(ai_install_runs_enabled() ? '/pe\s*배수관|우수관|하수관|배수관|pe\s*관|흄관|이중벽관|다중벽관|파형강관|유공관/u' : '/pe\s*배수관|우수관|하수관|배수관|pe\s*관/u', $text))   return 'pe_pipe';   // 흄관 등 관류도 관경·설치 길이로 묻는다(2026-11-26 — 흄관이 '기타 자재'로 빠져 길이를 묻지 않던 문제)
     if (preg_match('/맨홀|집수정|우물통/u', $text))                         return 'manhole';
     if (preg_match('/수로관|농수로|u\s*형|ㅠ\s*형/u', $text))               return 'culvert';
     if (preg_match('/보도블[록럭]|경계석|인터로킹|포장블[록럭]|보차도|인조화강블|점토블[록럭]|투수블[록럭]|잔디블[록럭]/u', $text)) return 'pavement';
@@ -1013,6 +1013,27 @@ function rag_curl_post(string $url, string $body, array $headers): string|false
 }
 
 /**
+ * 질문 방식 — AI 상담·빠른 상담 공통 대화 지침(사용자 요청 2026-11-26). 특정 자재가 아니라 모든 질문에 적용하고,
+ * 품목별 [필수 확인 항목]은 '무엇을' 물을지만 정한다('어떻게' 묻는지는 이 구역). 설치 길이 질문·줄 구성 넘기기(runs_m·run_count)도 여기 한 곳에 둔다.
+ */
+const RAG_QUESTION_STYLE_PROMPT = "=== 질문 방식 (모든 자재·모든 질문 공통 — 아래 품목별 항목은 무엇을 물을지만 정한다) ===\n"
+    . "- 질문은 짧은 안내형으로 쓴다: '~을 알려 주세요.' '~알고 계신가요?'·'~알 수 있을까요?'·'혹시 ~이신가요?'처럼 돌려 묻지 않는다.\n"
+    . "- 고객이 무엇을 답하면 되는지 바로 알게 쓴다. 헷갈리기 쉬운 값(치수·길이·면적·관경·수량)은 단위와 짧은 답 예시를 질문에 함께 쓴다. 예: '배수로 폭(mm)을 알려 주세요. (예: 300mm)'\n"
+    . "- 꼭 필요한 정보가 여러 개면 한 메시지에 한 번에 묻는다(줄을 나눠 2~3개까지). 하나씩 나눠 여러 번 묻지 않는다. 추천에 꼭 필요하지 않은 것은 묻지 않는다.\n"
+    . "- 고객이 이미 말한 정보(앞 대화, 같은 현장의 다른 자재 상담 포함)는 다시 묻지 않는다. 말로 알 수 있으면 확인된 것으로 본다.\n"
+    . "- 고객이 정확한 규격·치수를 모르면 상담을 멈추지 않는다: 대략값도 괜찮다고 하고, 아는 만큼(현장 모습·용도·사진의 규격 표기) 말하게 하거나, 가장 많이 쓰는 규격으로 먼저 보여 주고 나중에 바꿀 수 있다고 안내한다.\n"
+    . "- 어조는 친절하고 전문적으로 하되 공문처럼 딱딱하거나 같은 인사·감사 문장을 매번 되풀이하지 않는다.\n"
+    . "[설치 길이 질문 — 길이로 까는 자재 공통: 그레이팅(수로용)·측구·수로관·U형·플륨관·트렌치·경계석·배수관·흄관·이중벽관·PE관·파형강관 등]\n"
+    . "- 설치 길이도 개수도 모를 때만 묻고, 이 문장을 그대로 쓴다(다른 필요한 질문과 한 메시지에): '설치 길이(m)를 알려 주세요. 여러 줄을 설치하는 경우 각 줄의 길이를 알려 주세요. (예: 10m씩 2줄 또는 10m, 15m)'\n"
+    . "- 답을 도구(search_products·update_cart)에 이렇게 넘긴다(서버도 고객 말로 다시 확인한다):\n"
+    . "  · 길이 하나만 답함('20m') → 한 줄로 본다: length_m 20. 다시 묻지 않는다.\n"
+    . "  · 여러 줄('10m씩 2줄'·'10m, 15m'·'양쪽 20m씩') → runs_m [10, 10]·[10, 15]·[20, 20], length_m 은 합계.\n"
+    . "  · '총 30m, 3줄'처럼 줄마다 길이를 모름 → length_m 30, run_count 3. 줄마다 나눠 짐작하지 않는다(10m씩으로 바꾸지 않음). 결과에 run_note 가 있으면 줄마다 길이를 한 번만 묻는다.\n"
+    . "- 수량을 말할 때 결과 run_basis(줄 기준 — '한 줄 20m 기준'·'10m×2줄(총 20m)')를 한 번 밝힌다. 예: '한 줄 20m 기준으로 20개 필요합니다.' 개·본 단위로 파는 길이 자재(PE·PVC 관 포함)는 서버가 줄마다 올려 계산하고(자투리를 다른 줄에 쓴다고 가정하지 않음), 미터(M) 단위로 파는 자재는 합계로 계산한다(qty_basis 그대로 — 직접 계산하지 않음).\n"
+    . "- 같은 현장의 다른 자재(수로관 본체와 그레이팅 덮개 등)는 앞서 들은 길이·줄 구성을 그대로 쓴다(같은 runs_m). 설치 위치가 다른 자재(블록 포장 테두리의 경계석 등)는 그 자재의 길이만 묻는다.\n"
+    . "[면적 질문 — 면으로 까는 자재(보도블록·포장재)] '설치 면적(㎡)을 알려 주세요. 모르시면 가로·세로 길이(m)를 알려 주세요. (예: 5m × 4m)'\n";
+
+/**
  * 우측 하단 'AI 빠른 견적' 창 답변 방식(케이토목 1분 자동견적과 비슷하게 — 사용자 요청 2026-11-23, 지금 상담과 비교용).
  * 시스템 프롬프트 맨 끝에 붙어 위 '검색 결과 답변 형식'·'3단계 견적 안내'의 길이·담기 순서만 바꾼다. 하중·두께·공공도로 등 안전 규칙과 가격·수량 계산은 그대로.
  */
@@ -1020,13 +1041,13 @@ const RAG_QUICK_STYLE_PROMPT = "\n\n=== 빠른 견적 창 답변 방식 (이 구
     . "- 화면 오른쪽 아래의 작은 견적 창이다. 답 글은 3~5줄, 200자 안팎. 제품별 설명 줄·장단점 나열·'원하시는 제품을 선택해 주세요' 없이 짧게.\n"
     . "- 고객이 자재를 말하면 되묻지 말고 search_products 로 찾고, 같은 응답에서 조건에 가장 알맞은 1개를 add_to_cart 로 바로 담는다. quantity = 고객이 말한 개수, 설치 길이·면적만 말했으면 권장 수량 suggested_qty, 수량·길이·면적이 하나도 없으면 0(수량 미정 — 답 끝에서 필요한 수량을 묻는다). 담기 전에 묻지 않는다.\n"
     . "- 담는 곳은 이 창의 견적 목록이다(사이트 견적서가 아님). 담은 제품은 대화 동안 쌓이고, 고객이 '견적서 만들어줘'라고 하거나 [견적 요청하기]를 누르면 견적서로 옮겨진다. 처음 담을 때 이 사실을 한 줄로 알려도 된다.\n"
-    . "- 담은 뒤 첫 줄: 무엇을 왜 골랐는지 한 줄('차량이 다니는 주차장 배수로라 중하중 300×1000 규격을 담았습니다.'), 이어서 수량 근거 한 줄('20m ÷ 1m = 20개'). 일반 규격으로 골랐으면 '우선 가장 일반적인 규격으로 담아 드렸습니다.'\n"
+    . "- 담은 뒤 첫 줄: 무엇을 왜 골랐는지 한 줄('차량이 다니는 주차장 배수로라 중하중 300×1000 규격을 담았습니다.'), 이어서 줄 기준(run_basis)과 수량 근거 한 줄('한 줄 20m 기준: 20m ÷ 1m = 20개'·'10m×2줄: 한 줄 10개 × 2줄 = 20개'). 일반 규격으로 골랐으면 '우선 가장 일반적인 규격으로 담아 드렸습니다.'\n"
     . "- 안전에 꼭 필요한 조건(그레이팅·블록의 차량 통행 여부 등 필수 항목)이 말에 없을 때: 고객이 품명과 규격을 직접 말했으면 그 상품을 먼저 담고(수량 모르면 0) 그 조건 하나만 한 줄로 묻는다 — 답을 듣고 맞지 않으면 update_cart 로 빼고 맞는 제품을 담는다. 품명만 말했으면 담기 전에 그 하나만 한 줄로 묻는다. 차량·하중·두께·공공도로 규칙은 위 규칙 그대로 지킨다.\n"
     . "- 고객이 '같이 넣어줘'·'추가'라고 하면 이미 담긴 것은 두고 새 제품만 더 담는다. 이미 목록에 있는 제품은 다시 add_to_cart 하지 않는다(다시 담으면 더해지지 않고 그 수량으로 맞춰짐 — '10개 더'는 합친 총 수량). 빼기·수량 바꾸기는 update_cart.\n"
     . "- 글에서는 '견적서에 담았습니다'가 아니라 '목록에 담았습니다'라고 쓴다. 운반비를 계산하지 않았으면 운반비가 포함됐다고 쓰지 않는다. '견적서는 화면에 표시되고 있습니다'·'화면에서 확인해 주세요' 같은 화면 안내 말은 쓰지 않는다.\n"
     . "- 조건(차량 통행 등)을 듣고 다른 제품으로 바꿔 담을 때: 수량 0 으로 담겨 있던 같은 크기 제품은 서버가 목록에서 뺀다(결과 note). 글은 '조건에 맞춰 ○○로 바꿔 담았습니다' 한 줄.\n"
     . "- 배송 지역(시·도)을 고객이 말하면 add_to_cart·get_cart 의 region 에 넣는다. 아직 모르면 마지막 줄에 '현재는 상품 금액만 먼저 계산했습니다. 정확한 견적을 위해 수량 확인과 현장 지역(시·도)을 알려 주시면 운반비까지 계산해 드립니다.' 한 줄.\n"
-    . "- 수량 추천(기존 상담처럼): 고객이 설치 길이·면적을 말하거나('10m 설치할거야'·'20m요'처럼 묻지 않고 말만 해도) '몇 개 필요해?'라고 물으면 목록에 이미 담긴 제품은 update_cart 에 product_id 와 length_m(또는 area_m2)만 넣어 서버가 계산한 권장 수량으로 맞추고, 결과 qty_basis 로 '10m 설치면 1m 제품 10개 정도 필요합니다'처럼 한 줄로 권한다. 길이·면적을 아직 모르고 0개로 담았으면 결과 qty_hint 로 '1개가 1m라 설치 길이 10m면 10개 정도 필요합니다. 설치 길이를 알려 주시면 수량을 맞춰 드립니다' 한 줄. 계산할 수 없다는 결과면 개수를 묻는다. 수량을 지어내지 않는다.\n"
+    . "- 수량 추천(기존 상담처럼): 고객이 설치 길이·면적을 말하거나('10m 설치할거야'·'20m요'·'10m씩 2줄'처럼 묻지 않고 말만 해도) '몇 개 필요해?'라고 물으면 목록에 이미 담긴 제품은 update_cart 에 product_id 와 length_m(여러 줄이면 runs_m 도 — [설치 길이 질문], 또는 area_m2)만 넣어 서버가 계산한 권장 수량으로 맞추고, 결과 qty_basis 로 '10m 설치면 1m 제품 10개 정도 필요합니다'처럼 한 줄로 권한다. 길이·면적을 아직 모르고 0개로 담았으면 결과 qty_hint 로 '1개가 1m라 설치 길이 10m면 10개 정도 필요합니다.' 한 줄, 이어서 [설치 길이 질문] 문장(여러 줄 예시 포함)으로 묻는다. 계산할 수 없다는 결과면 개수를 묻는다. 수량을 지어내지 않는다.\n"
     . "- 단위는 m 기준: 답 글의 치수·길이는 m 로 쓴다(1000mm → 1m, 300mm → 0.3m, 설치 길이 20m). mm 와 m 를 섞지 않는다. 상품 규격 표기(300×1000×32)는 그대로.\n"
     . "- 금액(단가·합계·운반비·부가세·최종 금액)은 창의 견적 표가 보여 주므로 글에 쓰지 않는다('66,000원'·'약 13만 원' 같은 금액 표현 없이 — 케이토목처럼 표에만).\n"
     . "- 맞는 제품이 없거나 가격 문의 상품이면 그 사실을 한 줄로 말하고 다른 규격을 지어내지 않는다.\n"
@@ -1066,8 +1087,8 @@ function rag_build_prompt(array $messages, array $recentCards = [], string $styl
         . "- '~하면 뭐가 좋아?', '어떤 게 나아?' 같은 일반 질문에는 되묻기 전에 먼저 답한다:\n"
         . "  쓸 만한 선택지 2~4가지를 '- 이름: 장점 / 주의점' 형식으로 한 줄씩 비교하고, 그다음 추천에 꼭 필요한 질문 1~2개만 한다.\n"
         . "- 일반 설명에서 가격·강도·법정 기준 같은 구체 숫자를 지어내지 않는다. 숫자는 아래 [참조 문서]에 있는 것만 인용하고, 가격·수량·자재비는 search_products 결과 값만 쓴다.\n"
-        . "- 치수는 자재에 맞게 묻는다: 그레이팅·수로관·측구·배수관처럼 길이로 까는 자재는 폭(또는 관경, mm)과 설치 길이(m), 보도블록·포장재처럼 면으로 까는 자재만 면적(㎡). 길이로 까는 자재에 면적을 묻지 않는다.\n"
-        . "- 면적을 모르면 '가로 몇 m × 세로 몇 m인지' 물어보고, 답을 받으면 직접 곱해 area_m2로 넘긴다(예: 5m×4m → 20). 대략값도 괜찮다고 안내한다.\n"
+        . "- 치수는 자재에 맞게 묻는다: 그레이팅·수로관·측구·경계석·배수관·흄관처럼 길이로 까는 자재는 폭(또는 관경, mm)과 설치 길이(m — 위 [설치 길이 질문] 문장), 보도블록·포장재처럼 면으로 까는 자재만 면적(㎡). 길이로 까는 자재(경계석 포함)에 면적을 묻지 않는다.\n"
+        . "- 면적 대신 가로·세로(m)를 받으면 직접 곱해 area_m2로 넘긴다(예: 5m×4m → 20). 대략값도 괜찮다고 안내한다.\n"
         . "- 자재 종류의 차이·특징·물빠짐·주의사항·KS(인증) 질문과, 사용 조건(유모차·휠체어·미끄럼·오염·차량 통행 등)에 맞는 자재를 고르는 질문에는 material_info 를 먼저 호출하고, 돌려준 원문 문장(facts)을 그 제품(about)의 설명으로 쉬운 말로 전한다. 답 글에 'A산업 자료에 따르면'처럼 제조사 이름을 출처로 붙이지 않는다(출처는 화면 하단 '참고 자료: 제조사 제품 자료'로 자동 표시). 출처끼리 다르면 단정하지 않고, 공식 기준 수치는 [L번호] 근거만.\n"
         . "  원문 문장의 제품명(예: '안전 중하중 그레이팅')을 더 넓은 종류('중하중 그레이팅' 전체)로 바꿔 말하지 않는다. 원문에 없는 성능·용도·비교·수치(중장비 통과, 'n톤 이상', 다른 제품도 같다 등)를 덧붙이거나, 한 제조사의 제품 표기를 '이걸 쓰면 된다'는 일반 선택 기준으로 단정하지 않는다. KS·표준 번호는 [참조 문서]·material_info 원문에 있는 것만 쓴다. material_info 결과가 비어 있으면 '제조사 자료에 따르면'이라고 말하지 말고, 수치 없는 일반 설명임을 밝힌다.\n"
         . "- 제품·자재를 권할 때는 그 제품을 고르는 근거를 문장 앞에 먼저 밝힌다('…이므로 …을 권합니다'). 근거는 제품 쪽 사실이어야 한다:\n"
@@ -1080,6 +1101,8 @@ function rag_build_prompt(array $messages, array $recentCards = [], string $styl
         . (price_basis_label() === ''
             ? "- 이 고객은 로그인 회원이다. 표·도구 결과의 금액(price_member·예상 자재비·cost_summary·직전 추천표·장바구니)은 할인이 적용된 금액이다. 금액은 그 값 그대로 말하고 '회원가'·'판매가' 같은 가격 이름을 붙이지 않는다. 판매가(price_b2c)는 말하지 않는다.\n"
             : '')
+        . "\n"
+        . RAG_QUESTION_STYLE_PROMPT   // 질문 방식(공통 대화 지침, 2026-11-26 — 스위치를 끄면 아래에서 반영 전 문장으로)
         . "\n"
         . "=== 근거 구분 (출처 종류를 섞지 않는다) ===\n"
         . "- 공식 기준: 아래 '공식 법령 근거'에 [L번호]로 들어온 법령·KDS·KCS 조항만. 기준 이름과 함께 말하고 [L번호]를 붙인다. 들어오지 않았으면 '공식 기준에 따르면'이라고 말하지 않는다.\n"
@@ -1131,17 +1154,17 @@ function rag_build_prompt(array $messages, array $recentCards = [], string $styl
         . "  필수 ① 설치 장소 (도로/주차장/공장/인도/식당 주방·실내/기타)\n"
         . "  필수 ② 차량 통행 여부 + 최대 차량 톤수 (보행자 전용이면 '없음')\n"
         . "    설치 장소로 알 수 있으면 다시 묻지 않는다: 식당 주방·화장실·실내·베란다·인도·공원 → 보행자 전용, 주차장·도로 → 차량. 이 판단은 검색 조건(traffic)에만 쓰고, 답에 '주방은 보행자 전용 구역이므로'처럼 말하지 않는다.\n"
-        . "  필수 ③ 덮을 배수로의 폭(mm)과 설치 길이(수로 연장, m) — 그레이팅은 길이로 까는 자재라 면적(㎡)을 묻지 않는다(집수정·맨홀 위 덮개는 규격(가로×세로 mm)과 수량)\n"
+        . "  필수 ③ 덮을 배수로의 폭(mm)과 설치 길이(m — [설치 길이 질문] 문장, 여러 줄이면 줄마다) — 그레이팅은 길이로 까는 자재라 면적(㎡)을 묻지 않는다(집수정·맨홀 위 덮개는 규격(가로×세로 mm)과 수량)\n"
         . "  ★용도어 정밀화: 수로·배수로·측구 위 덮개면 반드시 '수로용', 집수정·맨홀 뚜껑이면 '맨홀'을 검색어에 포함(섞임 방지).\n"
         . "  ★하중 등급(과잉 등급 금지): 하중 등급 이름을 검색어에 넣지 말고 search_products 에 traffic 을 함께 넘긴다(보행자 전용 pedestrian / 승용차·SUV car / 트럭·버스·지게차 등 대형차 truck).\n"
         . "    도구가 상품명·규격에 표기된 하중 등급으로 조건과 다른 등급을 표에서 뺀다. 하중 표기가 없는 제품은 load_check unverified(하중 확인 필요)로 남는다.\n"
         . "  검색어(query) 예: '그레이팅 수로용', '그레이팅 맨홀', '트렌치' — 아래 [현재 등록 상품]이 있으면 그 품명을 쓴다.\n"
         . "\n"
-        . "[PE배수관 / 우수관 / 하수관]\n"
-        . "  필수 ① 설치 장소 (농경지/도로측구/건물주변/기타)\n"
+        . "[PE배수관 / 우수관 / 하수관 / 흄관·이중벽관·파형강관 등 관류]\n"
+        . "  필수 ① 설치 장소 (농경지/도로측구/건물주변/도로 횡단/기타)\n"
         . "  필수 ② 관경(mm) — 모르면 용도 설명 후 추천\n"
-        . "  필수 ③ 필요 연장(m)\n"
-        . "  검색어(query) 예: 'PE 배수관', '이중벽관', '우수관', '하수관' (관경은 spec_mm, 연장은 length_m로).\n"
+        . "  필수 ③ 설치 길이(m — [설치 길이 질문] 문장, 횡단관처럼 여러 곳이면 곳마다)\n"
+        . "  검색어(query) 예: 'PE 배수관', '이중벽관', '흄관', '우수관', '하수관' (관경은 spec_mm, 설치 길이는 length_m·여러 줄이면 runs_m 으로).\n"
         . "  ※ query에 'PE배수관'처럼 붙여쓰지 말고 'PE 배수관'으로 띄운다. 설치장소(농경지·도로측구 등)는 query에 넣지 않는다.\n"
         . "\n"
         . "[맨홀 / 집수정]\n"
@@ -1151,15 +1174,18 @@ function rag_build_prompt(array $messages, array $recentCards = [], string $styl
         . "  검색어(query) 예: '맨홀 우수', '집수정 우수' (하중 등급 이름·톤수·호칭 숫자는 query에 넣지 말고 차량 통행은 traffic 으로)\n"
         . "\n"
         . "[수로관 / 농수로]\n"
-        . "  필수 ① 총 연장(m)  ② 폭(mm) 또는 호칭\n"
+        . "  필수 ① 설치 길이(m — [설치 길이 질문] 문장, 여러 줄이면 줄마다)  ② 폭(mm) 또는 호칭\n"
         . "  - 폭을 알면 형태(U형/BOX/원형)는 되묻지 말고 폭 기준으로 바로 후보를 제시(형태가 섞여 나오면 고르게 안내).\n"
-        . "  검색어(query) 예: '측구 수로관', 'U형 수로관', '사각 수로관', '환경 수로관' (폭=width_mm, 호칭 등 그 밖의 규격=spec_mm, 연장=length_m)\n"
+        . "  검색어(query) 예: '측구 수로관', 'U형 수로관', '사각 수로관', '환경 수로관' (폭=width_mm, 호칭 등 그 밖의 규격=spec_mm, 설치 길이=length_m·여러 줄이면 runs_m)\n"
         . "  ★'수로를 만든다/설치'면 본체(수로관)와 덮개(그레이팅수로용)를 세트로 함께 추천 → 아래 [세트 추천] 규칙.\n"
         . "\n"
-        . "[보도블록 / 경계석 / 인터로킹]\n"
+        . "[보도블록 / 인터로킹]\n"
         . "  필수 ① 설치 장소 + 차량이 올라가는지 (집 앞 마당·진입로/인도/광장/공원/주차장/기타)\n"
         . "  필수 ② 필요 면적(㎡) — 모르면 가로×세로(m)로 받아 계산\n"
-        . "  (경계석 필요 여부는 검색 전에 묻지 말고, 블록 표를 보여준 뒤 '테두리 마감용 경계석도 필요하신가요?'로 묻는다)\n"
+        . "  (경계석 필요 여부는 검색 전에 묻지 말고, 블록 표를 보여준 뒤 '테두리 마감용 경계석도 필요하시면 설치 길이(m)를 알려 주세요. 여러 줄이면 각 줄의 길이를 알려 주세요. (예: 10m씩 2줄 또는 10m, 15m)'로 묻는다)\n"
+        . "[경계석] 길이로 까는 자재다 — 면적(㎡)을 묻지 않는다.\n"
+        . "  필수 ① 설치 장소 + 차량이 닿는 곳인지(차도·주차장 경계 / 인도·화단·마당 테두리)  ② 설치 길이(m — [설치 길이 질문] 문장, 여러 줄이면 줄마다)\n"
+        . "  검색어(query) 예: '경계석', '화강 경계석', '콘크리트 경계석' (설치 길이는 length_m·여러 줄이면 runs_m)\n"
         . "  ★차량이 올라가면 두께 80mm 이상(80T) 제품, 사람만 다니면 60mm(60T)도 가능 → [참조 문서] 기준.\n"
         . "    차량이 올라가는 곳이면 spec_mm 80, spec_strict true를 함께 넘겨 80T 제품만 표에 나오게 한다(사람만 다니면 spec_mm 생략).\n"
         . "    80T 제품이 없는 종류는 표에서 빠지며, 도구의 note로 안내된다(다른 두께를 대신 권하지 않는다).\n"
@@ -1176,11 +1202,12 @@ function rag_build_prompt(array $messages, array $recentCards = [], string $styl
         . "- 고객 요청에서 카테고리를 파악한다.\n"
         . "- 해당 카테고리의 필수 항목 중 미확인 항목을 한 번에 2~3개씩 질문한다.\n"
         . "- 모든 필수 항목이 확인될 때까지 search_products 호출 금지.\n"
-        . "- 불명확한 답변은 재질문한다. 예: '승용차인가요, 화물차도 있나요?'\n"
+        . "- 불명확한 답변은 재질문한다. 예: '승용차인가요, 화물차도 있나요?' 설치 길이를 하나만 답한 것은 불명확한 답이 아니다(한 줄로 계산 — [설치 길이 질문]).\n"
         . "- ★이미 확인한 정보(폭·연장·하중·설치장소 등)는 다른 품목을 추천할 때 다시 묻지 말고 그대로 재사용한다.\n"
         . "【세트 추천 (여러 품목이 함께 필요한 요청)】\n"
         . "- '수로 설치/제작', '덮개 포함', '수로관+그레이팅' 처럼 한 공사에 여러 품목이 필요하면, 한 턴에서 search_products를 품목별로 여러 번 호출해 함께 제시한다.\n"
         . "  예) 폭500·50m 차량통행 수로 → ①본체: query '측구 수로관', width_mm 500, length_m 50 (약 25본)  ②덮개: query '그레이팅 수로용', traffic car, width_mm 500, length_m 50 (약 50개).\n"
+        . "  여러 줄이면 본체·덮개 모두 같은 runs_m 을 넘긴다(예: 25m씩 2줄 → runs_m [25, 25], length_m 50).\n"
         . "- 본체(2m/본)와 덮개(1m/개)는 단위가 달라 수량이 다르게 나오는 게 정상이다. 둘 다 카드로 보여준 뒤 [검색 결과 답변 형식]대로 본체·덮개를 각각 설명한다(단위가 달라 수량이 다르다고 짚어 준다).\n"
         . "【2단계: 검색】\n"
         . "- 모든 필수 항목 확인 완료 → search_products 호출. 되묻지 말고 그 턴에서 바로 호출한다.\n"
@@ -1191,7 +1218,7 @@ function rag_build_prompt(array $messages, array $recentCards = [], string $styl
         . "  고객이 조건 하나만 바꾸면('폭은 400으로 바꾸고 길이는 그대로') 바꾼 값만 새로 넣고, 바꾸지 않은 조건(폭·제품 길이·설치 길이·통행)은 앞 검색 값 그대로 다시 넘긴다.\n"
         . "  길이가 제품 1개 길이인지 설치 총 길이인지, 숫자가 폭인지 다른 치수인지 말에 없으면 추측해 넣지 말고 확인 질문을 한다('500짜리 수로관' → spec_mm 500 으로 찾고 어느 치수인지 묻는다).\n"
         . "  → 예: '폭50cm 100m 수로 그레이팅' = query:'그레이팅 수로용', width_mm:500, length_m:100(차량이 다니면 traffic 도).\n"
-        . "  → 예: '보도블록 200㎡' = query:'보도블록', area_m2:200.  '경계석 300m' = query:'경계석', length_m:300.\n"
+        . "  → 예: '보도블록 200㎡' = query:'보도블록', area_m2:200.  '경계석 300m' = query:'경계석', length_m:300.  '경계석 20m씩 양쪽' = query:'경계석', runs_m:[20, 20], length_m:40.\n"
         . "  → length_m/area_m2를 주면 제품별 소요 수량이 카드에 자동 계산·표시된다. 수량(개수)은 query에 넣지 말 것.\n"
         . "- 결과가 없으면(products 빈 배열): 도구가 돌려준 note 문장을 그대로 손님에게 전한다. 절대 그냥 되묻고 끝내지 말 것.\n"
         . "  → note가 없을 때만: '해당 조건의 제품을 찾지 못했습니다. 용도나 재질을 알려주시면 다시 찾아드리겠습니다.' 후 검색어를 바꿔 1회 재시도.\n"
@@ -1226,6 +1253,10 @@ function rag_build_prompt(array $messages, array $recentCards = [], string $styl
     $system .= rag_recent_cards_prompt($recentCards, price_basis_label());   // 이 상담에서 고객 화면에 보인 직전 추천표(담기·비교 질문용) — 없으면 빈 문자열(기존과 같음)
     if ($style === 'quick') {
         $system .= RAG_QUICK_STYLE_PROMPT;   // 우측 하단 빠른 견적 창(2026-11-23 비교용) — 기본 상담('consult')은 그대로
+    }
+    if (!ai_install_runs_enabled()) {   // 설치 길이·질문 방식 개선 스위치 끔 — 반영 전 문장 그대로(app/install_runs_legacy.php)
+        require_once __DIR__ . '/install_runs_legacy.php';
+        $system = strtr($system, INSTALL_RUNS_LEGACY_PROMPT);
     }
 
     return [
@@ -1372,6 +1403,8 @@ function rag_prepare_search_input(array $input, array $ctx): array
     [$input, $f3, $c3] = rag_apply_ambiguity($input, $explicit);
     $fills = array_merge($fills, $f3);
     $clarify = array_merge($clarify, $c3);
+    [$input, $f4] = rag_apply_runs($input, $ctx['runs'] ?? null, $sameFamily);   // 여러 줄 설치 — 줄마다 길이·합계(2026-11-26)
+    $fills = array_merge($fills, $f4);
     // '비슷한 규격의 다른 제품' → 앞 표 제품의 확인된 치수(구조화 치수 칸)로. 표의 제품마다 치수가 다르면 확인 질문
     $sim = $ctx['similar_dims'] ?? [];
     if ($sim) {
@@ -1978,7 +2011,8 @@ function rag_fix_area_question(string $text, string $categoryKey): string
 {
     $dims = match ($categoryKey) {
         'grating', 'culvert' => '폭(mm)과 설치 길이(m)',
-        'pe_pipe'            => '관경(mm)과 총 길이(m)',
+        'pe_pipe'            => ai_install_runs_enabled() ? '관경(mm)과 설치 길이(m)' : '관경(mm)과 총 길이(m)',
+        'curb'               => '설치 길이(m)',   // 경계석만 상담(블록 없이) — 길이로 까는 자재(2026-11-26)
         default              => '',
     };
     if ($dims === '' || !preg_match('/면적/u', $text)) { return $text; }
@@ -1990,6 +2024,13 @@ function rag_fix_area_question(string $text, string $categoryKey): string
         $out[] = $sen;
     }
     return implode(' ', $out);
+}
+
+/** 고객이 경계석만 상담하는지(포장 블록 말 없이) (순수 함수, 2026-11-26) — 경계석에 면적을 묻는 문장 바로잡기용 */
+function rag_is_curb_only(array $messages): bool
+{
+    $t = implode(' ', array_map(static fn($m) => ($m['role'] ?? '') === 'user' ? (string) ($m['content'] ?? '') : '', $messages));
+    return preg_match('/경계석|경계블[록럭]|연석/u', $t) === 1 && preg_match('/보도블[록럭]|인터로킹|포장블[록럭]|점토블[록럭]|투수블[록럭]|잔디블[록럭]|인조화강블|판석|면적|㎡|평/u', $t) !== 1;
 }
 
 /**
@@ -2098,6 +2139,35 @@ function rag_apply_explicit(array $input, array $explicit, bool $sameFamily): ar
         }
     }
     return [$input, $fills];
+}
+
+/**
+ * 고객이 말한 여러 줄 설치로 도구 입력 바로잡기 (순수 함수, 2026-11-26 B안) — [입력, 바꾼 내용 목록].
+ *  '10m씩 2줄'인데 GPT 가 length_m 10(한 줄)이나 20(합계)만 넘기면 runs_m [10,10]·length_m 20 으로.
+ *  '총 30m 3줄'(줄마다 길이 모름)이면 length_m 30·run_count 3 — 줄마다 나눠 짐작하지 않는다.
+ *  이번 말에서 줄을 말했으면 GPT 값과 관계없이 고객 말대로, 앞선 말이면 GPT 가 같은 길이(합계·한 줄 길이)를 넘겼을 때만(다른 자재의 다른 길이는 건드리지 않음).
+ *  같은 품목이 아니고 GPT 가 길이를 넘기지 않았으면 채우지 않는다(맨홀처럼 길이로 세지 않는 자재). $cart = update_cart(수량 맞춤) 입력.
+ * @param null|array{runs: list<float>, total: float, count: int, split_known: bool, text: string, last?: bool} $runs
+ */
+function rag_apply_runs(array $input, ?array $runs, bool $sameFamily, bool $cart = false): array
+{
+    if ($runs === null) { return [$input, []]; }
+    $gil = (float) ($input['length_m'] ?? 0);
+    $same = $gil > 0 && (abs($gil - $runs['total']) < 0.001 || array_filter($runs['runs'], static fn($r) => abs($r - $gil) < 0.001));
+    $last = !empty($runs['last']);
+    if (!($same || ($last && ($gil > 0 || $sameFamily || $cart)) || ($gil <= 0 && $sameFamily && !$cart))) { return [$input, []]; }
+    if ($cart && $gil <= 0 && (float) ($input['area_m2'] ?? 0) > 0) { return [$input, []]; }   // 면적으로 맞추는 요청
+    $before = $gil > 0 ? spec_axis_num($gil) . 'm' : '없음';
+    $input['length_m'] = $runs['total'];
+    if ($runs['split_known']) {
+        $input['runs_m'] = $runs['runs'];
+        unset($input['run_count']);
+    } else {
+        $input['run_count'] = $runs['count'];
+        unset($input['runs_m']);
+    }
+    $got = $runs['split_known'] ? implode('·', array_map(static fn($v) => spec_axis_num($v) . 'm', $runs['runs'])) : "총 {$runs['total']}m {$runs['count']}줄(줄마다 길이 모름)";
+    return [$input, ["설치 길이 {$before} → {$got}(고객: '{$runs['text']}')"]];
 }
 
 /** 수량을 묻는 말인지 (순수 함수) — '몇 개 필요해?'·'수량'·'얼마나 사야' */
@@ -2505,8 +2575,10 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
     $wantsCheap  = $recentCards && rag_wants_cheaper($lastUser);
     $trafficInfo = rag_traffic_info($messages);
     $recentCond  = $recentCards ? rag_recent_cond($sid) : [];
+    $runsCtx     = ai_install_runs_enabled() ? install_runs_from_messages($messages) : null;   // 여러 줄 설치('10m씩 2줄'·'10m, 15m'·'총 30m 3줄') — 마지막으로 설치 길이를 말한 고객 말 기준(2026-11-26)
     $searchCtx   = [
         'explicit'     => $explicit,
+        'runs'         => $runsCtx,
         'traffic'      => $trafficInfo,
         'recent_cards' => $recentCards,
         'recent_cond'  => $recentCond,
@@ -2515,7 +2587,7 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
         'form_terms'   => $formTerms,
         'cheaper'      => $wantsCheap,
         // 수량·최종 비교, 설치 길이만 새로 말함('설치 구간은 총 20m야'), '이 제품 써도 돼?' → 직전 표 제품으로(앞서 뺀 제품을 다시 꺼내지 않게)
-        'only_recent'  => $recentCards && !$wantsAlt && (rag_wants_quantity($lastUser) || rag_wants_compare($lastUser) || $explicit['last'] === ['length_m'] || rag_wants_suitability($lastUser)),
+        'only_recent'  => $recentCards && !$wantsAlt && (rag_wants_quantity($lastUser) || rag_wants_compare($lastUser) || $explicit['last'] === ['length_m'] || (!empty($runsCtx['last']) && array_diff($explicit['last'], ['length_m']) === []) || rag_wants_suitability($lastUser)),
         'stronger'     => $recentCards && rag_wants_stronger($lastUser),   // '더 튼튼한 거' → 확인된 하중 등급이 더 높은 제품만
         'reshow'       => !$wantsAlt && rag_wants_reshow($lastUser),   // '아까 그거 다시 보여줘' → 앞서 뺀 제품 제외를 풀어 줌(고객의 최신 요청 우선)
         'similar_dims' => $recentCards && rag_wants_similar($lastUser) ? rag_common_dims(ai_rows_by_ids(array_column($recentCards, 'id'))) : [],
@@ -2610,8 +2682,9 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
             $forcedQty = true;
             $promised  = (string) $content;
             [$qk, $qv] = [array_key_first($qInstall), spec_axis_num((float) reset($qInstall))];
-            $what = $qk === 'length_m' ? "설치 길이 {$qv}m" : "면적 {$qv}㎡";
-            $oaiMessages[] = ['role' => 'system', 'content' => "빠른 견적 창이다. 고객이 개수 없이 {$what}만 말했다. 목록의 수량을 정할 제품(product_id " . implode(', ', $qTargets) . ")을 지금 update_cart 에 product_id 와 {$qk} {$qv} 로 넣어 권장 수량으로 맞춘다(quantity 는 넣지 않음, 제품마다 한 번씩). "
+            $what = $qk === 'length_m' ? '설치 길이 ' . quick_install_what($qInstall) : "면적 {$qv}㎡";
+            $runsArg = isset($qInstall['runs_m']) ? ', runs_m [' . implode(', ', array_map('spec_axis_num', $qInstall['runs_m'])) . ']' : (isset($qInstall['run_count']) ? ", run_count {$qInstall['run_count']}" : '');
+            $oaiMessages[] = ['role' => 'system', 'content' => "빠른 견적 창이다. 고객이 개수 없이 {$what}만 말했다. 목록의 수량을 정할 제품(product_id " . implode(', ', $qTargets) . ")을 지금 update_cart 에 product_id 와 {$qk} {$qv}{$runsArg} 로 넣어 권장 수량으로 맞춘다(quantity 는 넣지 않음, 제품마다 한 번씩). "
                 . "그다음 결과 qty_basis 로 '{$what}이면 ○○ N개 정도 필요합니다. 수량을 맞춰 두었습니다' 한 줄로 답하고 개수를 다시 묻지 않는다. 계산할 수 없다는 결과면 그 제품만 개수를 묻는다."];
             $forceUpdate = true;
             $maxIter++;
@@ -2640,6 +2713,9 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
             $clarify  = '';
             if (($tc['function']['name'] ?? '') === 'search_products' && is_array($input)) {
                 [$input, $fills, $clarify] = rag_prepare_search_input($input, $searchCtx);
+            }
+            if (($tc['function']['name'] ?? '') === 'update_cart' && is_array($input) && !isset($input['quantity'])) {
+                [$input, $fills] = rag_apply_runs($input, $runsCtx, true, true);   // 설치 길이로 수량 맞춤 — 고객이 말한 줄 구성대로
             }
             $output   = ai_tool_dispatch($tc['function']['name'] ?? '', $input, $sid);
             if (($tc['function']['name'] ?? '') === 'update_cart') { $cartTouched = true; }
@@ -2712,7 +2788,7 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
     $added = array_map(static fn($t) => (int) ($t['input']['product_id'] ?? 0), array_values(array_filter($toolLog, static fn($t) => $t['name'] === 'add_to_cart')));
     $responseText .= rag_tie_note($responseText, $added, $turnCards, $recentCards);
     $responseText = rag_strip_place_inference($responseText);
-    $responseText = rag_fix_area_question($responseText, (string) $categoryKey);   // 길이로 까는 자재에 면적(㎡)을 물으면 그 자재 치수로(운영 상담 #224·#226)   // '식당 주방은 보행자 전용 구역이므로' 같은 장소 상식 근거(운영 상담 #224·#226)
+    $responseText = rag_fix_area_question($responseText, $categoryKey === 'pavement' && ai_install_runs_enabled() && rag_is_curb_only($messages) ? 'curb' : (string) $categoryKey);   // 길이로 까는 자재에 면적(㎡)을 물으면 그 자재 치수로(운영 상담 #224·#226)   // '식당 주방은 보행자 전용 구역이므로' 같은 장소 상식 근거(운영 상담 #224·#226)
     $responseText = rag_substitute_note($responseText, $substitutes);   // 대체품 표: GPT 가 따로 말한 '수로용 제외' 문장은 빼고 서버 안내를 한 번만(운영 상담 #193·#227)
     $matMakers = [];
     foreach ($events as $ev) { if (($ev['type'] ?? '') === 'material_sources') { $matMakers = array_merge($matMakers, array_column((array) ($ev['sources'] ?? []), 'maker')); } }

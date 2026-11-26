@@ -192,7 +192,7 @@ try {
     $t11 = (string) ($r11['text'] ?? '');
     $sys11 = (string) ($q11[0]['messages'][0]['content'] ?? '');
     ok('그레이팅 답의 면적 질문을 폭(mm)·설치 길이(m) 질문으로', !str_contains($t11, '면적') && str_contains($t11, '폭(mm)과 설치 길이(m)를 알려주시면'), $t11);
-    ok('프롬프트: 그레이팅 필수 ③ = 폭·설치 길이, 길이로 까는 자재에 면적을 묻지 않음', str_contains($sys11, '필수 ③ 덮을 배수로의 폭(mm)과 설치 길이(수로 연장, m)') && str_contains($sys11, '길이로 까는 자재에 면적을 묻지 않는다'));
+    ok('프롬프트: 그레이팅 필수 ③ = 폭·설치 길이, 길이로 까는 자재에 면적을 묻지 않음', str_contains($sys11, '필수 ③ 덮을 배수로의 폭(mm)과 설치 길이(m — [설치 길이 질문] 문장') && str_contains($sys11, '길이로 까는 자재(경계석 포함)에 면적을 묻지 않는다'));   // 2026-11-26 질문 방식 공통 구역으로 문구 바뀜
 
     echo "[235·237 재현 — [L번호] 없이 법령 수치·이름을 씀 → 법령 카드]\n";
     $legalCard = static fn(array $res): array => array_merge(...array_map(static fn($e) => array_column($e['sources'] ?? [], 'ref'), array_values(array_filter($res['events'] ?? [], static fn($e) => ($e['type'] ?? '') === 'legal_sources'))) ?: [[]]);

@@ -14,6 +14,8 @@ declare(strict_types=1);
  *   rag_stream_with_tools() 가 _sse 를 소비해 SSE 전송 후 Claude 에는 제거된 결과를 전달한다.
  */
 
+require_once __DIR__ . '/install_runs.php';   // 설치 구간(줄) 읽기·줄별 수량(2026-11-26 B안 — 수량만, 가격 계산 그대로)
+
 // ─── Tool 스펙 ────────────────────────────────────────────────────────────────
 
 /**
@@ -38,7 +40,9 @@ function ai_tool_definitions(): array
                         'spec_mm'  => ['type' => 'number',  'description' => '폭·길이가 아닌 규격 치수(관경·포장 블록 두께 등, mm). 예: 관경 300mm → 300, 차량용 블록 두께 80. 폭은 width_mm, 제품 길이는 product_length_mm 로.'],
                         'width_mm' => ['type' => 'number',  'description' => '제품의 폭(너비·가로, mm). 예: 폭 50cm → 500. 상품 규격 이름표의 폭 칸으로 확인하며 숫자 위치로 짐작하지 않습니다(폭 400×길이 500 제품은 폭 500 이 아님).'],
                         'product_length_mm' => ['type' => 'number', 'description' => '제품 1개의 길이 치수(mm). 예: 길이 1m 그레이팅 → 1000. 설치 총 길이(연장 10m 등)는 length_m 로.'],
-                        'length_m' => ['type' => 'number',  'description' => '설치 총 길이/연장(미터). 예: 100m 수로 → 100. 선형 제품의 소요 수량 자동 계산에 사용(제품 1개 길이는 product_length_mm).'],
+                        'length_m' => ['type' => 'number',  'description' => '설치 총 길이/연장(미터). 예: 100m 수로 → 100. 선형 제품의 소요 수량 자동 계산에 사용(제품 1개 길이는 product_length_mm). 여러 줄이면 runs_m 을 함께(length_m = 합계).'],
+                        'runs_m'   => ['type' => 'array', 'items' => ['type' => 'number'], 'description' => "여러 줄로 설치할 때 줄마다 길이(m) 목록. 예: '10m씩 2줄' → [10, 10], '10m, 15m' → [10, 15], '양쪽 20m씩' → [20, 20]. 줄마다 끝을 잘라 쓰므로 수량을 줄마다 계산합니다. 한 줄이면 넣지 않습니다."],
+                        'run_count' => ['type' => 'integer', 'description' => "'총 30m, 3줄'처럼 줄 수만 알고 줄마다 길이를 모를 때의 줄 수(length_m 은 합계). 줄마다 길이를 나눠 짐작하지 않습니다."],
                         'area_m2'  => ['type' => 'number',  'description' => '설치 면적(㎡). 예: 보도블록 200㎡ → 200. 면적 단위(㎡) 제품의 소요 수량 계산에 사용.'],
                         'spec_strict' => ['type' => 'boolean', 'description' => 'spec_mm이 반드시 지켜야 하는 조건이면 true(예: 차량이 올라가는 곳의 블록 두께 80). 맞는 규격이 없으면 다른 규격을 보여주지 않습니다. queries 비교에서는 항상 적용됩니다.'],
                         'traffic'  => ['type' => 'string', 'enum' => ['pedestrian', 'car', 'truck'], 'description' => '그레이팅(수로·맨홀 덮개) 검색의 통행 조건. 사람만 다님(식당 주방·화장실·실내·베란다·인도·공원·보행자 전용) → pedestrian, 승용차·SUV → car, 트럭·버스·지게차 등 대형차 → truck. 조건보다 낮은 하중 등급(안전 부족)과 높은 등급(과잉)은 표에서 빠집니다.'],
@@ -93,6 +97,8 @@ function ai_tool_definitions(): array
                         'product_id' => ['type' => 'integer', 'description' => '견적서에 담긴 상품 ID'],
                         'quantity'   => ['type' => 'integer', 'description' => '새 수량(1~999), 0 이면 빼기. length_m·area_m2 를 넣으면 생략'],
                         'length_m'   => ['type' => 'number', 'description' => '설치 총 길이(m) — 이 길이에 맞는 권장 수량으로 맞춤'],
+                        'runs_m'     => ['type' => 'array', 'items' => ['type' => 'number'], 'description' => '여러 줄이면 줄마다 길이(m) 목록(예: [10, 10]) — 줄마다 계산한 권장 수량으로 맞춤'],
+                        'run_count'  => ['type' => 'integer', 'description' => '줄 수만 알고 줄마다 길이를 모를 때의 줄 수(length_m 은 합계)'],
                         'area_m2'    => ['type' => 'number', 'description' => '설치 면적(㎡) — 이 면적에 맞는 권장 수량으로 맞춤'],
                     ],
                     'required' => ['product_id'],
@@ -133,7 +139,24 @@ function ai_tool_definitions(): array
             ],
         ],
     ];
+    if (!ai_install_runs_enabled()) {   // 설치 길이 개선 스위치 끔 — 반영 전 도구 정의(runs_m·run_count 없음, length_m 설명 그대로)
+        $defs = ai_tool_definitions_legacy_runs($defs);
+    }
     return ai_quote_card_enabled() ? $defs : ai_tool_definitions_legacy_cart($defs);
+}
+
+/** 설치 길이 개선 스위치를 끈 상태의 도구 정의 — 줄 구성 칸(runs_m·run_count)을 빼고 length_m 설명을 반영 전으로 (순수 함수) */
+function ai_tool_definitions_legacy_runs(array $defs): array
+{
+    foreach ($defs as $i => $d) {
+        $props = &$defs[$i]['function']['parameters']['properties'];
+        unset($props['runs_m'], $props['run_count']);
+        if (($d['function']['name'] ?? '') === 'search_products' && isset($props['length_m'])) {
+            $props['length_m']['description'] = '설치 총 길이/연장(미터). 예: 100m 수로 → 100. 선형 제품의 소요 수량 자동 계산에 사용(제품 1개 길이는 product_length_mm).';
+        }
+        unset($props);
+    }
+    return $defs;
 }
 
 /**
@@ -167,6 +190,23 @@ function ai_tool_definitions_legacy_cart(array $defs): array
  * @return string JSON 문자열
  */
 function ai_tool_dispatch(string $toolName, array $input, string $sid): string
+{
+    // 여러 줄 설치(runs_m·run_count): 이 도구 실행 동안만 줄 구성을 수량 계산에 넘긴다(끝나면 비움)
+    if (in_array($toolName, ['search_products', 'update_cart'], true) && ai_install_runs_enabled()) {
+        [$input, $runs] = install_runs_input($input);
+        install_runs_ctx(null, true);
+        if ($runs !== null) { install_runs_ctx($runs); }
+        try {
+            return ai_tool_dispatch_inner($toolName, $input, $sid);
+        } finally {
+            install_runs_ctx(null, true);
+        }
+    }
+    return ai_tool_dispatch_inner($toolName, $input, $sid);
+}
+
+/** 도구 이름 → 핸들러 */
+function ai_tool_dispatch_inner(string $toolName, array $input, string $sid): string
 {
     return match ($toolName) {
         'search_products' => tool_search_products($input),
@@ -501,19 +541,18 @@ function ai_estimate_quantity(array $p, float $lengthM, ?float $widthMm, ?float 
     }
 
     // 미터 단위
+    $runs = install_runs_for_length($lengthM);   // 여러 줄 설치(도구 입력 runs_m·run_count) — 없으면 한 줄
     if ($unitNorm === 'm') {
         $qty = (int) ceil($lengthM);
-        return [$qty, sprintf('%sm → %dM', $fmt($lengthM), $qty)];
+        return [$qty, ($runs !== null ? install_runs_label($runs, $lengthM) . ' = ' : '') . sprintf('%sm → %dM', $fmt($lengthM), $qty)];   // 미터 단위는 필요한 길이만큼(합계)
     }
 
     // 선형(본/개/조 등): 1개 길이 = 규격 이름표로 채운 '길이 L'(원문 일치) 또는 규격의 이름 붙은 길이(L1000) — 숫자 위치·크기로 짐작하지 않음(2026-11-10).
     //    예: 그레이팅 500×500(폭 W × 길이 L) → 10m ÷ 0.5m = 20개. 길이 칸이 없는 상품만 아래 기존 규칙.
     $perMm = ai_row_dim_mm($p, 'l');
     if ($perMm !== null && $perMm >= 100) {
-        $perM = $perMm / 1000.0;
-        $qty  = (int) ceil(round($lengthM / $perM, 6));
-        $u    = $unit !== '' ? $unit : '개';
-        return [$qty, sprintf('%sm ÷ %sm = %d%s', $fmt($lengthM), $fmt($perM), $qty, $u)];
+        // 여러 줄이면 줄마다 올림(자투리를 다른 줄에 이어 쓰는 PE·PVC 관류는 합계) — install_runs_piece_qty, 한 줄이면 기존 계산 그대로
+        return install_runs_piece_qty($lengthM, $perMm / 1000.0, $unit, $runs, install_runs_reuse_offcut($p));
     }
 
     // 선형(본/개/조 등) — 길이 칸이 없는 상품: 규격 최대 치수 = 1개 길이(mm)
@@ -523,10 +562,7 @@ function ai_estimate_quantity(array $p, float $lengthM, ?float $widthMm, ?float 
         $nums  = array_map('floatval', $mm[0]);
         $maxMm = $nums ? max($nums) : 0;
         if ($maxMm >= 1000) { // 1m 이상만 신뢰 가능한 1개 길이로 인정
-            $perM = $maxMm / 1000.0;
-            $qty  = (int) ceil($lengthM / $perM);
-            $u    = $unit !== '' ? $unit : '개';
-            return [$qty, sprintf('%sm ÷ %sm = %d%s', $fmt($lengthM), $fmt($perM), $qty, $u)];
+            return install_runs_piece_qty($lengthM, $maxMm / 1000.0, $unit, $runs, install_runs_reuse_offcut($p));
         }
     }
     return [null, ''];
@@ -800,10 +836,12 @@ function tool_search_products(array $input): string
             'image_url'     =>        $p['image_url']  ?? null,
             'stock_qty'     => (int)  $p['stock_qty'],
             'suggested_qty' => $qty,     // null 이면 계산 불가
-            'qty_basis'     => $basis,   // 근거 문구 (예: "100m ÷ 2m = 50본")
+            'qty_basis'     => $basis,   // 근거 문구 (예: "100m ÷ 2m = 50본", 여러 줄 "10m×2줄: 한 줄 10m ÷ 2m = 5본 × 2줄 = 10본")
             'guide'         => ext_selection_guide($p, $knowledge[(int) $p['id']] ?? []),
             'spec_label'    => spec_size_label((string) $p['spec']) ?: (ai_name_size_spec($p) !== '' ? (string) ($p['category_name'] ?? '') : ''),   // 화면 표시용 규격(치수만) — 운반비·상차수량 같은 부가 표기 제외. 상품명이 규격 코드뿐이면 품목(카테고리) 이름
-        ] + (($size = ai_row_size_label($p, spec_axes_for_category((int) ($p['category_id'] ?? 0)))) !== '' ? ['size' => $size] : [])   // 이름표대로 읽은 치수(폭·길이 뜻 구분)
+        ] + (ai_install_runs_enabled() && $qty !== null && $lengthM > 0 && $basis !== '' && !str_contains($basis, '㎡') ? ['run_basis' => install_runs_basis_label($lengthM)] : [])   // 줄 기준('한 줄 20m 기준'·'10m×2줄(총 20m)') — 2026-11-26
+          + ($qty !== null && $lengthM > 0 && ($sn = install_runs_split_note($lengthM, $p)) !== null ? ['run_note' => $sn] : [])
+          + (($size = ai_row_size_label($p, spec_axes_for_category((int) ($p['category_id'] ?? 0)))) !== '' ? ['size' => $size] : [])   // 이름표대로 읽은 치수(폭·길이 뜻 구분)
           + ($want ? ['dim_check' => ($p['_dim'] ?? '') === 'unknown' ? 'unverified' : 'verified'] : [])
           + ($want && ($p['_dim'] ?? '') === 'unknown' ? ['dim_note' => "규격 확인 필요 — {$cond}인지 규격 표기로 확인되지 않았습니다"] : [])
           // 차량 통행: 하중 등급이 상품명·등록 규격(차도용)으로 확인된 덮개와 확인이 필요한 덮개를 나눈다(확인 안 된 제품을 적합하다고 하지 않음)
@@ -2491,17 +2529,31 @@ function tool_quick_install_qty(array $ids, array $amount, string $sid): array
     foreach ($st->fetchAll() as $r) { $names[(int) $r['id']] = trim($r['name'] . ' ' . quick_match_spec_text((string) $r['spec'])); }
     $k    = array_key_first($amount);
     $v    = spec_axis_num((float) $amount[$k]);
-    $what = $k === 'length_m' ? "설치 길이 {$v}m" : "면적 {$v}㎡";
+    $runs = array_intersect_key($amount, ['runs_m' => 1, 'run_count' => 1]);   // 여러 줄(2026-11-26) — 줄마다 계산
+    $what = $k === 'length_m' ? '설치 길이 ' . quick_install_what($amount) : "면적 {$v}㎡";
     $done = $fail = $events = [];
+    $splitNote = false;
     foreach ($ids as $id) {
-        $r = json_decode(tool_update_cart(['product_id' => $id, $k => (float) $amount[$k]], $sid), true) ?: [];
+        $r = json_decode(ai_tool_dispatch('update_cart', ['product_id' => $id, $k => (float) $amount[$k]] + ($k === 'length_m' ? $runs : []), $sid), true) ?: [];
         $n = $names[$id] ?? '이 제품';
-        if (!empty($r['ok'])) { $done[] = $n . ' ' . (int) $r['quantity'] . '개'; $events = (array) ($r['_sse'] ?? []); }
+        if (!empty($r['ok'])) { $done[] = $n . ' ' . (int) $r['quantity'] . '개'; $events = (array) ($r['_sse'] ?? []); $splitNote = $splitNote || !empty($r['run_note']); }
         else { $fail[] = $n; }
     }
     $text = $done ? "{$what}이면 " . implode(', ', $done) . ' 정도 필요합니다. 수량을 맞춰 두었습니다.' : '';
+    if ($done && $splitNote) { $text .= ' 줄마다 길이를 알려 주시면 줄 끝 자투리까지 맞춰 드립니다(예: 10m, 12m, 8m).'; }   // '총 30m 3줄' — 나눠 짐작하지 않음
     if ($fail) { $text .= ($text !== '' ? ' ' : '') . implode(', ', $fail) . '은(는) 1개 길이를 알 수 없어 필요한 개수를 알려 주세요.'; }
     return ['text' => $text, 'events' => $events];
+}
+
+/** 빠른 상담 수량 맞춤 글의 길이 표현 (순수 함수) — '20m'·'10m×2줄(총 20m)'·'총 30m(3줄)' */
+function quick_install_what(array $amount): string
+{
+    $f = static fn(float $n): string => rtrim(rtrim(sprintf('%.2f', $n), '0'), '.');
+    $L = (float) ($amount['length_m'] ?? 0);
+    $runs = array_map('floatval', (array) ($amount['runs_m'] ?? []));
+    if (count($runs) >= 2) { return install_runs_label(['runs' => $runs, 'count' => count($runs)], $L) . '(총 ' . $f($L) . 'm)'; }
+    if ((int) ($amount['run_count'] ?? 0) >= 2) { return '총 ' . $f($L) . 'm(' . (int) $amount['run_count'] . '줄)'; }
+    return $f($L) . 'm';
 }
 
 /**
@@ -2562,7 +2614,9 @@ function tool_update_cart(array $input, string $sid): string
         'product_id' => $productId,
         'removed'    => $quantity === 0,
         'quantity'   => $quantity,
-    ] + ($basis !== null ? ['qty_basis' => $basis] : []) + quote_tool_result($quote, null) + [
+    ] + ($basis !== null ? ['qty_basis' => $basis] + (ai_install_runs_enabled() && $lengthM > 0 && !str_contains($basis, '㎡') ? ['run_basis' => install_runs_basis_label($lengthM)] : []) : [])
+      + ($basis !== null && $lengthM > 0 && ($sn = install_runs_split_note($lengthM, ai_rows_by_ids([$productId])[0] ?? [])) !== null ? ['run_note' => $sn] : [])
+      + quote_tool_result($quote, null) + [
         '_sse'       => [
             ['type' => 'cart_update', 'count' => $count, 'total' => $total],
             $quote,
