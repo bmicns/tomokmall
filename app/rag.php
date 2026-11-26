@@ -2860,6 +2860,8 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
         $fqCat = $categoryKey === 'pavement' && rag_is_curb_only($messages) ? 'curb' : (string) $categoryKey;
         if (($fq = quick_first_question($fqCat, $messages, ($trafficInfo['class'] ?? '') !== '' && ($trafficInfo['strength'] ?? '') === 'strong')) !== null) { $responseText = $fq; }
     }
+    // 두 상담 같은 단위 규칙(사용자 결정 11-26, A14): 길이·설치 길이만 m, 폭·높이·두께 등은 mm('폭 0.3m' → '폭 300mm'), 예시 붙은 질문의 '(mm)' 표시 빼기
+    if (function_exists('quick_reply_units')) { $responseText = quick_reply_units($responseText); }
     if ($style === 'quick') { $responseText = quick_reply_tidy($responseText); }   // '견적서는 화면에 이미 표시되고 있으며' 같은 화면 안내 말 빼기(운영 시험 11-24)
     if ($turnCards && !array_filter($turnCards, static fn($c) => (int) ($c['price_member'] ?? $c['price_b2c'] ?? 0) > 0)) {
         $responseText = rag_strip_price_claims($responseText);   // 표가 모두 가격 문의(0원)면 '가장 저렴·경제적' 같은 금액 비교 문장을 뺀다(2026-11-12 상용콘크리트)
