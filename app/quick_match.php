@@ -227,14 +227,21 @@ function quick_reply_tidy(string $text): string
 /**
  * 빠른 견적 창 답 글의 mm 치수를 m 로 (순수 함수): '폭 150mm, 길이 1000mm … 10m' 처럼 단위가 섞이던 문제(사용자 피드백 11-24 — m 기준).
  * 1000mm → 1m, 300mm → 0.3m, 1,500mm → 1.5m. 상품 규격 표기(300×1000×32, '×50mm' 처럼 곱하기 뒤 숫자)는 그대로 둔다.
+ * 두께는 mm 그대로(사용자 요청 11-26 — '두께 0.06m' 대신 '두께 60mm', 단위가 큰 길이만 m). 값이 m 로 바뀌므로
+ * 질문의 단위 표시 '(mm)' 는 뺀다('배수로의 폭(mm)을 알려 주세요. (예: 0.3m)' → '배수로의 폭을 …', 두께(mm) 는 그대로).
  */
 function quick_reply_units(string $text): string
 {
+    $text = (string) preg_replace('/(?<!두께)\s?\((?:mm|㎜)\)/u', '', $text);
+    // 답이 이미 m 로 쓴 1m 미만 두께('두께 0.06m')는 mm 로
+    $text = (string) preg_replace_callback('/(두께(?:\s*\(\s*T\s*\))?\s*(?:은|는|이|가|:)?\s*)0\.(\d{1,3})\s*m(?![m²2a-zA-Z])/u',
+        static fn(array $m): string => $m[1] . (int) str_pad($m[2], 3, '0') . 'mm', $text);
     return (string) preg_replace_callback(
         '/(?<![\d.,])(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?\s*(?:mm|㎜)(?![a-zA-Z])/u',
         static function (array $m) use ($text): string {
             $before = rtrim(substr($text, 0, $m[0][1]));
             if ($before !== '' && preg_match('/[×*xX]$|[A-Za-z]$/u', $before)) { return $m[0][0]; }   // 규격 표기의 일부(곱하기 뒤 숫자·D150mm 같은 호칭)
+            if (quick_reply_is_thickness($before)) { return $m[0][0]; }   // 두께는 mm 그대로(11-26)
             $mm = (float) (str_replace(',', '', $m[1][0]) . (isset($m[2]) && $m[2][1] >= 0 ? '.' . $m[2][0] : ''));
             if ($mm <= 0) { return $m[0][0]; }
             return rtrim(rtrim(sprintf('%.4f', $mm / 1000), '0'), '.') . 'm';
@@ -244,6 +251,18 @@ function quick_reply_units(string $text): string
         $count,
         PREG_OFFSET_CAPTURE
     );
+}
+
+/**
+ * 답 글에서 숫자 앞 글이 두께 값을 말하는지 (순수 함수) — 같은 문장 안에서 숫자 바로 앞의 마지막 치수 이름이 '두께'(또는 T 칸)이면 참.
+ * '두께 60mm'·'두께는 80mm'·'두께(mm)를 알려 주세요 (예: 60mm)' 는 참, '두께는 80mm, 폭 200mm' 의 200 은 거짓(마지막 이름 = 폭).
+ */
+function quick_reply_is_thickness(string $before): bool
+{
+    $parts = preg_split('/[.!?。\n]\s|\n/u', $before);
+    $clause = mb_substr((string) end($parts), -40);
+    if (!preg_match_all('/두께|폭|너비|가로|세로|길이|연장|높이|깊이|지름|직경|관경|내경|외경/u', $clause, $m)) { return false; }
+    return end($m[0]) === '두께';
 }
 
 /**

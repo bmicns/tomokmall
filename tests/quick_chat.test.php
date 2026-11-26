@@ -98,6 +98,12 @@ $pok('상품 사진: 케이토목 40×40 썸네일 → 같은 파일 450×450(�
 $pok('답 글 단위는 m 기준(사용자 피드백 11-24): mm → m, 규격 표기·호칭은 그대로', quick_reply_units('조건(폭 150mm, 길이 1000mm)과 설치 길이 10m') === '조건(폭 0.15m, 길이 1m)과 설치 길이 10m'
     && quick_reply_units('높이는 50 mm, 길이 1,500mm') === '높이는 0.05m, 길이 1.5m' && quick_reply_units('300×1000×50mm·300*1000*32mm·D150mm') === '300×1000×50mm·300*1000*32mm·D150mm'
     && quick_reply_tidy('폭 300mm 제품을 담았습니다.') === '폭 0.3m 제품을 담았습니다.');
+$pok('두께는 mm 그대로·질문의 (mm) 표시 빼기(사용자 요청 11-26)', quick_reply_units('두께 60mm의 인터로킹I형블럭') === '두께 60mm의 인터로킹I형블럭'
+    && quick_reply_units('두께 0.06m의 블럭') === '두께 60mm의 블럭'
+    && quick_reply_units('두께는 80mm, 폭 200mm, 길이 1000mm') === '두께는 80mm, 폭 0.2m, 길이 1m'
+    && quick_reply_units('두께(mm)를 알려 주세요 (예: 60mm)') === '두께(mm)를 알려 주세요 (예: 60mm)'
+    && quick_reply_units('1. 배수로의 폭(mm)을 알려 주세요. (예: 300mm)') === '1. 배수로의 폭을 알려 주세요. (예: 0.3m)'
+    && quick_reply_units('길이 1,500mm. 두께 50 mm') === '길이 1.5m. 두께 50 mm');
 $pok('설치 길이·면적만 말한 말 읽기(개수·폭·제품 길이·규격 표기·값 둘은 아님)', quick_install_amount('10미터쯤 설치할거야') === ['length_m' => 10.0] && quick_install_amount('20m요') === ['length_m' => 20.0]
     && quick_install_amount('30㎡ 정도 깔 거예요') === ['area_m2' => 30.0] && quick_install_amount('설치 길이 15m') === ['length_m' => 15.0] && quick_install_amount('폭 0.3m 20m') === ['length_m' => 20.0]
     && quick_install_amount('10개요') === null && quick_install_amount('길이 1m 그레이팅') === null && quick_install_amount('개거 1.5*1.5*2.0m') === null && quick_install_amount('10m 30m') === null);
