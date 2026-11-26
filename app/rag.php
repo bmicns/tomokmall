@@ -1382,7 +1382,7 @@ function rag_prepare_search_input(array $input, array $ctx): array
         } else {
             $set = [];
             foreach (['w' => 'width_mm', 'l' => 'product_length_mm'] as $a => $k) {
-                if (isset($sim[$a]) && ai_parse_mm($input[$k] ?? null) === null) { $input[$k] = $sim[$a]; $set[] = ($a === 'w' ? '폭 ' : '길이 ') . spec_axis_num($sim[$a]) . 'mm'; }
+                if (isset($sim[$a]) && ai_parse_mm($input[$k] ?? null) === null) { $input[$k] = $sim[$a]; $set[] = $a === 'w' ? '폭 ' . spec_axis_num($sim[$a]) . 'mm' : '길이 ' . ai_len_m((float) $sim[$a]) . 'm'; }
             }
             if ($set) { $fills[] = '비슷한 규격: 앞 제품의 확인된 치수(' . implode('·', $set) . ')'; }
         }
@@ -2412,6 +2412,23 @@ function rag_strip_dangling_choice(string $text, array $events): string
  *
  * @return array{ok:bool, text:string, events:list<array>, error?:string}
  */
+/**
+ * 답 글의 제품 길이(L) mm → m (순수 함수, 사용자 요청 11-26 — A14): '길이 1000mm'·'길이 L 2,500mm'·'길이(L): 500mm'·'1000mm 길이' → 1m·2.5m·0.5m.
+ * '길이'라는 말이 붙은 값만 바꾼다(폭·높이·두께 mm 와 규격 표기 300×1000×32 는 그대로).
+ */
+function rag_length_m_text(string $text): string
+{
+    $num = '(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?\s*(?:mm|㎜)(?![a-zA-Z])';
+    $toM = static function (string $int, string $frac): string {
+        $mm = (float) (str_replace(',', '', $int) . ($frac !== '' ? '.' . $frac : ''));
+        return ai_len_m($mm) . 'm';
+    };
+    $text = (string) preg_replace_callback('/(길이\s*(?:\(L\)|L)?\s*(?:은|는|이|가|:|：)?\s*(?:약\s*)?)' . $num . '/u',
+        static fn(array $m) => (float) str_replace(',', '', $m[2]) > 0 ? $m[1] . $toM($m[2], $m[3] ?? '') : $m[0], $text);
+    return (string) preg_replace_callback('/(?<![\d.,×*xX])' . $num . '(\s*(?:짜리\s*)?길이)/u',
+        static fn(array $m) => (float) str_replace(',', '', $m[1]) > 0 ? $toM($m[1], $m[2] ?? '') . $m[3] : $m[0], $text);
+}
+
 function rag_process(array $messages, string $sid, string $style = 'consult'): array
 {
     global $config;
@@ -2702,6 +2719,7 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
     if ($matMakers) { $responseText = rag_strip_source_phrases($responseText, $matMakers); }   // 제조사 출처는 화면 하단에만(2026-11-12)
     $responseText = rag_registered_note($responseText, $missingRegs);   // 없는 형태 말의 등록 규격을 빠뜨렸으면(운영 상담 #199)
     $responseText = rag_dedupe_evaluation($responseText);
+    $responseText = rag_length_m_text($responseText);   // 제품 길이(L)는 항상 m(사용자 요청 11-26, A14) — '길이 1000mm' → '길이 1m'
     if ($style === 'quick') { $responseText = quick_reply_tidy($responseText); }   // '견적서는 화면에 이미 표시되고 있으며' 같은 화면 안내 말 빼기(운영 시험 11-24)
     if ($turnCards && !array_filter($turnCards, static fn($c) => (int) ($c['price_member'] ?? $c['price_b2c'] ?? 0) > 0)) {
         $responseText = rag_strip_price_claims($responseText);   // 표가 모두 가격 문의(0원)면 '가장 저렴·경제적' 같은 금액 비교 문장을 뺀다(2026-11-12 상용콘크리트)

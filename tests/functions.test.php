@@ -956,9 +956,16 @@ $P = $fr('D500*2500*50T', ['dim_d_i' => 500, 'dim_l' => 2500, 'dim_t' => 50], 10
 eq('폭이 없는 규격 체계(흄관 내경 D500): 폭 500 아님', $st($P, ['w' => 500.0]), 'mismatch');
 [$ok, $unk, $mis] = ai_filter_dims([$B, ['name' => 'G'] + $U, $A, ['name' => 'Y', 'spec' => '규격: 500*30'], $C], ['w' => 500.0]);
 eq('나누기: 확인 2·확인 불가 1(같은 상품명 G 는 확인된 규격이 있어 뺌, Y 만)·다름 1', [count($ok), array_column($unk, 'name'), $mis, $ok[0]['_dim']], [2, ['Y'], 1, 'match']);
-eq('조건 표기', [ai_dim_cond_label(['w' => 500.0]), ai_dim_cond_label(['w' => 500.0, 'l' => 1000.0]), ai_dim_cond_label([], 80), ai_dim_cond_label([])], ['폭 500mm', '폭 500mm·길이 1000mm', '규격 80mm', '']);
+eq('조건 표기', [ai_dim_cond_label(['w' => 500.0]), ai_dim_cond_label(['w' => 500.0, 'l' => 1000.0]), ai_dim_cond_label([], 80), ai_dim_cond_label([])], ['폭 500mm', '폭 500mm·길이 1m', '규격 80mm', '']);
 $ax = [['axis_key' => 'w', 'label' => '폭', 'symbol' => 'W', 'unit' => 'mm'], ['axis_key' => 'l', 'label' => '길이', 'symbol' => 'L', 'unit' => 'mm'], ['axis_key' => 'h', 'label' => '높이', 'symbol' => 'H', 'unit' => 'mm']];
-eq('이름표대로 읽은 치수(GPT 설명용)', [ai_row_size_label($B, $ax), ai_row_size_label($U, $ax)], ['폭 W 400mm · 길이 L 500mm · 높이 H 50mm', '']);
+eq('이름표대로 읽은 치수(GPT 설명용)', [ai_row_size_label($B, $ax), ai_row_size_label($U, $ax)], ['폭 W 400mm · 길이 L 0.5m · 높이 H 50mm', '']);
+// AI 상담 제품 길이(L)는 항상 m(사용자 요청 2026-11-26, A14) — 폭·높이·두께·규격 표기는 그대로
+eq('ai_len_m: 1000→1, 500→0.5, 2500→2.5, 1234→1.234', [ai_len_m(1000), ai_len_m(500), ai_len_m(2500), ai_len_m(1234)], ['1', '0.5', '2.5', '1.234']);
+eq('치수 조건 표기: 길이는 m', [ai_dim_cond_label(['w' => 500, 'l' => 1000]), ai_dim_cond_label(['l' => 2500]), ai_dim_cond_label(['w' => 400])], ['폭 500mm·길이 1m', '길이 2.5m', '폭 400mm']);
+eq('답 글: 길이 mm → m', array_map('rag_length_m_text', ['폭 500mm, 길이 1000mm 그레이팅', '길이 L 2,500mm · 높이 H 50mm', '길이(L): 500mm', '1000mm 길이 제품', '길이가 1200mm인']),
+    ['폭 500mm, 길이 1m 그레이팅', '길이 L 2.5m · 높이 H 50mm', '길이(L): 0.5m', '1m 길이 제품', '길이가 1.2m인']);
+eq('답 글: 길이 아닌 mm·규격 표기·설치 길이 m 는 그대로', array_map('rag_length_m_text', ['규격 300×1000×32, 두께 100mm', '설치 길이 20m', '500×1000mm 길이', '높이 1000mm']),
+    ['규격 300×1000×32, 두께 100mm', '설치 길이 20m', '500×1000mm 길이', '높이 1000mm']);
 eq('상품명별 확인된 폭(오름차순·확인 불가 제외)', ai_widths_by_name([$fr('250*1000*25', ['dim_w' => 250, 'dim_l' => 1000], 1, 'A'), $fr('150*1000*25', ['dim_w' => 150, 'dim_l' => 1000], 1, 'A'), $fr('150*1000*32', ['dim_w' => 150, 'dim_l' => 1000], 1, 'A'), ['name' => 'Z', 'spec' => '규격: 300*1000*25']]), ['A' => ['150', '250']]);
 eq('폭 표기', ai_format_widths(['그레이팅수로용' => ['150', '200', '250']]), '그레이팅수로용 150·200·250mm');
 

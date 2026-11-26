@@ -1439,11 +1439,17 @@ function ai_filter_dims(array $rows, array $want): array
     return [$ok, $unk, $mismatch];
 }
 
-/** 치수 조건 표기 (순수 함수) — ['w'=>500] → '폭 500mm', ['w'=>500,'l'=>1000] → '폭 500mm·길이 1000mm', 폭·길이 없이 규격만 → '규격 500mm', 없으면 '' */
+/** mm → m 숫자 글자 (순수 함수) — 1000 → '1', 500 → '0.5', 2500 → '2.5', 1234 → '1.234' */
+function ai_len_m(float $mm): string
+{
+    return rtrim(rtrim(number_format($mm / 1000, 3, '.', ''), '0'), '.');
+}
+
+/** 치수 조건 표기 (순수 함수) — ['w'=>500] → '폭 500mm', ['w'=>500,'l'=>1000] → '폭 500mm·길이 1m'(길이는 m — A14), 폭·길이 없이 규격만 → '규격 500mm', 없으면 '' */
 function ai_dim_cond_label(array $want, int $specMm = 0): string
 {
     $parts = [];
-    foreach ($want as $k => $mm) { $parts[] = AI_DIM_AXES[$k][2] . ' ' . spec_axis_num((float) $mm) . 'mm'; }
+    foreach ($want as $k => $mm) { $parts[] = AI_DIM_AXES[$k][2] . ' ' . ($k === 'l' ? ai_len_m((float) $mm) . 'm' : spec_axis_num((float) $mm) . 'mm'); }
     if ($specMm > 0) { $parts[] = "규격 {$specMm}mm"; }
     return implode('·', $parts);
 }
@@ -1555,6 +1561,10 @@ function ai_row_size_label(array $row, array $axes): string
         $v = spec_axes_row_value($row, $key);
         if ($v === null || !isset(SPEC_AXIS_COLUMNS[$key])) { continue; }
         $unit = (string) ($a['unit'] ?? 'mm');
+        if ($key === 'l' && $unit === 'mm') {   // AI 상담의 제품 길이(L)는 항상 m(사용자 요청 11-26, A14) — 1000mm → 1m
+            $parts[] = spec_axis_title($a) . ' ' . ai_len_m((float) $v) . 'm';
+            continue;
+        }
         $val  = spec_axis_value_display($a, $v);
         $parts[] = spec_axis_title($a) . ' ' . $val . (in_array($key, SPEC_AXIS_TEXT, true) || $unit === 'no' ? '' : $unit);
     }

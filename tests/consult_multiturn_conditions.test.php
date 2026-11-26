@@ -107,7 +107,7 @@ try {
         $c1 = $cards($r1); $shown = array_merge($shown, $ids($c1));
         $i1 = $in($r1);
         ok('검색 입력: 폭 500 · 제품 1개 길이 1000mm · 설치 길이 없음(1m 를 설치 길이로 쓰지 않음)', (float) ($i1['width_mm'] ?? 0) === 500.0 && (float) ($i1['product_length_mm'] ?? 0) === 1000.0 && !isset($i1['length_m']) && !isset($i1['spec_mm']), $j($i1) . ' ' . $fills($r1));
-        ok('추천표: 모두 폭 W 500mm · 길이 L 1000mm(높이·다른 치수와 혼동 없음)', $allSize($c1, '폭 W 500mm · 길이 L 1000mm'), $j($sizes($c1)));
+        ok('추천표: 모두 폭 W 500mm · 길이 L 1m(높이·다른 치수와 혼동 없음)', $allSize($c1, '폭 W 500mm · 길이 L 1m'), $j($sizes($c1)));
         ok('수량 없음(설치 길이를 말하지 않음)', !array_filter($c1, static fn($c) => isset($c['suggested_qty'])));
 
         echo " 2) '차량이 다니는 곳에 설치할 수 있는 제품으로 추천해줘.'\n";
@@ -126,7 +126,7 @@ try {
         $c3 = $cards($r3); $shown = array_merge($shown, $ids($c3));
         $i3 = $in($r3);
         ok('검색 입력: 폭 400(옛 폭 500 아님) · 제품 길이 1000 유지 · 통행 car 유지', (float) ($i3['width_mm'] ?? 0) === 400.0 && (float) ($i3['product_length_mm'] ?? 0) === 1000.0 && ($i3['traffic'] ?? '') === 'car', $j($i3) . ' ' . $fills($r3));
-        ok('추천표: 폭 W 400mm · 길이 L 1000mm 승용차용(중하중, 상품명 등급으로 확인)', $allSize($c3, '폭 W 400mm · 길이 L 1000mm') && !array_filter($c3, static fn($c) => ($c['load_check'] ?? '') !== 'verified'), $j(array_map(static fn($c) => $c['name'] . ' ' . ($c['load_check'] ?? ''), $c3)));
+        ok('추천표: 폭 W 400mm · 길이 L 1m 승용차용(중하중, 상품명 등급으로 확인)', $allSize($c3, '폭 W 400mm · 길이 L 1m') && !array_filter($c3, static fn($c) => ($c['load_check'] ?? '') !== 'verified'), $j(array_map(static fn($c) => $c['name'] . ' ' . ($c['load_check'] ?? ''), $c3)));
 
         echo " 4) '설치 구간이 총 20m야. 몇 개 필요해?'\n";
         [$r4, $o4] = $t('설치 구간이 총 20m야. 몇 개 필요해?', [$call($careful ? ['query' => '그레이팅', 'width_mm' => 400, 'product_length_mm' => 1000, 'traffic' => 'car', 'length_m' => 20, 'only_ids' => $ids($c3)] : ['query' => '그레이팅', 'product_length_mm' => 20000], 4), $say('20개 필요합니다.')]);
@@ -159,7 +159,7 @@ try {
         $c7 = $cards($r7);
         $i7 = $in($r7);
         ok('검색 입력: 수로관 폭 500 · 제품 길이 2000(설치 길이 2m 아님) · 그레이팅의 설치 20m 를 가져오지 않음', ($i7['query'] ?? '') === '수로관' && (float) ($i7['width_mm'] ?? 0) === 500.0 && (float) ($i7['product_length_mm'] ?? 0) === 2000.0 && !isset($i7['length_m']) && !isset($i7['spec_mm']), $j($i7) . ' ' . $fills($r7));
-        ok('추천표: 모두 폭 W 500mm 이고 길이 L 2000mm(수로관 폭×깊이×길이 — 깊이 500 과 혼동 없음)', $c7 !== [] && !array_filter($c7, static fn($c) => !str_starts_with((string) $c['size'], '폭 W 500mm') || !str_contains((string) $c['size'], '길이 L 2000mm')), $j($sizes($c7)));
+        ok('추천표: 모두 폭 W 500mm 이고 길이 L 2m(수로관 폭×깊이×길이 — 깊이 500 과 혼동 없음)', $c7 !== [] && !array_filter($c7, static fn($c) => !str_starts_with((string) $c['size'], '폭 W 500mm') || !str_contains((string) $c['size'], '길이 L 2m')), $j($sizes($c7)));
         ok('수로관 하중: 상품 정보에 근거가 없어 모두 하중 확인 필요(차량 통행에 맞다고 하지 않음)', $c7 !== [] && !array_filter($c7, static fn($c) => ($c['load_check'] ?? '') !== 'unverified' || !str_contains((string) ($c['load_note'] ?? ''), '하중 확인 필요')), $j(array_map(static fn($c) => $c['name'] . ':' . ($c['load_check'] ?? '-'), $c7)));
         ok("안내: '차량 통행 하중이 확인된 제품은 없습니다'", str_contains((string) ($o7['note'] ?? ''), '차량 통행 하중이 상품 정보로 확인된 제품은 없습니다'), (string) ($o7['note'] ?? ''));
 
@@ -186,7 +186,7 @@ try {
         $d2 = $cards($e2); $shown = array_merge($shown, $ids($d2));
         $j2 = $in($e2);
         ok('앞 턴에 말한 폭 500·제품 길이 1000 을 검색에 반영(GPT 가 빠뜨려도)', (float) ($j2['width_mm'] ?? 0) === 500.0 && (float) ($j2['product_length_mm'] ?? 0) === 1000.0 && !isset($j2['traffic']), $j($j2) . ' ' . $fills($e2));
-        ok('추천표: 폭 W 500mm · 길이 L 1000mm, 낮은 금액 순', $allSize($d2, '폭 W 500mm · 길이 L 1000mm') && array_column($d2, 'price_member') === (function ($p) { sort($p); return $p; })(array_column($d2, 'price_member')), $j(array_map(static fn($c) => [$c['name'], $c['price_member']], $d2)));
+        ok('추천표: 폭 W 500mm · 길이 L 1m, 낮은 금액 순', $allSize($d2, '폭 W 500mm · 길이 L 1m') && array_column($d2, 'price_member') === (function ($p) { sort($p); return $p; })(array_column($d2, 'price_member')), $j(array_map(static fn($c) => [$c['name'], $c['price_member']], $d2)));
         ok("통행을 말하지 않음 → 통행 조건을 만들지 않음('마당'으로 짐작 안 함)", !isset($j2['traffic']));
 
         echo " 3) 치수 변경 '폭은 400으로 바꿔 줘.'\n";
@@ -194,7 +194,7 @@ try {
         $d3 = $cards($e3); $shown = array_merge($shown, $ids($d3));
         $j3 = $in($e3);
         ok('폭만 400, 제품 길이 1000 유지', (float) ($j3['width_mm'] ?? 0) === 400.0 && (float) ($j3['product_length_mm'] ?? 0) === 1000.0, $j($j3) . ' ' . $fills($e3));
-        ok('추천표: 모두 폭 W 400mm · 길이 L 1000mm(폭 500 제품 없음)', $allSize($d3, '폭 W 400mm · 길이 L 1000mm'), $j($sizes($d3)));
+        ok('추천표: 모두 폭 W 400mm · 길이 L 1m(폭 500 제품 없음)', $allSize($d3, '폭 W 400mm · 길이 L 1m'), $j($sizes($d3)));
 
         echo " 4) 이전 제품 제외 '앞에 보여준 제품은 빼고 다른 제품 추천해줘.'\n";
         [$e4, $q4] = $t('앞에 보여준 제품은 빼고 다른 제품 추천해줘.', [$call($careful ? ['query' => '그레이팅', 'width_mm' => 400, 'product_length_mm' => 1000, 'exclude_ids' => $ids($d3)] : ['query' => '그레이팅'], 23), $say('다른 제품입니다.')]);
@@ -203,7 +203,7 @@ try {
         ok('제외: 2)·3) 표 제품 전체(GPT 가 직전 표 id 만 넘겨도)', !array_diff(array_unique($shown), ai_int_list($j4['exclude_ids'] ?? null)), $j($j4['exclude_ids'] ?? null));
         ok('조건 유지: 폭 400·제품 길이 1000', (float) ($j4['width_mm'] ?? 0) === 400.0 && (float) ($j4['product_length_mm'] ?? 0) === 1000.0, $j($j4));
         $nm = $names(array_values(array_unique($shown)));
-        ok('앞서 보인 제품(같은 이름 포함)이 다시 나오지 않고, 나오면 폭 400·길이 1000 만', !array_intersect(array_column($d4, 'name'), $nm) && ($d4 === [] || $allSize($d4, '폭 W 400mm · 길이 L 1000mm')), $j(array_map(static fn($c) => [$c['name'], $c['size']], $d4)));
+        ok('앞서 보인 제품(같은 이름 포함)이 다시 나오지 않고, 나오면 폭 400·길이 1000 만', !array_intersect(array_column($d4, 'name'), $nm) && ($d4 === [] || $allSize($d4, '폭 W 400mm · 길이 L 1m')), $j(array_map(static fn($c) => [$c['name'], $c['size']], $d4)));
         ok('없으면 없다고 안내', $d4 !== [] || preg_match('/없습니다/u', (string) ($q4['note'] ?? '')) === 1, (string) ($q4['note'] ?? ''));
         $shown = array_merge($shown, $ids($d4));
 
@@ -216,7 +216,7 @@ try {
         $minP = $base5 ? min(array_map(static fn($c) => (int) $c['price_member'], $base5)) : 0;
         if (count($units) === 1) {
             ok("금액 기준: 설치 길이가 없어 같은 규격·같은 판매 단위({$units[0]})의 직전 표 최저 단가", (int) ($j5['max_unit_price'] ?? 0) === $minP && ($j5['price_unit'] ?? '') === $units[0], $j($j5));
-            ok('더 저렴한 제품: 기준 단가보다 싸고 같은 단위·같은 규격만, 없으면 없다고', $d5 ? !array_filter($d5, static fn($c) => (int) $c['price_member'] >= $minP || (string) $c['unit'] !== $units[0] || !str_starts_with((string) $c['size'], '폭 W 400mm · 길이 L 1000mm')) : preg_match('/없습니다/u', (string) ($q5['note'] ?? '')) === 1, (string) ($q5['note'] ?? '') . ' ' . $j($ids($d5)));
+            ok('더 저렴한 제품: 기준 단가보다 싸고 같은 단위·같은 규격만, 없으면 없다고', $d5 ? !array_filter($d5, static fn($c) => (int) $c['price_member'] >= $minP || (string) $c['unit'] !== $units[0] || !str_starts_with((string) $c['size'], '폭 W 400mm · 길이 L 1m')) : preg_match('/없습니다/u', (string) ($q5['note'] ?? '')) === 1, (string) ($q5['note'] ?? '') . ' ' . $j($ids($d5)));
         } else {
             ok('직전 표 판매 단위가 섞여(' . implode('·', $units) . ') 금액 비교 불가 → 옛 금액 기준을 쓰지 않고 이유를 안내', !isset($j5['max_est_cost']) && !isset($j5['max_unit_price']) && ($j5['cheaper_incomparable'] ?? '') === 'unit'
                 && ($d5 === [] || str_contains((string) ($q5['note'] ?? ''), '판매 단위가 서로 달라')), $j($j5) . ' ' . (string) ($q5['note'] ?? ''));
@@ -246,7 +246,7 @@ try {
         ok('검색 입력: 통행 car 추가, 폭 400·제품 길이 1000·설치 20m 유지', ($j8['traffic'] ?? '') === 'car' && (float) ($j8['width_mm'] ?? 0) === 400.0 && (float) ($j8['product_length_mm'] ?? 0) === 1000.0 && (float) ($j8['length_m'] ?? 0) === 20.0, $j($j8) . ' ' . $fills($e8));
         ok('직전 표(7) 제품 재확인 결과가 GPT 에 전달', array_column((array) ($q8['recheck'] ?? []), 'id') !== [] && !array_diff($ids($d7), array_column((array) ($q8['recheck'] ?? []), 'id')), $j($q8['recheck'] ?? null));
         ok('재확인: 보행자용(하중 등급이 상품명으로 확인된 보행자 그레이팅)은 하중 부족으로 표시', !array_filter((array) ($q8['recheck'] ?? []), static fn($x) => ai_grating_load_class((string) $x['name']) === 'pedestrian' && $x['status'] !== 'load_lighter'));
-        ok('새 표: 승용차용(상품명 등급 확인)만, 보행자용·과잉 등급 없음, 수량 20', $d8 !== [] && !array_filter($d8, static fn($c) => ($c['load_check'] ?? '') !== 'verified' || ($c['suggested_qty'] ?? 0) !== 20) && $allSize($d8, '폭 W 400mm · 길이 L 1000mm'), $j(array_map(static fn($c) => [$c['name'], $c['load_check'] ?? null], $d8)));
+        ok('새 표: 승용차용(상품명 등급 확인)만, 보행자용·과잉 등급 없음, 수량 20', $d8 !== [] && !array_filter($d8, static fn($c) => ($c['load_check'] ?? '') !== 'verified' || ($c['suggested_qty'] ?? 0) !== 20) && $allSize($d8, '폭 W 400mm · 길이 L 1m'), $j(array_map(static fn($c) => [$c['name'], $c['load_check'] ?? null], $d8)));
 
         echo " 9) 기존 추천 재검토 '앞에 추천했던 제품들은 차량 통행에 맞아?'\n";
         [$e9, $q9] = $t('앞에 추천했던 제품들은 차량 통행에 맞아?', [$call($careful ? ['query' => '그레이팅', 'width_mm' => 400, 'product_length_mm' => 1000, 'length_m' => 20, 'traffic' => 'car', 'recheck_ids' => $ids($d8)] : ['query' => '그레이팅'], 28), $say('앞서 추천한 제품을 다시 확인했습니다.')]);
@@ -264,7 +264,7 @@ try {
         $d10 = $cards($e10);
         $j10 = $in($e10);
         ok('최종 비교: 직전 표 제품만(only_ids)·조건 유지', ai_int_list($j10['only_ids'] ?? null) === $ids($last) && ($j10['traffic'] ?? '') === 'car' && (float) ($j10['length_m'] ?? 0) === 20.0 && (float) ($j10['width_mm'] ?? 0) === 400.0, $j($j10) . ' ' . $fills($e10));
-        ok('최종 표: 차량 통행 하중 확인된 제품·폭 400·길이 1000·20개·예상 자재비 = 현재 단가 × 20', $d10 !== [] && $allSize($d10, '폭 W 400mm · 길이 L 1000mm') && !array_filter($d10, static fn($c) => ($c['load_check'] ?? '') !== 'verified' || ($c['suggested_qty'] ?? 0) !== 20 || ($c['est_cost'] ?? 0) !== (int) $c['price_member'] * 20), $j(array_map(static fn($c) => [$c['name'], $c['est_cost'] ?? null, $c['load_check'] ?? null], $d10)));
+        ok('최종 표: 차량 통행 하중 확인된 제품·폭 400·길이 1000·20개·예상 자재비 = 현재 단가 × 20', $d10 !== [] && $allSize($d10, '폭 W 400mm · 길이 L 1m') && !array_filter($d10, static fn($c) => ($c['load_check'] ?? '') !== 'verified' || ($c['suggested_qty'] ?? 0) !== 20 || ($c['est_cost'] ?? 0) !== (int) $c['price_member'] * 20), $j(array_map(static fn($c) => [$c['name'], $c['est_cost'] ?? null, $c['load_check'] ?? null], $d10)));
         ok('최종 표에 앞서 하중 부족·치수 다름으로 판정된 제품 없음', !array_intersect($ids($d10), array_column(array_filter($rk9, static fn($x) => in_array($x['status'], ['load_lighter', 'dim_mismatch'], true)), 'id')));
     }
 } finally {
