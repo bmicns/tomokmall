@@ -140,15 +140,17 @@ function quick_chat_user_text(string $content): string
 }
 
 /**
- * 이전 대화내용 목록 — 로그인 본인의 빠른 창 대화 최근 5개(지금 대화 제외). 질문이 없는 대화는 뺀다.
+ * 이전 대화내용 목록 — 본인의 빠른 창 대화 최근 5개(지금 대화 제외). 질문이 없는 대화는 뺀다.
+ * 회원 = user_id, 비회원($uid 0) = 이 기기 쿠키 토큰 해시(guest_hash, A12)
  * @return list<array{sid:string, at:int, first:string}>
  */
-function quick_chat_history(int $uid, string $current): array
+function quick_chat_history(int $uid, string $current, ?string $guestHash = null): array
 {
+    $own = $uid > 0 ? 'user_id = :own' : 'user_id IS NULL AND guest_hash = :own';
     $st = db()->prepare("SELECT session_key, updated_at, messages FROM ai_sessions
-                          WHERE user_id = :uid AND session_key LIKE 'qc%' AND session_key <> :cur
+                          WHERE $own AND session_key LIKE 'qc%' AND session_key <> :cur
                           ORDER BY updated_at DESC LIMIT 10");
-    $st->execute(['uid' => $uid, 'cur' => $current]);
+    $st->execute(['own' => $uid > 0 ? $uid : (string) $guestHash, 'cur' => $current]);
     $out = [];
     foreach ($st->fetchAll() as $r) {
         $first = '';
@@ -167,7 +169,7 @@ function quick_chat_history(int $uid, string $current): array
 }
 
 /**
- * 이전 대화 다시 열기 — 본인 대화만(rag_load_owned_session). 답마다 그때의 견적 표·추천 제품(chat_logs)을 붙이고,
+ * 이전 대화 다시 열기 — 본인 대화만(rag_load_owned_session — 비회원($uid 0)은 이 기기 쿠키 토큰으로 확인). 답마다 그때의 견적 표·추천 제품(chat_logs)을 붙이고,
  * 이 브라우저 세션에 창 안 목록·배송 지역이 없으면(다른 기기) 마지막 견적 표의 품목·지역으로 되살린다. 가격·수량 계산은 그대로.
  * @return list<array{role:string, text:string, events:list<array>}>|null
  */
@@ -248,16 +250,18 @@ if ($action === 'new') {
     echo json_encode(['ok' => true, 'sid' => quick_chat_key_issue()]);
     exit;
 }
-// 이전 대화내용: 로그인 사용자 본인의 빠른 창 대화(상담 키 'qc…')만 — 비로그인은 server:false(창이 이 탭 기록을 씀)
+// 이전 대화내용: 본인의 빠른 창 대화(상담 키 'qc…')만 — 회원은 계정, 비회원은 이 기기 쿠키 토큰(A12).
+// 비회원인데 토큰·DB 칸이 없으면 server:false(창이 이 탭 기록을 씀 — 칸 반영 전과 같은 동작)
 if ($action === 'history' || $action === 'load') {
     $uid = isset($user['id']) ? (int) $user['id'] : 0;
     $req = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) ($body['sid'] ?? '')) ?? '';
-    if ($uid <= 0 || !db()) {
+    $gh  = ($uid <= 0 && db()) ? chat_guest_hash() : null;
+    if (($uid <= 0 && $gh === null) || !db()) {
         echo json_encode(['ok' => true, 'server' => false, 'list' => []]);
         exit;
     }
     if ($action === 'history') {
-        echo json_encode(['ok' => true, 'server' => true, 'list' => quick_chat_history($uid, $req)], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['ok' => true, 'server' => true, 'guest' => $uid <= 0, 'list' => quick_chat_history($uid, $req, $gh)], JSON_UNESCAPED_UNICODE);
         exit;
     }
     $loaded = str_starts_with($req, 'qc') ? quick_chat_load($req, $uid) : null;

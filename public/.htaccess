@@ -1,6 +1,17 @@
 DirectoryIndex index.php
 Options -Indexes
 
+# http 로 들어오면 https 로 보낸다(2026-11-26 사용자 요청 — 로그인·비회원 상담 쿠키를 암호화된 연결로만).
+# GET·HEAD 만 넘긴다(POST 를 넘기면 브라우저가 GET 으로 바꿔 보낸 내용이 사라지므로 — 예전 http 화면의 전송은 그대로 처리).
+# 서버는 https 요청에 HTTPS=on 을 준다(https 응답의 세션 쿠키에 secure 표시로 확인). HSTS 는 넣지 않음(되돌리기 쉽게).
+# 되돌리기: 아래 <IfModule> 묶음을 지운다.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+</IfModule>
+
 <FilesMatch "^\.(env|git)">
     Require all denied
 </FilesMatch>

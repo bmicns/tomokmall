@@ -2,7 +2,7 @@
 # 배포 스모크 체크 — 핵심 URL 상태·마커 확인. 배포 직후 실행.
 # 사용: scripts/smoke.sh [BASE_URL]   (기본: 운영)
 set -u
-BASE="${1:-http://tomokmall.dothome.co.kr}"
+BASE="${1:-https://tomokmall.dothome.co.kr}"
 fail=0
 chk() { # $1=경로 $2=기대코드 $3=선택 grep마커
   local code

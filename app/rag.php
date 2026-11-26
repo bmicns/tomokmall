@@ -170,6 +170,8 @@ function rag_stream(array $messages, string $context): void
     curl_close($ch);
 }
 
+require_once __DIR__ . '/chat_guest.php';   // 비회원 상담 이전 기록(쿠키 토큰 + guest_hash, A12)
+
 /**
  * 세션 저장/불러오기
  */
@@ -182,7 +184,7 @@ function rag_load_session(string $key): array
 }
 
 /**
- * 로그인 사용자 본인의 상담만 불러오기 (이전 상담 복원용)
+ * 본인의 상담만 불러오기 (이전 상담 복원용) — 회원은 user_id, 비회원($userId 0)은 이 기기 쿠키 토큰의 해시(guest_hash)로 확인
  * 반환: messages 배열, 없거나 본인 것이 아니면 null
  */
 function rag_load_owned_session(string $key, int $userId): ?array
@@ -191,8 +193,17 @@ function rag_load_owned_session(string $key, int $userId): ?array
     if (!$pdo || $key === '') {
         return null;
     }
-    $stmt = $pdo->prepare('SELECT messages FROM ai_sessions WHERE session_key = :key AND user_id = :uid');
-    $stmt->execute(['key' => $key, 'uid' => $userId]);
+    if ($userId > 0) {
+        $stmt = $pdo->prepare('SELECT messages FROM ai_sessions WHERE session_key = :key AND user_id = :uid');
+        $stmt->execute(['key' => $key, 'uid' => $userId]);
+    } else {
+        $gh = chat_guest_hash();
+        if ($gh === null) {
+            return null;
+        }
+        $stmt = $pdo->prepare('SELECT messages FROM ai_sessions WHERE session_key = :key AND user_id IS NULL AND guest_hash = :gh');
+        $stmt->execute(['key' => $key, 'gh' => $gh]);
+    }
     $row = $stmt->fetch();
     if (!$row) {
         return null;
@@ -231,6 +242,7 @@ function rag_chat_key_allowed(string $key): bool
 /**
  * 상담 쓰기 권한 — 새 상담, 비로그인(user_id NULL) 상담, 본인 상담만 허용
  * (다른 회원 소유 상담에 이어 쓰거나 저장하지 못하게)
+ * 비회원 상담에 이 기기 표시(guest_hash)가 있으면 같은 기기(또는 그 기록을 옮겨 받을 회원)만 — 남의 비회원 상담에 끼어들지 못하게
  */
 function rag_session_writable(string $key, ?int $userId): bool
 {
@@ -238,11 +250,16 @@ function rag_session_writable(string $key, ?int $userId): bool
     if (!$pdo) {
         return true; // DB 없으면 저장 자체가 불가 — 기존 동작에 맡김
     }
-    $stmt = $pdo->prepare('SELECT user_id FROM ai_sessions WHERE session_key = :key');
+    $ready = chat_guest_ready();
+    $stmt = $pdo->prepare('SELECT user_id' . ($ready ? ', guest_hash' : '') . ' FROM ai_sessions WHERE session_key = :key');
     $stmt->execute(['key' => $key]);
     $row = $stmt->fetch();
-    if (!$row || $row['user_id'] === null) {
+    if (!$row) {
         return true;
+    }
+    if ($row['user_id'] === null) {
+        $owner = $ready ? ($row['guest_hash'] ?? null) : null;
+        return $owner === null || hash_equals((string) $owner, (string) chat_guest_hash());
     }
     return $userId !== null && (int) $row['user_id'] === $userId;
 }
@@ -433,6 +450,26 @@ function rag_save_session(string $key, array $messages): void
     }
 
     $json = json_encode($messages, JSON_UNESCAPED_UNICODE);
+    // 비회원: 이 기기 표시(쿠키 토큰 해시)를 함께 저장 — 브라우저를 닫았다 와도 이전 상담을 찾게(A12). 칸이 없으면 지금처럼.
+    if (chat_guest_ready()) {
+        $gh = $userId === null ? chat_guest_hash(true) : null;
+        // guest_hash 를 먼저 정함(MySQL 은 왼쪽부터 적용): 회원 것이 되면 NULL, 비회원이면 처음 표시 유지
+        $stmt = db()->prepare(
+            'INSERT INTO ai_sessions (session_key, user_id, guest_hash, messages)
+                  VALUES (:key, :uid, :gh, :msg)
+             ON DUPLICATE KEY UPDATE
+                  guest_hash = IF(COALESCE(user_id, :uid_gh) IS NULL, COALESCE(guest_hash, :gh_upd), NULL),
+                  user_id    = COALESCE(user_id, :uid_upd),
+                  messages   = :msg_upd,
+                  updated_at = NOW()'
+        );
+        $stmt->execute([
+            'key' => $key, 'uid' => $userId, 'gh' => $gh, 'msg' => $json,
+            'uid_gh' => $userId, 'gh_upd' => $gh, 'uid_upd' => $userId, 'msg_upd' => $json,
+        ]);
+        chat_guest_purge();   // 보관 기간 지난 비회원 대화(30일)·상담 로그(1년) — 가끔, 일부씩
+        return;
+    }
     // ON DUPLICATE KEY UPDATE: user_id 는 이미 설정된 값이 있으면 유지 (COALESCE — 기존 소유자 우선)
     // 익명(NULL) → 로그인 후 재상담 시에만 user_id 연결
     $stmt = db()->prepare(

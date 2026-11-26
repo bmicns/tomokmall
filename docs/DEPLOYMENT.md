@@ -15,7 +15,7 @@
 | 항목 | 값 | 출처 |
 |---|---|---|
 | 호스팅 | 닷홈(dothome) 웹호스팅 — Apache / PHP 8.4 / MySQL 8.0 | README |
-| 라이브 URL | `http://tomokmall.dothome.co.kr` (HTTP, SSL 미적용) | 운영 정보, `app/config.php`, `scripts/smoke.sh` |
+| 라이브 URL | `https://tomokmall.dothome.co.kr` (SSL 적용 — http 로 들어오면 https 로 자동 이동, `public/.htaccess` 2026-11-26) | 운영 정보, `app/config.php`, `scripts/smoke.sh` |
 | FTP 호스트 | `112.175.185.138` | 운영 정보, `scripts/deploy.sh` |
 | FTP 사용자 | `tomokmall` | 운영 정보, `scripts/deploy.sh` |
 | FTP 비밀번호 | **문서에 기록하지 않음** → 환경변수 `FTP_PASS` | `.env.local` (Git 제외) |
@@ -50,7 +50,7 @@ FTP 루트
 | FTP 호스트 | 112.175.185.138 | `deploy.sh`: `FTP_HOST="112.175.185.138"` | ✅ 일치 |
 | FTP 사용자 | tomokmall | `deploy.sh`: `FTP_USER="tomokmall"` | ✅ 일치 |
 | FTP 비밀번호 | (가려짐) | `deploy.sh`: 셸 env `FTP_PASS` → 없으면 `.env.local`의 `FTP_PASS=` | ✅ 코드에 하드코딩 없음 |
-| 라이브 URL | tomokmall.dothome.co.kr | `config.php` `base_url`, `smoke.sh` 기본 대상 | ✅ 일치 (HTTP) |
+| 라이브 URL | tomokmall.dothome.co.kr | `config.php` `base_url`, `smoke.sh` 기본 대상 | ✅ 일치 (HTTPS, 2026-11-26 정정) |
 | DB_HOST | 127.0.0.1 | `.env.example`: `localhost` / `config.php` 기본값: `localhost` / Docker: `mysql` | ⚠️ 차이 있음 — 아래 참고 |
 | DB_NAME | tomokmall | `.env.example`·`config.php` 기본값: `tomokmall` | ✅ 일치 |
 | DB_USER | tomokmall | `.env.example`·`config.php` 기본값: `tomokmall` | ✅ 일치 |
