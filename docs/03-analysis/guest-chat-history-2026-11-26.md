@@ -17,7 +17,7 @@ A 비회원 토큰 쿠키 + DB 해시(추천) / B 세션 기한 연장(로그인
 3. `chat_logs` 1년 보관 후 삭제
 4. 로그인 때 묻지 않고 이 기기 비회원 기록을 회원 계정으로 옮김(공용 PC 위험은 검토 문서에서 안내함)
 5. DB 칸 `ai_sessions.guest_hash CHAR(64) NULL` + 인덱스 — 승인(11-26), SQL `database/20261126_ai_sessions_guest_hash.sql`(+ `_rollback`)
-6. HTTPS 자동 이동 — 별도(급하지 않음). 정정: https 접속은 이미 되고 요즘 브라우저는 https 를 먼저 엶. 서버에 http → https 넘기기 규칙이 없을 뿐(`public/.htaccess`). `docs/DEPLOYMENT.md` 'SSL 미적용'·`app/config.php` http 주소는 옛 기록
+6. HTTPS 자동 이동 — 사용자 요청으로 적용(11-26, `public/.htaccess`, GET·HEAD 만). 정정: https 접속은 이미 되고 요즘 브라우저는 https 를 먼저 엶. 서버에 http → https 넘기기 규칙이 없을 뿐(`public/.htaccess`). `docs/DEPLOYMENT.md` 'SSL 미적용'·`app/config.php` http 주소는 옛 기록
 
 ## 4. 설계 요점
 - 쿠키 `tm_guest` = `random_bytes(32)`, HttpOnly·SameSite=Lax·HTTPS 면 Secure, 30일(대화 때 연장), 처음 저장할 때만 발급. 토큰은 URL·로그에 쓰지 않음.

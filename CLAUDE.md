@@ -9,7 +9,7 @@
 
 - 건축자재 쇼핑몰 + AI 상담/검색(RAG) + 견적·주문 + 직원(staff)·관리자(admin) 화면
 - 환경: **닷홈 Apache / PHP 8.4 / MySQL 8.0**, 프레임워크 없는 순수 PHP (`declare(strict_types=1)`)
-- 운영 주소: `http://tomokmall.dothome.co.kr` (기본 HTTP — 원격 관리 승인 화면은 `https://` 로 접속)
+- 운영 주소: `https://tomokmall.dothome.co.kr` (http 로 들어오면 https 로 자동 이동 — `public/.htaccess`, 2026-11-26)
 
 | 경로 | 역할 | 운영 서버 위치 |
 |---|---|---|

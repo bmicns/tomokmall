@@ -6,7 +6,7 @@
 
 - PHP 8.4 / MySQL 8.0
 - 웹루트: `/html` (public/ 배포), 앱 로직: `/app` (app/ 배포, 웹루트 밖)
-- 기본 주소: `http://tomokmall.dothome.co.kr`
+- 기본 주소: `https://tomokmall.dothome.co.kr` (http 로 들어오면 https 로 자동 이동 — `public/.htaccess`, 2026-11-26)
 
 ## 환경변수 (시크릿)
 
