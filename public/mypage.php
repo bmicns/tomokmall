@@ -120,6 +120,32 @@ render_header('마이페이지');
             </div>
             <p class="info-msg" id="pw-msg"></p>
             <div><button class="info-btn" id="pw-btn" onclick="changePw()">비밀번호 변경</button></div>
+
+            <?php if (in_array($user['role'], ['customer', 'corporate'], true)): ?>
+            <hr class="info-divider">
+            <!-- 회원 탈퇴(A안 — 계정 잠금 + 개인정보 지우기, 사용자 결정 2026-11-26, app/privacy.php) -->
+            <details class="wd-box" id="wd-box">
+                <summary class="wd-summary">회원 탈퇴</summary>
+                <div class="wd-body">
+                    <ul class="wd-notes">
+                        <li>탈퇴하면 이름·연락처·주소 등 회원 정보와 이전 상담, 현장, 관심상품이 바로 지워지고 되돌릴 수 없습니다.</li>
+                        <li>주문 기록은 전자상거래법에 따라 5년 동안 따로 보관한 뒤 지웁니다.</li>
+                        <li>진행 중인 견적·납품이 있으면 끝난 뒤에 탈퇴할 수 있습니다.</li>
+                        <li>같은 이메일로 다시 가입할 수 있습니다.</li>
+                    </ul>
+                    <div class="info-field">
+                        <label class="info-label" for="wd-pw">지금 비밀번호</label>
+                        <input id="wd-pw" class="info-input" type="password" autocomplete="current-password" maxlength="100">
+                    </div>
+                    <div class="info-field">
+                        <label class="info-label" for="wd-confirm">확인을 위해 '탈퇴'라고 적어 주세요</label>
+                        <input id="wd-confirm" class="info-input" type="text" maxlength="10" autocomplete="off" placeholder="탈퇴">
+                    </div>
+                    <p class="info-msg" id="wd-msg" role="alert"></p>
+                    <div><button type="button" class="info-btn wd-btn" id="wd-btn" onclick="withdrawAccount()">회원 탈퇴하기</button></div>
+                </div>
+            </details>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -218,5 +244,6 @@ const MP_ORDERS = <?= json_encode(array_map(function($o) {
 }, $orders), JSON_UNESCAPED_UNICODE) ?>;
 const MP_INIT = {activeTab: '<?= e($activeTab) ?>', isCorp: <?= $isCorp ? 'true' : 'false' ?>};
 </script>
-<script src="/assets/mypage.js"></script>
+<?php $mpJsV = @filemtime(__DIR__ . '/assets/mypage.js') ?: 1; // 캐시버스팅(탈퇴 버튼 등 새 함수가 예전 캐시로 깨지지 않게) ?>
+<script src="/assets/mypage.js?v=<?= (int) $mpJsV ?>"></script>
 <?php render_footer(); ?>
