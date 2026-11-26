@@ -12,7 +12,8 @@
   'use strict';
   const STORE = 'tomok.quickChat.v1';
   const MAX_LEN = 200;
-  const CHIPS = ['주차장 배수로 그레이팅 20m', '마당 경계석 30m, 경기도', '공원 보도블록 500㎡'];
+  // 길이로 까는 자재는 줄 구성까지 말하는 예(10m씩 2줄·10m, 15m — 2026-11-26 설치 길이 질문 A13)
+  const CHIPS = ['주차장 배수로 그레이팅 폭 300 10m씩 2줄', '차도 경계석 15m, 12m', '농경지 흄관 300 10m, 15m', '공원 보도블록 500㎡'];
   const PREV_MAX = 5;
   const PHOTO_MAX_BYTES = 10 * 1024 * 1024;
   const PHOTO_MAX_SIDE = 1600;
@@ -120,7 +121,7 @@
   function render() {
     log.textContent = '';
     const hello = aiRow('');
-    hello.querySelector('.qc-a-text').innerHTML = '필요한 자재를 편하게 말씀해 주세요. 맞는 제품을 찾아 <b>견적 목록</b>에 담고, 설치 길이·면적을 알려 주시면 수량도 맞춰 드려요.';
+    hello.querySelector('.qc-a-text').innerHTML = '필요한 자재를 편하게 말씀해 주세요. 맞는 제품을 찾아 <b>견적 목록</b>에 담고, 설치 길이·면적을 알려 주시면 수량도 맞춰 드려요. 여러 줄을 설치하면 각 줄의 길이를 알려 주세요. (예: 10m씩 2줄 또는 10m, 15m)';
     if (!state.msgs.length) {
       const start = document.createElement('div');
       start.innerHTML = '<div class="qc-start-label">이렇게 물어보세요</div><div class="qc-chips"></div>';
