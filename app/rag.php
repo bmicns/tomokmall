@@ -171,6 +171,7 @@ function rag_stream(array $messages, string $context): void
 }
 
 require_once __DIR__ . '/chat_guest.php';   // 비회원 상담 이전 기록(쿠키 토큰 + guest_hash, A12)
+require_once __DIR__ . '/privacy.php';      // 견적 개인정보 1년 자동 정리(처리방침 제2조)
 
 /**
  * 세션 저장/불러오기
@@ -468,6 +469,7 @@ function rag_save_session(string $key, array $messages): void
             'uid_gh' => $userId, 'gh_upd' => $gh, 'uid_upd' => $userId, 'msg_upd' => $json,
         ]);
         chat_guest_purge();   // 보관 기간 지난 비회원 대화(30일)·상담 로그(1년) — 가끔, 일부씩
+        privacy_estimate_purge();   // 1년 지난 견적 개인정보 — 가끔, 일부씩
         return;
     }
     // ON DUPLICATE KEY UPDATE: user_id 는 이미 설정된 값이 있으면 유지 (COALESCE — 기존 소유자 우선)
