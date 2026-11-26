@@ -8,7 +8,7 @@ ini_set('display_startup_errors', '0');
 error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
 
 // 세션 쿠키 보안: SameSite=Lax(교차사이트 POST=CSRF 차단) + HttpOnly(JS 접근 차단).
-// Secure는 HTTPS일 때만(현재 dothome는 http라 강제 시 세션 유실 → 자동 감지). SSL 적용되면 자동 보안.
+// Secure는 HTTPS일 때만(자동 감지 — 운영은 https, http 로 오면 public/.htaccess 가 https 로 보냄(2026-11-26). 로컬 http 개발 서버도 그대로 동작).
 session_set_cookie_params([
     'lifetime' => 0,
     'path'     => '/',

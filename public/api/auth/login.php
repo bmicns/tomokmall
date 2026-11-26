@@ -16,6 +16,7 @@ declare(strict_types=1);
  */
 
 require __DIR__ . '/../../../app/bootstrap.php';
+require __DIR__ . '/../../../app/chat_guest.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -85,6 +86,9 @@ $_SESSION['user'] = [
 // last_login_at 갱신
 $pdo->prepare('UPDATE users SET last_login_at = NOW() WHERE id = :id')
     ->execute(['id' => (int) $user['id']]);
+
+// 비회원으로 이 기기에서 한 AI 상담 → 회원 계정으로 옮기고 비회원 토큰 쿠키 삭제(사용자 결정 11-26: 묻지 않고 옮김, A12)
+chat_guest_claim((int) $user['id']);
 
 echo json_encode([
     'ok'       => true,

@@ -1,44 +1,74 @@
 <?php
 declare(strict_types=1);
 /**
- * GET /api/chat/history.php?limit={n}
- * 로그인 사용자의 이전 AI 상담 이력 목록 반환
+ * GET  /api/chat/history.php?limit={n}   이전 AI 상담 이력 목록
+ * POST /api/chat/history.php {"action":"forget"}   비회원 '이 기기 상담 기록 지우기'
  *
- * 인증: 로그인 필요 (require_login)
- * 검증: limit 1~10, user_id 본인 세션만 조회
+ * 인증: 회원 = 로그인 세션(user_id 본인 것만), 비회원 = 이 기기 쿠키 토큰의 해시(guest_hash, A12 — 쿠키가 없으면 빈 목록)
+ * 검증: limit 1~10, 다른 사람 상담은 목록에 나오지 않음(상담 번호를 알아도 /chat.php?sid= 복원은 같은 확인)
  */
 
 require __DIR__ . '/../../../app/bootstrap.php';
 require __DIR__ . '/../../../app/auth.php';
+require __DIR__ . '/../../../app/chat_guest.php';
 
 header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
 
-if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+if ($method !== 'GET' && $method !== 'POST') {
     http_response_code(405);
     echo json_encode(['ok' => false, 'error' => '허용되지 않는 메서드입니다.']);
     exit;
 }
 
-$user  = require_login();
-$limit = max(1, min(10, (int) ($_GET['limit'] ?? 5)));
-
-$pdo = db();
+$user = current_user();
+$pdo  = db();
 if (!$pdo) {
     http_response_code(503);
     echo json_encode(['ok' => false, 'error' => '서버 오류가 발생했습니다.']);
     exit;
 }
 
-// user_id 일치 확인으로 타인 이력 접근 차단
-$stmt = $pdo->prepare(
-    'SELECT session_key, created_at, messages
-     FROM ai_sessions
-     WHERE user_id = :uid
-     ORDER BY updated_at DESC
-     LIMIT :lim'
-);
-$stmt->bindValue(':uid', $user['id'], PDO::PARAM_INT);
-$stmt->bindValue(':lim', $limit,      PDO::PARAM_INT);
+if ($method === 'POST') {
+    $body = json_decode((string) file_get_contents('php://input'), true);
+    if (!is_array($body) || ($body['action'] ?? '') !== 'forget' || $user) {
+        echo json_encode(['ok' => false, 'error' => '잘못된 요청입니다.'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    echo json_encode(['ok' => true, 'deleted' => chat_guest_forget()]);
+    exit;
+}
+
+$limit = max(1, min(10, (int) ($_GET['limit'] ?? 5)));
+$guest = !$user;
+if ($guest) {
+    $gh = chat_guest_hash();
+    if ($gh === null) {
+        echo json_encode(['ok' => true, 'guest' => true, 'sessions' => []]);
+        exit;
+    }
+    // 이 기기 토큰의 비회원 상담만
+    $stmt = $pdo->prepare(
+        'SELECT session_key, created_at, messages
+         FROM ai_sessions
+         WHERE user_id IS NULL AND guest_hash = :gh
+         ORDER BY updated_at DESC
+         LIMIT :lim'
+    );
+    $stmt->bindValue(':gh', $gh);
+} else {
+    // user_id 일치 확인으로 타인 이력 접근 차단
+    $stmt = $pdo->prepare(
+        'SELECT session_key, created_at, messages
+         FROM ai_sessions
+         WHERE user_id = :uid
+         ORDER BY updated_at DESC
+         LIMIT :lim'
+    );
+    $stmt->bindValue(':uid', (int) $user['id'], PDO::PARAM_INT);
+}
+$stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
 $stmt->execute();
 $rows = $stmt->fetchAll();
 
@@ -68,4 +98,4 @@ $sessions = array_map(function ($row) {
     ];
 }, $rows);
 
-echo json_encode(['ok' => true, 'sessions' => $sessions], JSON_UNESCAPED_UNICODE);
+echo json_encode(['ok' => true, 'guest' => $guest, 'sessions' => $sessions], JSON_UNESCAPED_UNICODE);
