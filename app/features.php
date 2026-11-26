@@ -22,7 +22,8 @@ function ai_quote_card_enabled(?bool $set = null): bool
 
 // 우측 하단 'AI 빠른 견적' 창(케이토목 1분 자동견적과 비슷한 짧은 상담 — 지금 AI 상담과 비교용, 사용자 결정 2026-11-23)
 // 'off' = 안 보임 | 'staff' = 관리자·직원만 | 'all' = 모든 방문자. 견적 카드 스위치(FEATURE_AI_QUOTE_CARD)가 꺼져 있으면 보이지 않는다.
-const FEATURE_AI_QUICK_CHAT = 'staff';
+// 2026-11-26 사용자 결정: 기존 AI 상담과 함께 쓰기로 — 비로그인·개인·기업회원 모두에게(되돌리려면 'staff')
+const FEATURE_AI_QUICK_CHAT = 'all';
 
 /**
  * 이 사용자에게 우측 하단 빠른 견적 창을 보여 줄지. 테스트는 $setMode 로 이 요청 동안만 바꿀 수 있다.
