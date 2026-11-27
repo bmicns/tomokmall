@@ -81,7 +81,7 @@
 | `.claude/rules/deploy-ops.md` | 항상 | 배포·FTP, 원격 관리 API 운영, 장애 예방, 로컬 시크릿 주의 |
 | `.claude/rules/data-decisions.md` | 항상 | 확정 데이터·분류 결정(P0), 기능 정책 결정, 확인 필요·대기 항목 |
 | `.claude/rules/php-backend.md` | PHP 파일을 읽을 때 | 코드 원칙, 백엔드 보안, 성능 |
-| `.claude/rules/frontend-ui.md` | 화면 파일을 읽을 때 | UI, 접근성, 반응형 |
+| `.claude/rules/frontend-ui.md` | 화면 파일을 읽을 때 · **디자인 시안 작업 전에는 직접 읽는다** | UI, 접근성, 반응형, 디자인 참고(4장) |
 
 | 상세 문서 | 읽는 때 |
 |---|---|
