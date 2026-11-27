@@ -22,6 +22,7 @@ const MEGA_MENU_GROUP_REST = '그 밖의 자재';
 
 // 고객상담 전화(푸터·빠른 견적 창 안내 공통 — 사이트에 공개된 회사 대표 번호)
 const SITE_CONTACT_PHONE = '010-8490-9271';
+const SITE_CONTACT_EMAIL = 'bmicns@gmail.com';   // 하단·개인정보 처리방침(보호책임자 연락처)에 같이 씀
 
 /**
  * 묶음 대분류의 중분류를 묶음 칸으로: 각 칸 = ['mid' => ['id'=>null,'name'=>묶음 제목], 'subs' => 그 묶음의 중분류 행들, 'group' => true].
@@ -515,9 +516,11 @@ function render_footer(): void
         <div class="footer-company">
             <strong>BMI C&amp;S Co., Ltd.</strong>
             <p>대표이사 김동의 &nbsp; 주소 서울시 강남구 강남대로 354 (역삼동, 혜천빌딩 1126-5호)</p>
-            <p>전화 <?= e(SITE_CONTACT_PHONE) ?> &nbsp; 이메일 bmicns@gmail.com</p>
+            <p>전화 <?= e(SITE_CONTACT_PHONE) ?> &nbsp; 이메일 <?= e(SITE_CONTACT_EMAIL) ?></p>
             <p>사업자등록번호 263-87-03481 &nbsp; 통신판매신고번호 2025-경기광명-0189</p>
             <p>영업시간 평일 09:00 ~ 18:00</p>
+            <p>개인정보 보호책임자 김동의</p>
+            <p class="footer-legal"><a href="/terms.php">이용약관</a><span aria-hidden="true"> · </span><a href="/privacy.php" class="footer-legal-privacy">개인정보처리방침</a></p>
             <p>Copyright &copy; 2026 BMI C&amp;S Co., Ltd. All rights reserved.</p>
         </div>
     </div>

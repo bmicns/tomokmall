@@ -2288,3 +2288,35 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   /* 상품 카드: 값이 없는 칸(예: 중량 미등록 상품)은 '중량' 이름표만 남지 않게 숨김 */
   .product-table td:is(.pt-col-unit, .pt-col-spec, .pt-col-specinfo, .pt-col-weight, .pt-col-load):empty { display: none; }
 }
+
+/* ── 이용약관·개인정보 처리방침(/terms.php·/privacy.php) ─────────── */
+.legal-page { max-width: 860px; margin: 40px auto 0; padding: 0 32px; font-size: 15px; line-height: 1.8; color: var(--color-text-primary); }
+.legal-title { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+.legal-meta { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 24px; }
+.legal-meta a, .legal-page p a, .legal-page li a { color: var(--color-primary); text-decoration: underline; }
+.legal-page h2 { font-size: 19px; font-weight: 700; margin: 40px 0 12px; padding-top: 16px; border-top: 1px solid var(--color-border); scroll-margin-top: 90px; }
+.legal-page h3 { font-size: 16px; font-weight: 600; margin: 24px 0 8px; }
+.legal-page p { margin: 0 0 10px; }
+.legal-page ol, .legal-page ul { margin: 0 0 12px; padding-left: 22px; }
+.legal-page ol { list-style: decimal; }
+.legal-page ul { list-style: disc; }
+.legal-page li { margin-bottom: 4px; }
+.legal-page li > ul { margin: 6px 0 4px; }
+.legal-toc { background: var(--color-surface); border: 1px solid var(--color-border); padding: 16px 20px; margin: 20px 0 8px; }
+.legal-toc ol { margin: 0; }
+.legal-toc a { color: var(--color-text-primary); text-decoration: none; }
+.legal-toc a:hover { color: var(--color-primary); text-decoration: underline; }
+.legal-table-wrap { overflow-x: auto; margin: 0 0 14px; -webkit-overflow-scrolling: touch; }
+.legal-table { width: 100%; min-width: 520px; border-collapse: collapse; font-size: 14px; line-height: 1.6; }
+.legal-table th, .legal-table td { border: 1px solid var(--color-border); padding: 8px 10px; text-align: left; vertical-align: top; }
+.legal-table thead th, .legal-table tbody th { background: var(--color-surface); font-weight: 600; }
+.legal-table tbody th { white-space: nowrap; }
+.footer-legal a { color: var(--color-text-secondary); }
+.footer-legal a:hover { color: var(--color-text-primary); text-decoration: underline; }
+.footer-legal .footer-legal-privacy { font-weight: 700; color: var(--color-text-primary); }
+@media (max-width: 600px) {
+  .legal-page { margin-top: 24px; padding: 0 16px; font-size: 14px; }
+  .legal-title { font-size: 22px; }
+  .legal-page h2 { font-size: 17px; margin-top: 32px; }
+  .legal-table { min-width: 480px; }
+}
