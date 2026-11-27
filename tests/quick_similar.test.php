@@ -94,6 +94,14 @@ $r = rag_strip_unsupported_claims('위 제품들은 모두 내경 300mm입니다
 ok("'…종류이므로 신뢰성이 높습니다' → '…종류입니다.'(사실만 남김)", str_contains($r, 'KS F 4403(원심력 철근 콘크리트관) 표준 대상 종류입니다.') && !str_contains($r, '신뢰성'), $r);
 ok('하중이 상품 자료로 확인된 표면 차량 적합 문장은 그대로', str_contains(rag_strip_unsupported_claims('중하중 제품이라 승용차 통행에 적합합니다.', true), '적합합니다'));
 ok('두께 기준(80T) 문장은 그대로', str_contains(rag_strip_unsupported_claims('차량이 올라가면 두께 80mm 이상(80T) 제품이 적합합니다.', false), '80T'));
+$t = "차도에 설치하시는 경계석으로 아래 제품을 추천드립니다.\n\n인조화강경계석은 두께가 120mm로 차량이 올라가는 곳 저희 권장 기준을 충족합니다. 아래 표에서 골라 주세요.";
+$r = rag_strip_unsupported_claims($t, false, true);
+ok("경계석 상담: '두께 120mm … 권장 기준을 충족합니다'(포장 블록 기준) 문장은 숫자가 있어도 뺌(운영 시험 11-27), 나머지 문장은 그대로",
+    !str_contains($r, '권장 기준') && str_contains($r, '아래 표에서 골라 주세요.') && str_contains($r, '추천드립니다.'), $r);
+ok('경계석 상담: 80T 이상 기준 문장도 뺌, 규격 사실 문장은 그대로', !str_contains(rag_strip_unsupported_claims('경계석은 80T 이상 기준을 만족합니다. 규격은 120×120×1000입니다.', false, true), '80T')
+    && str_contains(rag_strip_unsupported_claims('경계석은 80T 이상 기준을 만족합니다. 규격은 120×120×1000입니다.', false, true), '120×120×1000'));
+ok('경계석이 아닌 상담(보도블록)은 두께 기준 문장 그대로', str_contains(rag_strip_unsupported_claims('차량이 올라가면 두께 80mm 이상(80T) 제품이 권장 기준입니다.', false, false), '80T'));
+ok('경계석만 이야기한 대화 판단: 경계석+차도 = 경계석만, 보도블록 함께 = 아님', rag_is_curb_only($u('경계석 15m', '차도')) && !rag_is_curb_only($u('경계석이랑 보도블록')));
 
 echo "[줄별 수량 기준 rag_runs_basis_line (11-27)]\n";
 $runs = ['runs' => [10.0, 15.0], 'count' => 2];
