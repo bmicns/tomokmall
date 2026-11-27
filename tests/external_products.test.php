@@ -74,6 +74,8 @@ $g = ext_selection_guide(['id' => 2, 'name' => '인터로킹U형블럭', 'spec' 
 ok('60T 는 보행용 + 차량은 80mm 이상 안내', str_contains($g[0], '사람만 다니는 곳') && str_contains($g[0], '80mm 이상'));
 $g = ext_selection_guide(['id' => 3, 'name' => '중하중그레이팅수로용', 'spec' => '규격: 300*1000*50(7*4) | 단위: 개']);
 ok('그레이팅 하중 등급 설명', $g === ['중하중 — 승용차·SUV 통행']);
+$g = ext_selection_guide(['id' => 12090, 'name' => '인조화강경계석', 'spec' => '규격: 120*120*120 | 중량: 31kg | 단위: 개']);
+ok("인조화강경계석: 포장 블록 두께 기준('권장 기준(80mm 이상) 충족') 없음·'블록'이라 하지 않음(운영 상담 #380 11-27)", !preg_match('/권장 기준|80mm|블록/u', implode(' ', $g)) && str_contains(implode(' ', $g), '인조화강'), $g);
 $g = ext_selection_guide(['id' => 1, 'name' => '인조화강블록(투수)', 'spec' => '규격: 200*200*80T(투수)'], [['maker' => '시험제조', 'ks' => ['KS F 4419'], 'source_name' => '시험 출처']]);
 ok('확정된 외부 자료는 출처와 함께(가격 없음)', str_contains(end($g), '참고 자료(판매 상품 아님): 시험제조 · KS F 4419 — 출처 시험 출처') && !preg_match('/원|₩|가격/u', implode(' ', $g)));
 ok('관계없는 품목은 설명 없음(지어내지 않음)', ext_selection_guide(['id' => 9, 'name' => '규사', 'spec' => '규격: 5호사_1.0톤 | 단위: 톤']) === []);

@@ -2171,6 +2171,84 @@ function rag_strip_unsupported_claims(string $text, bool $loadVerified, bool $cu
     return trim((string) preg_replace('/\n{3,}/u', "\n\n", implode("\n", $out)));
 }
 
+/** 답 글의 치수 말('길이 1m'·'상단 높이 300mm'·'두께 80T') — 설치·총·연장 길이는 빼고 본다. 1 = 치수 말 전체, 2 = 숫자, 3 = 단위 */
+const RAG_DIM_PHRASE_RE = '/(?<![가-힣])(?:(?:상단|하단|상부|하부|윗면|밑면|바닥)\s*)?(?:폭|너비|가로|세로|길이|높이|두께|지름|직경|내경|외경|깊이|상부폭|하부폭)\s*(?:은|는|이|가|:)?\s*(?:약\s*)?(\d[\d,]*(?:\.\d+)?)\s*(mm|㎜|cm|m|미터|T)(?![A-Za-z²㎡])/u';
+
+/** 글 속 숫자를 mm 값 목록으로 (순수 함수) — 단위 m·미터 ×1000, cm ×10, mm·T·단위 없음은 그대로(단위 없는 10 이하 숫자는 m 로도 봄 — 개거 등 m 규격) */
+function rag_dim_numbers_mm(string $text): array
+{
+    $out = [];
+    preg_match_all('/(\d[\d,]*(?:\.\d+)?)\s*(mm|㎜|cm|m(?![a-z㎡²])|미터|T)?/u', $text, $m, PREG_SET_ORDER);
+    foreach ($m as $x) {
+        $n = (float) str_replace(',', '', $x[1]);
+        $u = $x[2] ?? '';
+        $v = match ($u) { 'm', '미터' => $n * 1000, 'cm' => $n * 10, default => $n };
+        $out[(string) round($v, 1)] = true;
+        if ($u === '' && $n > 0 && $n <= 10) { $out[(string) round($n * 1000, 1)] = true; }
+    }
+    return $out;
+}
+
+/**
+ * 표에 없는 치수 빼기 (순수 함수, 사용자 요청 2026-11-27 — 운영 상담 #380 경계석 120×120×120 에 '길이 1m'를 덧붙임).
+ * 답 글 줄마다 이름이 나온 표 제품(가장 긴 이름)의 규격·치수·수량 근거 숫자, 고객이 말한 숫자에 없는 치수 말('길이 1m')을 뺀다(이름 없는 줄은 그대로).
+ * 'A, 길이 1m, B' → 'A, B', 다른 치수와 이어지지 않으면 그 문장을 뺀다(줄 앞 '- 제품명:'은 남김). 이번 표가 없으면 그대로.
+ * 설치 길이('설치 길이 15m'·'총 길이')는 보지 않는다.
+ */
+function rag_strip_unlisted_dims(string $text, array $cards, array $messages): string
+{
+    if (!$cards) { return $text; }
+    $norm = static fn(string $s): string => (string) preg_replace('/\s+/u', '', $s);
+    $byName = [];
+    foreach ($cards as $c) {
+        $name = $norm((string) ($c['name'] ?? ''));
+        if ($name === '') { continue; }
+        $src = implode(' ', array_map(static fn($v) => is_array($v) ? implode(' ', array_map('strval', $v)) : (string) $v,
+            array_intersect_key($c, array_flip(['name', 'spec', 'spec_label', 'size', 'qty_basis', 'run_basis', 'guide', 'category_name']))));
+        $byName[$name] = ($byName[$name] ?? []) + rag_dim_numbers_mm($src);
+    }
+    if (!$byName) { return $text; }
+    $said = rag_dim_numbers_mm(implode(' ', array_map(static fn($m) => ($m['role'] ?? '') === 'user' ? (string) ($m['content'] ?? '') : '', $messages)));
+    $out = [];
+    foreach (explode("\n", $text) as $line) {
+        $flat = $norm($line);
+        $best = '';
+        foreach (array_keys($byName) as $nm) {
+            if (str_contains($flat, (string) $nm) && mb_strlen((string) $nm) > mb_strlen($best)) { $best = (string) $nm; }
+        }
+        if ($best === '') { $out[] = $line; continue; }   // 표 제품 이름이 없는 줄(앞 대화 제품·일반 안내)은 건드리지 않음
+        $ok = $byName[$best] + $said;
+        $bad = [];
+        if (preg_match_all(RAG_DIM_PHRASE_RE, $line, $mm, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+            foreach ($mm as $x) {
+                $pre = substr($line, max(0, $x[0][1] - 12), min(12, $x[0][1]));
+                if (preg_match('/(설치|총|연장|시공|구간)\s*$/u', $pre)) { continue; }
+                $n = (float) str_replace(',', '', $x[1][0]);
+                $v = match ($x[2][0]) { 'm', '미터' => $n * 1000, 'cm' => $n * 10, default => $n };
+                if (!isset($ok[(string) round($v, 1)])) { $bad[] = $x[0][0]; }
+            }
+        }
+        foreach (array_unique($bad) as $ph) {
+            $q = preg_quote($ph, '/');
+            $new = preg_replace('/' . $q . '\s*,\s*/u', '', $line, 1, $cnt);
+            if (!$cnt) { $new = preg_replace('/\s*,\s*' . $q . '/u', '', $line, 1, $cnt); }
+            if (!$cnt) {   // 다른 치수와 이어지지 않음 → 그 문장을 뺀다(줄 앞 '- 제품명:' 은 남김)
+                $sens = preg_split('/(?<=[.!?])\s+/u', $line) ?: [$line];
+                $keep = [];
+                foreach ($sens as $sen) {
+                    if (!str_contains((string) $sen, $ph)) { $keep[] = $sen; continue; }
+                    if (preg_match('/^(\s*-\s*[^:：]{1,40}[:：])/u', (string) $sen, $pm) === 1 && !$keep) { $keep[] = $pm[1]; }
+                }
+                $new = rtrim(implode(' ', $keep));
+            }
+            $line = (string) $new;
+        }
+        if ($bad && preg_match('/^\s*-?\s*$/u', $line)) { continue; }
+        $out[] = $line;
+    }
+    return implode("\n", $out);
+}
+
 /**
  * 여러 줄 설치의 줄별 수량 기준 한 줄 (순수 함수, 사용자 요청 2026-11-27 — '10m 4본 + 15m 6본' 을 답에 꼭).
  * 이번 표 제품의 qty_basis(줄마다 올림 계산, 서버 값 그대로)를 제품 1개 길이별로 묶어 '수량 기준(줄별)' 한 문단으로. 답에 이미 줄별 수량이 있으면 그대로.
@@ -2972,6 +3050,7 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
         // 근거 없는 효과·성능 문장('하중을 견딜 수 있는'·'신뢰성이 높습니다') 빼기, 여러 줄 설치면 줄별 수량 기준 한 줄(사용자 요청 11-27)
         $responseText = rag_strip_unsupported_claims($responseText, (bool) array_filter($turnCards, static fn($c) => ($c['load_check'] ?? '') === 'verified' || isset($c['load_grade'])), rag_is_curb_only($messages));
         $responseText = rag_runs_basis_line($responseText, $turnCards, $runsCtx);
+        $responseText = rag_strip_unlisted_dims($responseText, $turnCards, $messages);   // 표에 없는 치수('길이 1m')를 덧붙이지 않음(사용자 요청 11-27)
     }
     // 빠른 상담: 도구 없이 질문만 한 답 → 기존 상담과 같은 필수 항목 질문(폭·설치 길이 줄 구성·차량 등, 이미 말한 항목 빼고)으로 고정(사용자 요청 11-26)
     if ($style === 'quick' && ai_install_runs_enabled() && !$toolLog && !$events && rag_is_question_reply($responseText)) {
