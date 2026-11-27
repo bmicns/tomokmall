@@ -515,8 +515,7 @@ function render_footer(): void
     <div class="footer-inner">
         <div class="footer-company">
             <strong>BMI C&amp;S Co., Ltd.</strong>
-            <p>대표이사 김동의 (개인정보 보호책임자)</p>
-            <p>주소 서울시 강남구 강남대로 354 (역삼동, 혜천빌딩 1126-5호)</p>
+            <p>대표이사 김동의 &nbsp; 주소 서울시 강남구 강남대로 354 (역삼동, 혜천빌딩 1126-5호)</p>
             <p>전화 <?= e(SITE_CONTACT_PHONE) ?> &nbsp; 이메일 <?= e(SITE_CONTACT_EMAIL) ?></p>
             <p>사업자등록번호 263-87-03481 &nbsp; 통신판매신고번호 2025-경기광명-0189</p>
             <p>영업시간 평일 09:00 ~ 18:00</p>
