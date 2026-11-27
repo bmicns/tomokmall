@@ -98,8 +98,13 @@ ok('80T 엄격 검색에서 없는 종류: 규격 없음 안내 + 같은 80T 등
 $r = search(['queries' => $r['alternatives'] ?? [], 'area_m2' => 20, 'spec_mm' => 80, 'spec_strict' => true]);
 ok('alternatives 로 다시 검색하면 80T 상품 표시', !empty($r['products']) && !array_filter($r['products'], static fn($c) => ai_block_thickness((string) $c['spec']) !== 80));
 ok('100mm 는 같은 두께 등록 블록 없음(→ 적합 상품 없음 카드 유지)', ai_paving_names_with_thickness(100) === []);
+ai_similar_products_enabled(false);   // 유사 제품 표 스위치 끔 = 반영 전 동작(2026-11-26)
 $r = search(['query' => 'PE 배수관', 'spec_mm' => 999, 'spec_strict' => true]);
-ok('포장 블록이 아닌 품목은 기존 안내(카드 없음)', empty($r['_sse']));
+ok('포장 블록이 아닌 품목은 기존 안내(카드 없음) — 유사 제품 끔', empty($r['_sse']));
+ai_similar_products_enabled(true);
+$r = search(['query' => 'PE 배수관', 'spec_mm' => 999, 'spec_strict' => true]);
+ok('포장 블록이 아닌 품목: 맞는 규격 없으면 유사 제품 표(같은 품목 다른 규격) + 첫 문장', !empty($r['products']) && !empty($r['similar'])
+    && str_starts_with((string) ($r['note'] ?? ''), AI_SIMILAR_LEAD), (string) ($r['note'] ?? ''));
 $r = search(['queries' => ['인터로킹 블록', '인조화강블록', '점토블럭'], 'area_m2' => 30, 'spec_mm' => 80, 'spec_strict' => true]);
 ok('80T 비교: 결과 전부 두께 80', !empty($r['products']) && !array_filter($r['products'], static fn($c) => ai_block_thickness((string) $c['spec']) !== 80));
 ok('80T 비교: 구조용(호안·축조)·경계 블록 없음', !array_filter(array_column($r['products'], 'name'), static fn($n) => preg_match('/호안|축조|옹벽|속빈|경계/u', $n)));
@@ -172,9 +177,14 @@ $r = search(['query' => '그레이팅 수로용 중하중', 'width_mm' => 300, '
 ok('승용차 폭 300mm: 중하중만(수정 전: 안전중하중 2,649,000원이 첫 줄)', $names($r) === ['중하중그레이팅수로용'] && in_array('안전중하중그레이팅수로용', $r['over_spec_excluded'] ?? [], true));
 $r = search(['query' => '그레이팅 수로용', 'width_mm' => 300, 'length_m' => 30, 'traffic' => 'truck']);
 ok('대형차 폭 300mm: 안전중하중만(보행자·승용차용은 안전 부족이라 제외)', $names($r) === ['안전중하중그레이팅수로용']);
+ai_similar_products_enabled(false);
 $r = search(['query' => '그레이팅 수로용', 'width_mm' => 500, 'length_m' => 10, 'traffic' => 'car']);
-ok('승용차 폭 500mm: 중하중 수로용 없음 → 표 없이 대형차용만 있다고 안내 + 등록 폭(200~400mm)', empty($r['products'])
+ok('승용차 폭 500mm: 중하중 수로용 없음 → 표 없이 대형차용만 있다고 안내 + 등록 폭(200~400mm) — 유사 제품 끔', empty($r['products'])
     && str_contains((string) ($r['note'] ?? ''), "승용차용 '그레이팅 수로용' 제품은 폭 500mm가 등록되어 있지 않습니다") && str_contains((string) ($r['note'] ?? ''), '중하중그레이팅수로용 200·300·350·400mm'));
+ai_similar_products_enabled(true);
+$r = search(['query' => '그레이팅 수로용', 'width_mm' => 500, 'length_m' => 10, 'traffic' => 'car']);
+ok('승용차 폭 500mm 유사 제품 표: 한 단계 높은 등급(대형차용)만 — 보행자용(하중 부족)은 없음', !empty($r['products']) && !empty($r['similar'])
+    && !array_filter($r['products'], static fn($c) => ai_load_class_of($c) !== 'truck') && str_contains((string) ($r['note'] ?? ''), '한 단계 높은 하중 등급'), (string) ($r['note'] ?? ''));
 $r = search(['query' => '그레이팅 수로용', 'width_mm' => 300, 'length_m' => 30]);
 ok('통행 조건 불명확(traffic 없음): 등급 필터 없이 같은 폭 전 등급, 낮은 금액 순(중하중 → 안전중하중)', $names($r) === ['중하중그레이팅수로용', '안전중하중그레이팅수로용'] && !isset($r['traffic']));
 $r = search(['query' => 'PE 배수관', 'spec_mm' => 100, 'length_m' => 20, 'traffic' => 'pedestrian']);
@@ -205,9 +215,15 @@ ok("단위가 다른 입력('50cm' → 500mm)", ($r['dim_condition'] ?? '') === 
 $r = search(['query' => '개거', 'width_mm' => '2m', 'length_m' => 6]);
 ok("미터 규격(개거 '2.0*…' → 폭 2000mm)·mm 규격(개거수로관 2000)이 모두 폭 2000mm 로 확인·길이 2m 로 6m → 3본", in_array('폭 W 2.0m', array_map(static fn($s) => substr($s, 0, strlen('폭 W 2.0m')), $sizes($r)), true)
     && !array_filter($r['products'] ?? [], static fn($c) => !preg_match('/^폭 W (2\\.0m|2000mm)/u', (string) ($c['size'] ?? '')) || $c['dim_check'] !== 'verified' || $c['suggested_qty'] !== 3));
+ai_similar_products_enabled(false);
 $r = search(['query' => '그레이팅 수로용', 'width_mm' => 700, 'length_m' => 10, 'traffic' => 'pedestrian']);
-ok('조건과 맞는 제품 없음(보행자 폭 700): 표 없음·싼 다른 폭 대신 안내 + 등록 폭', empty($r['products']) && empty($r['_sse'])
+ok('조건과 맞는 제품 없음(보행자 폭 700): 표 없음·싼 다른 폭 대신 안내 + 등록 폭 — 유사 제품 끔', empty($r['products']) && empty($r['_sse'])
     && str_contains((string) ($r['note'] ?? ''), "폭 700mm로 확인된 '그레이팅 수로용' 제품이 없습니다") && str_contains((string) ($r['note'] ?? ''), '그레이팅수로용 150·200·250mm') && !str_contains((string) ($r['note'] ?? ''), '맨홀'));
+ai_similar_products_enabled(true);
+$r = search(['query' => '그레이팅 수로용', 'width_mm' => 700, 'length_m' => 10, 'traffic' => 'pedestrian']);
+$simW = array_unique(array_map(static fn($c) => ai_row_dim_mm($c, 'w'), $r['products'] ?? []));
+ok('보행자 폭 700 유사 제품 표: 가장 가까운 등록 폭 한 가지 + 첫 문장·무엇이 다른지', !empty($r['products']) && count($simW) === 1
+    && str_starts_with((string) ($r['note'] ?? ''), AI_SIMILAR_LEAD) && str_contains((string) ($r['note'] ?? ''), '요청하신 폭 700mm 대신 가장 가까운 폭'), (string) ($r['note'] ?? '') . json_encode($simW));
 $r = search(['query' => '측구 수로관', 'width_mm' => 500, 'length_m' => 50]);
 ok('그레이팅 외 품목(측구 수로관 폭 500·50m): 폭 W 500mm·25본', $r['products'] && !array_filter($r['products'], static fn($c) => !str_starts_with((string) ($c['size'] ?? ''), '폭 W 500mm') || $c['suggested_qty'] !== 25));
 $r = search(['queries' => ['그레이팅 수로용', '디자인그레이팅 수로용'], 'width_mm' => 200, 'length_m' => 10, 'traffic' => 'pedestrian']);

@@ -69,3 +69,17 @@ function ai_install_runs_enabled(?bool $set = null): bool
     if ($set !== null) { $override = $set; }
     return $override ?? FEATURE_AI_INSTALL_RUNS;
 }
+
+// 맞는 규격이 없을 때 유사 제품 표(사용자 요청 2026-11-26) — 폭·길이가 다르면 가장 가까운 등록 치수, 반드시 지킬 규격(spec_strict, 포장 블록 두께 제외)이 없으면
+// 같은 품목의 다른 규격, 필요한 하중 등급이 없으면 한 단계 높은 등급을 '해당 규격의 제품이 없습니다. 대신 아래에 유사한 제품을 추천해드립니다.'와 함께 표로.
+// 차량용 포장 블록 두께(80T·공공 차도 100T)보다 얇은 제품·낮은 하중 등급은 유사 제품으로도 보이지 않는다(안전 규칙 그대로).
+// false: 반영 전처럼 표 없이 안내만. 가격·단가·계산식은 관계없이 그대로
+const FEATURE_AI_SIMILAR_PRODUCTS = true;
+
+/** 유사 제품 표 켜짐 여부. 테스트는 $set 으로 이 요청 동안만 바꿀 수 있다. */
+function ai_similar_products_enabled(?bool $set = null): bool
+{
+    static $override = null;
+    if ($set !== null) { $override = $set; }
+    return $override ?? FEATURE_AI_SIMILAR_PRODUCTS;
+}

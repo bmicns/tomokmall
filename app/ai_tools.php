@@ -920,6 +920,15 @@ function tool_search_products(array $input): string
 
     // 하중 등급·이미 본 제품 제외로 비었으면: 같은 표를 다시 보여 주거나 과잉 등급을 '적합'하게 보이게 하지 않고, 사정(과잉 등급만 있음·다른 제품 없음)과 등록 규격을 알린다
     if (empty($cards) && ($excludedHit || ($classEmptied && $heavier))) {
+        // 필요한 하중 등급 제품이 없고 높은 등급만 있으면: 한 단계 높은 등급을 유사 제품 표로(낮은 등급은 보이지 않음 — 안전, 사용자 요청 11-26)
+        if (!$excludedHit && $classEmptied && $heavier && $traffic !== '') {
+            $ranks = array_map(static fn($r) => AI_LOAD_RANK[ai_load_class_of($r)] ?? 0, $heavier);
+            $next  = (string) array_search(min($ranks), AI_LOAD_RANK, true);
+            if ($next !== '' && ($sim = ai_similar_retry($input, ['traffic' => $next], [],
+                    '필요한 ' . (AI_TRAFFIC_CLASS_LABEL[$traffic] ?? '') . " 제품이 없어 한 단계 높은 하중 등급(" . (AI_TRAFFIC_CLASS_LABEL[$next] ?? '') . ') 제품입니다. 필요보다 튼튼하고 가격이 높을 수 있습니다.')) !== null) {
+                return json_encode($withRecheck($sim), JSON_UNESCAPED_UNICODE);
+            }
+        }
         $out = ['products' => [], 'count' => 0, '_sse' => []] + ai_filtered_empty_result($query, $cond, $traffic, $classEmptied ? $heavier : [], $excludedHit);
         if ($corrected !== null) { $out['corrected'] = $corrected; }
         return json_encode($withRecheck($out), JSON_UNESCAPED_UNICODE);
@@ -936,11 +945,25 @@ function tool_search_products(array $input): string
     }
     // 폭·길이 조건에 맞는 제품이 없으면: 조건이 다른 제품(싸더라도)을 대신 보여 주지 않고, 확인된 등록 치수를 알린다
     if (empty($cards) && $want) {
+        // 가장 가까운 등록 치수(같은 하중 조건)의 제품을 유사 제품 표로(사용자 요청 11-26) — 없으면 아래처럼 등록 치수만 알림
+        if (($nd = ai_nearest_dim($query, $want, $traffic)) !== null) {
+            $ax  = AI_DIM_AXES[$nd['k']][2];
+            $fmt = static fn(float $mm) => $nd['k'] === 'l' ? ai_len_m($mm) . 'm' : spec_axis_num($mm) . 'mm';
+            if (($sim = ai_similar_retry($input, [$nd['k'] === 'w' ? 'width_mm' : 'product_length_mm' => $nd['mm']], [],
+                    "요청하신 {$ax} " . $fmt((float) $want[$nd['k']]) . " 대신 가장 가까운 {$ax} " . $fmt($nd['mm']) . ' 제품입니다. 규격이 다르니 현장 치수를 꼭 확인해 주세요.')) !== null) {
+                return json_encode($withRecheck($sim), JSON_UNESCAPED_UNICODE);
+            }
+        }
         $out = ['products' => [], 'count' => 0, '_sse' => [], 'note' => ai_dim_no_match_note($query, $cond, $want, $traffic)];
         if ($corrected !== null) { $out['corrected'] = $corrected; }
         return json_encode($withRecheck($out), JSON_UNESCAPED_UNICODE);
     }
     if (empty($cards)) {
+        // 반드시 지킬 규격(spec_strict — 포장 블록 두께는 위에서 따로, 얇은 두께는 권하지 않음)이 없으면 같은 품목의 다른 규격을 유사 제품 표로(사용자 요청 11-26)
+        if ($specMm > 0 && !empty($input['spec_strict']) && !ai_is_paving_query($qText)
+            && ($sim = ai_similar_retry($input, [], ['spec_strict'], "요청하신 규격 {$specMm}mm 제품 대신 같은 품목의 다른 규격입니다. 규격이 다르니 꼭 확인해 주세요.")) !== null) {
+            return json_encode($withRecheck($sim), JSON_UNESCAPED_UNICODE);
+        }
         $out = [
             'products' => [],
             'count'    => 0,
@@ -1838,6 +1861,84 @@ function ai_filter_empty_note(string $query, string $cond, string $traffic, arra
         $parts[] = '규격을 다시 확인해 주시거나, 높은 등급 제품도 보실지 알려 주세요.';
     }
     return implode(' ', $parts);
+}
+
+/** 맞는 규격이 없을 때 유사 제품 표의 첫 문장(사용자 요청 2026-11-26 — 답 글도 이 문장으로 시작) */
+const AI_SIMILAR_LEAD = '해당 규격의 제품이 없습니다. 대신 아래에 유사한 제품을 추천해드립니다.';
+
+/**
+ * 유사 제품으로 한 번 더 찾기 — 같은 입력에서 조건 하나만 바꿔($change 넣기·$unset 빼기) 검색하고, 표가 있으면
+ * note = AI_SIMILAR_LEAD + 무엇이 다른지($detail), similar = {lead, detail} 를 붙인 도구 결과(배열). 표가 없거나 스위치가 꺼졌으면 null.
+ * 다시 부른 검색 안에서는 또 넓히지 않고(_similar) 앞 표 재확인(recheck_ids)도 하지 않는다 — 재확인은 원래 조건으로 부른 쪽이 붙인다. 수량·금액은 같은 계산 그대로.
+ */
+function ai_similar_retry(array $input, array $change, array $unset, string $detail): ?array
+{
+    if (!ai_similar_products_enabled() || !empty($input['_similar'])) {
+        return null;
+    }
+    $in = $change + $input;
+    foreach ($unset as $k) { unset($in[$k]); }
+    unset($in['recheck_ids']);
+    $in['_similar'] = true;
+    $want = max(1, min(10, (int) ($input['limit'] ?? 5)));
+    $relaxSpec = (int) ($input['spec_mm'] ?? 0) > 0 && in_array('spec_strict', $unset, true);
+    if ($relaxSpec) { $in['limit'] = 10; }   // 다른 규격 중 가까운 것을 고르려고 넉넉히 찾은 뒤 원래 개수로
+    $res = json_decode(tool_search_products($in), true);
+    if (!is_array($res) || empty($res['products'])) {
+        return null;
+    }
+    $spec = (int) ($input['spec_mm'] ?? 0);
+    if ($relaxSpec) {   // 다른 규격 표: 요청 규격과 가까운 순(규격 글자의 숫자 중 가장 가까운 값)
+        $gap = static function (array $c) use ($spec): float {
+            preg_match_all('/\d+(?:\.\d+)?/', (string) ($c['spec_label'] ?? $c['spec'] ?? ''), $m);
+            $d = array_map(static fn($n) => abs((float) $n - $spec), $m[0] ?? []);
+            return $d ? min($d) : INF;
+        };
+        usort($res['products'], static fn($a, $b) => $gap($a) <=> $gap($b));
+        $res['products'] = array_slice($res['products'], 0, $want);
+        $res['count']    = count($res['products']);
+        $order = array_flip(array_map(static fn($c) => (int) ($c['id'] ?? 0), $res['products']));
+        foreach ($res['_sse'] ?? [] as $i => $ev) {
+            if (($ev['type'] ?? '') === 'product_cards' && is_array($ev['products'] ?? null)) {
+                $res['_sse'][$i]['products'] = array_values(array_filter($res['_sse'][$i]['products'], static fn($c) => isset($order[(int) ($c['id'] ?? 0)])));
+                usort($res['_sse'][$i]['products'], static fn($a, $b) => ($order[(int) ($a['id'] ?? 0)] ?? 99) <=> ($order[(int) ($b['id'] ?? 0)] ?? 99));
+            }
+        }
+    }
+    $res['note']    = AI_SIMILAR_LEAD . ' ' . $detail;
+    $res['similar'] = ['lead' => AI_SIMILAR_LEAD, 'detail' => $detail];
+    return $res;
+}
+
+/**
+ * 원하는 폭(길이)과 가장 가까운 등록 치수 (DB) — 같은 검색어·같은 하중 조건(낮은 등급은 빼고) 상품 기준. 차이가 같으면 큰 쪽.
+ * @return array{k:string, mm:float}|null
+ */
+function ai_nearest_dim(string $query, array $want, string $traffic = ''): ?array
+{
+    try {
+        $all = ai_exclude_accessories(search_products($query, 80), $query);
+        if ($traffic !== '') { [$all] = ai_filter_load_class($all, $traffic); }
+    } catch (\Throwable $e) {
+        return null;
+    }
+    // 폭·길이를 함께 원하면 등록 상품에 없는 쪽 치수를 바꾼다(있는 쪽은 그대로)
+    $k = null;
+    foreach (['w', 'l'] as $a) {
+        if (!isset($want[$a])) { continue; }
+        $exact = array_filter($all, static fn($r) => ($v = ai_row_dim_mm($r, $a)) !== null && abs($v - (float) $want[$a]) < 0.5);
+        if (!$exact) { $k = $a; break; }
+    }
+    if ($k === null) { return null; }
+    $target = (float) $want[$k];
+    $best = null;
+    foreach ($all as $r) {
+        $v = ai_row_dim_mm($r, $k);
+        if ($v === null || $v <= 0 || abs($v - $target) < 0.5) { continue; }
+        $d = abs($v - $target);
+        if ($best === null || $d < $best[0] - 0.01 || (abs($d - $best[0]) <= 0.01 && $v > $best[1])) { $best = [$d, $v]; }
+    }
+    return $best === null ? null : ['k' => $k, 'mm' => (float) $best[1]];
 }
 
 /**
