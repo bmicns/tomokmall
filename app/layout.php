@@ -520,7 +520,7 @@ function render_footer(): void
             <p>사업자등록번호 263-87-03481 &nbsp; 통신판매신고번호 2025-경기광명-0189</p>
             <p>영업시간 평일 09:00 ~ 18:00</p>
             <p>개인정보 보호책임자 김동의</p>
-            <p class="footer-legal"><a href="/terms.php">이용약관</a><span aria-hidden="true"> · </span><a href="/privacy.php" class="footer-legal-privacy">개인정보처리방침</a></p>
+            <p class="footer-legal"><a href="/terms.php">이용약관</a><span aria-hidden="true"> · </span><a href="/privacy.php" class="footer-legal-privacy">개인정보 처리방침</a></p>
             <p>Copyright &copy; 2026 BMI C&amp;S Co., Ltd. All rights reserved.</p>
         </div>
     </div>
