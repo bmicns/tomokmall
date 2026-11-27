@@ -122,6 +122,11 @@ ok('GPT 가 한 줄 길이 10만 넘김 → runs_m [10,10]·length_m 20', $in['l
 ok('GPT 가 합계 20만 넘김 → runs_m 더함', $in['runs_m'] === [10.0, 10.0]);
 [$in] = rag_apply_runs(['query' => '그레이팅 수로용'], $R, true);
 ok('GPT 가 길이를 빠뜨림(이번 말) → 채움', ($in['length_m'] ?? 0) == 20);
+[$in, $f] = rag_apply_runs(['query' => '그레이팅 수로용', 'width_mm' => 320, 'product_length_mm' => 10000], $R, true);
+ok("GPT 가 줄 길이 10m 를 제품 1개 길이(product_length_mm 10000)로 넘김 → 제품 길이 조건 빼고 설치 길이로(운영 시험 11-27 '등록 안 됨')",
+    !isset($in['product_length_mm']) && $in['length_m'] == 20 && $in['runs_m'] === [10.0, 10.0] && $in['width_mm'] === 320, [$in, $f]);
+[$in] = rag_apply_runs(['query' => '그레이팅 수로용', 'product_length_mm' => 1000, 'length_m' => 20], $R, true);
+ok('줄 길이와 다른 제품 길이(1000mm)는 그대로', ($in['product_length_mm'] ?? null) === 1000);
 $R2 = install_runs_from_messages($u('수로 10m씩 2줄', '맨홀 뚜껑도 필요해요'));
 [$in, $f] = rag_apply_runs(['query' => '맨홀 뚜껑'], $R2, false);
 ok('앞선 말·다른 품목·길이 없음 → 건드리지 않음(맨홀)', !isset($in['length_m']) && $f === []);

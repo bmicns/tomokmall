@@ -293,7 +293,9 @@ function ext_selection_guide(array $productRow, array $knowledge = []): array
 {
     $n = ext_normalize_product($productRow);
     $g = [];
-    $paving = in_array($n['product_type'], ['인조화강블록', '점토블록', '인터로킹블록', '보차도블록', '보도블록', '잔디블록'], true);
+    // 경계석('인조화강경계석' 등 이름에 인조화강이 있어도)은 포장 블록이 아니다 — 블록 두께 기준(80mm)을 대지 않는다(운영 상담 #380 11-27)
+    $curb = preg_match('/경계석|경계\s*블[록럭]|연석/u', (string) ($productRow['name'] ?? '')) === 1;
+    $paving = !$curb && in_array($n['product_type'], ['인조화강블록', '점토블록', '인터로킹블록', '보차도블록', '보도블록', '잔디블록'], true);
     if ($paving && $n['thickness_mm'] !== null) {
         $g[] = match (true) {
             $n['thickness_mm'] >= 80 => "두께 {$n['thickness_mm']}mm — 차량이 올라가는 곳 저희 권장 기준(80mm 이상) 충족",
@@ -307,7 +309,7 @@ function ext_selection_guide(array $productRow, array $knowledge = []): array
         $g[] = '불투수형 — 빗물이 스며들지 않음';
     }
     $g[] = match ($n['product_type']) {
-        '인조화강블록' => '인조화강 — 화강석 느낌을 낸 콘크리트 블록',
+        '인조화강블록' => $curb ? '인조화강 — 화강석 느낌을 낸 콘크리트 제품' : '인조화강 — 화강석 느낌을 낸 콘크리트 블록',
         '점토블록'     => '점토 — 흙을 구워 만든 블록',
         '잔디블록'     => '잔디블록 — 구멍에 잔디를 심는 블록',
         '인터로킹블록' => '인터로킹 — 옆 블록과 서로 맞물리게 까는 블록',
