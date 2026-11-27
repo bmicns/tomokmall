@@ -13,6 +13,9 @@ declare(strict_types=1);
  *   - 상담원 문의 요청(consult_requests): 이름·연락처 지움 + pii_destroyed_at
  *   - 주문(orders·shipping_info)은 회원과 연결되지 않은 거래 기록이라 그대로(전자상거래법 5년)
  *   진행 중인 견적(확정·승인 뒤 납품 전)이 있으면 탈퇴를 막는다(이용약관 제6조 2항).
+ *   탈퇴 사유(사용자 결정 2026-11-27, 1번 방식): 고른 사유·남기실 말씀을 회원과 연결 없는 withdraw_reasons 표에
+ *            같은 트랜잭션으로 저장(회원 id·이메일·시각 없음, 날짜·회원 종류만). 말씀의 전화·이메일·사업자번호 모양은 지움.
+ *            기한 없이 보관하고 관리자가 /admin-withdraw-reasons.php 에서 직접 지운다. 표가 없으면 저장하지 않음.
  *   직원·관리자 계정은 스스로 탈퇴하지 못한다(관리자가 계정 관리로).
  *
  * 견적 1년: 견적 요청일로부터 365일이 지난 견적의 개인정보 칸을 지운다(금액·품목·상태는 그대로).
@@ -20,7 +23,8 @@ declare(strict_types=1);
  *
  * 함수:
  *  privacy_withdraw_blocker(int)   — 탈퇴를 막는 이유(없으면 null)
- *  privacy_withdraw_user(int)      — 탈퇴 처리(한 트랜잭션), 지운 행 수 반환
+ *  privacy_withdraw_user(int, ?int, string) — 탈퇴 처리(한 트랜잭션, 탈퇴 사유 저장 포함), 지운 행 수 반환
+ *  privacy_scrub_text(string)      — 남기실 말씀에서 전화·이메일·사업자번호 모양 지우기
  *  privacy_estimate_purge(bool)    — 1년 지난 견적 개인정보 정리
  *  privacy_withdrawn_email(int)    — 탈퇴 계정의 가짜 이메일
  */
@@ -32,6 +36,17 @@ const PRIVACY_ERASED_NAME        = '(파기)'; // 개인정보를 지운 견적�
 const PRIVACY_WITHDRAWN_NAME     = '탈퇴회원';
 const PRIVACY_WITHDRAW_ROLES     = ['customer', 'corporate'];
 const PRIVACY_ACTIVE_ESTIMATE    = ['CONFIRMED', 'APPROVED'];  // 확정·승인 뒤 납품 전이면 진행 중
+const PRIVACY_WITHDRAW_MEMO_MAX  = 300;     // 남기실 말씀 최대 글자(withdraw_reasons.memo)
+/** 탈퇴 사유(번호는 DB 에 저장되므로 바꾸지 않는다 — 새 사유는 뒤에 번호를 더한다) */
+const PRIVACY_WITHDRAW_REASONS   = [
+    1 => '상품 종류가 부족함',
+    2 => '가격이 맞지 않음',
+    3 => '배송·운반이 불편함',
+    4 => '공사·현장이 끝나 이용할 일이 없음',
+    5 => '사이트 이용이 불편함',
+    6 => '개인정보가 걱정됨',
+    7 => '기타',
+];
 
 /** 탈퇴 계정 이메일 — 같은 이메일로 다시 가입할 수 있게 원래 주소를 남기지 않는다(.invalid 는 메일이 가지 않는 주소) */
 function privacy_withdrawn_email(int $userId): string
@@ -77,10 +92,23 @@ function privacy_withdraw_blocker(int $userId): ?string
 }
 
 /**
+ * 남기실 말씀에서 개인정보 모양(이메일·전화번호·사업자등록번호) 지우기 — app/quick_photo.php 와 같은 규칙에
+ * 하이픈 없는 휴대전화(01012345678)·사업자번호(1234567890 은 숫자만으로는 구분이 어려워 하이픈 형식만)를 더함
+ */
+function privacy_scrub_text(string $s): string
+{
+    $s = preg_replace('/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/u', '', $s) ?? '';
+    $s = preg_replace('/(?<!\d)0\d{1,2}[-.\s)]?\d{3,4}[-.\s]?\d{4}(?!\d)/u', '', $s) ?? '';
+    $s = preg_replace('/(?<!\d)\d{3}-\d{2}-\d{5}(?!\d)/u', '', $s) ?? '';
+    $s = preg_replace('/[ \t]{2,}/u', ' ', $s) ?? '';
+    return trim($s);
+}
+
+/**
  * 탈퇴 처리 — 성공하면 표별 처리 행 수, 실패하면 예외(트랜잭션 되돌림)
  * @return array<string,int>
  */
-function privacy_withdraw_user(int $userId): array
+function privacy_withdraw_user(int $userId, ?int $reasonCode = null, string $memo = ''): array
 {
     $pdo = db();
     if (!$pdo) {
@@ -89,6 +117,10 @@ function privacy_withdraw_user(int $userId): array
     $done = [];
     $pdo->beginTransaction();
     try {
+        $st = $pdo->prepare('SELECT role FROM users WHERE id = :id AND is_active = 1');
+        $st->execute(['id' => $userId]);
+        $role = (string) ($st->fetchColumn() ?: '');
+
         $st = $pdo->prepare(
             'UPDATE users SET name = :name, email = :email, password_hash = :pw, phone = NULL, company_name = NULL,
                     address_zip = NULL, address = NULL, address_detail = NULL, is_active = 0
@@ -142,6 +174,16 @@ function privacy_withdraw_user(int $userId): array
             );
             $st->execute(['id' => $userId]);
             $done['consult_requests'] = $st->rowCount();
+        }
+        // 탈퇴 사유(회원과 연결 없음 — id·이메일·시각 저장 안 함)
+        $code = ($reasonCode !== null && isset(PRIVACY_WITHDRAW_REASONS[$reasonCode])) ? $reasonCode : null;
+        $memo = mb_substr(privacy_scrub_text($memo), 0, PRIVACY_WITHDRAW_MEMO_MAX);
+        if (($code !== null || $memo !== '') && privacy_table_exists($pdo, 'withdraw_reasons')) {
+            $st = $pdo->prepare(
+                'INSERT INTO withdraw_reasons (reason_code, memo, member_role, created_on) VALUES (:c, :m, :r, CURDATE())'
+            );
+            $st->execute(['c' => $code, 'm' => $memo === '' ? null : $memo, 'r' => $role]);
+            $done['withdraw_reasons'] = 1;
         }
         $pdo->commit();
     } catch (\Throwable $e) {

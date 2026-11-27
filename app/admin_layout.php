@@ -11,6 +11,7 @@ function render_admin_header(string $title, string $activeMenu = ''): void
         ['key' => 'users',      'label' => '회원관리',   'url' => '/admin-users.php'],
         ['key' => 'orders',     'label' => '주문관리',   'url' => '/admin-orders.php'],
         ['key' => 'estimates',  'label' => '견적관리',   'url' => '/admin-estimates.php'],
+        ['key' => 'withdraw-reasons', 'label' => '탈퇴 사유', 'url' => '/admin-withdraw-reasons.php'],
         ['section' => '콘텐츠'],
         ['key' => 'products',   'label' => '제품관리',   'url' => '/admin-products.php'],
         ['key' => 'categories', 'label' => '카테고리',   'url' => '/admin-categories.php'],
