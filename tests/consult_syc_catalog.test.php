@@ -40,7 +40,7 @@ $names = static fn(array $r): array => array_column($r['products'] ?? [], 'name'
 echo "[① 덮개(그레이팅) — 단품은 아직 미등록·견적 요청, 수로관 본체를 덮개처럼 추천하지 않음]\n";
 $r = $s(['query' => '그레이팅 수로용', 'width_mm' => 500, 'length_m' => 10, 'traffic' => 'pedestrian']);
 ok('표 없음 + not_carried', ($r['products'] ?? []) === [] && !empty($r['not_carried']), json_encode($names($r), JSON_UNESCAPED_UNICODE));
-ok("안내: 덮개 단품은 아직 미등록 + 견적 요청 + 그레이팅 옵션이 있는 수로관 안내(취급 안 함이라고 하지 않음, 2026-11-13)", str_contains((string) ($r['note'] ?? ''), "'그레이팅 수로용'(덮개) 단품은 사이트에 아직 등록되지 않았습니다. 견적요청하기로 문의해 주시면 확인해 드립니다.") && str_contains((string) ($r['note'] ?? ''), '그레이팅 규격이 옵션으로 표기된 제품') && !str_contains((string) ($r['note'] ?? ''), '판매 중인'), (string) ($r['note'] ?? ''));
+ok("안내: 조건에 맞는 상품 미등록 + 다른 조건·견적 요청, 덮개가 아닌 수로관 본체 이름은 말하지 않음(취급 안 함이라고 하지 않음, 2026-11-13·11-27)", str_contains((string) ($r['note'] ?? ''), "해당 조건에 맞는 '그레이팅 수로용' 상품은 사이트에 등록되지 않았습니다.") && str_contains((string) ($r['note'] ?? ''), '견적요청하기') && !str_contains((string) ($r['note'] ?? ''), '수로관') && !str_contains((string) ($r['note'] ?? ''), '판매 중인'), (string) ($r['note'] ?? ''));
 $r = $s(['query' => '측구 수로관', 'width_mm' => 300, 'length_m' => 20]);
 ok('본체를 찾으면(측구 수로관) 본체 표 — 폭 300 측구수로관, 20m → 10본', in_array('측구수로관', $names($r), true) && (int) (array_values(array_filter($r['products'], static fn($p) => $p['name'] === '측구수로관'))[0]['suggested_qty'] ?? 0) === 10);
 $r = $s(['query' => '맨홀 뚜껑', 'traffic' => 'car']);
