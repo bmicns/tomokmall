@@ -50,11 +50,11 @@ function cleanChatText(text) {
     .replace(/([다요죠])[ \t]*[:：][ \t]*$/gm, '$1.');
 }
 
-/** 첫 문장(~니다.) 뒤 줄 내림 */
+/** 첫 문장(~니다.) 뒤 줄 내림 — 뒤에 글이 더 있을 때만. 끝 빈 줄은 지움(말풍선 아래 한 줄 여백, 2026-11-26) */
 function formatChatText(text) {
   if (!text) return '';
-  // 첫 번째 "니다." 또는 "니다!" 뒤에 줄바꿈이 없으면 추가
-  return cleanChatText(text).replace(/^(.*?니다[.!])\s*/, '$1\n\n');
+  // 첫 번째 "니다." 또는 "니다!" 뒤에 이어지는 글이 있으면 빈 줄 하나로 띄움(답이 그 문장으로 끝나면 줄을 더하지 않음)
+  return cleanChatText(text).replace(/^(.*?니다[.!])\s*(?=\S)/, '$1\n\n').replace(/\s+$/, '');
 }
 
 /** XSS 방지용 이스케이프 */

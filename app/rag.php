@@ -28,7 +28,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/ai_tools.php';
 require_once __DIR__ . '/consult_catalog.php';
-require_once __DIR__ . '/quick_match.php';   // 빠른 견적 창: 고객이 말한 품명+규격 상품 바로 담기(A11)
+require_once __DIR__ . '/quick_match.php';
+require_once __DIR__ . '/quick_first_question.php';   // 빠른 상담 첫 질문을 기존 상담과 같은 형식으로(2026-11-26)   // 빠른 견적 창: 고객이 말한 품명+규격 상품 바로 담기(A11)
 
 /**
  * MySQL FULLTEXT 검색으로 관련 상품 최대 $limit개 반환
@@ -1039,6 +1040,12 @@ const RAG_QUESTION_STYLE_PROMPT = "=== 질문 방식 (모든 자재·모든 질�
  * 우측 하단 'AI 빠른 견적' 창 답변 방식(케이토목 1분 자동견적과 비슷하게 — 사용자 요청 2026-11-23, 지금 상담과 비교용).
  * 시스템 프롬프트 맨 끝에 붙어 위 '검색 결과 답변 형식'·'3단계 견적 안내'의 길이·담기 순서만 바꾼다. 하중·두께·공공도로 등 안전 규칙과 가격·수량 계산은 그대로.
  */
+/** 유사 제품 표 답변 규칙(사용자 요청 2026-11-26, 두 상담 공통) — 스위치 FEATURE_AI_SIMILAR_PRODUCTS */
+const RAG_SIMILAR_PROMPT = "\n\n=== 맞는 규격이 없을 때 — 유사 제품 표 ===\n"
+    . "- search_products 결과에 similar 가 있으면 고객이 말한 규격의 제품이 없어 서버가 가장 가까운 규격(또는 한 단계 높은 하중 등급) 제품을 찾은 표다.\n"
+    . "- 답은 '해당 규격의 제품이 없습니다. 대신 아래에 유사한 제품을 추천해드립니다.'로 시작하고, 다음 줄에 similar.detail(무엇이 다른지)을 그대로 한 번 쓴다. 표의 제품을 고객 조건에 딱 맞는 제품처럼 말하지 않는다.\n"
+    . "- 유사 제품은 담기 전에 고객이 고르게 한다(add_to_cart 를 먼저 하지 않음). 차량용 포장 블록 두께·하중 기준보다 약한 제품은 유사 제품으로도 권하지 않는다(서버도 보이지 않음).\n";
+
 const RAG_QUICK_STYLE_PROMPT = "\n\n=== 빠른 견적 창 답변 방식 (이 구역이 위 '검색 결과 답변 형식'·'3단계: 견적 안내'보다 우선) ===\n"
     . "- 화면 오른쪽 아래의 작은 견적 창이다. 답 글은 3~5줄, 200자 안팎. 제품별 설명 줄·장단점 나열·'원하시는 제품을 선택해 주세요' 없이 짧게.\n"
     . "- 고객이 자재를 말하면 되묻지 말고 search_products 로 찾고, 같은 응답에서 조건에 가장 알맞은 1개를 add_to_cart 로 바로 담는다. quantity = 고객이 말한 개수, 설치 길이·면적만 말했으면 권장 수량 suggested_qty, 수량·길이·면적이 하나도 없으면 0(수량 미정 — 답 끝에서 필요한 수량을 묻는다). 담기 전에 묻지 않는다.\n"
@@ -1185,15 +1192,16 @@ function rag_build_prompt(array $messages, array $recentCards = [], string $styl
         . "  필수 ① 설치 장소 + 차량이 올라가는지 (집 앞 마당·진입로/인도/광장/공원/주차장/기타)\n"
         . "  필수 ② 필요 면적(㎡) — 모르면 가로×세로(m)로 받아 계산\n"
         . "  (경계석 필요 여부는 검색 전에 묻지 말고, 블록 표를 보여준 뒤 '테두리 마감용 경계석도 필요하시면 설치 길이(m)를 알려 주세요. 여러 줄이면 각 줄의 길이를 알려 주세요. (예: 10m씩 2줄 또는 10m, 15m)'로 묻는다)\n"
-        . "[경계석] 길이로 까는 자재다 — 면적(㎡)을 묻지 않는다.\n"
-        . "  필수 ① 설치 장소 + 차량이 닿는 곳인지(차도·주차장 경계 / 인도·화단·마당 테두리)  ② 설치 길이(m — [설치 길이 질문] 문장, 여러 줄이면 줄마다)\n"
-        . "  검색어(query) 예: '경계석', '화강 경계석', '콘크리트 경계석' (설치 길이는 length_m·여러 줄이면 runs_m)\n"
         . "  ★차량이 올라가면 두께 80mm 이상(80T) 제품, 사람만 다니면 60mm(60T)도 가능 → [참조 문서] 기준.\n"
         . "    차량이 올라가는 곳이면 spec_mm 80, spec_strict true를 함께 넘겨 80T 제품만 표에 나오게 한다(사람만 다니면 spec_mm 생략).\n"
         . "    80T 제품이 없는 종류는 표에서 빠지며, 도구의 note로 안내된다(다른 두께를 대신 권하지 않는다).\n"
         . "  검색어(query) 예: '인터로킹 블록', '인조화강블록', '점토블럭', '잔디블록', '경계석' (면적은 area_m2로, 설치장소는 넣지 말 것)\n"
         . "  종류 비교 예: queries ['인터로킹 블록', '인조화강블록', '점토블럭'], area_m2 20 → 종류별 필요 수량·예상 자재비가 한 표에 표시.\n"
         . "  ★필수 ①②가 확인되면(예: 집 앞 마당·승용차·4m×5m) 블록 종류를 되묻지 말고 같은 턴에 위 queries 로 비교표를 바로 보여 준다(종류는 표를 보고 고르게).\n"
+        . "[경계석] 길이로 까는 자재다 — 면적(㎡)을 묻지 않는다.\n"
+        . "  필수 ① 설치 장소 + 차량이 닿는 곳인지(차도·주차장 경계 / 인도·화단·마당 테두리)  ② 설치 길이(m — [설치 길이 질문] 문장, 여러 줄이면 줄마다)\n"
+        . "  검색어(query) 예: '경계석', '화강 경계석', '콘크리트 경계석' (설치 길이는 length_m·여러 줄이면 runs_m)\n"
+        . "  ★위 블록 두께 기준(80T·60T)은 포장 블록 기준이라 경계석에는 쓰지 않는다 — 경계석 검색에 spec_mm·spec_strict 를 넣지 않는다(차도여도 '두께 80mm 경계석'이라고 말하지 않는다). 차량이 닿는 곳이면 표의 규격(폭·높이)과 재질을 보고 고르게 안내한다.\n"
         . "\n"
         . "[기타 자재]\n"
         . "  필수 ① 용도·설치 환경 ② 필요 수량·규모\n"
@@ -1253,6 +1261,9 @@ function rag_build_prompt(array $messages, array $recentCards = [], string $styl
     $system .= rag_legal_prompt_section($legalDocs);
     $system .= rag_drain_notice_prompt(rag_drain_notice_keys($messages)); // 옹벽 배수관·도로 횡단배수관 주의(해당 상황만, 없으면 빈 문자열)
     $system .= rag_recent_cards_prompt($recentCards, price_basis_label());   // 이 상담에서 고객 화면에 보인 직전 추천표(담기·비교 질문용) — 없으면 빈 문자열(기존과 같음)
+    if (ai_similar_products_enabled()) {
+        $system .= RAG_SIMILAR_PROMPT;   // 맞는 규격이 없을 때 유사 제품 표(2026-11-26) — 끄면 반영 전 프롬프트 그대로
+    }
     if ($style === 'quick') {
         $system .= RAG_QUICK_STYLE_PROMPT;   // 우측 하단 빠른 견적 창(2026-11-23 비교용) — 기본 상담('consult')은 그대로
     }
@@ -1407,6 +1418,12 @@ function rag_prepare_search_input(array $input, array $ctx): array
     $clarify = array_merge($clarify, $c3);
     [$input, $f4] = rag_apply_runs($input, $ctx['runs'] ?? null, $sameFamily);   // 여러 줄 설치 — 줄마다 길이·합계(2026-11-26)
     $fills = array_merge($fills, $f4);
+    // 경계석에 포장 블록 두께 기준(80T·60T·공공 차도 100T)을 걸면 차도용 경계석이 모두 빠진다 — 2026-11-26 운영 상담 '경계석 15m → 차도'
+    if (ai_install_runs_enabled() && !empty($input['spec_strict']) && rag_is_curb_query((string) ($input['query'] ?? ''))
+        && in_array((int) round((float) ($input['spec_mm'] ?? 0)), [60, 80, 100, 120], true)) {
+        $fills[] = "spec_mm {$input['spec_mm']}·spec_strict 뺌(포장 블록 두께 기준 — 경계석에는 쓰지 않음)";
+        unset($input['spec_mm'], $input['spec_strict']);
+    }
     // '비슷한 규격의 다른 제품' → 앞 표 제품의 확인된 치수(구조화 치수 칸)로. 표의 제품마다 치수가 다르면 확인 질문
     $sim = $ctx['similar_dims'] ?? [];
     if ($sim) {
@@ -1876,6 +1893,32 @@ function rag_substitute_note(string $text, array $subs): string
 }
 
 /**
+ * 유사 제품 표(도구 similar)인 턴의 답 — 첫 문장을 '해당 규격의 제품이 없습니다. 대신 아래에 유사한 제품을 추천해드립니다.'로 고정하고,
+ * GPT 가 따로 쓴 '…제품이 없습니다·찾을 수 없습니다·보여드리지 않았습니다' 문장은 뺀다 (순수 함수, 사용자 요청 2026-11-26).
+ * 무엇이 다른지(detail)는 둘째 줄에 한 번. 제품 줄('- ')은 건드리지 않는다.
+ */
+function rag_similar_lead(string $text, array $similars): string
+{
+    if (!$similars) { return $text; }
+    $sim    = end($similars);
+    $lead   = trim((string) ($sim['lead'] ?? ''));
+    $detail = trim((string) ($sim['detail'] ?? ''));
+    if ($lead === '') { return $text; }
+    $lines = preg_split('/\n/u', trim($text)) ?: [];
+    $keep  = [];
+    foreach ($lines as $ln) {
+        $t = trim($ln);
+        if ($t !== '' && !preg_match('/^\s*[-•]/u', $t)
+            && preg_match('/(제품|규격|상품)[^.\n]{0,30}(없습니다|없어요|찾을 수 없|찾지 못|등록되어 있지 않|보여\s*드리지 않|추천하지 않)|유사한 제품을 추천|가장 가까운/u', $t) === 1) {
+            continue;   // 서버 안내와 같은 말(없음·대신) — 한 번만
+        }
+        $keep[] = $ln;
+    }
+    $body = trim((string) preg_replace('/\n{3,}/u', "\n\n", implode("\n", $keep)));
+    return $lead . ($detail !== '' ? "\n" . $detail : '') . ($body !== '' ? "\n\n" . $body : '');
+}
+
+/**
  * 대체품 표의 답에서 '찾은 품목이 없다·제외됐다·대체품이다'를 GPT 가 따로 말한 문장을 뺀다 (순수 함수, 2026-11-12 — 운영 상담 #227 중복).
  * 제품 줄('- '로 시작)은 건드리지 않는다. 찾은 품목 말(용도 말 '수로용' 등, 없으면 검색어)과 제외·대체 말이 함께 있는 문장만.
  */
@@ -2026,6 +2069,19 @@ function rag_fix_area_question(string $text, string $categoryKey): string
         $out[] = $sen;
     }
     return implode(' ', $out);
+}
+
+/** 답이 고객에게 정보를 묻는 글인지 (순수 함수) — '?' 또는 '알려 주세요·알려주세요·말씀해 주세요' */
+function rag_is_question_reply(string $text): bool
+{
+    return preg_match('/\?|？|알려\s*주세요|말씀해\s*주세요|알려\s*주시면/u', $text) === 1;
+}
+
+/** 검색어가 경계석(연석)인지 — 포장 블록 말 없이 (순수 함수, 2026-11-26) */
+function rag_is_curb_query(string $q): bool
+{
+    return preg_match('/경계석|경계블[록럭]|연석/u', $q) === 1
+        && preg_match('/보도블[록럭]|인터로킹|포장블[록럭]|점토블[록럭]|투수블[록럭]|잔디블[록럭]|인조화강블|판석/u', $q) !== 1;
 }
 
 /** 고객이 경계석만 상담하는지(포장 블록 말 없이) (순수 함수, 2026-11-26) — 경계석에 면적을 묻는 문장 바로잡기용 */
@@ -2538,6 +2594,7 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
     $toolLog      = [];      // 부른 도구 이름·인자·결과 요약(시험 결과 기록용 — chat.php 는 화면에 보내지 않음)
     $turnCards    = [];      // 이번 턴 검색 결과 카드(동률 최저가 안내용)
     $missingRegs  = [];      // 표에 없는 형태 말(날개형 등)의 등록 규격 — 답에 없으면 한 문장으로 넣음
+    $similars     = [];      // 이번 턴 유사 제품 표(맞는 규격 없음) — 답 첫 문장을 '해당 규격의 제품이 없습니다. 대신 아래에 유사한 제품을 추천해드립니다.'로
     $substitutes  = [];      // 이번 턴 대체품 표(찾은 품목이 없어 넓힌 검색) — 답에 그 사실이 없으면 안내 문장을 넣음
     $preToolText  = '';      // 도구 호출과 함께 온 중간 글(최종 답이 없을 때만 사용)
     $basicsSeen   = [];      // material_info·search_products 가 준 확인된 기본 정보(국가표준·등록 상품) — 답에 실제로 쓴 것만 출처 카드로
@@ -2669,7 +2726,7 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
             $maxIter++;
             continue;
         }
-        if ($noTool && $style === 'quick' && !$forcedAdd && $turnCards && !$cartTouched
+        if ($noTool && $style === 'quick' && !$forcedAdd && $turnCards && !$cartTouched && !$similars   // 유사 제품 표(요청 규격 아님)는 담기를 강제하지 않음
             && !array_intersect(array_map(static fn($c) => (int) ($c['id'] ?? 0), $turnCards), $addedIds) && !str_contains((string) $content, '?')) {
             $forcedAdd = true;
             $promised  = (string) $content;   // 강제해도 도구를 안 부르면 이 답이라도 돌려준다
@@ -2726,6 +2783,7 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
             if ($clarify !== '') { $toolData['clarify'] = $clarify; }   // 모호한 고객 말 — GPT 가 확인 질문을 하게(서버가 해석을 정하지 않음)
             if (($tc['function']['name'] ?? '') === 'search_products') {
                 if (!empty($toolData['substitute'])) { $substitutes[] = $toolData['substitute']; }
+                if (!empty($toolData['similar'])) { $similars[] = $toolData['similar']; }   // 맞는 규격이 없어 유사 제품 표(2026-11-26)
                 $missingRegs = (array) ($toolData['missing_registered'] ?? []);   // 이번 턴 마지막 검색의 표에 없는 형태 말 등록 규격
                 if ($lowestNote !== '') { $toolData['note'] = trim($lowestNote . ' ' . (string) ($toolData['note'] ?? '')); }
             }
@@ -2792,12 +2850,18 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
     $responseText = rag_strip_place_inference($responseText);
     $responseText = rag_fix_area_question($responseText, $categoryKey === 'pavement' && ai_install_runs_enabled() && rag_is_curb_only($messages) ? 'curb' : (string) $categoryKey);   // 길이로 까는 자재에 면적(㎡)을 물으면 그 자재 치수로(운영 상담 #224·#226)   // '식당 주방은 보행자 전용 구역이므로' 같은 장소 상식 근거(운영 상담 #224·#226)
     $responseText = rag_substitute_note($responseText, $substitutes);   // 대체품 표: GPT 가 따로 말한 '수로용 제외' 문장은 빼고 서버 안내를 한 번만(운영 상담 #193·#227)
+    $responseText = rag_similar_lead($responseText, $similars);   // 유사 제품 표: 첫 문장 고정(사용자 요청 11-26)
     $matMakers = [];
     foreach ($events as $ev) { if (($ev['type'] ?? '') === 'material_sources') { $matMakers = array_merge($matMakers, array_column((array) ($ev['sources'] ?? []), 'maker')); } }
     if ($matMakers) { $responseText = rag_strip_source_phrases($responseText, $matMakers); }   // 제조사 출처는 화면 하단에만(2026-11-12)
     $responseText = rag_registered_note($responseText, $missingRegs);   // 없는 형태 말의 등록 규격을 빠뜨렸으면(운영 상담 #199)
     $responseText = rag_dedupe_evaluation($responseText);
     $responseText = rag_length_m_text($responseText);   // 제품 길이(L)는 항상 m(사용자 요청 11-26, A14) — '길이 1000mm' → '길이 1m'
+    // 빠른 상담: 도구 없이 질문만 한 답 → 기존 상담과 같은 필수 항목 질문(폭·설치 길이 줄 구성·차량 등, 이미 말한 항목 빼고)으로 고정(사용자 요청 11-26)
+    if ($style === 'quick' && ai_install_runs_enabled() && !$toolLog && !$events && rag_is_question_reply($responseText)) {
+        $fqCat = $categoryKey === 'pavement' && rag_is_curb_only($messages) ? 'curb' : (string) $categoryKey;
+        if (($fq = quick_first_question($fqCat, $messages, ($trafficInfo['class'] ?? '') !== '' && ($trafficInfo['strength'] ?? '') === 'strong')) !== null) { $responseText = $fq; }
+    }
     // 두 상담 같은 단위 규칙(사용자 결정 11-26, A14): 길이·설치 길이만 m, 폭·높이·두께 등은 mm('폭 0.3m' → '폭 300mm'), 예시 붙은 질문의 '(mm)' 표시 빼기
     if (function_exists('quick_reply_units')) { $responseText = quick_reply_units($responseText); }
     if ($style === 'quick') { $responseText = quick_reply_tidy($responseText); }   // '견적서는 화면에 이미 표시되고 있으며' 같은 화면 안내 말 빼기(운영 시험 11-24)
