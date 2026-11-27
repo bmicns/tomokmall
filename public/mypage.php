@@ -4,6 +4,7 @@ require __DIR__ . '/../app/bootstrap.php';
 require __DIR__ . '/../app/auth.php';
 require __DIR__ . '/../app/layout.php';
 require_once __DIR__ . '/../app/cart.php';   // estimate_display_totals — 이전주문 금액(회원 할인가)
+require_once __DIR__ . '/../app/privacy.php'; // 탈퇴 사유 목록(PRIVACY_WITHDRAW_REASONS)
 
 if (!is_logged_in()) {
     redirect('/login.php?redirect=' . urlencode('/mypage.php'));
@@ -133,14 +134,22 @@ render_header('마이페이지');
                         <li>진행 중인 견적·납품이 있으면 끝난 뒤에 탈퇴할 수 있습니다.</li>
                         <li>같은 이메일로 다시 가입할 수 있습니다.</li>
                     </ul>
+                    <fieldset class="wd-reasons">
+                        <legend class="info-label">탈퇴 사유 (선택)</legend>
+                        <?php foreach (PRIVACY_WITHDRAW_REASONS as $wdCode => $wdLabel): ?>
+                        <label class="wd-opt"><input type="radio" name="wd-reason" value="<?= (int) $wdCode ?>"> <?= e($wdLabel) ?></label>
+                        <?php endforeach; ?>
+                    </fieldset>
+                    <div class="info-field">
+                        <label class="info-label" for="wd-memo">남기실 말씀 (선택)</label>
+                        <textarea id="wd-memo" class="info-input" rows="3" maxlength="<?= PRIVACY_WITHDRAW_MEMO_MAX ?>" style="resize:vertical" aria-describedby="wd-memo-hint"></textarea>
+                        <p class="wd-hint" id="wd-memo-hint">서비스 개선에만 쓰며 회원 정보와 연결하지 않습니다. 적으신 전화번호·이메일 등은 지우고 저장합니다.</p>
+                    </div>
                     <div class="info-field">
                         <label class="info-label" for="wd-pw">지금 비밀번호</label>
                         <input id="wd-pw" class="info-input" type="password" autocomplete="current-password" maxlength="100">
                     </div>
-                    <div class="info-field">
-                        <label class="info-label" for="wd-confirm">확인을 위해 '탈퇴'라고 적어 주세요</label>
-                        <input id="wd-confirm" class="info-input" type="text" maxlength="10" autocomplete="off" placeholder="탈퇴">
-                    </div>
+                    <label class="wd-agree"><input type="checkbox" id="wd-agree"> 위 안내 사항을 모두 확인했으며, 회원 탈퇴에 동의합니다. (필수)</label>
                     <p class="info-msg" id="wd-msg" role="alert"></p>
                     <div><button type="button" class="info-btn wd-btn" id="wd-btn" onclick="withdrawAccount()">회원 탈퇴하기</button></div>
                 </div>

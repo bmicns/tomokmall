@@ -85,14 +85,17 @@ async function changePw() {
 // ── 회원 탈퇴(A안 — /api/mypage/withdraw.php) ─────────────────
 async function withdrawAccount() {
     const pw  = document.getElementById('wd-pw').value;
-    const cf  = document.getElementById('wd-confirm').value.trim();
+    const agree = document.getElementById('wd-agree').checked;
+    const rEl = document.querySelector('input[name="wd-reason"]:checked');
+    const reason = rEl ? parseInt(rEl.value, 10) : null;
+    const memo = document.getElementById('wd-memo').value.trim();
     const msg = document.getElementById('wd-msg');
     const btn = document.getElementById('wd-btn');
     if (!pw) { showMsg(msg,'err','지금 비밀번호를 입력해 주세요.'); return; }
-    if (cf !== '탈퇴') { showMsg(msg,'err',"확인 칸에 '탈퇴'라고 적어 주세요."); return; }
+    if (!agree) { showMsg(msg,'err','안내 사항을 확인하고 탈퇴 동의에 체크해 주세요.'); return; }
     btn.disabled=true; btn.textContent='처리 중...'; msg.style.display='none';
     try {
-        const r = await fetch('/api/mypage/withdraw.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw,confirm:cf})});
+        const r = await fetch('/api/mypage/withdraw.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw,agree:true,reason:reason,memo:memo})});
         const d = await r.json().catch(() => null);
         if (d && d.ok) {
             showMsg(msg,'ok','탈퇴가 끝났습니다. 그동안 이용해 주셔서 감사합니다.');
