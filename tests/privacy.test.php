@@ -5,12 +5,14 @@ declare(strict_types=1);
  *
  * 확인:
  *  - 상수(1년)·탈퇴 이메일 형식(순수)
- *  - API: 비로그인 401, GET 405, 확인 글자·비밀번호 틀리면 거절(아무것도 안 바뀜)
+ *  - API: 비로그인 401, GET 405, 동의 체크 없음·없는 사유·300자 넘는 말씀·비밀번호 틀리면 거절(아무것도 안 바뀜)
+ *  - 탈퇴 사유(11-27): 회원과 연결 없는 withdraw_reasons 에 사유·말씀(전화·이메일·사업자번호 지움)·회원 종류·날짜만,
+ *          사유·말씀이 없으면 행 안 만듦, 관리자 화면·삭제 API(관리자만)
  *  - 탈퇴: users 개인정보 지움·잠금·가짜 이메일, 견적 개인정보만 지움(금액·상태 그대로), 현장·관심상품·이전 상담 삭제,
  *          상담 로그는 연결만 끊음, 세션 끝(다시 마이페이지 API 401), 같은 이메일·비밀번호로 로그인 안 됨, 다른 회원 것은 그대로
  *  - 진행 중 견적(확정·납품 전)이 있으면 거절, 직원 계정 거절
  *  - 견적 1년: 1년 지난 견적만 개인정보 지움(금액 그대로), 최근 견적 그대로, 두 번 돌려도 같음
- * 테스트가 만든 행: users·estimates·sites·favorite_products·ai_sessions·chat_logs 의 [TEST] 행 — 끝에 지운다.
+ * 테스트가 만든 행: users·estimates·sites·favorite_products·ai_sessions·chat_logs 의 [TEST] 행, withdraw_reasons 의 새 행 — 끝에 지운다.
  * 실행: php tests/privacy.test.php (.env.local 의 로컬 _test DB)
  */
 error_reporting(E_ALL & ~E_WARNING & ~E_DEPRECATED & ~E_NOTICE);
@@ -30,6 +32,11 @@ echo "[순수]\n";
 ok('견적 보관 365일', PRIVACY_ESTIMATE_KEEP_DAYS === 365);
 $em = privacy_withdrawn_email(12);
 ok('탈퇴 이메일: withdrawn-<id>-<무작위>@deleted.invalid, 매번 다름', (bool) preg_match('/^withdrawn-12-[0-9a-f]{12}@deleted\.invalid$/', $em) && $em !== privacy_withdrawn_email(12), $em);
+ok('탈퇴 사유 7개(1~7), 마지막 = 기타', array_keys(PRIVACY_WITHDRAW_REASONS) === [1, 2, 3, 4, 5, 6, 7] && PRIVACY_WITHDRAW_REASONS[7] === '기타');
+$sc = privacy_scrub_text('연락 010-1234-5678, 01098765432 / 02)123-4567 메일 a.b@x.co.kr 사업자 123-45-67890 감사합니다');
+ok('말씀: 전화(하이픈 있음·없음·지역번호)·이메일·사업자번호 지움', !preg_match('/\d{3,}|@/', $sc) && str_contains($sc, '감사합니다'), $sc);
+$sc2 = privacy_scrub_text('규격 300x300 수로관이 부족했어요. 2026년 5월, 20개 주문');
+ok('말씀: 규격·날짜·수량 숫자는 그대로', $sc2 === '규격 300x300 수로관이 부족했어요. 2026년 5월, 20개 주문', $sc2);
 ok('견적 정리 코드는 금액 칸을 쓰지 않음(P0-4)', !preg_match('/shipping_fee|discount_amt|unit_price|adjusted_price|total_amount/', (string) file_get_contents(__DIR__ . '/../app/privacy.php')));
 
 $dbName = (string) ($config['db']['name'] ?? '');
@@ -84,7 +91,11 @@ $uA = $mk('customer', 'a');      // 탈퇴할 회원
 $uB = $mk('corporate', 'b');     // 진행 중 견적이 있는 회원
 $uC = $mk('customer', 'c');      // 다른 회원(그대로 있어야)
 $uS = $mk('staff', 's');         // 직원(거절)
-$userIds = [$uA['id'], $uB['id'], $uC['id'], $uS['id']];
+$uM = $mk('admin', 'm');         // 관리자(탈퇴 사유 화면)
+$uD = $mk('corporate', 'd');     // 사유 없이 탈퇴
+$userIds = [$uA['id'], $uB['id'], $uC['id'], $uS['id'], $uM['id'], $uD['id']];
+$hasWr = privacy_table_exists($pdo, 'withdraw_reasons');
+$wrMax = $hasWr ? (int) $pdo->query('SELECT COALESCE(MAX(id), 0) FROM withdraw_reasons')->fetchColumn() : 0;
 
 $insEst = $pdo->prepare('INSERT INTO estimates (user_id, customer_name, company_name, phone, email, site_address, memo, mode, status, created_at)
                          VALUES (?, ?, ?, ?, ?, ?, ?, \'chat\', ?, ?)');
@@ -112,28 +123,37 @@ $cnt = static function (string $sql, array $p) use ($pdo): int { $s = $pdo->prep
 try {
     echo "[API — 막는 경우]\n";
     $none = [];
-    ok('비로그인 POST → 401', $req('POST', '/api/mypage/withdraw.php', ['password' => PW, 'confirm' => '탈퇴'], $none)['code'] === 401);
+    ok('비로그인 POST → 401', $req('POST', '/api/mypage/withdraw.php', ['password' => PW, 'agree' => true], $none)['code'] === 401);
     $ja = [];
     $lg = $req('POST', '/api/auth/login.php', ['email' => $uA['email'], 'password' => PW], $ja);
     ok('회원 A 로그인', ($lg['json']['ok'] ?? false) === true, $lg['json']);
     ok('GET → 405', $req('GET', '/api/mypage/withdraw.php', null, $ja)['code'] === 405);
-    $r = $req('POST', '/api/mypage/withdraw.php', ['password' => PW, 'confirm' => '탈퇴할래요'], $ja)['json'];
-    ok("확인 글자가 '탈퇴'가 아니면 거절", ($r['ok'] ?? null) === false && str_contains((string) ($r['error'] ?? ''), '탈퇴'), $r);
-    $r = $req('POST', '/api/mypage/withdraw.php', ['password' => 'wrong-pw', 'confirm' => '탈퇴'], $ja)['json'];
+    $r = $req('POST', '/api/mypage/withdraw.php', ['password' => PW, 'confirm' => '탈퇴'], $ja)['json'];
+    ok('동의 체크가 없으면 거절(예전 확인 글자만으로는 안 됨)', ($r['ok'] ?? null) === false && str_contains((string) ($r['error'] ?? ''), '동의'), $r);
+    $r = $req('POST', '/api/mypage/withdraw.php', ['password' => PW, 'agree' => 'true'], $ja)['json'];
+    ok('동의 값이 true 가 아니면(글자 "true") 거절', ($r['ok'] ?? null) === false, $r);
+    $r = $req('POST', '/api/mypage/withdraw.php', ['password' => PW, 'agree' => true, 'reason' => 9], $ja)['json'];
+    ok('없는 사유 번호는 거절', ($r['ok'] ?? null) === false && str_contains((string) ($r['error'] ?? ''), '사유'), $r);
+    $r = $req('POST', '/api/mypage/withdraw.php', ['password' => PW, 'agree' => true, 'memo' => str_repeat('가', 301)], $ja)['json'];
+    ok('남기실 말씀 300자 넘으면 거절', ($r['ok'] ?? null) === false && str_contains((string) ($r['error'] ?? ''), '300'), $r);
+    $r = $req('POST', '/api/mypage/withdraw.php', ['password' => 'wrong-pw', 'agree' => true], $ja)['json'];
     ok('비밀번호가 틀리면 거절', ($r['ok'] ?? null) === false && str_contains((string) ($r['error'] ?? ''), '비밀번호'), $r);
     ok('거절된 뒤 계정은 그대로', $cnt('SELECT COUNT(*) FROM users WHERE id = ? AND is_active = 1 AND email = ?', [$uA['id'], $uA['email']]) === 1);
 
     $jb = [];
     $req('POST', '/api/auth/login.php', ['email' => $uB['email'], 'password' => PW], $jb);
-    $r = $req('POST', '/api/mypage/withdraw.php', ['password' => PW, 'confirm' => '탈퇴'], $jb)['json'];
+    $r = $req('POST', '/api/mypage/withdraw.php', ['password' => PW, 'agree' => true], $jb)['json'];
     ok('진행 중 견적(승인·납품 전)이 있으면 거절', ($r['ok'] ?? null) === false && str_contains((string) ($r['error'] ?? ''), '진행 중'), $r);
     $js = [];
     $req('POST', '/api/auth/login.php', ['email' => $uS['email'], 'password' => PW], $js);
-    $r = $req('POST', '/api/mypage/withdraw.php', ['password' => PW, 'confirm' => '탈퇴'], $js)['json'];
+    $r = $req('POST', '/api/mypage/withdraw.php', ['password' => PW, 'agree' => true], $js)['json'];
     ok('직원 계정은 거절', ($r['ok'] ?? null) === false && str_contains((string) ($r['error'] ?? ''), '직원'), $r);
 
+    ok('거절된 요청은 탈퇴 사유를 남기지 않음', !$hasWr || $cnt('SELECT COUNT(*) FROM withdraw_reasons WHERE id > ?', [$wrMax]) === 0);
+
     echo "[탈퇴 — 회원 A]\n";
-    $r = $req('POST', '/api/mypage/withdraw.php', ['password' => PW, 'confirm' => '탈퇴'], $ja);
+    $r = $req('POST', '/api/mypage/withdraw.php', ['password' => PW, 'agree' => true, 'reason' => 4,
+        'memo' => '현장이 끝났어요. 연락은 010-2222-3333, test@example.test 로 주세요'], $ja);
     ok('탈퇴 성공', ($r['json']['ok'] ?? null) === true, $r['json']);
     $u = $pdo->prepare('SELECT * FROM users WHERE id = ?');
     $u->execute([$uA['id']]);
@@ -156,6 +176,33 @@ try {
     $lg2 = $req('POST', '/api/auth/login.php', ['email' => $uA['email'], 'password' => PW], $j2)['json'];
     ok('같은 이메일·비밀번호로 로그인 안 됨', ($lg2['ok'] ?? null) !== true, $lg2);
     ok('두 번째 탈퇴 처리는 예외(이미 잠김)', (static function () use ($uA): bool { try { privacy_withdraw_user($uA['id']); return false; } catch (\Throwable $e) { return true; } })());
+
+    echo "[탈퇴 사유]\n";
+    if (!$hasWr) {
+        echo "  SKIP: withdraw_reasons 표 없음(database/20261127_withdraw_reasons.sql)\n";
+    } else {
+        $wr = $pdo->prepare('SELECT * FROM withdraw_reasons WHERE id > ? ORDER BY id');
+        $wr->execute([$wrMax]);
+        $wrs = $wr->fetchAll();
+        $w = $wrs[0] ?? [];
+        ok('사유 한 행: 사유 4·회원 종류 customer·오늘 날짜', count($wrs) === 1 && (int) $w['reason_code'] === 4 && $w['member_role'] === 'customer' && $w['created_on'] === date('Y-m-d'), $wrs);
+        ok('말씀: 전화·이메일 지우고 나머지 그대로', isset($w['memo']) && str_starts_with((string) $w['memo'], '현장이 끝났어요.') && !str_contains((string) $w['memo'], '010') && !str_contains((string) $w['memo'], '@'), $w);
+        $cols = $pdo->query('SHOW COLUMNS FROM withdraw_reasons')->fetchAll(\PDO::FETCH_COLUMN);
+        ok('표에 회원과 이어지는 칸 없음(id·사유·말씀·회원 종류·날짜만)', $cols === ['id', 'reason_code', 'memo', 'member_role', 'created_on'], $cols);
+        $before = $cnt('SELECT COUNT(*) FROM withdraw_reasons WHERE id > ?', [$wrMax]);
+        privacy_withdraw_user($uD['id'], null, '  ');
+        ok('사유·말씀 없이 탈퇴하면 사유 행 안 만듦', $cnt('SELECT COUNT(*) FROM withdraw_reasons WHERE id > ?', [$wrMax]) === $before);
+
+        $wid = (int) $w['id'];
+        $r = $req('POST', '/api/admin/withdraw-reasons.php', ['action' => 'delete', 'id' => $wid], $js);
+        ok('직원은 사유 삭제 못 함(관리자만)', ($r['json']['ok'] ?? null) !== true && $cnt('SELECT COUNT(*) FROM withdraw_reasons WHERE id = ?', [$wid]) === 1, $r['code']);
+        $jm = [];
+        $req('POST', '/api/auth/login.php', ['email' => $uM['email'], 'password' => PW], $jm);
+        $pg = $req('GET', '/admin-withdraw-reasons.php?reason=4', null, $jm);
+        ok('관리자 화면: 사유·말씀 보임', $pg['code'] === 200 && str_contains($pg['body'], '공사·현장이 끝나 이용할 일이 없음') && str_contains($pg['body'], '현장이 끝났어요.'), $pg['code']);
+        $r = $req('POST', '/api/admin/withdraw-reasons.php', ['action' => 'delete', 'id' => $wid], $jm)['json'];
+        ok('관리자 삭제 → 행 사라짐', ($r['ok'] ?? null) === true && $cnt('SELECT COUNT(*) FROM withdraw_reasons WHERE id = ?', [$wid]) === 0, $r);
+    }
 
     echo "[다른 회원은 그대로]\n";
     ok('회원 C 계정·견적·현장·관심상품·이전 상담 그대로', $cnt('SELECT COUNT(*) FROM users WHERE id = ? AND is_active = 1 AND phone IS NOT NULL', [$uC['id']]) === 1
@@ -183,6 +230,7 @@ try {
     $pdo->exec("DELETE FROM ai_sessions WHERE session_key LIKE 'privacy-{$tag}-%'");
     $pdo->exec("DELETE FROM chat_logs WHERE session_key LIKE 'privacy-{$tag}-%'");
     $pdo->exec("DELETE FROM users WHERE id IN ({$in})");
+    if ($hasWr) { $pdo->exec('DELETE FROM withdraw_reasons WHERE id > ' . $wrMax); }
 }
 
 echo "\n결과: {$pass} 통과, {$fail} 실패\n";
