@@ -2134,6 +2134,96 @@ function rag_strip_price_claims(string $text): string
     return trim((string) preg_replace('/\n{3,}/u', "\n\n", implode("\n", $out)));
 }
 
+/** 근거 없는 효과·성능 주장 (자료에 없는 말 — 사용자 요청 11-27) */
+const RAG_CLAIM_RE = '/신뢰성이\s*(?:높|좋|뛰어|우수)|신뢰할\s*수\s*있|내구성이\s*(?:높|좋|뛰어|우수|강)|내구성(?:이|도)?\s*뛰어|튼튼(?:합니다|하여|해서|한\s*제품|하고)|오래\s*(?:사용|쓰실|쓸)\s*수|균열을?\s*(?:방지|막)|품질이\s*(?:우수|뛰어|좋)|안심하고/u';
+/** 하중·차량 통행 적합 주장 — 상품 자료(load_check)로 확인되지 않았을 때만 뺀다. 두께·규격 숫자(80T 등 사내 기준)를 말하는 문장은 그대로 */
+const RAG_LOAD_CLAIM_RE = '/견딜\s*수|견딥니다|견디는|하중에\s*(?:강|적합)|차량(?:이|의)?\s*(?:진입|통행|지나가는|다니는)?[^.!?\n]{0,20}(?:적합|문제\s*없)|(?:차도|도로|차량용)에?\s*(?:적합|알맞)/u';
+
+/**
+ * 근거 없는 효과·성능 문장 빼기 (순수 함수, 사용자 요청 2026-11-27 — 운영 시험 '하중을 견딜 수 있는 제품들입니다'·'신뢰성이 높습니다').
+ * 'KS … 대상 종류이므로 신뢰성이 높습니다'처럼 앞부분이 사실이면 '…종류입니다'로 앞만 남긴다. $loadVerified = 이번 표에 하중이 상품 자료로 확인된 제품이 있음.
+ */
+function rag_strip_unsupported_claims(string $text, bool $loadVerified): string
+{
+    $hit = static fn(string $sen): bool => preg_match(RAG_CLAIM_RE, $sen) === 1
+        || (!$loadVerified && preg_match(RAG_LOAD_CLAIM_RE, $sen) === 1 && preg_match('/\d+\s*(?:T\b|mm|㎜)/u', $sen) !== 1);
+    $out = [];
+    foreach (explode("\n", $text) as $line) {
+        $sens = preg_split('/(?<=[.!?])\s+/u', $line) ?: [$line];
+        if (!array_filter($sens, static fn($x) => $hit((string) $x))) { $out[] = $line; continue; }
+        $kept = [];
+        foreach ($sens as $sen) {
+            $sen = (string) $sen;
+            if (!$hit($sen)) { $kept[] = $sen; continue; }
+            // 앞부분 사실 + 'X이므로/이라서 (주장)' → 앞부분만 '…입니다.'
+            if (preg_match('/^(.*?[가-힣A-Za-z0-9)])\s*(?:이므로|이라서|이어서|이기\s*때문에)\s+/u', $sen, $m) === 1 && !$hit($m[1]) && mb_strlen($m[1]) >= 8) {
+                $kept[] = $m[1] . '입니다.';
+            }
+        }
+        $line2 = rtrim(implode(' ', $kept));
+        if ($line2 !== '' && !preg_match('/^\s*-\s*$/u', $line2)) { $out[] = $line2; }
+    }
+    return trim((string) preg_replace('/\n{3,}/u', "\n\n", implode("\n", $out)));
+}
+
+/**
+ * 여러 줄 설치의 줄별 수량 기준 한 줄 (순수 함수, 사용자 요청 2026-11-27 — '10m 4본 + 15m 6본' 을 답에 꼭).
+ * 이번 표 제품의 qty_basis(줄마다 올림 계산, 서버 값 그대로)를 제품 1개 길이별로 묶어 '수량 기준(줄별)' 한 문단으로. 답에 이미 줄별 수량이 있으면 그대로.
+ */
+function rag_runs_basis_line(string $text, array $cards, ?array $runs): string
+{
+    if (!$runs || count((array) ($runs['runs'] ?? [])) < 2) { return $text; }
+    $groups = [];
+    foreach ($cards as $c) {
+        $b = (string) ($c['qty_basis'] ?? '');
+        if ($b === '' || !str_contains($b, '+') && !str_contains($b, '×') || str_contains($b, '㎡')) { continue; }
+        $b = trim((string) preg_replace('/\(줄 끝은 잘라 쓰고[^)]*\)/u', '', $b));
+        $b = (string) preg_replace('/^[^:]+:\s*/u', '', $b);   // 앞의 줄 구성('10m·15m:')은 머리에 한 번만
+        $groups[$b][] = (string) ($c['name'] ?? '');
+        if (count($groups) >= 3) { break; }
+    }
+    if (!$groups) { return $text; }
+    // 답에 줄별 수량이 이미 있으면(예: '10m 4본', '한 줄 10m ÷') 넣지 않는다
+    foreach (array_keys($groups) as $b) {
+        if (preg_match('/^(\d+(?:\.\d+)?m\s+\d+\S+)/u', $b, $m) === 1 && str_contains($text, $m[1])) { return $text; }
+        if (str_contains($text, $b)) { return $text; }
+    }
+    $head = install_runs_label($runs, array_sum($runs['runs']));
+    $line = count($groups) === 1
+        ? "수량 기준(줄별 {$head}): " . array_key_first($groups) . ' — 줄마다 끝을 잘라 쓰는 기준입니다.'
+        : "수량 기준(줄별 {$head}, 제품 1개 길이에 따라 다름): " . implode(' / ', array_map(static fn($b, $ns) => implode('·', array_slice(array_unique($ns), 0, 2)) . ' ' . $b, array_keys($groups), $groups)) . '.';
+    // 첫 제품 줄('- ') 앞 문단으로, 제품 줄이 없으면 첫 문단 뒤에
+    $lines = explode("\n", $text);
+    foreach ($lines as $i => $l) {
+        if (preg_match('/^\s*-\s/u', $l) === 1) {
+            array_splice($lines, $i, 0, [$line, '']);
+            return implode("\n", $lines);
+        }
+    }
+    $parts = preg_split('/\n\n/u', $text, 2) ?: [$text];
+    return $parts[0] . "\n\n" . $line . (isset($parts[1]) ? "\n\n" . $parts[1] : '');
+}
+
+/** 답이 검색 없이 '등록되지 않음·취급하지 않음'을 단정하는지 (순수 함수, 2026-11-27 운영 시험 — 도구 없이 '그레이팅 수로용은 등록되지 않은 상태') */
+function rag_is_unregistered_claim(string $text): bool
+{
+    return preg_match('/등록(?:되어\s*있지|되지|된\s*(?:제품|상품)이)\s*(?:않|없)|취급하지\s*않|판매하지\s*않|찾을\s*수\s*없|없는\s*제품/u', $text) === 1;
+}
+
+/**
+ * 경계석 상담: 설치 장소(차량이 닿는 곳인지)를 아직 모르면 검색 전에 장소부터 묻는 고정 질문 (사용자 요청 2026-11-27 — 두 상담).
+ * 경계석만 말하고 설치하려는 말(길이·필요·추천·설치·견적)이 있을 때만. 장소·차량을 이미 말했거나 다른 자재를 함께 말했으면 null.
+ */
+function rag_curb_place_question(array $messages, bool $vehicleKnown): ?string
+{
+    if (!rag_is_curb_only($messages)) { return null; }
+    $t = quick_fq_user_text($messages);
+    if ($vehicleKnown || quick_fq_has_place($t)) { return null; }
+    if (preg_match('/그레이팅|수로관|흄관|배수관|맨홀|집수정|이중벽관|다중벽관|유공관/u', $t) === 1) { return null; }
+    if (quick_fq_length($t) === null && preg_match('/필요|추천|설치|깔|시공|견적|사려|구매|찾/u', $t) !== 1) { return null; }
+    return quick_first_question('curb', $messages, false);
+}
+
 function rag_product_family(string $query): string
 {
     $q = str_replace(' ', '', $query);
@@ -2629,7 +2719,8 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
     $qInstall  = $style === 'quick' && rag_detect_category([['role' => 'user', 'content' => $lastUser]]) === '' && quick_match_named($lastUser) === null ? quick_install_amount($lastUser) : null;
     $forcedQty = false;
     $forceUpdate = false;
-    $mustSearch = rag_must_search($lastUser, $explicit, $formTerms, (bool) $recentCards, (string) (($recentCards ? rag_recent_cond($sid) : [])['query'] ?? ''), $alreadyLowest && !$wantsAlt);
+    // 품목은 앞선 말에만 있어도('그레이팅 필요해요' → '폭 320 10m씩 2줄 승용차') 치수를 말하면 검색(운영 시험 11-27 — 검색 없이 '등록 안 됨')
+    $mustSearch = rag_must_search($lastUser, $explicit, $formTerms, (bool) $recentCards, (string) (($recentCards ? rag_recent_cond($sid) : [])['query'] ?? '') ?: quick_fq_user_text($messages), $alreadyLowest && !$wantsAlt);
     $forcedMust = false;
     $wantsCheap  = $recentCards && rag_wants_cheaper($lastUser);
     $trafficInfo = rag_traffic_info($messages);
@@ -2653,6 +2744,12 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
         'recheck'      => $recentCards && !$wantsAlt && $trafficInfo['last_strong'] && in_array($trafficInfo['class'], ['car', 'truck'], true),   // 차량 조건을 이번에 말함 → 앞서 보인 제품 재확인
         'recheck_ids'  => $recentCards && rag_wants_previous($lastUser) ? array_slice(rag_session_shown_ids($sid), 0, 12) : [],   // '앞에 추천했던 제품들' → 직전 표만이 아니라 이 상담에서 보인 제품
     ];
+
+    // 경계석: 설치 장소(차량이 닿는지)를 아직 모르면 검색·추천 전에 장소부터 묻는다(사용자 요청 11-27 — 운영 시험 '경계석 15m'에 바로 추천). 두 상담 같은 질문
+    if (ai_install_runs_enabled() && !$recentCards
+        && ($cq = rag_curb_place_question($messages, ($trafficInfo['class'] ?? '') !== '' && ($trafficInfo['strength'] ?? '') === 'strong')) !== null) {
+        return ['ok' => true, 'text' => function_exists('quick_reply_units') ? quick_reply_units($cq) : $cq, 'events' => [], 'category' => $categoryKey, 'tools' => [], 'unverified_ks' => []];
+    }
 
     for ($iter = 0; $iter < $maxIter; $iter++) {
         $body = json_encode([
@@ -2705,7 +2802,8 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
             continue;
         }
         // 검색 없이 답한 턴인데 검색이 필요한 말(카탈로그의 형태 말·폭/길이 + 품목)이면 그 답은 버리고 search_products 를 1회 강제(운영 상담 #228·#233)
-        if ($noTool && !$toolUsed && $mustSearch && !$forcedMust) {
+        if ($noTool && !$toolUsed && !$forcedMust && ($mustSearch
+                || (rag_is_unregistered_claim((string) $content) && rag_product_family(quick_fq_user_text($messages)) !== ''))) {   // 검색 없이 '등록되지 않음'이라고 단정한 답도(운영 시험 11-27)
             $forcedMust = true;
             $promised = (string) $content;   // 강제해도 도구를 안 부르면 이 답이라도 돌려준다
             $oaiMessages[] = ['role' => 'system', 'content' => '고객이 말한 조건(품목·폭·길이·형태)으로 지금 search_products 를 호출해 등록 여부와 규격을 확인한 뒤 그 결과로 답한다. 검색 없이 등록되지 않았다·특수 제작이 필요하다고 단정하지 않는다.'];
@@ -2857,6 +2955,11 @@ function rag_process(array $messages, string $sid, string $style = 'consult'): a
     $responseText = rag_registered_note($responseText, $missingRegs);   // 없는 형태 말의 등록 규격을 빠뜨렸으면(운영 상담 #199)
     $responseText = rag_dedupe_evaluation($responseText);
     $responseText = rag_length_m_text($responseText);   // 제품 길이(L)는 항상 m(사용자 요청 11-26, A14) — '길이 1000mm' → '길이 1m'
+    if (ai_install_runs_enabled()) {
+        // 근거 없는 효과·성능 문장('하중을 견딜 수 있는'·'신뢰성이 높습니다') 빼기, 여러 줄 설치면 줄별 수량 기준 한 줄(사용자 요청 11-27)
+        $responseText = rag_strip_unsupported_claims($responseText, (bool) array_filter($turnCards, static fn($c) => ($c['load_check'] ?? '') === 'verified' || isset($c['load_grade'])));
+        $responseText = rag_runs_basis_line($responseText, $turnCards, $runsCtx);
+    }
     // 빠른 상담: 도구 없이 질문만 한 답 → 기존 상담과 같은 필수 항목 질문(폭·설치 길이 줄 구성·차량 등, 이미 말한 항목 빼고)으로 고정(사용자 요청 11-26)
     if ($style === 'quick' && ai_install_runs_enabled() && !$toolLog && !$events && rag_is_question_reply($responseText)) {
         $fqCat = $categoryKey === 'pavement' && rag_is_curb_only($messages) ? 'curb' : (string) $categoryKey;

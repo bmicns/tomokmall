@@ -79,7 +79,7 @@ $set(['runs' => [7.0, 7.0, 7.0], 'count' => 3]);
 ok('7m×3줄 수로관(2m): 줄마다 4본 × 3줄 = 12본(합계 계산 11본보다 1본 많음)', $q === 12 && str_contains($b, '7m×3줄') && str_contains($b, '12본'), [$q, $b]);
 $set(['runs' => [10.0, 15.0], 'count' => 2]);
 [$q, $b] = ai_estimate_quantity($tr, 25.0, null, null);
-ok('10m·15m 수로관: 5본 + 8본 = 13본', $q === 13 && str_contains($b, '10m·15m') && str_contains($b, '5본 + 8본 = 13본'), [$q, $b]);
+ok('10m·15m 수로관: 10m 5본 + 15m 8본 = 13본(줄 길이 함께 — 11-27)', $q === 13 && str_contains($b, '10m·15m') && str_contains($b, '10m 5본 + 15m 8본 = 13본'), [$q, $b]);
 $set(['runs' => [10.5, 10.5], 'count' => 2]);
 ok('10.5m×2줄 그레이팅(1m): 11 + 11 = 22개', ai_estimate_quantity($gr, 21.0, null, null)[0] === 22);
 $set(['runs' => [10.0, 10.0], 'count' => 2]);

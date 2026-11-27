@@ -668,6 +668,26 @@ function tool_search_products(array $input): string
         }
     }
 
+    // ③ 같은 용도의 같은 종류(사용자 요청 11-27): 찾은 품명이 사이트에 없으면(이름이 다름) 용도가 분명할 때만 같은 종류·같은 용도 상품에서 찾아
+    //    유사 제품 표로 — 예: '스틸 그레이팅 수로용' → '그레이팅 수로용'(수로 덮개끼리, 맨홀·집수정용은 넣지 않음). 용도를 모르면 넓히지 않는다.
+    if (!$rows && !$onlyIds && empty($input['_same_use']) && empty($input['_similar']) && ai_similar_products_enabled()
+        && ($use = ai_same_use_query($qText)) !== null && !ai_exclude_accessories(search_products($qText, 20), $qText)) {   // 이름으로 찾은 상품이 아예 없을 때만(치수가 안 맞아 빈 것은 아래 가까운 치수로)
+        $in = ['query' => $use['query'], '_same_use' => true] + $input;
+        unset($in['recheck_ids'], $in['queries']);
+        $res = json_decode(tool_search_products($in), true);
+        if (is_array($res) && !empty($res['products'])) {   // 용도가 다른 상품(수로 ↔ 맨홀·집수정)은 표에서 뺀다
+            $res = ai_keep_same_use($res, $use['query']);
+        }
+        if (is_array($res) && !empty($res['products'])) {
+            $detail = "요청하신 '{$qText}' 제품이 없어 같은 용도({$use['label']})의 다른 {$use['family']} 제품입니다. 이름이 다르니 규격·용도를 꼭 확인해 주세요.";
+            if (!empty($res['similar']['detail'])) { $detail .= ' ' . $res['similar']['detail']; }
+            $res['note']    = AI_SIMILAR_LEAD . ' ' . $detail;
+            $res['similar'] = ['lead' => AI_SIMILAR_LEAD, 'detail' => $detail];
+            if ($recheck) { $res['recheck'] = $recheck; if (($rn = ai_recheck_note($recheck)) !== '') { $res['note'] .= ' ' . $rn; } }
+            return json_encode($res, JSON_UNESCAPED_UNICODE);
+        }
+    }
+
     // ⓪ 치수 조건: 폭·길이가 확인된 규격 → 확인 불가 규격 순, 다른 규격은 뺀다(싸다는 이유로 조건이 다른 제품을 넣지 않음)
     if ($want) {
         [$okRows, $unkRows] = ai_filter_dims($rows, $want);
@@ -689,6 +709,10 @@ function tool_search_products(array $input): string
         // 수로 덮개를 찾는데 맨홀·집수정 위 덮개가 섞이지 않게(쓰는 곳이 다름 — 2026-11-10 운영 상담 #195: 10m 수로에 집수정용 그레이팅 17조 추천)
         if (ai_is_channel_cover_query($query) || (($input['cover_use'] ?? '') === 'channel' && preg_match('/맨홀|집수정/u', $query) !== 1)) {
             $rows = array_values(array_filter($rows, static fn($r) => !preg_match('/맨홀|집수정/u', (string) ($r['name'] ?? '') . ' ' . (string) ($r['category_name'] ?? ''))));
+        }
+        // 반대로 맨홀·집수정 위 그레이팅을 찾으면 수로 덮개는 넣지 않는다(용도가 다름 — 사용자 요청 11-27 '용도가 다르면 안 돼')
+        if (ai_grating_use($query) === 'manhole') {
+            $rows = array_values(array_filter($rows, static fn($r) => preg_match('/맨홀|집수정/u', (string) ($r['name'] ?? '') . ' ' . (string) ($r['category_name'] ?? '')) === 1));
         }
     }
     // ⓪-1 '투수' 를 찾으면 '불투수' 제품은 빼기(글자 포함 관계로 반대 성질이 섞이던 문제). 둘 다 비교하려면 '불투수' 를 함께 적는다
@@ -1861,6 +1885,49 @@ function ai_filter_empty_note(string $query, string $cond, string $traffic, arra
         $parts[] = '규격을 다시 확인해 주시거나, 높은 등급 제품도 보실지 알려 주세요.';
     }
     return implode(' ', $parts);
+}
+
+/** 그레이팅 검색어의 용도 (순수 함수) — 'channel'(수로·배수로·측구·트렌치 덮개) | 'manhole'(맨홀·집수정 위) | ''(그레이팅이 아니거나 용도를 모름·둘 다) */
+function ai_grating_use(string $q): string
+{
+    $n = str_replace(' ', '', $q);
+    if (!str_contains($n, '그레이팅')) { return ''; }
+    $manhole = preg_match('/맨홀|집수정/u', $n) === 1;
+    $channel = preg_match('/수로|배수로|측구|트렌치|농수로|도랑/u', $n) === 1;
+    return $manhole === $channel ? '' : ($channel ? 'channel' : 'manhole');
+}
+
+/**
+ * 같은 종류·같은 용도로 다시 찾을 검색어 (순수 함수, 사용자 요청 2026-11-27 — '용도가 다르면 안 됨').
+ * 용도가 검색어에 분명히 있을 때만: 그레이팅 + 수로(배수로·측구·트렌치) → '그레이팅 수로용', 그레이팅 + 맨홀·집수정 → '그레이팅 맨홀'.
+ * 이미 그 검색어면 null(같은 검색 반복 없음). 그 밖의 자재는 용도 구분이 이름에 없어 넓히지 않는다(null).
+ * @return array{query:string, label:string, family:string}|null
+ */
+function ai_same_use_query(string $q): ?array
+{
+    $n = str_replace(' ', '', $q);
+    $u = ai_grating_use($q);
+    if ($u === '') { return null; }   // 용도를 모르거나 둘 다 말함 — 넓히지 않음
+    $use = $u === 'channel' ? ['query' => '그레이팅 수로용', 'label' => '수로 덮개', 'family' => '그레이팅']
+                    : ['query' => '그레이팅 맨홀', 'label' => '맨홀·집수정 덮개', 'family' => '그레이팅'];
+    return str_replace(' ', '', $use['query']) === $n ? null : $use;
+}
+
+/** 같은 용도 상품만 남기기 (순수 함수) — 도구 결과의 products·화면 카드 모두. 맨홀 검색이면 이름·분류에 맨홀·집수정이 있는 것만, 수로 검색이면 없는 것만 */
+function ai_keep_same_use(array $res, string $useQuery): array
+{
+    $manhole = preg_match('/맨홀|집수정/u', $useQuery) === 1;
+    $ok = static fn(array $c): bool => (preg_match('/맨홀|집수정/u', (string) ($c['name'] ?? '') . ' ' . (string) ($c['category_name'] ?? '')) === 1) === $manhole
+        && preg_match('/그레이팅/u', (string) ($c['name'] ?? '')) === 1;   // 같은 종류(그레이팅)만 — 맨홀·집수정 본체는 덮개가 아님
+    $res['products'] = array_values(array_filter((array) ($res['products'] ?? []), $ok));
+    $res['count'] = count($res['products']);
+    $ids = array_flip(array_map(static fn($c) => (int) ($c['id'] ?? 0), $res['products']));
+    foreach ((array) ($res['_sse'] ?? []) as $i => $ev) {
+        if (($ev['type'] ?? '') === 'product_cards' && is_array($ev['products'] ?? null)) {
+            $res['_sse'][$i]['products'] = array_values(array_filter($ev['products'], static fn($c) => isset($ids[(int) ($c['id'] ?? 0)])));
+        }
+    }
+    return $res;
 }
 
 /** 맞는 규격이 없을 때 유사 제품 표의 첫 문장(사용자 요청 2026-11-26 — 답 글도 이 문장으로 시작) */

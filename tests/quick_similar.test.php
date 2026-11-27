@@ -77,12 +77,56 @@ ai_similar_products_enabled(false);
 ok('유사 제품 스위치 끔: 프롬프트에 규칙 없음', !str_contains(rag_build_prompt($u('그레이팅'), [], 'consult')['system'], '유사 제품 표 ==='));
 ai_similar_products_enabled(true);
 
+echo "[경계석 장소 먼저 rag_curb_place_question (11-27)]\n";
+$q = rag_curb_place_question($u('경계석 15m'), false);
+ok("'경계석 15m' → 검색 전에 장소·차량 질문(길이 15m는 한 줄 안내)", $q !== null && str_contains($q, '설치 장소와 차량이 닿는 곳인지') && str_contains($q, '15m는 한 줄로'), $q);
+ok("'차도 경계석 15m'·차량을 분명히 말함 → 묻지 않음", rag_curb_place_question($u('차도 경계석 15m'), false) === null && rag_curb_place_question($u('경계석 15m'), true) === null);
+ok("'경계석 종류가 뭐가 있어?'(설치 말 없음)·그레이팅과 함께·보도블록과 함께 → 묻지 않음", rag_curb_place_question($u('경계석 종류가 뭐가 있어?'), false) === null
+    && rag_curb_place_question($u('경계석 15m랑 그레이팅'), false) === null && rag_curb_place_question($u('보도블록과 경계석 필요해요'), false) === null);
+ok("'경계석 필요해요' → 장소·설치 길이 함께 묻기", ($q = rag_curb_place_question($u('경계석 필요해요'), false)) !== null && str_contains($q, '설치 장소') && str_contains($q, QUICK_FQ_LENGTH), $q);
+
+echo "[근거 없는 효과 문장 빼기 rag_strip_unsupported_claims (11-27)]\n";
+$t = "차도에 설치할 경계석을 위해 다음과 같은 제품들이 적합합니다.\n\n- 화강 경사 경계석: 폭 250mm, 길이 1m입니다. 권장 수량은 15개입니다. 이 제품은 차량이 지나가는 도로에 적합합니다.\n- 배수경계석: 권장 수량 15개입니다. 이 제품도 차도에 적합한 경계석입니다.\n\n차도용 경계석이므로 이 두 옵션 모두 차량 진입 및 하중을 견딜 수 있는 제품들입니다.";
+$r = rag_strip_unsupported_claims($t, false);
+ok('운영 시험 답: 차량·도로 적합·하중 견딤 문장 빠짐, 제품 줄의 사실(폭·수량)은 그대로', !str_contains($r, '견딜') && !str_contains($r, '도로에 적합') && !str_contains($r, '차도에 적합한 경계석')
+    && str_contains($r, '- 화강 경사 경계석: 폭 250mm, 길이 1m입니다. 권장 수량은 15개입니다.') && str_contains($r, '- 배수경계석: 권장 수량 15개입니다.'), $r);
+$r = rag_strip_unsupported_claims('위 제품들은 모두 내경 300mm입니다. KS F 4403(원심력 철근 콘크리트관) 표준 대상 종류이므로 신뢰성이 높습니다. 흄관(A형)이 가장 경제적입니다.', false);
+ok("'…종류이므로 신뢰성이 높습니다' → '…종류입니다.'(사실만 남김)", str_contains($r, 'KS F 4403(원심력 철근 콘크리트관) 표준 대상 종류입니다.') && !str_contains($r, '신뢰성'), $r);
+ok('하중이 상품 자료로 확인된 표면 차량 적합 문장은 그대로', str_contains(rag_strip_unsupported_claims('중하중 제품이라 승용차 통행에 적합합니다.', true), '적합합니다'));
+ok('두께 기준(80T) 문장은 그대로', str_contains(rag_strip_unsupported_claims('차량이 올라가면 두께 80mm 이상(80T) 제품이 적합합니다.', false), '80T'));
+
+echo "[줄별 수량 기준 rag_runs_basis_line (11-27)]\n";
+$runs = ['runs' => [10.0, 15.0], 'count' => 2];
+$cards = [['name' => '흄관(A형)', 'qty_basis' => '10m·15m: 10m 4본 + 15m 6본 = 10본(줄마다 ÷ 2.5m 올림)(줄 끝은 잘라 쓰고 자투리는 다른 줄에 쓰지 않는 기준)'],
+          ['name' => '유공흄관', 'qty_basis' => '10m·15m: 10m 4본 + 15m 6본 = 10본(줄마다 ÷ 2.5m 올림)(줄 끝은 잘라 쓰고 자투리는 다른 줄에 쓰지 않는 기준)']];
+$r = rag_runs_basis_line("농경지에 설치할 흄관을 추천드립니다.\n\n- 흄관(A형): 권장 수량은 10본입니다.", $cards, $runs);
+ok("답에 줄별 기준이 없으면 제품 줄 앞에 '수량 기준(줄별 10m·15m): 10m 4본 + 15m 6본 = 10본'", str_contains($r, "수량 기준(줄별 10m·15m): 10m 4본 + 15m 6본 = 10본(줄마다 ÷ 2.5m 올림)") && strpos($r, '수량 기준') < strpos($r, '- 흄관(A형)'), $r);
+ok('이미 줄별 수량을 말했으면 그대로', rag_runs_basis_line('10m 4본 + 15m 6본 = 10본입니다.', $cards, $runs) === '10m 4본 + 15m 6본 = 10본입니다.');
+ok('한 줄(줄 구성 없음)이면 그대로', rag_runs_basis_line('권장 수량 10본.', $cards, null) === '권장 수량 10본.');
+$r = rag_runs_basis_line('추천드립니다.', [['name' => 'A', 'qty_basis' => '10m·15m: 10m 4본 + 15m 6본 = 10본(줄마다 ÷ 2.5m 올림)'], ['name' => 'B', 'qty_basis' => '10m·15m: 10m 10개 + 15m 15개 = 25개(줄마다 ÷ 1m 올림)']], $runs);
+ok('제품 1개 길이가 다르면 제품별로', str_contains($r, 'A 10m 4본') && str_contains($r, 'B 10m 10개'), $r);
+
+echo "[검색 없이 '등록 안 됨' 단정 rag_is_unregistered_claim (11-27)]\n";
+ok("운영 시험 답('사이트에 등록되지 않은 상태') → 검색을 강제할 대상", rag_is_unregistered_claim("현재 '그레이팅 수로용' 제품은 사이트에 등록되지 않은 상태입니다.") && !rag_is_unregistered_claim('폭을 알려 주세요.'));
+
+echo "[같은 용도 ai_grating_use·ai_same_use_query·ai_keep_same_use (11-27)]\n";
+ok('그레이팅 용도: 수로·배수로 = channel, 맨홀·집수정 = manhole, 모름·둘 다·그레이팅 아님 = 빈 값', ai_grating_use('스틸 그레이팅 배수로') === 'channel' && ai_grating_use('벌집그레이팅 집수정') === 'manhole'
+    && ai_grating_use('그레이팅') === '' && ai_grating_use('그레이팅 수로 맨홀') === '' && ai_grating_use('수로관') === '');
+ok("같은 용도 검색어: '스틸 그레이팅 수로용' → '그레이팅 수로용', 이미 그 검색어면 null", (ai_same_use_query('스틸 그레이팅 수로용')['query'] ?? '') === '그레이팅 수로용' && ai_same_use_query('그레이팅 수로용') === null && ai_same_use_query('그레이팅') === null);
+$res = ai_keep_same_use(['products' => [['id' => 1, 'name' => '중하중그레이팅맨홀(집수정)용'], ['id' => 2, 'name' => '중하중그레이팅수로용'], ['id' => 3, 'name' => '사각맨홀(집수정)']],
+    '_sse' => [['type' => 'product_cards', 'products' => [['id' => 1], ['id' => 2], ['id' => 3]]]]], '그레이팅 맨홀');
+ok('맨홀 용도: 맨홀·집수정 그레이팅만(수로용·맨홀 본체 빠짐), 화면 카드도 같이', array_column($res['products'], 'id') === [1] && array_column($res['_sse'][0]['products'], 'id') === [1]);
+
 if (db() && preg_match('/_test$/', (string) (getenv('DB_NAME') ?: ''))) {
     echo "[로컬 테스트 DB]\n";
     $d = json_decode(ai_tool_dispatch('search_products', ['query' => '경계석', 'length_m' => 15], 'qs-test'), true);
     ok('경계석 15m(두께 기준 없이) 검색 → 표가 있고 권장 수량', !empty($d['products']) && (int) ($d['products'][0]['suggested_qty'] ?? 0) > 0, $d['note'] ?? null);
     $d = json_decode(ai_tool_dispatch('search_products', ['query' => '그레이팅 수로용', 'width_mm' => 320, 'length_m' => 20, 'traffic' => 'car'], 'qs-test'), true);
     ok('그레이팅 폭 320 승용차 → 유사 제품(가장 가까운 폭) 표·수량 20', !empty($d['similar']) && (int) ($d['products'][0]['suggested_qty'] ?? 0) === 20 && str_contains((string) $d['note'], '가장 가까운 폭 300mm'), $d['note'] ?? null);
+    $d = json_decode(ai_tool_dispatch('search_products', ['query' => '벌집그레이팅맨홀', 'width_mm' => 400, 'traffic' => 'car'], 'qs-test'), true);
+    ok("이름이 없는 '벌집그레이팅맨홀' → 같은 용도(맨홀·집수정) 그레이팅만 유사 제품 표", !empty($d['similar']) && $d['products'] && !array_filter($d['products'], static fn($c) => !preg_match('/그레이팅/u', $c['name']) || !preg_match('/맨홀|집수정/u', $c['name'] . $c['category_name'])), $d['note'] ?? null);
+    $d = json_decode(ai_tool_dispatch('search_products', ['query' => '벌집 그레이팅 맨홀용', 'traffic' => 'car'], 'qs-test'), true);
+    ok('맨홀용 그레이팅 검색에 수로용이 섞이지 않음', $d['products'] && !array_filter($d['products'], static fn($c) => !preg_match('/맨홀|집수정/u', $c['name'] . $c['category_name'])), array_column($d['products'] ?? [], 'name'));
 } else {
     echo "  (로컬 테스트 DB 없음 — DB 확인은 건너뜀)\n";
 }
