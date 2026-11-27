@@ -616,6 +616,9 @@ function tool_search_products(array $input): string
     $fetch = max(40, $limit * 8);
     // 제외할 제품이 있으면 더 깊이 조회 — 넓은 검색어('그레이팅')는 위 40행이 모두 뺄 상품명의 다른 규격이라 '다른 제품 없음'으로 잘못 끝났다(2026-11-12)
     if (ai_int_list($input['exclude_ids'] ?? null) !== []) { $fetch = max($fetch, 300); }
+    // 차량 조건(하중 등급)이 있으면 더 깊이 조회 — 업체가 늘어 같은 이름의 가벼운 등급(그레이팅수로용·디자인그레이팅수로용 수백 개)이
+    //   위 40행을 채우면 하중 필터 뒤 0개 → '등록되지 않음'(운영 시험 11-27, 운영 그레이팅 수로용 241개)
+    if ((AI_LOAD_RANK[ai_traffic_value($input['traffic'] ?? null)] ?? 0) > 0) { $fetch = max($fetch, 300); }
     $query = $qText; // 이후 용도 필터·하이라이트 재정렬은 텍스트 기준
     $note      = null;   // 모델이 손님에게 전달할 안내(교정/대안 사유)
     $corrected = null;   // 교정된 검색어(있으면)
@@ -701,7 +704,9 @@ function tool_search_products(array $input): string
         // 덮개처럼 추천하지 않는다. 덮개가 하나도 없으면 표 없이 '판매 중인 덮개 없음'(2026-11-12)
         if (ai_is_cover_query($query)) {
             $covers = array_values(array_filter($rows, 'ai_is_cover_row'));
-            if (!$covers && $rows) {
+            // 치수 조건으로 덮개가 0개여도 같은 이름의 덮개가 판매 중이면 '덮개 미등록'이 아니다 — 아래 가까운 치수(유사 제품)로.
+            //   운영 시험 11-27: '그레이팅 수로용' 폭 320 → 검색이 넓어지며(OR) 320 규격 수로관 본체·집수정만 걸려 '덮개 단품 미등록'이라고 답함(운영 그레이팅수로용 241개)
+            if (!$covers && $rows && !array_filter(ai_exclude_accessories(search_products($qText, 40), $qText), 'ai_is_cover_row')) {
                 $coverNote = ai_cover_missing_note($query, $rows);
             }
             $rows = $covers;
@@ -1598,13 +1603,16 @@ function ai_dim_no_match_text(string $query, string $cond, array $dims, string $
         . ($dims ? ' 등록된 ' . ($axisName === '길이' ? '길이는 ' : '폭은 ') . ai_format_widths($dims) . '입니다. 규격을 다시 확인해 주세요.' : '');
 }
 
+/** 등록 치수·가까운 치수를 고를 때 보는 후보 수 — 같은 검색어 상품 전체를 보려고 넉넉히(80 이면 업체가 늘었을 때 가벼운 등급 이름만 남아 차량 조건 뒤 0개, 운영 시험 11-27) */
+const AI_DIM_POOL = 600;
+
 /** 치수 조건 0건 안내 (DB: 같은 검색어의 확인된 등록 치수 — 통행 조건이 있으면 그 하중 등급만) */
 function ai_dim_no_match_note(string $query, string $cond, array $want, string $traffic = ''): string
 {
     $k = isset($want['w']) ? 'w' : 'l';
     $dims = [];
     try {
-        $all = ai_exclude_accessories(search_products($query, 80), $query);
+        $all = ai_exclude_accessories(search_products($query, AI_DIM_POOL), $query);
         if ($traffic !== '') { [$all] = ai_filter_load_class($all, $traffic); }
         $dims = ai_dims_by_name($all, $k);
     } catch (\Throwable $e) {
@@ -1685,7 +1693,7 @@ function ai_same_class_gratings(string $query, float $widthMm, string $traffic, 
     $isManhole = (bool) preg_match('/맨홀|집수정/u', $query);
     $params = [];
     $total = null;
-    $rows = search_products('그레이팅', max($fetch, 80), 0, $total, ai_dim_sql(['w' => $widthMm], $params), $params);
+    $rows = search_products('그레이팅', max($fetch, AI_DIM_POOL), 0, $total, ai_dim_sql(['w' => $widthMm], $params), $params);
     [$ok] = ai_filter_dims($rows, ['w' => $widthMm]);   // 폭이 확인된 규격만 대체 후보(확인 불가는 쓰지 않음)
     return array_values(array_filter($ok, static function ($r) use ($traffic, $isManhole) {
         $n = (string) ($r['name'] ?? '');
@@ -1984,7 +1992,7 @@ function ai_similar_retry(array $input, array $change, array $unset, string $det
 function ai_nearest_dim(string $query, array $want, string $traffic = ''): ?array
 {
     try {
-        $all = ai_exclude_accessories(search_products($query, 80), $query);
+        $all = ai_exclude_accessories(search_products($query, AI_DIM_POOL), $query);
         if ($traffic !== '') { [$all] = ai_filter_load_class($all, $traffic); }
     } catch (\Throwable $e) {
         return null;
@@ -2028,7 +2036,7 @@ function ai_filtered_empty_result(string $query, string $cond, string $traffic, 
     $classWidths = [];
     if ($heavier && $traffic !== '') {
         try {
-            $all = ai_exclude_accessories(search_products($query, 80), $query);
+            $all = ai_exclude_accessories(search_products($query, AI_DIM_POOL), $query);
             $classWidths = ai_widths_by_name(array_filter($all, static fn($r) => ai_load_class_of($r) === $traffic));
         } catch (\Throwable $e) {
             $classWidths = [];
