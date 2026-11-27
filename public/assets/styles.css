@@ -2311,9 +2311,9 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .legal-table th, .legal-table td { border: 1px solid var(--color-border); padding: 8px 10px; text-align: left; vertical-align: top; }
 .legal-table thead th, .legal-table tbody th { background: var(--color-surface); font-weight: 600; }
 .legal-table tbody th { white-space: nowrap; }
-.footer-legal a { color: var(--color-text-secondary); }
-.footer-legal a:hover { color: var(--color-text-primary); text-decoration: underline; }
-.footer-legal .footer-legal-privacy { font-weight: 700; color: var(--color-text-primary); }
+.footer-legal a { color: var(--color-text-secondary); transition: color 0.15s; }
+.footer-legal a:hover { color: var(--color-text-primary); }
+.footer-legal-sep { margin: 0 8px; color: var(--color-border); }
 @media (max-width: 600px) {
   .legal-page { margin-top: 24px; padding: 0 16px; font-size: 14px; }
   .legal-title { font-size: 22px; }
