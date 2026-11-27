@@ -278,7 +278,7 @@ function install_runs_piece_qty(float $lengthM, float $perM, string $unit, ?arra
     if (count($uniq) === 1) {
         $basis = sprintf('%s: 한 줄 %sm ÷ %sm = %d%s × %d줄 = %d%s', $label, $f($uniq[0]), $f($perM), $per[0], $u, count($per), $qty, $u);
     } else {
-        $basis = $label . ': ' . implode(' + ', array_map(static fn(float $r, int $q) => $q . $u, $c['runs'], $per)) . sprintf(' = %d%s(줄마다 ÷ %sm 올림)', $qty, $u, $f($perM));
+        $basis = $label . ': ' . implode(' + ', array_map(static fn(float $r, int $q) => $f($r) . 'm ' . $q . $u, $c['runs'], $per)) . sprintf(' = %d%s(줄마다 ÷ %sm 올림)', $qty, $u, $f($perM));   // 줄 길이를 함께('10m 4본 + 15m 6본') — 고객이 어느 줄이 몇 개인지 알게(사용자 요청 11-27)
     }
     if ($qty > $whole) { $basis .= '(줄 끝은 잘라 쓰고 자투리는 다른 줄에 쓰지 않는 기준)'; }
     return [$qty, $basis];
